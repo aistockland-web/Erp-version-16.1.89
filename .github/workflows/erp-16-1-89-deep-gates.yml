@@ -72,7 +72,7 @@ jobs:
         run: python ci/qa/test-release-invariants.py "$STOCKLAND_APP"
       - name: Validate CSS source modules, PostCSS syntax and responsive selectors
         env:
-          NODE_PATH: \${{ runner.temp }}/cssqa/node_modules
+          NODE_PATH: ${{ runner.temp }}/cssqa/node_modules
         run: node ci/qa/check-css-postcss.js "$STOCKLAND_APP"
 
   wordpress-coding-standards:
