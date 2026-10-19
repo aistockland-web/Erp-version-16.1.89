@@ -152,10 +152,10 @@ def main() -> int:
                     "locally bundled Bootstrap version is 5.3.8")
             bootstrap = (assets / "bootstrap.min.css").read_bytes()
             bootstrap_git_blob = hashlib.sha1(b"blob " + str(len(bootstrap)).encode("ascii") + b"\0" + bootstrap).hexdigest()
-            bootstrap_sri = "sha384-" + __import__("base64").b64encode(hashlib.sha384(bootstrap).digest()).decode("ascii")
+            bootstrap_sri = __import__("base64").b64encode(hashlib.sha384(bootstrap).digest()).decode("ascii")\n            manifest_sri = str(front_manifest.get("bootstrap_sri_sha384", "")).removeprefix("sha384-")
             require(front_manifest.get("bootstrap_source_git_blob_sha1") == bootstrap_git_blob,
                     "Bootstrap Git blob identity matches release manifest")
-            require(front_manifest.get("bootstrap_sri_sha384") == bootstrap_sri,
+            require(manifest_sri == bootstrap_sri,
                     "Bootstrap SHA-384 SRI matches the bundled stylesheet")
 
             css_dir = assets / "css"
