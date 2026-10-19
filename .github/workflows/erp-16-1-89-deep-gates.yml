@@ -1,0 +1,227 @@
+name: Stockland ERP 16.1.89 deep source and security gates
+
+on:
+  push:
+    branches:
+      - main
+      - "audit/**"
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Exact release artifact identity (PHP ${{ matrix.php-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ["8.3", "8.4"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2 — immutable SHA
+        with:
+          php-version: ${{ matrix.php-version }}
+          coverage: none
+          tools: none
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Verify ZIP, release markers, checksums and syntax
+        run: python ci/validate_release_16_1_89.py
+
+  functional-regressions:
+    name: Payroll, Health, notifications, CSS and source invariants (PHP ${{ matrix.php-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ["8.3", "8.4"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2 — immutable SHA
+        with:
+          php-version: ${{ matrix.php-version }}
+          coverage: none
+          tools: none
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install parser used by the CSS regression test
+        run: npm install --prefix "$RUNNER_TEMP/cssqa" --no-save postcss@8
+      - name: Extract the exact checksum-verified installer
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP="$(find . -maxdepth 1 -type f -name 'STOCKLAND_ERP_16.1.89*.zip' -print -quit)"
+          test -n "$ZIP"
+          mkdir -p "$RUNNER_TEMP/stockland-release"
+          unzip -q "$ZIP" -d "$RUNNER_TEMP/stockland-release"
+          test -d "$RUNNER_TEMP/stockland-release/stockland-erp-app"
+          echo "STOCKLAND_APP=$RUNNER_TEMP/stockland-release/stockland-erp-app" >> "$GITHUB_ENV"
+      - name: Run compensation / statutory payroll negative and positive cases
+        run: php ci/qa/test-payroll-health-policy.php "$STOCKLAND_APP"
+      - name: Run notification drawer escaping and action-hook cases
+        run: node ci/qa/test-notification-drawer.js "$STOCKLAND_APP/assets/app.js"
+      - name: Run browser-side PAYE preview calculation regression
+        run: node ci/qa/test-payroll-preview.js "$STOCKLAND_APP/assets/app.js"
+      - name: Validate source-level ERP release invariants
+        run: python ci/qa/test-release-invariants.py "$STOCKLAND_APP"
+      - name: Validate CSS source modules, PostCSS syntax and responsive selectors
+        env:
+          NODE_PATH: ${{ runner.temp }}/cssqa/node_modules
+        run: node ci/qa/check-css-postcss.js "$STOCKLAND_APP"
+
+  wordpress-coding-standards:
+    name: WordPress Coding Standards (PHPCS/WPCS)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2 — immutable SHA
+        with:
+          php-version: "8.4"
+          coverage: none
+          tools: none
+      - name: Install official WordPress Coding Standards
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/wpcs-project"
+          cd "$RUNNER_TEMP/wpcs-project"
+          composer init --name=stockland/erp-ci --no-interaction --stability=stable --type=project
+          composer config allow-plugins.dealerdirect/phpcodesniffer-composer-installer true
+          composer require --dev --no-interaction wp-coding-standards/wpcs:"^3.0"
+      - name: Extract exact release package
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP="$(find "$GITHUB_WORKSPACE" -maxdepth 1 -type f -name 'STOCKLAND_ERP_16.1.89*.zip' -print -quit)"
+          test -n "$ZIP"
+          mkdir -p "$RUNNER_TEMP/stockland-release"
+          unzip -q "$ZIP" -d "$RUNNER_TEMP/stockland-release"
+          APP="$RUNNER_TEMP/stockland-release/stockland-erp-app"
+          test -d "$APP"
+          echo "STOCKLAND_APP=$APP" >> "$GITHUB_ENV"
+      - name: Run PHPCS/WPCS and retain machine-readable report
+        shell: bash
+        run: |
+          set +e
+          "$RUNNER_TEMP/wpcs-project/vendor/bin/phpcs" \
+            --standard=WordPress \
+            --extensions=php \
+            --report=json \
+            --report-file="$GITHUB_WORKSPACE/phpcs-results.json" \
+            "$STOCKLAND_APP"
+          code=$?
+          set -e
+          if [ ! -s "$GITHUB_WORKSPACE/phpcs-results.json" ]; then
+            echo "PHPCS did not produce its required machine-readable report (exit $code)." >&2
+            exit 2
+          fi
+          python - "$GITHUB_WORKSPACE/phpcs-results.json" "$code" <<'PYREPORT'
+          import json, os, sys
+          data=json.load(open(sys.argv[1], encoding="utf-8"))
+          totals=data.get("totals", {})
+          raw_exit=sys.argv[2]
+          summary=(
+              "## Full WordPress Coding Standards diagnostic\n"
+              f"PHPCS exit code: {raw_exit}; errors: {totals.get('errors', 0)}; "
+              f"warnings: {totals.get('warnings', 0)}; fixable: {totals.get('fixable', 0)}.\n"
+              "The full style report is retained as an artifact. Release-blocking security/database signals are evaluated by the following source-aware triage gate; aggregate formatting/custom-capability counts are not reported as a vulnerability count.\n"
+          )
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
+              f.write(summary)
+          print(summary.strip())
+          PYREPORT
+          echo "Full WPCS diagnostic report captured; the source-aware security/database gate below is release-blocking."
+      - name: Print SQL and output-escaping finding contexts
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          report = Path(os.environ["GITHUB_WORKSPACE"]) / "phpcs-results.json"
+          if not report.exists():
+              print("No PHPCS report available")
+              raise SystemExit(0)
+          data = json.loads(report.read_text(encoding="utf-8"))
+          watched = {
+              "WordPress.DB.PreparedSQL.NotPrepared",
+              "WordPress.Security.EscapeOutput.ExceptionNotEscaped",
+              "WordPress.DB.DirectDatabaseQuery.DirectQuery",
+              "WordPress.DB.DirectDatabaseQuery.NoCaching",
+          }
+          total = 0
+          for file_name, info in data.get("files", {}).items():
+              messages = [m for m in info.get("messages", []) if m.get("source") in watched]
+              if not messages:
+                  continue
+              source_path = Path(file_name)
+              if not source_path.is_file():
+                  print(f"CONTEXT UNAVAILABLE: {file_name}")
+                  continue
+              lines = source_path.read_text(encoding="utf-8", errors="replace").splitlines()
+              for msg in messages:
+                  total += 1
+                  line = int(msg.get("line", 1))
+                  print(f"\n=== {msg.get('source')} {file_name}:{line} — {msg.get('message')} ===")
+                  for idx in range(max(1, line - 5), min(len(lines), line + 5) + 1):
+                      print(f"{idx:5}: {lines[idx - 1]}")
+          print(f"\nSecurity/database source contexts printed: {total}")
+          PY
+      - name: Enforce reviewed security/database findings and source invariants
+        run: python ci/qa/test-phpcs-security-review.py "$STOCKLAND_APP" "$GITHUB_WORKSPACE/phpcs-results.json"
+      - name: Upload PHPCS/WPCS findings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phpcs-wpcs-results
+          path: phpcs-results.json
+          if-no-files-found: warn
+
+  semgrep-security:
+    name: Semgrep PHP security audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Semgrep CLI
+        run: python -m pip install --upgrade semgrep
+      - name: Extract exact release package
+        run: |
+          set -euo pipefail
+          ZIP="$(find "$GITHUB_WORKSPACE" -maxdepth 1 -type f -name 'STOCKLAND_ERP_16.1.89*.zip' -print -quit)"
+          test -n "$ZIP"
+          mkdir -p "$RUNNER_TEMP/stockland-release"
+          unzip -q "$ZIP" -d "$RUNNER_TEMP/stockland-release"
+      - name: Run Semgrep PHP/security-audit rules
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/stockland-release/stockland-erp-app"
+          semgrep --version
+          semgrep scan --metrics=off --config p/php --config p/security-audit \
+            --include '*.php' --json --output semgrep-results.json "$APP"
+          python ci/qa/summarize-semgrep.py semgrep-results.json
+      - name: Upload Semgrep findings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: semgrep-security-results
+          path: semgrep-results.json
+          if-no-files-found: warn
