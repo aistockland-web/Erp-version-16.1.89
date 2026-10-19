@@ -78,3 +78,5 @@ for item in known:
 for issue in unresolved:
     print("COVERAGE GAP: " + issue)
 print("Report written: " + str(out))
+if result["inventory_status"] == "BLOCKED":
+    raise SystemExit(1)
