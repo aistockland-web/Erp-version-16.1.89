@@ -1,0 +1,73 @@
+name: Stockland ERP 16.1.89 candidate PHPCS recheck
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: ["remediation/**"]
+
+permissions:
+  contents: read
+
+jobs:
+  candidate-phpcs:
+    name: Verify targeted PHPCS findings after candidate fixes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
+        with:
+          php-version: "8.3"
+          coverage: none
+          tools: none
+      - name: Install WordPress Coding Standards
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/wpcs-project"
+          cd "$RUNNER_TEMP/wpcs-project"
+          composer init --name=stockland/erp-remediation-phpcs --no-interaction --stability=stable --type=project
+          composer config allow-plugins.dealerdirect/phpcodesniffer-composer-installer true
+          composer require --dev --no-interaction wp-coding-standards/wpcs:"^3.0"
+      - name: Build review-only candidate from exact release bytes
+        run: python ci/qa/prepare-remediation-candidate.py "$RUNNER_TEMP/stockland-remediation"
+      - name: Apply formatting fixes to candidate copy
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/stockland-remediation/candidate/stockland-erp-app"
+          set +e
+          "$RUNNER_TEMP/wpcs-project/vendor/bin/phpcbf" --standard=WordPress --extensions=php "$APP" > "$RUNNER_TEMP/phpcbf.log" 2>&1
+          code=$?
+          set -e
+          if [ "$code" -gt 2 ]; then cat "$RUNNER_TEMP/phpcbf.log"; exit "$code"; fi
+          cat "$RUNNER_TEMP/phpcbf.log"
+      - name: Re-run PHPCS and require reviewed HR/wholesale signals to be clear
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/stockland-remediation/candidate/stockland-erp-app"
+          REPORT="$GITHUB_WORKSPACE/remediation-phpcs-results.json"
+          set +e
+          "$RUNNER_TEMP/wpcs-project/vendor/bin/phpcs" --standard=WordPress --extensions=php --report=json --report-file="$REPORT" "$APP"
+          code=$?
+          set -e
+          test -s "$REPORT"
+          python ci/qa/check-remediation-phpcs.py "$REPORT"
+          echo "Candidate PHPCS exit code: $code; remaining general style findings are diagnostic, not silently waived."
+      - name: Run focused source contracts and syntax checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/stockland-remediation/candidate/stockland-erp-app"
+          python ci/qa/test-remediation-candidate.py "$APP"
+          find "$APP" -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Upload PHPCS residual report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stockland-remediation-phpcs-recheck
+          path: remediation-phpcs-results.json
+          if-no-files-found: warn
