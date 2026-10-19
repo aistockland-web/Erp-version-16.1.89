@@ -1,0 +1,179 @@
+STOCKLAND ETHIOPIA ERP 16.1.89 — LOCAL QA RESULTS
+Generated: 2026-10-18
+
+INSTALLER
+- File: STOCKLAND_ERP_16.1.89_CANONICAL_WORDPRESS_UPDATE.zip
+- Size: 1,104,097 bytes
+- SHA-256: 4b8a5fe5648ddf062953c671fe572cb62235757d3a092da6b23116aacae392c3
+- ZIP CRC test: PASS; 74/74 files under one stockland-erp-app/ root.
+- Canonical comparison base: `STOCKLAND_ERP_16.1.88_STAGING_CANDIDATE_WORDPRESS_UPDATE.zip`
+- Baseline ZIP SHA-256: e7ce6ecb9ffdca987409dc07c6d15cfc0e150a988a84eb9d55d628a0f09c01a8
+- Source tree identical file inventory: 74 files before and after; zero additions/removals.
+- Changed files: 15; only PHP files changed are the plugin version marker and frontend route/cache marker.
+- README.md
+- RELEASE_MANIFEST.json
+- assets/app.css
+- assets/app.js
+- assets/app.min.css
+- assets/css/01-foundation.css
+- assets/css/02-shell-navigation.css
+- assets/css/03-content-data-components.css
+- assets/css/04-overlays-workflows.css
+- assets/css/05-responsive-layout.css
+- assets/css/06-operational-guards.css
+- assets/css/modules.json
+- assets/pwa.js
+- includes/class-stockland-frontend.php
+- stockland-inventory.php
+
+SOURCE / PRESERVATION CHECKS
+- PHP files: 47; all 47 syntax checks pass.
+- All other 45 PHP files are byte-identical to 16.1.88.
+- Bootstrap stylesheet SHA-256 matches the baseline: `d85327d99c7a3ee1f9b5d0500d1370acea3ad2db39c163c2f51f232baedbdede`.
+- Original `stockland-logo.jpg` and `stockland-sidebar-brand.png` match the baseline byte-for-byte.
+- Four theme identifiers remain: sapphire, emerald, violet, copper. `stockland_erp_theme` remains the local preference key; the selected value updates existing `meta[name=theme-color]`.
+- Database version/schema markers unchanged: DB/Core 16.1.1, Accounting 16.1.15, HR 16.1.3; table contract 29 + 16 + 4 = 49, no new business table.
+- CSS source: six modules, deterministic concatenation; `app.css` and `app.min.css` match source build and minification.
+
+REGRESSION SUITE
+Built six CSS modules: app.css=192972 bytes; app.min.css=181775 bytes
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/class-stockland-accounting.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/class-stockland-activator.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/class-stockland-admin.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/class-stockland-app.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/class-stockland-audit.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/class-stockland-authority.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/class-stockland-business-calendar.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/class-stockland-db.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/class-stockland-deactivator.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/class-stockland-frontend.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/class-stockland-hr.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/class-stockland-integrity.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/class-stockland-ledger.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/class-stockland-money.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/class-stockland-notifications.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/class-stockland-payroll-statutory.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/class-stockland-product-service.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/class-stockland-requisition-service.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/class-stockland-roles.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/class-stockland-runtime-diagnostics.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/class-stockland-sale-math.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/class-stockland-sequence.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/class-stockland-settings.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/class-stockland-sourcing.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/class-stockland-workflow.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/class-stockland-xlsx.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/rest/class-rest-accounting.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/rest/class-rest-app.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/rest/class-rest-calendar.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/rest/class-rest-controller.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/rest/class-rest-hr.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/rest/class-rest-import-v16.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/rest/class-rest-inventory-report-v16.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/rest/class-rest-locations.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/rest/class-rest-products.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/rest/class-rest-receipts.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/rest/class-rest-reports.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/rest/class-rest-requisition-v16.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/rest/class-rest-returns.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/rest/class-rest-sales.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/rest/class-rest-setup.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/rest/class-rest-stock.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/rest/class-rest-transfers.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/includes/rest/class-rest-wholesale.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/stockland-inventory.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/templates/erp-shell.php
+No syntax errors detected in /mnt/data/build_1689/qa_bundle/STOCKLAND_ERP_16.1.82_SOURCE_AUDIT_BUNDLE/QA/stockland-erp-app/uninstall.php
+PASS live v3 PAYE rule version retained
+PASS ETB 30,000 regression matches live payroll rule exactly
+PASS safe Management-prepared taxable compensation is valid
+PASS Management cannot prepare an exemption claim
+PASS Management cannot prepare non-standard pensionable salary
+PASS unknown/unclassified records fail closed
+PASS missing pensionable salary fails closed
+PASS Owner-classified evidenced exemption passes
+PASS unverified exemption fails closed
+PASS allowance snapshot / totals mismatch fails closed
+PASS pensionable salary cannot exceed gross pay
+PASS deductions exceeding gross/net pay fail closed
+PASS allowance snapshot mismatch fails closed
+PASS legacy taxable totals remain compatible with existing payroll migration policy
+PASS malformed non-empty allowance JSON fails closed
+PASS explicit empty snapshot cannot conceal saved taxable allowance totals
+PASS unknown allowance tax treatment fails closed
+PASS Owner non-standard pensionable salary requires a documented basis
+PASS Owner non-standard pensionable salary passes with documented basis
+PASS System Health uses the same validator as payroll generation
+PASS System Health explains grouped payroll gate reasons without exposing salary values
+PASS payroll-only readiness issue is not presented as an ERP-wide shutdown
+PAYROLL/HEALTH POLICY: 22 passed, 0 failed
+PASS requisition review action hook retained
+PASS requisition notification ID hook retained
+PASS purchase-order action hook retained
+PASS mark-read hook appears for every item
+PASS exact case-insensitive duplicate title/body is suppressed
+PASS unique message content retained
+PASS content remains HTML-escaped
+PASS newest-first summary retained
+PASS redundant static summary removed
+PASS semantic article markup used
+PASS action buttons explicitly use type=button
+PASS duplicate body with case-only differences suppressed
+PASS empty state present
+PASS empty state has status semantics
+PASS close action preserved
+Notification renderer: 15/15 PASS
+PASS browser payroll preview uses v3 pension-first PAYE rule
+PASS ETB 30,000 regression: taxable base 27,900; PAYE 7,715; pension 2,100; net 20,185
+Payroll preview: 6 assertions passed
+PASS release identity matches plugin header and constant
+PASS frontend route/cache marker matches plugin version
+PASS 49-table contract preserved (29 + 16 + 4)
+PASS database/schema markers preserved
+PASS live v3 PAYE policy preserved
+PASS payroll generation and Health share readiness validator
+PASS health exposes reason counts and never exposes salary values in reason diagnostics
+PASS payroll-only gate shows a scoped warning not an ERP-wide shutdown label
+PASS deferred integrity and deep-health gate are not bypassed
+PASS no new business migration declared
+PASS exact four established themes preserved
+PASS saved theme preference key preserved and browser theme-color follows active palette
+PASS header, profile menu and search use existing palette tokens
+PASS real PWA install flow retained and no native fake download added
+PASS accepted install prompt cannot be re-added by shell observer
+PASS Bootstrap 5.3.8 and original logo assets remain present
+PASS Order/PLEDGER backend and database contract untouched
+Release invariants: 17 passed, 0 failed
+PASS PostCSS parse app.css
+PASS PostCSS parse app.min.css
+PASS PostCSS parse bootstrap.min.css
+PASS six-module source build, minified token equivalence and responsive/Health selectors
+LOCAL QA PASS — run the source/package GitHub workflow and authenticated host acceptance separately.
+
+
+FOUR-THEME / HEADER / DROPDOWN BROWSER MATRIX (Chromium, synthetic API fixture)
+- Browser errors: 0
+- Viewport sizes: 1920px, 1600px, 1440px, 1280px, 1024px, 991px, 768px, 576px, 430px, 390px, 360px, 320px.
+- Document horizontal overflow: 0 at all 12 widths.
+- Logo: desktop sidebar brand image visible at all desktop-width viewports; compact top logo visible at tablet/mobile breakpoints.
+- Profile dropdown bounds: within tested viewport at all sizes; Escape closes it at all sizes.
+- Themes: sapphire, emerald, violet, copper.
+- Computed header accent and browser theme-color are distinct in all four theme options. Sidebar, active nav, notification foreground, profile border and avatar styles also recomputed in the active palette.
+- Theme and browser tests had zero page/console errors.
+
+REAL PWA INSTALL-UX BROWSER TESTS (simulated browser event contract)
+- Windows/desktop genuine install prompt: buttonCreated=True, promptCalled=True, buttonRemovedAfterAccepted=True
+- Android install fallback: buttonInMobileDrawer=True, saysStandaloneApp=True, disclosesNoApk=True, disclosesNoFakeNativeBinary=True
+- help dismissal: closed=True
+- This verifies front-end event handover/fallback text against a synthetic browser event. It is not a physical-device installation test.
+- The button uses genuine PWA `beforeinstallprompt` where the browser supports it. Other mobile browsers get documented Add to Home Screen steps. No fake `.exe`, `.msi`, `.dmg`, `.ipa`, `.apk`, `.aab`, `.deb`, or `.rpm` file is bundled.
+
+SCOPE / DATA SAFETY
+- No REST controller, business service, role authority, ledger posting, audit-chain code, payroll formula or database schema/version migration changed. Other than the version/cache identity pair, all PHP code is byte-identical to 16.1.88.
+- The PWA install flow does not create an offline inventory/sales database; it opens the same online ERP. No ERP data were written by these local tests.
+
+NOT RUN / RELEASE LIMITATIONS
+- Exact-version GitHub Actions/PHPCS/WPCS/Semgrep for 16.1.89: PENDING because the connected GitHub integration is read-only in this session.
+- Authenticated live WordPress/MariaDB install, full live deep-integrity scan, physical-device install acceptance, backup restoration and rollback: PENDING. No changes were made to the live site.
+- Real native OS installer binaries are not included. A properly signed Windows/macOS/Linux native wrapper and Android/iOS distribution are separate builds that require platform toolchains, signing and distribution ownership. The supported cross-platform option in this release is the actual standalone PWA path, not a simulated download.
+- Local QA is not live-production certification.
