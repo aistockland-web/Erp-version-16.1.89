@@ -98,17 +98,36 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Detect dependency manifest or lockfile changes
+        id: manifest_changes
+        env:
+          BASE_SHA: \${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: \${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --name-only "$BASE_SHA" "$HEAD_SHA" > "$RUNNER_TEMP/stockland-changed-files.txt"
+          if grep -E '(^|/)(composer\.json|composer\.lock|package\.json|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|pnpm-lock\.yaml|bun\.lockb?|requirements\.txt|pyproject\.toml|poetry\.lock|Pipfile(\.lock)?|go\.mod|go\.sum|Cargo\.toml|Cargo\.lock)$' "$RUNNER_TEMP/stockland-changed-files.txt"; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Explain why Dependency Review is not applicable to artifact-only changes
+        if: steps.manifest_changes.outputs.found != 'true'
+        run: |
+          {
+            echo "## Repository dependency review"
+            echo "NOT APPLICABLE to this PR: no supported package-manager dependency manifest or lockfile changed."
+            echo "The exact WordPress ZIP is separately inspected by the packaged dependency inventory; syntax, checksum, SAST, CodeQL and secret checks remain active."
+            echo "Any future change to a supported manifest or lockfile activates the high-severity dependency-review gate."
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Review dependency changes on this PR
+        if: steps.manifest_changes.outputs.found == 'true'
         uses: actions/dependency-review-action@v5
         with:
           fail-on-severity: high
-      - name: Explain packaged-runtime coverage boundary
-        run: |
-          {
-            echo "## Runtime dependency coverage"
-            echo "Dependency Review analyzes dependency changes represented in the repository dependency graph and manifest/lockfile ecosystem."
-            echo "The ERP installer is a ZIP artifact. This job alone does not inventory every bundled asset in that ZIP; see the separate package dependency inventory."
-          } >> "$GITHUB_STEP_SUMMARY"
 
   package-dependency-inventory:
     name: Packaged runtime dependency and license inventory
@@ -120,6 +139,8 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.12"
+      - name: Test dependency inventory policy against positive and negative fixtures
+        run: python ci/qa/test-dependency-inventory.py
       - name: Extract exact release installer
         shell: bash
         run: |
