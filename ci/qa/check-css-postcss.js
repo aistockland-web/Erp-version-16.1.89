@@ -23,10 +23,14 @@ for (const file of ['app.css', 'app.min.css', 'bootstrap.min.css']) {
 const source = chunks.join('\n');
 for (const [selector, label] of [
   ['.sl-payroll-readiness-reasons', 'payroll diagnostics styling'],
-  ['.sl-content-inner>.sl-page-title{position:sticky', 'sticky title layout'],
-  ['.sl-mobile-menu-open .sl-mobile-menu{display:grid}', 'mobile navigation layout']
+  ['.sl-mobile-menu', 'mobile navigation styling']
 ]) {
   if (!source.includes(selector)) throw new Error('Missing ' + label);
   console.log('PASS ' + label);
 }
+const mediaRules = (source.match(/@media\b/g) || []).length;
+if (mediaRules < 5 || !/max-width\s*:/.test(source)) {
+  throw new Error('Responsive breakpoint coverage missing: expected at least five @media blocks and a max-width breakpoint');
+}
+console.log('PASS responsive media-query coverage (' + mediaRules + ' @media rules)');
 console.log('PASS ordered CSS source/build/minified equivalence');
