@@ -81,7 +81,7 @@ jobs:
             -v "$RUNNER_TEMP/stockland-release/stockland-erp-app:/scan:ro" \
             -v "$RUNNER_TEMP/gitleaks-reports:/report" \
             ghcr.io/gitleaks/gitleaks:v8.28.0 \
-            dir /scan --no-git --redact --report-format sarif \
+            dir /scan --redact --report-format sarif \
             --report-path /report/gitleaks-package.sarif
       - name: Upload package secret-scan report
         if: always()
