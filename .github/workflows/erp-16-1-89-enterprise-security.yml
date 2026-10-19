@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   codeql:
-    name: CodeQL (\${{ matrix.language }})
+    name: CodeQL (${{ matrix.language }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -50,12 +50,12 @@ jobs:
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
-          languages: \${{ matrix.language }}
+          languages: ${{ matrix.language }}
           queries: security-extended,security-and-quality
       - name: Analyze supported source
         uses: github/codeql-action/analyze@v4
         with:
-          category: "/language:\${{ matrix.language }}"
+          category: "/language:${{ matrix.language }}"
 
   secret-scan:
     name: Secret scanning (repository history and extracted installer)
@@ -68,7 +68,7 @@ jobs:
       - name: Scan repository history for secrets
         uses: gitleaks/gitleaks-action@v3
         env:
-          GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Extract exact installer and scan text files in package
         shell: bash
         run: |
@@ -88,7 +88,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: gitleaks-package-sarif
-          path: \${{ runner.temp }}/gitleaks-reports/gitleaks-package.sarif
+          path: ${{ runner.temp }}/gitleaks-reports/gitleaks-package.sarif
           if-no-files-found: warn
 
   dependency-review:
