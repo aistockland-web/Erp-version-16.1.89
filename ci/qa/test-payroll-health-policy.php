@@ -55,13 +55,15 @@ $owner['allowance_breakdown_json'] = '[{"category":"GENERAL_CASH","amount":"100.
 $check( '' !== Stockland_Payroll_Statutory::compensation_record_validation_error( $owner ), 'unverified exemption fails closed' );
 $owner['allowance_breakdown_json'] = '[{"category":"GENERAL_CASH","amount":"200.00","tax_treatment":"TAXABLE"}]';
 $check( '' !== Stockland_Payroll_Statutory::compensation_record_validation_error( $owner ), 'inconsistent allowance snapshot fails closed' );
-$owner['allowance_breakdown_json'] = '[{"category":"GENERAL_CASH","amount":"100.00","tax_treatment":"TAXABLE"},{"category":"OTHER","amount":"100.00","tax_treatment":"EXEMPT","owner_verified":true,"legal_basis":"Current legal basis.","evidence_reference":"CONTRACT-2026"}]';
-$owner['pensionable_salary'] = '29000.00';
-$check( '' !== Stockland_Payroll_Statutory::compensation_record_validation_error( $owner ), 'Owner non-standard pensionability needs a documented basis' );
-$owner['statutory_classification_note'] = 'Approved current contract basis for pensionable salary classification.';
-$check( '' === Stockland_Payroll_Statutory::compensation_record_validation_error( $owner ), 'Owner non-standard pensionability with a basis is accepted' );
-$owner['allowance_breakdown_json'] = '';
-$check( '' === Stockland_Payroll_Statutory::compensation_record_validation_error( $owner ), 'legacy taxable totals stay compatible with migration policy' );
+$nonstandard = $base;
+$nonstandard['statutory_classification_status'] = 'OWNER_CLASSIFIED';
+$nonstandard['pensionable_salary'] = '29000.00';
+$check( '' !== Stockland_Payroll_Statutory::compensation_record_validation_error( $nonstandard ), 'Owner non-standard pensionability needs a documented basis' );
+$nonstandard['statutory_classification_note'] = 'Approved current contract basis for pensionable salary classification.';
+$check( '' === Stockland_Payroll_Statutory::compensation_record_validation_error( $nonstandard ), 'Owner non-standard pensionability with a basis is accepted' );
+$legacy = $base;
+$legacy['allowance_breakdown_json'] = '';
+$check( '' === Stockland_Payroll_Statutory::compensation_record_validation_error( $legacy ), 'legacy taxable totals stay compatible with migration policy' );
 
 $rest_app = file_get_contents( $plugin . '/includes/rest/class-rest-app.php' );
 $rest_hr = file_get_contents( $plugin . '/includes/rest/class-rest-hr.php' );
