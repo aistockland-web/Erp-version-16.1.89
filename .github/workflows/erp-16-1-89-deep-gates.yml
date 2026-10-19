@@ -107,6 +107,7 @@ jobs:
           set +e
           "$RUNNER_TEMP/wpcs-project/vendor/bin/phpcs" \
             --standard=WordPress \
+            --extensions=php \
             --report=json \
             --report-file="$GITHUB_WORKSPACE/phpcs-results.json" \
             "$RUNNER_TEMP/stockland-release/stockland-erp-app"
@@ -123,6 +124,42 @@ jobs:
           PY
           fi
           exit "$code"
+      - name: Print SQL and output-escaping finding contexts
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          report = Path(os.environ["GITHUB_WORKSPACE"]) / "phpcs-results.json"
+          if not report.exists():
+              print("No PHPCS report available")
+              raise SystemExit(0)
+          data = json.loads(report.read_text(encoding="utf-8"))
+          watched = {
+              "WordPress.DB.PreparedSQL.NotPrepared",
+              "WordPress.Security.EscapeOutput.ExceptionNotEscaped",
+              "WordPress.DB.DirectDatabaseQuery.DirectQuery",
+              "WordPress.DB.DirectDatabaseQuery.NoCaching",
+          }
+          total = 0
+          for file_name, info in data.get("files", {}).items():
+              messages = [m for m in info.get("messages", []) if m.get("source") in watched]
+              if not messages:
+                  continue
+              source_path = Path(file_name)
+              if not source_path.is_file():
+                  print(f"CONTEXT UNAVAILABLE: {file_name}")
+                  continue
+              lines = source_path.read_text(encoding="utf-8", errors="replace").splitlines()
+              for msg in messages:
+                  total += 1
+                  line = int(msg.get("line", 1))
+                  print(f"\n=== {msg.get('source')} {file_name}:{line} — {msg.get('message')} ===")
+                  for idx in range(max(1, line - 5), min(len(lines), line + 5) + 1):
+                      print(f"{idx:5}: {lines[idx - 1]}")
+          print(f"\nSecurity/database source contexts printed: {total}")
+          PY
       - name: Upload PHPCS/WPCS findings
         if: always()
         uses: actions/upload-artifact@v4
