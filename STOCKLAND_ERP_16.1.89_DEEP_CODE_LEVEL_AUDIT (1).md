@@ -50,3 +50,31 @@ These browser tests use a synthetic WordPress API and simulated install events. 
 - Exact-version GitHub Actions/PHPCS/WPCS/Semgrep: pending due read-only repository access in this session.
 - Live WordPress/MariaDB install, live deep integrity/audit-chain scan, physical device install acceptance, backup restore and rollback: pending. The live site was not accessed or changed.
 - This package is **locally validated, not live-production certified**. Back up and verify restoration, then stage the ZIP and check all four themes, logo/header behavior, notifications, Order/PLEDGER/GL actions and install flow on real target devices before any production replacement.
+
+
+## 2026-10-20 — Verified GitHub package gate and CAP status
+
+**Exact-version CI evidence:** [GitHub Actions run #6 — PASS](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/39333897144). Candidate branch: `audit/release-gates-16.1.89`; validation code commit: `1308376345d4552f1ecec410b9b3d8a3f688c15a`.
+
+The GitHub runner independently verified the committed installer bytes:
+- SHA-256 matches `4b8a5fe5648ddf062953c671fe572cb62235757d3a092da6b23116aacae392c3`; size 1,104,097 bytes.
+- ZIP CRC passes; 74 files under the single `stockland-erp-app/` root; no duplicate or parent-traversal paths.
+- PHP syntax: 47/47 passed under PHP 8.4; `assets/app.js` and `assets/pwa.js` passed Node syntax checks.
+- Release/PWA/CSS manifests parse; plugin version, route/cache marker, Bootstrap 5.3.8 Git-blob/SRI, six-module CSS build/minified output, four theme identifiers, PWA install event and 49-table contract all pass.
+
+### Corrective-action register — evidence-based disposition
+
+| CAP | Status | Evidence / remaining condition |
+|---|---|---|
+| CAP-01 — Exact artifact identity and checksum | **CLOSED** | GitHub Actions independently computed the archive SHA-256 and size and passed ZIP integrity/inventory checks in run #6. |
+| CAP-02 — Exact-version source/package CI | **PARTIALLY CLOSED** | Repeatable GitHub package gate now passes PHP/JS syntax and release/CSS/schema invariants. PHPCS/WPCS, Semgrep and the full business-workflow regression suite are still pending; do not mark the entire CAP closed. |
+| CAP-03 — Live deep-integrity/audit-chain and ledger reconciliation | **OPEN** | Run the full authenticated live scan; the earlier health report explicitly deferred these checks. |
+| CAP-04 — Staging installation and real Owner/Management/Warehouse/Branch/Sales/Finance/HR workflow acceptance | **OPEN** | Not exercised by this static package gate. |
+| CAP-05 — Verified backup restore and rollback | **OPEN** | No restore/rollback evidence exists yet. |
+| CAP-06 — Physical-device PWA installation | **OPEN** | Current test verifies browser contract/syntax only, not an actual target device. |
+| CAP-07 — Payroll compensation records and FK metadata | **OPEN** | Requires authorized record-level review and independent statutory sign-off; no payroll or schema data were changed. |
+| CAP-08 — Plugin-source corrective fixes | **BLOCKED** | This PR adds reproducible CI gates only. It does not alter the installer or ERP business source. A defect-specific patch must be tied to an exact source finding and regression test before it can be declared fixed. |
+
+**Local repeat command:** with Python 3.12+, PHP 8.4 and Node.js 22 available, run `python ci/validate_release_16_1_89.py` from the repository root. It validates the currently committed ZIP; CI does not install WordPress or write business data.
+
+**Safety boundary:** no installer binary was replaced, no production WordPress install or database mutation was performed, and no live-production certification is claimed. Only CAP-01 and the stated package-gate portion of CAP-02 are closed/passed.
