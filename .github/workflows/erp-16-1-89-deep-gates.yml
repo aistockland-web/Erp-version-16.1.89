@@ -106,7 +106,6 @@ jobs:
           test -d "$APP"
           echo "STOCKLAND_APP=$APP" >> "$GITHUB_ENV"
       - name: Run PHPCS/WPCS and retain machine-readable report
-        id: phpcs_report
         shell: bash
         run: |
           set +e
@@ -131,14 +130,13 @@ jobs:
               "## Full WordPress Coding Standards diagnostic\n"
               f"PHPCS exit code: {raw_exit}; errors: {totals.get('errors', 0)}; "
               f"warnings: {totals.get('warnings', 0)}; fixable: {totals.get('fixable', 0)}.\n"
-              "The full style report is retained as an artifact. Release-blocking security/database signals are evaluated by the following source-aware triage gate; the aggregate formatting/custom-capability baseline is not reported as a vulnerability count.\n"
+              "The full style report is retained as an artifact. Release-blocking security/database signals are evaluated by the following source-aware triage gate; aggregate formatting/custom-capability counts are not reported as a vulnerability count.\n"
           )
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
               f.write(summary)
           print(summary.strip())
           PYREPORT
-          echo "Full WPCS diagnostic report captured. Security/database acceptance is enforced by the source-aware gate."
-
+          echo "Full WPCS diagnostic report captured; the source-aware security/database gate below is release-blocking."
       - name: Print SQL and output-escaping finding contexts
         if: always()
         shell: bash
@@ -165,29 +163,6 @@ jobs:
               source_path = Path(file_name)
               if not source_path.is_file():
                   print(f"CONTEXT UNAVAILABLE: {file_name}")
-                  continue
-              lines = source_path.read_text(encoding="utf-8", errors="replace").splitlines()
-              for msg in messages:
-                  total += 1
-                  line = int(msg.get("line", 1))
-                  print(f"\n=== {msg.get('source')} {file_name}:{line} — {msg.get('message')} ===")
-                  for idx in range(max(1, line - 5), min(len(lines), line + 5) + 1):
-                      print(f"{idx:5}: {lines[idx - 1]}")
-          print(f"\nSecurity/database source contexts printed: {total}")
-          PY
-      - name: Enforce reviewed security/database findings and source invariants
-        run: python ci/qa/test-phpcs-security-review.py "$STOCKLAND_APP" "$GITHUB_WORKSPACE/phpcs-results.json"
-      - name: Enforce reviewed security/database findings and source invariants
-        run: python ci/qa/test-phpcs-security-review.py "$STOCKLAND_APP" "$GITHUB_WORKSPACE/phpcs-results.json"
-      - name: Upload PHPCS/WPCS findings
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: phpcs-wpcs-results
-          path: phpcs-results.json
-          if-no-files-found: warn
-
-                print(f"CONTEXT UNAVAILABLE: {file_name}")
                   continue
               lines = source_path.read_text(encoding="utf-8", errors="replace").splitlines()
               for msg in messages:
