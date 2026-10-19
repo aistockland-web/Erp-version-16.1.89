@@ -1,0 +1,144 @@
+name: Stockland ERP 16.1.89 enterprise security gates
+
+on:
+  push:
+    branches:
+      - main
+      - "audit/**"
+  pull_request:
+    branches:
+      - main
+  schedule:
+    - cron: "0 0 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+  security-events: write
+
+jobs:
+  codeql:
+    name: CodeQL (\${{ matrix.language }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # These are the supported languages actually represented in this
+        # repository. PHP is NOT supported by CodeQL; PHP SAST is handled by Semgrep.
+        language: ["javascript-typescript", "actions"]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Extract the exact release JavaScript for CodeQL
+        if: matrix.language == 'javascript-typescript'
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP="$(find . -maxdepth 1 -type f -name 'STOCKLAND_ERP_16.1.89*.zip' -print -quit)"
+          test -n "$ZIP"
+          mkdir -p .ci-generated
+          unzip -q "$ZIP" -d .ci-generated
+          test -f .ci-generated/stockland-erp-app/assets/app.js
+          test -f .ci-generated/stockland-erp-app/assets/pwa.js
+          # Include generated JS in the local CodeQL scan without committing it.
+          git add -N .ci-generated/stockland-erp-app/assets/app.js \
+            .ci-generated/stockland-erp-app/assets/pwa.js
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: \${{ matrix.language }}
+          queries: security-extended,security-and-quality
+      - name: Analyze supported source
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:\${{ matrix.language }}"
+
+  secret-scan:
+    name: Secret scanning (repository history and extracted installer)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout full repository history
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Scan repository history for secrets
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+      - name: Extract exact installer and scan text files in package
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP="$(find . -maxdepth 1 -type f -name 'STOCKLAND_ERP_16.1.89*.zip' -print -quit)"
+          test -n "$ZIP"
+          mkdir -p "$RUNNER_TEMP/stockland-release" "$RUNNER_TEMP/gitleaks-reports"
+          unzip -q "$ZIP" -d "$RUNNER_TEMP/stockland-release"
+          docker run --rm \
+            -v "$RUNNER_TEMP/stockland-release/stockland-erp-app:/scan:ro" \
+            -v "$RUNNER_TEMP/gitleaks-reports:/report" \
+            ghcr.io/gitleaks/gitleaks:v8.28.0 \
+            dir /scan --no-git --redact --report-format sarif \
+            --report-path /report/gitleaks-package.sarif
+      - name: Upload package secret-scan report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitleaks-package-sarif
+          path: \${{ runner.temp }}/gitleaks-reports/gitleaks-package.sarif
+          if-no-files-found: warn
+
+  dependency-review:
+    name: Repository dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+      - name: Review dependency changes on this PR
+        uses: actions/dependency-review-action@v5
+        with:
+          fail-on-severity: high
+      - name: Explain packaged-runtime coverage boundary
+        run: |
+          {
+            echo "## Runtime dependency coverage"
+            echo "Dependency Review analyzes dependency changes represented in the repository dependency graph and manifest/lockfile ecosystem."
+            echo "The ERP installer is a ZIP artifact. This job alone does not inventory every bundled asset in that ZIP; see the separate package dependency inventory."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  package-dependency-inventory:
+    name: Packaged runtime dependency and license inventory
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Extract exact release installer
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP="$(find . -maxdepth 1 -type f -name 'STOCKLAND_ERP_16.1.89*.zip' -print -quit)"
+          test -n "$ZIP"
+          mkdir -p "$RUNNER_TEMP/stockland-release"
+          unzip -q "$ZIP" -d "$RUNNER_TEMP/stockland-release"
+      - name: Inventory bundled components, manifests, lockfiles and license evidence
+        shell: bash
+        run: |
+          python ci/qa/dependency-inventory.py \
+            "$RUNNER_TEMP/stockland-release/stockland-erp-app" \
+            "$GITHUB_WORKSPACE/dependency-inventory.json"
+          cat dependency-inventory.json >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload dependency and license inventory
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-dependency-license-inventory
+          path: dependency-inventory.json
+          if-no-files-found: error
