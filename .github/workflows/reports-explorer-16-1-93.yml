@@ -1,0 +1,96 @@
+name: Reports Explorer 16.1.93 exact-package gates
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'ci/patch_reports_explorer.py'
+      - 'ci/qa/test_reports_explorer.py'
+      - '.github/workflows/reports-explorer-16-1-93.yml'
+      - 'STOCKLAND_ERP_16.1.92_CANONICAL_WORDPRESS_UPDATE.zip'
+      - 'STOCKLAND_ERP_16.1.92_CANONICAL_WORDPRESS_UPDATE.zip.sha256'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout isolated pull request
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+      - name: Verify audited input archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum --check STOCKLAND_ERP_16.1.92_CANONICAL_WORDPRESS_UPDATE.zip.sha256
+          python3 - <<'PY'
+          import hashlib
+          from pathlib import Path
+          p = Path('STOCKLAND_ERP_16.1.92_CANONICAL_WORDPRESS_UPDATE.zip')
+          expected = 'adec43b84f2b9a62d8913f84bad20588166800b2b6571d22d75abb86fcfd3fcd'
+          assert p.stat().st_size == 1113446, 'baseline size mismatch'
+          assert hashlib.sha256(p.read_bytes()).hexdigest() == expected, 'baseline checksum mismatch'
+          print('PASS exact audited 16.1.92 baseline')
+          PY
+      - name: Run Reports Explorer regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 ci/qa/test_reports_explorer.py | tee STOCKLAND_ERP_16.1.93_LOCAL_QA_RESULTS.txt
+      - name: Rebuild deterministic candidate package
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 ci/patch_reports_explorer.py | tee STOCKLAND_ERP_16.1.93_BUILD_RECEIPT.json
+          mkdir -p build/candidate
+          unzip -q STOCKLAND_ERP_16.1.93_REPORTS_EXPLORER_CANDIDATE.zip -d build/candidate
+          sha256sum STOCKLAND_ERP_16.1.93_REPORTS_EXPLORER_CANDIDATE.zip > STOCKLAND_ERP_16.1.93_REPORTS_EXPLORER_CANDIDATE.zip.sha256
+      - name: Lint every packaged PHP file
+        shell: bash
+        run: |
+          set -euo pipefail
+          find build/candidate/stockland-erp-app -type f -name '*.php' -print0 | xargs -0 -n1 php -l | tee STOCKLAND_ERP_16.1.93_PHP_LINT.txt
+      - name: Check JavaScript syntax
+        run: |
+          node --check build/candidate/stockland-erp-app/assets/app.js
+          node --check build/candidate/stockland-erp-app/assets/pwa.js
+      - name: Check release JSON
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('build/candidate/stockland-erp-app')
+          for name in ('RELEASE_MANIFEST.json','assets/manifest.json','assets/css/modules.json'):
+              json.loads((root/name).read_text(encoding='utf-8'))
+          manifest=json.loads((root/'RELEASE_MANIFEST.json').read_text())
+          assert manifest['release']=='16.1.93'
+          print('PASS JSON syntax and release identity')
+          PY
+      - name: Publish review-only candidate artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: STOCKLAND-ERP-16.1.93-Reports-Explorer-Candidate
+          path: |
+            STOCKLAND_ERP_16.1.93_REPORTS_EXPLORER_CANDIDATE.zip
+            STOCKLAND_ERP_16.1.93_REPORTS_EXPLORER_CANDIDATE.zip.sha256
+            STOCKLAND_ERP_16.1.93_LOCAL_QA_RESULTS.txt
+            STOCKLAND_ERP_16.1.93_BUILD_RECEIPT.json
+            STOCKLAND_ERP_16.1.93_PHP_LINT.txt
+          if-no-files-found: error
+          retention-days: 14
