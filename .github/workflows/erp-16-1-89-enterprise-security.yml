@@ -133,7 +133,9 @@ jobs:
         run: |
           set -euo pipefail
           git diff --name-only "$BASE_SHA" "$HEAD_SHA" > "$RUNNER_TEMP/stockland-changed-files.txt"
-          if        if grep -E '(^|/)(composer\.json|composer\.lock|package\.json|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|pnpm-lock\.yaml|bun\.lockb?|requirements\.txt|pyproject\.toml|poetry\.lock|Pipfile(\.lock)?|go\.mod|go\.sum|Cargo\.toml|Cargo\.lock)$' "$RUNNER_TEMP/stockland-changed-files.txt" | grep -Ev '^ci/(cssqa/(package\\.json|package-lock\\.json)|phpcs/(composer\\.json|composer\\.lock))$'; then
+          grep -E '(^|/)(composer\.json|composer\.lock|package\.json|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|pnpm-lock\.yaml|bun\.lockb?|requirements\.txt|pyproject\.toml|poetry\.lock|Pipfile(\.lock)?|go\.mod|go\.sum|Cargo\.toml|Cargo\.lock)$' "$RUNNER_TEMP/stockland-changed-files.txt" > "$RUNNER_TEMP/stockland-dependency-manifests.txt" || true
+          grep -Ev '^ci/(cssqa/(package\.json|package-lock\.json)|phpcs/(composer\.json|composer\.lock))$' "$RUNNER_TEMP/stockland-dependency-manifests.txt" > "$RUNNER_TEMP/stockland-runtime-dependency-manifests.txt" || true
+          if test -s "$RUNNER_TEMP/stockland-runtime-dependency-manifests.txt"; then
             echo "found=true" >> "$GITHUB_OUTPUT"
           else
             echo "found=false" >> "$GITHUB_OUTPUT"
