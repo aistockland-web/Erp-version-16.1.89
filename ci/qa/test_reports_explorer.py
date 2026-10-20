@@ -43,6 +43,9 @@ def main():
             ("data-report-details", "reorder drilldown"),
         ]:
             need(phrase in js, "UI contract: " + label)
+        need("sl-desktop-title-action-layer-fix" in js, "desktop title-action layering guard injected")
+        need("z-index:80!important" in js, "desktop actions raised above header/search stacking context")
+        need("pointer-events:auto!important" in js, "desktop action pointer events preserved")
         need("document.__slNewProductCaptureBound" in js, "desktop Product Master delegated click guard")
         need("e.stopImmediatePropagation();openProductEditor(null);" in js, "capture-phase create action chain")
         for phrase, label in [
