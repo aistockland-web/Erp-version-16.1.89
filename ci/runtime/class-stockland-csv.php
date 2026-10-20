@@ -40,7 +40,7 @@ class Stockland_CSV {
 		if ( ! is_string( $file ) || ! is_file( $file ) || ! is_readable( $file ) ) {
 			throw new Exception( 'The uploaded CSV file could not be read.' );
 		}
-		$size = filesize( $file );
+		$size  = filesize( $file );
 		if ( false === $size || $size <= 0 ) {
 			throw new Exception( 'The CSV file is empty.' );
 		}
