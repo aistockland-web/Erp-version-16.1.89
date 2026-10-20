@@ -119,6 +119,8 @@ jobs:
           npm ci --prefix ci/cssqa --ignore-scripts --no-audit --no-fund
           composer validate --working-dir=ci/phpcs --strict
           composer install --working-dir=ci/phpcs --no-interaction --prefer-dist --no-progress
+          npm audit --prefix ci/cssqa --audit-level=high
+          composer audit --working-dir=ci/phpcs --locked --format=table
       - name: Build locked candidate and verify exact package contract
         shell: bash
         run: |
@@ -230,6 +232,8 @@ jobs:
           npm ci --prefix ci/cssqa --ignore-scripts --no-audit --no-fund
           composer validate --working-dir=ci/phpcs --strict
           composer install --working-dir=ci/phpcs --no-interaction --prefer-dist --no-progress
+          npm audit --prefix ci/cssqa --audit-level=high
+          composer audit --working-dir=ci/phpcs --locked --format=table
           python ci/build_release_16_1_92.py
           python ci/qa/test-release-16.1.92.py
           mkdir -p "$RUNNER_TEMP/stockland-v1692"
