@@ -7,6 +7,7 @@ on:
       - 'ci/patch_reports_explorer.py'
       - 'ci/qa/test_reports_explorer.py'
       - 'ci/qa/test_desktop_product_create.py'
+      - 'STOCKLAND_ERP_16.1.93_DESKTOP_PRODUCT_CREATE_AUDIT.md'
       - '.github/workflows/reports-explorer-16-1-93.yml'
       - 'STOCKLAND_ERP_16.1.92_CANONICAL_WORDPRESS_UPDATE.zip'
       - 'STOCKLAND_ERP_16.1.92_CANONICAL_WORDPRESS_UPDATE.zip.sha256'
@@ -100,5 +101,7 @@ jobs:
             STOCKLAND_ERP_16.1.93_LOCAL_QA_RESULTS.txt
             STOCKLAND_ERP_16.1.93_BUILD_RECEIPT.json
             STOCKLAND_ERP_16.1.93_PHP_LINT.txt
+            STOCKLAND_ERP_16.1.93_DESKTOP_BUTTON_QA.json
+            STOCKLAND_ERP_16.1.93_DESKTOP_PRODUCT_CREATE_AUDIT.md
           if-no-files-found: error
           retention-days: 14
