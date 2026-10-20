@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Build canonical Stockland ERP 16.1.91 from the checksum-verified 16.1.90 installer."""
 import copy, hashlib, json, re, zipfile
+from datetime import datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from openpyxl import load_workbook
@@ -38,6 +39,20 @@ def css_normalize(value):
     value = re.sub(r"\s+", " ", value).strip()
     value = re.sub(r"\s*([{}:;,])\s*", r"\1", value)
     return value.replace(";}", "}")
+
+def canonicalize_xlsx(path):
+    normalized = path.with_suffix(path.suffix + ".normalized")
+    with zipfile.ZipFile(path, "r") as src:
+        entries = [(name, src.read(name), src.getinfo(name).external_attr) for name in sorted(src.namelist())]
+    with zipfile.ZipFile(normalized, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as dst:
+        for name, data, attrs in entries:
+            info = zipfile.ZipInfo(name, (2026, 1, 1, 0, 0, 0))
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.external_attr = attrs
+            info.create_system = 3
+            dst.writestr(info, data, compress_type=zipfile.ZIP_DEFLATED, compresslevel=9)
+    path.write_bytes(normalized.read_bytes())
+    normalized.unlink()
 
 def main():
     need(BASE.is_file(), "16.1.90 base ZIP missing")
@@ -85,6 +100,7 @@ def main():
             need(not wb["PHYSICAL COUNT"].protection.sheet and not wb["INSTRUCTIONS"].protection.sheet, "physical count workbook must remain unprotected")
             wb["PHYSICAL COUNT"]["A2"] = "IMPORTANT: Count every Product Master SKU. If a variant is not physically present, enter Quantity Found = 0. Fill Brand, Size and Color where applicable. One location per workbook. Enter Count Date as YYYY-MM-DD."
             wb["PHYSICAL COUNT"].row_dimensions[2].height = 40
+            wb.properties.modified = datetime(2026, 1, 1, 0, 0, 0)
             ins = wb["INSTRUCTIONS"]
             for row, value in [
                 (12, "11. Count Date is the date the physical count was actually taken (YYYY-MM-DD). It does not rewrite a transaction date or SKU effective date."),
@@ -96,11 +112,13 @@ def main():
                 c.border = copy.copy(ins["A11"].border)
                 ins.row_dimensions[row].height = 36 if row == 12 else 42
             wb.save(physical)
+            canonicalize_xlsx(physical)
 
             master = app / "templates/Stockland_Master_Import_Template.xlsx"
             wb = load_workbook(master)
             need(all(not sheet.protection.sheet for sheet in wb.worksheets), "master workbook must remain unprotected")
             wb["PRODUCT MASTER"]["A2"] = "ENTER STOCKLAND PRODUCT DATA ONLY. Primary SKU must begin with STK-. Product Master never creates physical stock; use Warehouse Receiving for quantity. Do not overwrite posted stock, SKU history or effective dates."
+            wb.properties.modified = datetime(2026, 1, 1, 0, 0, 0)
             rules = wb["IMPORT RULES"]
             rules["A9"] = "SKU history / dates"
             rules["B9"] = "Historical effective dates and posted stock are system-controlled; use the authorized SKU-change or stock workflow. Do not edit history directly in Excel."
@@ -110,6 +128,7 @@ def main():
                 c.alignment = copy.copy(rules[src].alignment)
             rules.row_dimensions[9].height = 36
             wb.save(master)
+            canonicalize_xlsx(master)
 
             readme = app / "README.md"
             s = readme.read_text()
