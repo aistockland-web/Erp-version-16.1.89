@@ -1,0 +1,82 @@
+name: Stockland ERP 16.1.93 Reports Explorer candidate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "ci/patches/reports-explorer-16.1.93.patch.gz.b64"
+      - "ci/build_reports_explorer_16_1_93.py"
+      - "ci/qa/test_reports_explorer_16_1_93.py"
+      - "STOCKLAND_ERP_16.1.92_CANONICAL_WORDPRESS_UPDATE.zip"
+      - ".github/workflows/reports-explorer-16-1-93.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: stockland-reports-explorer-16-1-93-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-test:
+    name: Build exact-package candidate and run non-production gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out the pull request commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+
+      - name: Set up PHP 8.4
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
+        with:
+          php-version: "8.4"
+          coverage: none
+          tools: none
+
+      - name: Build candidate from checksum-locked 16.1.92 installer
+        run: python ci/build_reports_explorer_16_1_93.py
+
+      - name: Run release contract tests
+        run: python ci/qa/test_reports_explorer_16_1_93.py
+
+      - name: Lint every PHP file in candidate package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/stockland-candidate"
+          unzip -q dist/STOCKLAND_ERP_16.1.93_REPORTS_EXPLORER_CANDIDATE.zip -d "$RUNNER_TEMP/stockland-candidate"
+          find "$RUNNER_TEMP/stockland-candidate/stockland-erp-app" -type f -name '*.php' -print0 | xargs -0 -n1 php -l > dist/php-lint.txt
+          test "$(grep -c 'No syntax errors detected' dist/php-lint.txt)" -eq 48
+
+      - name: Check primary JavaScript entry points
+        run: |
+          node --check "$RUNNER_TEMP/stockland-candidate/stockland-erp-app/assets/app.js"
+          node --check "$RUNNER_TEMP/stockland-candidate/stockland-erp-app/assets/pwa.js"
+
+      - name: Include existing period-summary CSV regression gate
+        run: node ci/qa/test-period-summary-csv.js
+
+      - name: Upload review artifacts (not deployed)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: stockland-erp-16.1.93-reports-explorer-review
+          path: |
+            dist/STOCKLAND_ERP_16.1.93_REPORTS_EXPLORER_CANDIDATE.zip
+            dist/candidate.sha256
+            dist/BUILD_RECEIPT.json
+            dist/reports-explorer-16.1.93.patch
+            dist/php-lint.txt
+          if-no-files-found: error
+          retention-days: 30
