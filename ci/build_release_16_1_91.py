@@ -170,7 +170,10 @@ def main():
             need(len(files) == 74, "package must have 74 files")
             with zipfile.ZipFile(OUT, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as out:
                 for p in files:
-                    out.writestr("stockland-erp-app/" + p.relative_to(app).as_posix(), p.read_bytes())
+                    info = zipfile.ZipInfo("stockland-erp-app/" + p.relative_to(app).as_posix(), (2026, 1, 1, 0, 0, 0))
+                    info.compress_type = zipfile.ZIP_DEFLATED
+                    info.external_attr = (0o100644 & 0xffff) << 16
+                    out.writestr(info, p.read_bytes(), compress_type=zipfile.ZIP_DEFLATED, compresslevel=9)
     digest = hashlib.sha256(OUT.read_bytes()).hexdigest()
     (REPO / (OUT.name + ".sha256")).write_text(digest + "  " + OUT.name + "\n")
     print("Built 16.1.91: " + str(OUT.stat().st_size) + " bytes, SHA-256 " + digest)
