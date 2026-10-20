@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Build canonical Stockland ERP 16.1.91 from the checksum-verified 16.1.90 installer."""
-import copy, hashlib, json, zipfile
+import copy, hashlib, json, re, zipfile
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from openpyxl import load_workbook
@@ -31,6 +31,12 @@ CSS = r"""/* 16.1.91 — consistent notification typography for every authorized
 def need(ok, msg):
     if not ok:
         raise SystemExit("STOP: " + msg)
+
+def css_normalize(value):
+    value = re.sub(r"/\\*[\\s\\S]*?\\*/", " ", value)
+    value = re.sub(r"\\s+", " ", value).strip()
+    value = re.sub(r"\\s*([{}:;,])\\s*", r"\\1", value)
+    return value.replace(";}", "}")
 
 def main():
     need(BASE.is_file(), "16.1.90 base ZIP missing")
@@ -68,7 +74,7 @@ def main():
             chunks = [(app / "assets/css" / n).read_text().strip() for n in md["modules"]]
             (app / "assets/app.css").write_text("\n\n".join(chunks) + "\n")
             min_path = app / "assets/app.min.css"
-            min_path.write_text(min_path.read_text().rstrip() + CSS.strip() + "\n")
+            min_path.write_text(min_path.read_text().rstrip() + css_normalize(CSS) + "\n")
             md["release"] = "16.1.91"
             md["description"] = "16.1.91 notification typography/severity cues and editable workbook date/history guidance; business logic and role action hooks unchanged."
             mp.write_text(json.dumps(md, ensure_ascii=False, indent=2) + "\n")
