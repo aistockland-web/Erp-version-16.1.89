@@ -124,8 +124,8 @@ def patch_php(source: str) -> str:
     )
     source = replace_literal_once(
         source,
-        '$low_sql .= " AND COALESCE(b.physical_stock,0)<=IF(l.location_type=\\'Warehouse\\',p.central_reorder_level,p.branch_reorder_level)";',
-        '$low_sql .= " AND IF(l.location_type=\\'Warehouse\\',p.central_reorder_level,p.branch_reorder_level)>0 AND (COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0))<=IF(l.location_type=\\'Warehouse\\',p.central_reorder_level,p.branch_reorder_level)";',
+        r"""$low_sql .= " AND COALESCE(b.physical_stock,0)<=IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level)";""",
+        r"""$low_sql .= " AND IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level)>0 AND (COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0))<=IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level)";""",
         "dashboard reorder compares available stock",
     )
 
