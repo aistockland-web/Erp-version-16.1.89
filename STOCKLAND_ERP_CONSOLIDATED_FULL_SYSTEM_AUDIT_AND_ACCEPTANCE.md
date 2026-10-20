@@ -95,3 +95,75 @@ Use deterministic synthetic fixtures only in isolated test databases; never seed
 ## 6. Current conclusion
 
 **Status: NOT YET CERTIFIED FOR PRODUCTION.** The 16.1.93 source/package gates and mocked desktop regression are useful evidence. They do not yet prove complete financial/stock accuracy, the actual host's desktop behavior, a dedicated management-intelligence page, or native Teams/Slack integration. The remaining work is consolidated under this single PR and acceptance plan; do not create separate releases for individual defects.
+
+
+## 7. Added requirement — Stockland-owned ERP design system and integrated operations
+
+### Design direction and originality
+
+Build one consistent Stockland Ethiopia ERP experience informed by proven enterprise interaction patterns: SAP Fiori's role-based, adaptive, task-focused approach; Odoo's modular work-area model; and the dense financial/workbook workflows commonly found in enterprise suites such as Oracle NetSuite. These are references for usability patterns only. Do **not** copy vendor logos, branded assets, proprietary page layouts, names, or exact styling. The visual identity, table behavior, page hierarchy, states, and interaction details must be Stockland-owned.
+
+Acceptance characteristics:
+- One shared application shell, navigation model, global search/command entry, page-title/action area, responsive layout, and consistent permission-aware status vocabulary.
+- Role-based workspaces for Owner/Management, branch operations, Central Warehouse, Finance, HR/Payroll, and Audit. Hide or disable an action according to permission, but always enforce permission and location scope on the server.
+- A reusable table system with an explicit page container, title, toolbar, filters, column/row density controls where appropriate, sortable headings, pagination, totals, empty/loading/error states, keyboard/focus states, responsive overflow, and print/export where permitted. Do not render naked tables without a context holder. Preserve useful spreadsheet-style grids for Product Master, Inventory, Daily Inventory, and reports.
+- Clear distinctions between editable draft, pending approval, posted/immutable, reversed, failed, and syncing states. Show when data was last refreshed and whether a figure is live, derived, or a saved snapshot.
+- Responsive desktop/tablet/mobile behavior, no blocked controls beneath popovers, no sticky table/header layers that obstruct mobile content, and no global CSS/JS behavior that damages WordPress or Wallet+.
+- Build with Stockland's existing visual identity and accessible contrast. No broad restyling, typography replacement, or compiled-CSS edits without measured evidence and source/compiled parity checks.
+
+Reference: SAP describes Fiori as a consistent, role-based, adaptive, task-focused design system, not a single copied screen: https://experience.sap.com/fiori-design-web/explore_category/sap-fiori/ . The Stockland implementation must remain an original design.
+
+### Native module integration matrix
+
+“Integrated” means modules share canonical records and verified business events, not merely that they link to one another or display similar dashboards. Reuse current tables/services where they are authoritative; do not create competing writable copies of inventory or ledger state.
+
+| Business event / module | Required downstream consistency | Required evidence |
+|---|---|---|
+| Product Master / variant creation | One canonical variant identity; unique SKU; controlled size, color, barcode and status; available in authorized catalog/search flows | Create/edit/disable tests, duplicate-SKU rejection, catalog refresh and audit event |
+| Purchase / receiving / GRN | Supplier and receipt references; posted stock ledger movement; branch/warehouse balance; staged cost; payable impact only at the correct approved invoice/posting step | Partial/full receipt, duplicate receipt, rollback and supplier/AP reconciliation |
+| POS retail / wholesale sale | Sale lines, actual negotiated price, tender/receivable, tax split, stock ledger movement, staged COGS and journal mapping stay linked | Cash/card/credit cases, discounts, override, refund, idempotency and sales-to-stock-to-GL reconciliation |
+| Reservations / requisitions | Reserved quantity separate from physical on-hand; available-to-pick calculation; approval limits and branch scope maintained | Competing requests, over-reservation rejection, cancellation/release and unauthorized-location tests |
+| Stock transfer | Source dispatch, in-transit quantity, destination receipt/variance, ledger events and audit history are one traceable workflow | Partial dispatch/receipt, loss/variance, duplicate receive, cancellation rules and location totals |
+| Returns / damage / adjustments | Reference original transaction where applicable; approval and reason; reversal or compensating movement; no destructive edit to posted history | Return limit, damaged stock, reversal, duplicate action, permissions and ledger replay tests |
+| Supplier invoices / AP / payments | Approved invoice and payment references; open balance changes once; cash/bank/AP ledgers and control accounts reconcile | Partial payment, duplicate payment prevention, supplier balance aging and balanced journals |
+| Customer credit / AR / receipts | Customer invoice/credit, collection, outstanding amount and control-account totals reconcile | Partial receipt, overpayment/credit handling, reversal and AR aging |
+| Expenses / tax / general ledger | Central accounting mappings and effective-dated tax settings; posted journals immutable; every journal balances | VAT included/excluded scenarios using configured rate, rounding boundaries, corrections by reversal and trial balance |
+| Daily closing / imports | Opening + posted movements = closing; duplicate files/rows blocked or idempotently identified; unresolved exceptions visible | Repeat import, resume/chunk, unknown SKU, branch mismatch, interrupted commit and close-blocking tests |
+| Critical reorder / replenishment | Location-specific reorder point; show on-hand, reserved, available, inbound, demand/backorders, and proposed quantity separately; no hidden stock mutation or auto-order | Boundary values at/below/above threshold, in-transit stock, zero/negative anomalies, duplicate alert control and Owner-only authorization |
+| HR / payroll | Approved compensation source, period, calculations, deductions and journals are traceable; missing compensation is a blocking visible exception | Deterministic payroll fixtures, effective-date and rounding tests; never silently invent missing salaries |
+| Reports / management intelligence | Named definition, date basis, location scope, currency/tax/cost semantics and source references; drill-down totals match canonical posting sources | Report-by-report expected totals, role/location disclosure tests, print/PDF and CSV comparison |
+| Audit / identity / notifications | Actor, source event, time, location, correlation/idempotency key, approval/reversal, and integration outcome are attributable | Tamper/permission tests, revoked identity, failed delivery, retry without duplicate posting |
+
+### Canonical calculation contracts
+
+Do not use binary floating-point for money or hide rounding policy in the UI. Use decimal-safe server-side arithmetic and an explicit, documented currency precision and invoice/line rounding policy. Store the policy/configuration version with posted tax/accounting records when required for reproducibility. The front end may preview calculations, but the server is authoritative.
+
+At minimum, display and reconcile these stock measures independently:
+- **Physical on hand:** net of posted stock-ledger movements only.
+- **Reserved:** active reservations, released/cancelled reservations excluded.
+- **Available:** physical on hand less active reservations/other explicitly modeled commitments; preserve and flag negative results rather than silently clamp away the anomaly.
+- **Inbound / in transit:** shown separately and never treated as pickable physical stock before destination receipt is posted.
+- **Reorder position / proposed replenishment:** calculated from the configured location-specific policy and clearly show every included input (on hand, reservations, eligible confirmed inbound, open demand/backorders, reorder point/target, pack/MOQ if configured). Do not silently treat a transfer or purchase as received. The precise reorder formula and treatment of inbound/backorders must be approved in the business specification and locked by boundary tests.
+
+For every posted sale, calculate sales/tax/tender/receivable/COGS using the transaction's approved price, tax configuration and staged cost; a later Product Master edit must not rewrite historical results. Refunds, voids, returns and corrections must be traceable compensating entries. Every posted general-ledger journal must balance within the defined minor-unit policy; stock subledger, inventory valuation, COGS, VAT, cash/bank, AP and AR must reconcile to their control accounts.
+
+### Shared service and integration boundaries
+
+- All modules call shared server-side domain services for product identity, stock posting, reservation, transfer, sale posting, money/tax calculations, journal posting, and audit. UI endpoints must not independently reproduce financial or stock formulas.
+- Use atomic transactions, idempotency keys/source IDs and duplicate protection for externally imported or retried events. If any essential ledger/audit write fails, roll back the business transaction or leave a clearly recoverable, non-posted state—never claim success.
+- Derived balances/reports are rebuildable projections of authoritative posted records; identify the source query and reconcile projections. Do not allow an editable summary table to drift from its ledger.
+- Define a consistent integration registry for each connector: provider, purpose, status (**Available**, **Configuration required**, **Planned**, **Failed/Disconnected**), credentials location, scopes, last-success time, last error, retry/duplicate semantics, health test and revoke/disconnect action. Never represent a planned connector as active.
+- Built-in import/export, printing, barcode, POS import and internal ERP module integration each need their own verified status. External API/SSO/chat integrations must remain isolated adapters so a missing provider secret does not disable core sales, stock, finance or ERP login.
+
+### Microsoft / Slack / collaboration boundary
+
+Microsoft sign-in must use a configured and validated Microsoft Entra ID OpenID Connect/OAuth flow; Teams notifications/chat are separate Graph/Teams permissions and functionality. Slack requires its own OAuth install/consent flow and minimal approved scopes. Tokens/secrets belong server-side, are encrypted/protected, never included in a browser bundle or logs, and must support revoke/disconnect, state/nonce validation, tenant restrictions, scope review, permission checks, retries and audit. Owner-provided app registration details, client IDs, redirect URIs and secret/certificate configuration are required before an external tenant integration can be truthfully marked connected. A decorative login button, link to the provider, or browser-only message panel is not an integration.
+
+References: Microsoft identity platform OIDC protocol: https://learn.microsoft.com/en-us/entra/identity-platform/v2-protocols-oidc ; Slack OAuth v2: https://docs.slack.dev/authentication/installing-with-oauth/ .
+
+### Production accuracy exit criteria (no “100%” claim without receipts)
+
+For each finance, stock, reorder and ledger scenario, maintain a versioned fixture with source/input data, expected result calculated independently, observed result, acceptable rounding rule, source-ledger/reference IDs, permission context, and pass/fail. Include boundary, duplicate, retry, concurrency, cancellation, reversal, partial completion, and failed-write cases. Reconcile a representative end-to-end flow from source action through stock ledger, balances, customer/supplier subledgers, tax, cash/receivable/payable and general ledger. Compare both totals and transaction-level references.
+
+Release gate: **zero unexplained reconciliation differences, zero unhandled critical transaction failures, zero unauthorized cross-location/financial disclosures, no false-success response, and all test failures documented/resolved or explicitly accepted by the Owner.** This is an acceptance target, not a claim that the current candidate has already passed. If source evidence, provider credentials, or target-host access is absent, record the gate as **Blocked / Not tested**, not Pass.
+
