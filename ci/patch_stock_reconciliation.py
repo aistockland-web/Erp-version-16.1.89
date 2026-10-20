@@ -228,8 +228,8 @@ def rebuild_zip(path: Path) -> dict:
             "schema_changed": False,
             "live_data_changed": False,
             "inventory_reporting": "ledger plus active variant-linked and SKU-only legacy records",
-            "reorder_reporting": "sellable availability is max of zero and physical stock less active reservations; reservation excess is separately flagged",
-        "dashboard_alerts": "available stock after active reservations, including SKU-only legacy reservation rows",
+                "reorder_reporting": "sellable availability is max of zero and physical stock less active reservations; reservation excess is separately flagged",
+            "dashboard_alerts": "available stock after active reservations, including SKU-only legacy reservation rows",
         }
     finally:
         if tmp.exists():
