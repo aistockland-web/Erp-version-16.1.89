@@ -196,6 +196,44 @@ def main():
                     out.writestr(info, p.read_bytes(), compress_type=zipfile.ZIP_DEFLATED, compresslevel=9)
     digest = hashlib.sha256(OUT.read_bytes()).hexdigest()
     (REPO / (OUT.name + ".sha256")).write_text(digest + "  " + OUT.name + "\n")
+    with zipfile.ZipFile(OUT) as packaged:
+        files_count = len(packaged.namelist())
+    QA = REPO / "STOCKLAND_ERP_16.1.91_LOCAL_QA_RESULTS.txt"
+    AUDIT = REPO / "STOCKLAND_ERP_16.1.91_DEEP_CODE_LEVEL_AUDIT.md"
+    QA.write_text("\n".join([
+        "STOCKLAND ETHIOPIA ERP 16.1.91 — EXACT PACKAGE BUILD RECORD",
+        "Installer: " + OUT.name,
+        "Size bytes: " + str(OUT.stat().st_size),
+        "SHA-256: " + digest,
+        "Base: 16.1.90 SHA-256 " + BASE_SHA,
+        "Package: " + str(files_count) + " files / one plugin root / 47 PHP files",
+        "Deterministic archive: fixed ZIP timestamps and normalized Excel workbook metadata",
+        "Full exact-head CI result: see GitHub Actions release and security workflows",
+        "Live WordPress/MariaDB acceptance and deployment: NOT PERFORMED"
+    ]) + "\n", encoding="utf-8")
+    AUDIT.write_text("\n".join([
+        "# Stockland Ethiopia ERP 16.1.91 — Deep Code-Level Release Audit",
+        "",
+        "- Installer: " + OUT.name,
+        "- Size: " + format(OUT.stat().st_size, ",") + " bytes",
+        "- SHA-256: " + digest,
+        "- Exact base: 16.1.90 SHA-256 " + BASE_SHA,
+        "- Package: " + str(files_count) + " files, one stockland-erp-app root, 47 PHP files.",
+        "",
+        "## Included changes",
+        "",
+        "- Shared notification title/body/metadata/action/toast typography improved for all authorized roles, with action/success/warning/danger/info accents and responsive button touch targets. Existing notification authorization, action IDs and JavaScript handlers remain unchanged.",
+        "- Both Excel templates remain unprotected for ordinary entry. Physical Count explicitly defines Count Date as the actual count date in YYYY-MM-DD format; history/effective dates are not overwritten. Product Master remains quantity-free and stock adjustments still follow authorized, reasoned, auditable workflows.",
+        "- Plugin and frontend route/cache markers are 16.1.91. JavaScript, REST business services, role capabilities, payroll formulas, schema, posted inventory/financial ledgers and SOP transitions are unchanged. The 49-table contract is retained.",
+        "",
+        "## Verification",
+        "",
+        "The exact-head workflow runs package integrity, source-preservation, editable workbook/date controls, CSS source-build/minified parity, PHP lint on 8.3 and 8.4, JavaScript syntax, payroll/System Health, notification action hooks, payroll preview, PostCSS, WPCS and Semgrep. Enterprise security runs dependency/license inventory, secret scanning, Dependency Review and CodeQL. The linked run records are authoritative; this document alone is not a CI assertion.",
+        "",
+        "## Production acceptance boundary",
+        "",
+        "No authenticated live WordPress/MariaDB connection or deployment was performed by this build. GitHub CI does not verify live ledger/audit-chain/AP/AR/GL/PLEDGER reconciliation, role-by-role SOP operation, backup restoration/rollback, or physical-device PWA operation. Those production acceptance CAPs remain open until evidenced on the running site."
+    ]) + "\n", encoding="utf-8")
     print("Built 16.1.91: " + str(OUT.stat().st_size) + " bytes, SHA-256 " + digest)
 
 if __name__ == "__main__":
