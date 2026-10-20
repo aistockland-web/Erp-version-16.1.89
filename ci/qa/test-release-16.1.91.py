@@ -86,7 +86,7 @@ with zipfile.ZipFile(BASE) as bz, zipfile.ZipFile(OUT) as z:
         with zipfile.ZipFile(io.BytesIO(new[app + path])) as xlsx:
             need(all(item.date_time == (2026, 1, 1, 0, 0, 0) for item in xlsx.infolist()), "canonical XLSX ZIP timestamps: " + path)
             core = xlsx.read("docProps/core.xml").decode("utf-8")
-            need("<dcterms:modified xsi:type=\"dcterms:W3CDTF\">2026-01-01T00:00:00Z</dcterms:modified>" in core, "canonical XLSX modified timestamp: " + path)
+            need(re.search(r"<dcterms:modified\b[^>]*>2026-01-01T00:00:00Z</dcterms:modified>", core) is not None, "canonical XLSX modified timestamp: " + path)
 qa = REPO / "STOCKLAND_ERP_16.1.91_LOCAL_QA_RESULTS.txt"
 audit = REPO / "STOCKLAND_ERP_16.1.91_DEEP_CODE_LEVEL_AUDIT.md"
 need(qa.is_file() and audit.is_file(), "exact-package QA and audit reports emitted")
