@@ -1,0 +1,32 @@
+name: Temporary installer export
+on:
+  push:
+    branches:
+      - release-tooling/export-16.1.89-artifact
+permissions:
+  contents: read
+jobs:
+  export-exact-installer:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact repository commit
+        uses: actions/checkout@v7
+      - name: Verify and stage the exact current 16.1.89 installer
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_file='STOCKLAND_ERP_16.1.89_CANONICAL_WORDPRESS_UPDATE (4).zip'
+          expected_sha='4b8a5fe5648ddf062953c671fe572cb62235757d3a092da6b23116aacae392c3'
+          test -f "$source_file"
+          actual_sha="$(sha256sum "$source_file" | awk '{print $1}')"
+          test "$actual_sha" = "$expected_sha"
+          unzip -tq "$source_file"
+          mkdir -p out
+          cp "$source_file" out/STOCKLAND_ERP_16.1.89_CANONICAL_WORDPRESS_UPDATE.zip
+          sha256sum out/STOCKLAND_ERP_16.1.89_CANONICAL_WORDPRESS_UPDATE.zip
+      - name: Upload exact installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: stockland-erp-16.1.89-exact-installer-export
+          path: out/STOCKLAND_ERP_16.1.89_CANONICAL_WORDPRESS_UPDATE.zip
+          if-no-files-found: error
