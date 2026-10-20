@@ -142,6 +142,19 @@ def patch_php(source: str) -> str:
         "critical reorder description",
     )
 
+    source = replace_literal_once(
+        source,
+        "$inv_sql  = 'SELECT COALESCE(SUM(b.physical_stock*p.purchase_cost),0) FROM (SELECT location_id,variant_id,SUM(quantity_signed) physical_stock FROM %i WHERE variant_id IS NOT NULL GROUP BY location_id,variant_id) b JOIN %i p ON p.variant_id=b.variant_id';",
+        "$inv_sql  = 'SELECT COALESCE(SUM(b.physical_stock*p.purchase_cost),0) FROM (SELECT t.location_id,COALESCE(t.variant_id,legacy_p.variant_id) variant_id,SUM(t.quantity_signed) physical_stock FROM %i t LEFT JOIN %i legacy_p ON t.variant_id IS NULL AND legacy_p.sku=t.sku WHERE COALESCE(t.variant_id,legacy_p.variant_id) IS NOT NULL GROUP BY t.location_id,COALESCE(t.variant_id,legacy_p.variant_id)) b JOIN %i p ON p.variant_id=b.variant_id';",
+        "dashboard inventory valuation resolves legacy SKU rows",
+    )
+    source = replace_literal_once(
+        source,
+        "$inv_args = array( $tx, $prod );",
+        "$inv_args = array( $tx, $prod, $prod );",
+        "dashboard inventory valuation query parameters",
+    )
+
     # Ensure explicit stock semantics remain present in the source package.
     for required in (
         "COALESCE(t.variant_id,legacy_p.variant_id)",
@@ -187,6 +200,8 @@ def rebuild_zip(path: Path) -> dict:
         "availability": "sellable availability is max(0, physical stock minus active reservations); reservation excess remains separately visible",
         "reorder_basis": "available stock after active reservations",
         "availability_integrity": "reservation excess is displayed as OVER-RESERVED",
+        "inventory_valuation_legacy_rows": "SKU-only ledger movements are resolved to canonical variant for dashboard valuation",
+        "inventory_valuation_basis": "current Product Master purchase_cost; stock_transactions has no unit_cost column",
         "schema_changed": False,
         "live_data_changed": False,
     })
