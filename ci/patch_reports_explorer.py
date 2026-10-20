@@ -460,6 +460,20 @@ document.querySelectorAll('[data-report-preset]').forEach(b=>{b.onclick=()=>{con
 if($('#downloadOpsReportCsv'))$('#downloadOpsReportCsv').onclick=downloadPeriodSummaryCsv;
 if($('#openDailyPosImportFromReport'))$('#openDailyPosImportFromReport').onclick=()=>{state.view='daily';render()};""", "bindReportExplorer();", "report form binding")
     source = replace_once(source, "if($('#printOpsReport'))$('#printOpsReport').onclick=()=>{if(!document.getElementById('reportResult')?.querySelector('.sl-panel')){toast('Generate a report first',true);return}window.print()};", "", "old print binding")
+    # Defensive capture-phase delegation keeps the primary Product Master create
+    # action working if desktop host scripts replace a node-level onclick handler
+    # after rendering. The listener is registered once and calls the same editor
+    # function as the existing handler; it does not bypass API validation/permissions.
+    product_click_guard = """if(!document.__slNewProductCaptureBound){
+  document.__slNewProductCaptureBound=true;
+  document.addEventListener('click',function(e){
+    const target=e.target instanceof Element?e.target.closest('#newProduct'):null;
+    const appRoot=document.getElementById('stockland-app');
+    if(!target||!appRoot||!appRoot.contains(target)||target.disabled)return;
+    e.preventDefault();e.stopImmediatePropagation();openProductEditor(null);
+  },true);
+}"""
+    source = replace_once(source, "if($('#newProduct'))$('#newProduct').onclick=()=>openProductEditor(null);", product_click_guard + "\\nif($('#newProduct'))$('#newProduct').onclick=()=>openProductEditor(null);", "desktop product create capture delegation")
     return source
 
 def apply_to_installer(input_zip: Path, output_zip: Path) -> dict:
