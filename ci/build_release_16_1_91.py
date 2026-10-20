@@ -33,9 +33,9 @@ def need(ok, msg):
         raise SystemExit("STOP: " + msg)
 
 def css_normalize(value):
-    value = re.sub(r"/\\*[\\s\\S]*?\\*/", " ", value)
-    value = re.sub(r"\\s+", " ", value).strip()
-    value = re.sub(r"\\s*([{}:;,])\\s*", r"\\1", value)
+    value = re.sub(r"/\*[\s\S]*?\*/", " ", value)
+    value = re.sub(r"\s+", " ", value).strip()
+    value = re.sub(r"\s*([{}:;,])\s*", r"\1", value)
     return value.replace(";}", "}")
 
 def main():
