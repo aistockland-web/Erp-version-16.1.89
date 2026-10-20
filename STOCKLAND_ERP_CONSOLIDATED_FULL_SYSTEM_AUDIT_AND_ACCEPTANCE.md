@@ -141,7 +141,7 @@ Do not use binary floating-point for money or hide rounding policy in the UI. Us
 At minimum, display and reconcile these stock measures independently:
 - **Physical on hand:** net of posted stock-ledger movements only.
 - **Reserved:** active reservations, released/cancelled reservations excluded.
-- **Available:** physical on hand less active reservations/other explicitly modeled commitments; preserve and flag negative results rather than silently clamp away the anomaly.
+- **Available:** sellable available stock follows the operational rule max(0, physical on-hand less active reservations and other explicitly modeled commitments). If active reservations exceed physical on-hand, flag an explicit `OVER-RESERVED` integrity exception instead of hiding the discrepancy.
 - **Inbound / in transit:** shown separately and never treated as pickable physical stock before destination receipt is posted.
 - **Reorder position / proposed replenishment:** calculated from the configured location-specific policy and clearly show every included input (on hand, reservations, eligible confirmed inbound, open demand/backorders, reorder point/target, pack/MOQ if configured). Do not silently treat a transfer or purchase as received. The precise reorder formula and treatment of inbound/backorders must be approved in the business specification and locked by boundary checks.
 
@@ -175,7 +175,8 @@ The package builder now includes a focused correction to keep report numbers ali
 
 - Physical stock reporting resolves both variant-linked ledger movements and legacy SKU-only movements to the Product Master variant when the SKU mapping exists.
 - Active reservation reporting includes both variant-linked reservations and legacy SKU-only reservations.
-- Inventory/low-stock views expose physical, reserved, and available quantities distinctly. The reorder threshold is evaluated against available stock, not only physical stock; items with a zero threshold are not raised as configured reorder alerts.
+- Inventory/low-stock views expose physical, reserved, and sellable available quantities distinctly. Sellable availability is floored at zero; `OVER-RESERVED` separately flags excess reservation quantities. Reorder thresholds use sellable availability; zero thresholds do not create configured reorder alerts.
 - Inactive locations are excluded from the corrected report query.
+- Dashboard inventory valuation now resolves legacy SKU-only ledger movements to the canonical Product Master variant, so those movements are not silently excluded from the summary. The existing transaction ledger has no `unit_cost` column; this dashboard figure still uses the current Product Master `purchase_cost` and must not be represented as historic-cost inventory valuation.
 - The change is confined to the existing application report queries and release manifest; it adds no new database table, migration, live data mutation, or new product mode.
 - This source/package correction is not by itself proof of the live account's balances. The installed WordPress runtime must be confirmed against the same canonical ledger and reservation records before final release certification.
