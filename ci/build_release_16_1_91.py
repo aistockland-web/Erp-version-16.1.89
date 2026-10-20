@@ -43,7 +43,16 @@ def css_normalize(value):
 def canonicalize_xlsx(path):
     normalized = path.with_suffix(path.suffix + ".normalized")
     with zipfile.ZipFile(path, "r") as src:
-        entries = [(name, src.read(name), src.getinfo(name).external_attr) for name in sorted(src.namelist())]
+        entries = []
+        for name in sorted(src.namelist()):
+            data = src.read(name)
+            if name == "docProps/core.xml":
+                data = re.sub(
+                    rb"(<dcterms:modified\\b[^>]*>)[^<]*(</dcterms:modified>)",
+                    rb"\\g<1>2026-01-01T00:00:00Z\\g<2>",
+                    data,
+                )
+            entries.append((name, data, src.getinfo(name).external_attr))
     with zipfile.ZipFile(normalized, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as dst:
         for name, data, attrs in entries:
             info = zipfile.ZipInfo(name, (2026, 1, 1, 0, 0, 0))
