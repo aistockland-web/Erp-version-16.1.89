@@ -39,7 +39,7 @@ jobs:
           shellcheck --version
 
   remediation-candidate:
-    if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'remediation/')
+    if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'remediation/') || github.head_ref == 'release/16.1.91-notification-ux'
     name: Build and test non-deployable remediation candidate
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -60,7 +60,7 @@ jobs:
           cd "$RUNNER_TEMP/wpcs-project"
           composer init --name=stockland/erp-remediation-candidate --no-interaction --stability=stable --type=project
           composer config allow-plugins.dealerdirect/phpcodesniffer-composer-installer true
-          composer require --dev --no-interaction wp-coding-standards/wpcs:"^3.0"
+          composer require --dev --no-interaction wp-coding-standards/wpcs:"3.4.1"
       - name: Extract immutable source and apply exact-context candidate fixes
         run: python ci/qa/prepare-remediation-candidate.py "$RUNNER_TEMP/stockland-remediation"
       - name: Apply PHPCBF to candidate copy only
