@@ -132,7 +132,7 @@ def patch_php(source: str) -> str:
     source = replace_literal_once(
         source,
         "array( 'key' => 'available_stock', 'label' => 'Available', 'format' => 'number' ),",
-        "array( 'key' => 'available_stock', 'label' => 'Available', 'format' => 'number' ),\\n\\t\\t\\t\\t\\tarray( 'key' => 'availability_exception', 'label' => 'Reservation integrity' ),",
+        "array( 'key' => 'available_stock', 'label' => 'Available', 'format' => 'number' ),\n\t\t\t\t\tarray( 'key' => 'availability_exception', 'label' => 'Reservation integrity' ),",
         "show reservation integrity beside availability",
     )
     source = replace_literal_once(
