@@ -48,8 +48,8 @@ def canonicalize_xlsx(path):
             data = src.read(name)
             if name == "docProps/core.xml":
                 data = re.sub(
-                    rb"(<dcterms:modified\\b[^>]*>)[^<]*(</dcterms:modified>)",
-                    rb"\\g<1>2026-01-01T00:00:00Z\\g<2>",
+                    rb"(<dcterms:modified\b[^>]*>)[^<]*(</dcterms:modified>)",
+                    rb"\g<1>2026-01-01T00:00:00Z\g<2>",
                     data,
                 )
             entries.append((name, data, src.getinfo(name).external_attr))
