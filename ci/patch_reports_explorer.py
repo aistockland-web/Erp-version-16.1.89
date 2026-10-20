@@ -473,7 +473,7 @@ if($('#openDailyPosImportFromReport'))$('#openDailyPosImportFromReport').onclick
     e.preventDefault();e.stopImmediatePropagation();openProductEditor(null);
   },true);
 }"""
-    source = replace_once(source, "if($('#newProduct'))$('#newProduct').onclick=()=>openProductEditor(null);", product_click_guard + "\\nif($('#newProduct'))$('#newProduct').onclick=()=>openProductEditor(null);", "desktop product create capture delegation")
+    source = replace_once(source, "if($('#newProduct'))$('#newProduct').onclick=()=>openProductEditor(null);", product_click_guard + "\nif($('#newProduct'))$('#newProduct').onclick=()=>openProductEditor(null);", "desktop product create capture delegation")
     return source
 
 def apply_to_installer(input_zip: Path, output_zip: Path) -> dict:
