@@ -22,8 +22,8 @@ jobs:
       matrix:
         php-version: ["8.3", "8.4"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 — immutable SHA
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0 — immutable SHA
         with:
           python-version: "3.12"
       - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2 — immutable SHA
@@ -31,7 +31,7 @@ jobs:
           php-version: ${{ matrix.php-version }}
           coverage: none
           tools: none
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0 — immutable SHA
         with:
           node-version: "22"
       - name: Verify ZIP, release markers, checksums and syntax
@@ -46,8 +46,8 @@ jobs:
       matrix:
         php-version: ["8.3", "8.4"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 — immutable SHA
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0 — immutable SHA
         with:
           python-version: "3.12"
       - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2 — immutable SHA
@@ -55,7 +55,7 @@ jobs:
           php-version: ${{ matrix.php-version }}
           coverage: none
           tools: none
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0 — immutable SHA
         with:
           node-version: "22"
       - name: Install parser used by the CSS regression test
@@ -88,7 +88,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 — immutable SHA
       - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2 — immutable SHA
         with:
           php-version: "8.4"
@@ -185,7 +185,7 @@ jobs:
         run: python ci/qa/test-phpcs-security-review.py "$STOCKLAND_APP" "$GITHUB_WORKSPACE/phpcs-results.json"
       - name: Upload PHPCS/WPCS findings
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2 — immutable SHA
         with:
           name: phpcs-wpcs-results
           path: phpcs-results.json
@@ -196,8 +196,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 — immutable SHA
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0 — immutable SHA
         with:
           python-version: "3.12"
       - name: Install Semgrep CLI
@@ -220,7 +220,7 @@ jobs:
           python ci/qa/summarize-semgrep.py semgrep-results.json
       - name: Upload Semgrep findings
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2 — immutable SHA
         with:
           name: semgrep-security-results
           path: semgrep-results.json
