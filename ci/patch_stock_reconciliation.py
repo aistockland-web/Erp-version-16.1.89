@@ -185,7 +185,8 @@ def rebuild_zip(path: Path) -> dict:
         "legacy_sku_only_ledger_rows": "resolved to active product variant where SKU mapping exists",
         "reservation_scope": "active reservations, including legacy SKU-only rows",
         "availability": "sellable availability is max(0, physical stock minus active reservations); reservation excess remains separately visible",
-        "reorder_basis": "available stock after active reservations",\n        "availability_integrity": "reservation excess is displayed as OVER-RESERVED",
+        "reorder_basis": "available stock after active reservations",
+        "availability_integrity": "reservation excess is displayed as OVER-RESERVED",
         "schema_changed": False,
         "live_data_changed": False,
     })
