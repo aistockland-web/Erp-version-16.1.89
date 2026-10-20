@@ -82,6 +82,16 @@ with zipfile.ZipFile(BASE) as bz, zipfile.ZipFile(OUT) as z:
     need(all(not ws.protection.sheet for ws in master.worksheets), "all seven master-import sheets remain editable")
     need("never creates physical stock" in master["PRODUCT MASTER"]["A2"].value.lower(), "product import remains quantity-free")
     need(master["IMPORT RULES"]["A9"].value == "SKU history / dates", "SKU date-history import rule added")
+    for path in ["templates/Stockland_Master_Import_Template.xlsx", "templates/Stockland_Physical_Count_Template.xlsx"]:
+        with zipfile.ZipFile(io.BytesIO(new[app + path])) as xlsx:
+            need(all(item.date_time == (2026, 1, 1, 0, 0, 0) for item in xlsx.infolist()), "canonical XLSX ZIP timestamps: " + path)
+            core = xlsx.read("docProps/core.xml").decode("utf-8")
+            need("<dcterms:modified xsi:type=\"dcterms:W3CDTF\">2026-01-01T00:00:00Z</dcterms:modified>" in core, "canonical XLSX modified timestamp: " + path)
+qa = REPO / "STOCKLAND_ERP_16.1.91_LOCAL_QA_RESULTS.txt"
+audit = REPO / "STOCKLAND_ERP_16.1.91_DEEP_CODE_LEVEL_AUDIT.md"
+need(qa.is_file() and audit.is_file(), "exact-package QA and audit reports emitted")
+need(sha in qa.read_text(encoding="utf-8") and sha in audit.read_text(encoding="utf-8"), "QA and audit report identify exact installer checksum")
+need("NOT PERFORMED" in audit.read_text(encoding="utf-8"), "production acceptance boundary documented")
 print("PASS exact 16.1.91 package contract")
 print("SHA256=" + sha)
 print("SIZE_BYTES=" + str(len(raw)))
