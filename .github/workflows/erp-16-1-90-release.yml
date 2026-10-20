@@ -56,7 +56,14 @@ jobs:
           echo "$RUNNER_TEMP/wpcs-project/vendor/bin" >> "$GITHUB_PATH"
       - name: Build from exact 16.1.89 base (release branch only)
         if: github.event_name != 'pull_request'
-        run: python ci/build_release_16_1_90.py --phpcbf "$RUNNER_TEMP/wpcs-project/vendor/bin/phpcbf"
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f STOCKLAND_ERP_16.1.90_CANONICAL_WORDPRESS_UPDATE.zip ] && [ -f STOCKLAND_ERP_16.1.90_CANONICAL_WORDPRESS_UPDATE.zip.sha256 ]; then
+            echo "Canonical package already exists on this branch; preserve its verified bytes."
+          else
+            python ci/build_release_16_1_90.py --phpcbf "$RUNNER_TEMP/wpcs-project/vendor/bin/phpcbf"
+          fi
       - name: Verify checksum, archive structure and 16.1.90 source invariants
         run: python ci/qa/test-release-16.1.90.py
       - name: Extract exact 16.1.90 ZIP for regression tests
@@ -134,5 +141,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add STOCKLAND_ERP_16.1.90_CANONICAL_WORDPRESS_UPDATE.zip STOCKLAND_ERP_16.1.90_CANONICAL_WORDPRESS_UPDATE.zip.sha256 STOCKLAND_ERP_16.1.90_LOCAL_QA_RESULTS.txt STOCKLAND_ERP_16.1.90_PHPCBF.log
-          git commit -m "Build canonical Stockland ERP 16.1.90 WordPress update"
-          git -c http.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)" push origin HEAD
+          if git diff --cached --quiet; then
+            echo "Generated release files are unchanged; no bot commit is needed."
+          else
+            git commit -m "Build canonical Stockland ERP 16.1.90 WordPress update"
+            git -c http.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)" push origin HEAD:release/16.1.90-rest-context-remediation
+          fi
