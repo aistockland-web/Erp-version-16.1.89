@@ -6,6 +6,7 @@ on:
     paths:
       - 'ci/patch_reports_explorer.py'
       - 'ci/qa/test_reports_explorer.py'
+      - 'ci/qa/test_desktop_product_create.py'
       - '.github/workflows/reports-explorer-16-1-93.yml'
       - 'STOCKLAND_ERP_16.1.92_CANONICAL_WORDPRESS_UPDATE.zip'
       - 'STOCKLAND_ERP_16.1.92_CANONICAL_WORDPRESS_UPDATE.zip.sha256'
@@ -17,7 +18,7 @@ permissions:
 jobs:
   candidate:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - name: Checkout isolated pull request
         uses: actions/checkout@v4
@@ -61,6 +62,13 @@ jobs:
           mkdir -p build/candidate
           unzip -q STOCKLAND_ERP_16.1.93_REPORTS_EXPLORER_CANDIDATE.zip -d build/candidate
           sha256sum STOCKLAND_ERP_16.1.93_REPORTS_EXPLORER_CANDIDATE.zip > STOCKLAND_ERP_16.1.93_REPORTS_EXPLORER_CANDIDATE.zip.sha256
+      - name: Install pinned Playwright browser test dependency
+        run: |
+          python3 -m pip install --disable-pip-version-check 'playwright==1.57.0'
+          python3 -m playwright install --with-deps chromium
+      - name: Test desktop Product Master click-to-create chain across wide viewports
+        run: |
+          python3 ci/qa/test_desktop_product_create.py STOCKLAND_ERP_16.1.93_REPORTS_EXPLORER_CANDIDATE.zip | tee STOCKLAND_ERP_16.1.93_DESKTOP_BUTTON_QA.json
       - name: Lint every packaged PHP file
         shell: bash
         run: |
