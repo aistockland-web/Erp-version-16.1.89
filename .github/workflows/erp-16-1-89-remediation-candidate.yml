@@ -1,0 +1,106 @@
+name: Stockland ERP 16.1.89 remediation candidate (review only)
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: ["remediation/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shell-workflow-lint:
+    name: ShellCheck and actionlint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ShellCheck
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes shellcheck
+      - name: Install actionlint
+        env:
+          ACTIONLINT_VERSION: "1.7.7"
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/actionlint"
+          curl --fail --silent --show-error --location \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" \
+            -o "$RUNNER_TEMP/actionlint/actionlint.tar.gz"
+          tar -xzf "$RUNNER_TEMP/actionlint/actionlint.tar.gz" -C "$RUNNER_TEMP/actionlint" actionlint
+          echo "$RUNNER_TEMP/actionlint" >> "$GITHUB_PATH"
+      - name: Lint workflow syntax and embedded shell
+        run: |
+          set -euo pipefail
+          actionlint -color
+          shellcheck --version
+
+  remediation-candidate:
+    name: Build and test non-deployable remediation candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
+        with:
+          php-version: "8.3"
+          coverage: none
+          tools: none
+      - name: Install official WordPress Coding Standards
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/wpcs-project"
+          cd "$RUNNER_TEMP/wpcs-project"
+          composer init --name=stockland/erp-remediation-candidate --no-interaction --stability=stable --type=project
+          composer config allow-plugins.dealerdirect/phpcodesniffer-composer-installer true
+          composer require --dev --no-interaction wp-coding-standards/wpcs:"^3.0"
+      - name: Extract immutable source and apply exact-context candidate fixes
+        run: python ci/qa/prepare-remediation-candidate.py "$RUNNER_TEMP/stockland-remediation"
+      - name: Apply PHPCBF to candidate copy only
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/stockland-remediation/candidate/stockland-erp-app"
+          set +e
+          "$RUNNER_TEMP/wpcs-project/vendor/bin/phpcbf" --standard=WordPress --extensions=php "$APP" > "$RUNNER_TEMP/phpcbf.log" 2>&1
+          code=$?
+          set -e
+          cat "$RUNNER_TEMP/phpcbf.log"
+          # PHPCBF returns 1 when it fixed violations; 2 means it could not fix all.
+          if [ "$code" -gt 2 ]; then
+            echo "PHPCBF failed unexpectedly: $code" >&2
+            exit "$code"
+          fi
+          echo "PHPCBF diagnostic exit code: $code (candidate only)"
+      - name: Run candidate invariants and PHP syntax checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/stockland-remediation/candidate/stockland-erp-app"
+          python ci/qa/test-remediation-candidate.py "$APP"
+          find "$APP" -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Build source diff and candidate ZIP for owner review only
+        shell: bash
+        run: |
+          set -euo pipefail
+          WORK="$RUNNER_TEMP/stockland-remediation"
+          diff -ruN "$WORK/original/stockland-erp-app" "$WORK/candidate/stockland-erp-app" > remediation-source-diff.patch || code=$?
+          if [ "${code:-0}" -gt 1 ]; then exit "$code"; fi
+          mkdir -p remediation-candidate
+          (cd "$WORK/candidate" && zip -qr "$GITHUB_WORKSPACE/remediation-candidate/STOCKLAND_ERP_16.1.89_REMEDIATION_CANDIDATE_NOT_FOR_DEPLOY.zip" stockland-erp-app)
+          cp "$WORK/../phpcbf.log" remediation-candidate/phpcbf.log 2>/dev/null || true
+          cp remediation-source-diff.patch remediation-candidate/
+          sha256sum remediation-candidate/*.zip > remediation-candidate/SHA256SUMS.txt
+      - name: Upload candidate, diff and formatting report (not a release artifact)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stockland-16.1.89-remediation-review-only
+          path: remediation-candidate/
+          if-no-files-found: warn
