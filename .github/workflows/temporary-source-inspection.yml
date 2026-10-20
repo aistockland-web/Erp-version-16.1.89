@@ -1,0 +1,53 @@
+name: Temporary exact 16.1.91 source inspection
+
+on:
+  push:
+    branches:
+      - audit/inspect-16-1-91-source
+
+permissions:
+  contents: read
+
+jobs:
+  extract-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout inspection branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Extract only source and metadata from the checksum-verified installer
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib
+          import zipfile
+
+          archive = Path("STOCKLAND_ERP_16.1.91_CANONICAL_WORDPRESS_UPDATE.zip")
+          expected = "e3dfe61dcbdfd382147407daca4ec32ed737dc35e5931d55d1ffbaf5a7337b34"
+          assert hashlib.sha256(archive.read_bytes()).hexdigest() == expected, "Installer checksum mismatch"
+          out = Path("source-inspection")
+          out.mkdir(exist_ok=True)
+          allowed = {".php", ".js", ".json", ".md", ".css"}
+          with zipfile.ZipFile(archive) as z:
+              assert z.testzip() is None, "ZIP integrity failed"
+              members = [m for m in z.infolist() if not m.is_dir()]
+              assert len(members) == 74, f"Unexpected ZIP inventory: {len(members)}"
+              for m in members:
+                  p = Path(m.filename)
+                  assert ".." not in p.parts, f"Unsafe ZIP path: {m.filename}"
+                  if p.suffix.lower() not in allowed:
+                      continue
+                  dest = out / p
+                  dest.parent.mkdir(parents=True, exist_ok=True)
+                  dest.write_bytes(z.read(m))
+          print("Extracted source files:", sum(1 for p in out.rglob("*") if p.is_file()))
+          PY
+      - name: Upload source-only inspection artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: stockland-16.1.91-source-inspection
+          path: source-inspection/
+          if-no-files-found: error
+          retention-days: 2
