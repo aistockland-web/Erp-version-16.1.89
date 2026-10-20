@@ -464,7 +464,17 @@ if($('#openDailyPosImportFromReport'))$('#openDailyPosImportFromReport').onclick
     # action working if desktop host scripts replace a node-level onclick handler
     # after rendering. The listener is registered once and calls the same editor
     # function as the existing handler; it does not bypass API validation/permissions.
-    product_click_guard = """if(!document.__slNewProductCaptureBound){
+    # Desktop-theme hardening is injected at runtime because the release preserves source/compiled CSS.
+    # A desktop header is a higher grid-item stacking context (z-index 50); if host theme CSS widens
+    # the global-search popup, it can sit above the Product Master action row. Raise only title actions
+    # above that header and keep dialogs/modals at their existing much higher z-index.
+    product_click_guard = """if(!document.getElementById('sl-desktop-title-action-layer-fix')){
+  const style=document.createElement('style');
+  style.id='sl-desktop-title-action-layer-fix';
+  style.textContent='@media (min-width:992px){#stockland-app .sl-content-inner>.sl-page-title>.sl-actions{position:relative!important;z-index:80!important;isolation:isolate;pointer-events:auto!important}#stockland-app .sl-content-inner>.sl-page-title>.sl-actions>*{pointer-events:auto!important}}';
+  (document.head||document.documentElement).appendChild(style);
+}
+if(!document.__slNewProductCaptureBound){
   document.__slNewProductCaptureBound=true;
   document.addEventListener('click',function(e){
     const target=e.target instanceof Element?e.target.closest('#newProduct'):null;
@@ -473,7 +483,7 @@ if($('#openDailyPosImportFromReport'))$('#openDailyPosImportFromReport').onclick
     e.preventDefault();e.stopImmediatePropagation();openProductEditor(null);
   },true);
 }"""
-    source = replace_once(source, "if($('#newProduct'))$('#newProduct').onclick=()=>openProductEditor(null);", product_click_guard + "\nif($('#newProduct'))$('#newProduct').onclick=()=>openProductEditor(null);", "desktop product create capture delegation")
+    source = replace_once(source, "if($('#newProduct'))$('#newProduct').onclick=()=>openProductEditor(null);", product_click_guard + "\nif($('#newProduct'))$('#newProduct').onclick=()=>openProductEditor(null);", "desktop product create layering + capture delegation")
     return source
 
 def apply_to_installer(input_zip: Path, output_zip: Path) -> dict:
