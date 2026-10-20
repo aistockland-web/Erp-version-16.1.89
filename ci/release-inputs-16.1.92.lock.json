@@ -1,0 +1,20 @@
+{
+  "lock_format": "stockland-release-inputs/v1",
+  "target_release": "16.1.92",
+  "baseline_release": "16.1.91",
+  "baseline_installer": {
+    "path": "STOCKLAND_ERP_16.1.91_CANONICAL_WORDPRESS_UPDATE.zip",
+    "size_bytes": 1108406,
+    "sha256": "e3dfe61dcbdfd382147407daca4ec32ed737dc35e5931d55d1ffbaf5a7337b34",
+    "files": 74,
+    "php_files": 47
+  },
+  "schema_contract": {
+    "core_tables": 29,
+    "accounting_procurement_tables": 16,
+    "hr_payroll_tables": 4,
+    "total_tables": 49
+  },
+  "runtime_dependencies": [],
+  "lock_policy": "The installer is a self-contained WordPress PHP/JavaScript bundle and has no Composer or npm runtime manifest. This file locks the exact input installer and schema contract for release builds. Daily POS posting retains the existing branch/day database named lock, transaction, FOR UPDATE import-job row lock, duplicate-source hashes and business-day-close guard."
+}
