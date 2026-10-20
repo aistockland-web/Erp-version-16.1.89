@@ -43,6 +43,8 @@ def main():
             ("data-report-details", "reorder drilldown"),
         ]:
             need(phrase in js, "UI contract: " + label)
+        need("document.__slNewProductCaptureBound" in js, "desktop Product Master delegated click guard")
+        need("e.stopImmediatePropagation();openProductEditor(null);" in js, "capture-phase create action chain")
         for phrase, label in [
             ("'/app/reports/explorer'", "route registration"),
             ("array( $this, 'reports_explorer' )", "handler callback"),
