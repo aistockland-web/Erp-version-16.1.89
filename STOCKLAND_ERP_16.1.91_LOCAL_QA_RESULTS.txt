@@ -1,0 +1,9 @@
+STOCKLAND ETHIOPIA ERP 16.1.91 — EXACT PACKAGE BUILD RECORD
+Installer: STOCKLAND_ERP_16.1.91_CANONICAL_WORDPRESS_UPDATE.zip
+Size bytes: 1108406
+SHA-256: e3dfe61dcbdfd382147407daca4ec32ed737dc35e5931d55d1ffbaf5a7337b34
+Base: 16.1.90 SHA-256 6a7619c834fb37ef69024e68f15ae524efae39b5586b01441ab47270842588e5
+Package: 74 files / one plugin root / 47 PHP files
+Deterministic archive: fixed ZIP timestamps and normalized Excel workbook metadata
+Full exact-head CI result: see GitHub Actions release and security workflows
+Live WordPress/MariaDB acceptance and deployment: NOT PERFORMED
