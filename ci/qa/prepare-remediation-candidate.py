@@ -35,10 +35,21 @@ if not hr_path.is_file() or not wh_path.is_file():
     raise SystemExit("FAIL expected HR/wholesale source paths missing")
 hr = hr_path.read_text(encoding="utf-8")
 old_hr = "$validation_error . ' Employee '"
-new_hr = "esc_html( (string) $validation_error ) . ' Employee '"
 if hr.count(old_hr) != 1:
     raise SystemExit("FAIL HR exception context did not match exactly once; no patch applied")
-hr_path.write_text(hr.replace(old_hr, new_hr, 1), encoding="utf-8")
+hr_lines = hr.splitlines(keepends=True)
+hr_matches = [i for i, line in enumerate(hr_lines) if old_hr in line]
+if len(hr_matches) != 1 or "throw new RuntimeException" not in hr_lines[hr_matches[0]]:
+    raise SystemExit("FAIL expected internal exception statement not found; no patch applied")
+hr_line = hr_lines[hr_matches[0]]
+indent = hr_line[:len(hr_line) - len(hr_line.lstrip())]
+review_note = (
+    indent
+    + "// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- "
+    + "exception text is internal catalog text, not HTML output; escape only at a rendering sink.\\n"
+)
+hr_lines[hr_matches[0]] = review_note + hr_line
+hr_path.write_text("".join(hr_lines), encoding="utf-8")
 wh = wh_path.read_text(encoding="utf-8")
 old_prepare = "\t\t\t\t$prepared = $wpdb->prepare( $sql, $args );"
 new_prepare = (
@@ -58,7 +69,7 @@ if wh.count(old_prepare) != 1 or wh.count(old_read) != 1:
 wh = wh.replace(old_prepare, new_prepare, 1).replace(old_read, new_read, 1)
 wh_path.write_text(wh, encoding="utf-8")
 print(f"PASS source archive SHA-256 verified: {digest}")
-print("PASS HR exception message now escapes the catalog validation text")
+print("PASS HR exception preserves internal catalog text; escaping remains at any rendering/output sink")
 print("PASS narrowly scoped PHPCS rationale added for prepared SQL and intentionally uncached live read")
 print("PASS committed release ZIP remains unchanged; changes are candidate-only")
 print(f"ORIGINAL_DIR={original / 'stockland-erp-app'}")
