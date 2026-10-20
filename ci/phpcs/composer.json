@@ -1,0 +1,20 @@
+{
+  "name": "stockland/erp-qa",
+  "description": "CI-only PHP_CodeSniffer and WordPress Coding Standards for the Stockland ERP package. Not a plugin runtime dependency.",
+  "type": "project",
+  "license": "proprietary",
+  "require-dev": {
+    "wp-coding-standards/wpcs": "^3.0"
+  },
+  "config": {
+    "allow-plugins": {
+      "dealerdirect/phpcodesniffer-composer-installer": true
+    },
+    "platform": {
+      "php": "8.3.0"
+    },
+    "sort-packages": true
+  },
+  "minimum-stability": "stable",
+  "prefer-stable": true
+}

@@ -1,0 +1,272 @@
+name: Stockland ERP 16.1.92 period-summary CSV release gates
+
+on:
+  push:
+    branches:
+      - release/16.1.92-period-reports
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+  security-events: write
+
+concurrency:
+  group: stockland-erp-16-1-92-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare-ci-lockfiles:
+    name: Resolve CI lockfiles once
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Set up Python 3.12
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Set up Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+      - name: Set up PHP and Composer
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
+        with:
+          php-version: "8.4"
+          coverage: none
+          tools: composer
+      - name: Generate lockfiles only if absent and validate the resolved set
+        shell: bash
+        env:
+          COMPOSER_ALLOW_SUPERUSER: "1"
+        run: |
+          set -euo pipefail
+          if [ ! -s ci/cssqa/package-lock.json ]; then
+            npm install --package-lock-only --prefix ci/cssqa --ignore-scripts --no-audit --no-fund
+          fi
+          if [ ! -s ci/phpcs/composer.lock ]; then
+            composer update --working-dir=ci/phpcs --no-interaction --prefer-dist --no-progress
+          fi
+          composer validate --working-dir=ci/phpcs --strict
+          python - <<'PY'
+          import json
+          with open('ci/cssqa/package-lock.json', encoding='utf-8') as f:
+              npm = json.load(f)
+          with open('ci/phpcs/composer.lock', encoding='utf-8') as f:
+              composer = json.load(f)
+          assert npm.get('lockfileVersion') == 3, 'npm package lock v3 required'
+          assert any(p.get('name') == 'wp-coding-standards/wpcs' for p in composer.get('packages-dev', [])), 'WPCS must be locked'
+          assert npm.get('packages', {}).get('node_modules/postcss', {}).get('version') == '8.5.31', 'PostCSS lock version differs'
+          print('CI dependency lockfiles verified.')
+          PY
+          mkdir -p ci-locks
+          cp ci/cssqa/package-lock.json ci-locks/package-lock.json
+          cp ci/phpcs/composer.lock ci-locks/composer.lock
+      - name: Upload one canonical CI lockfile set
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: stockland-16.1.92-ci-lockfiles
+          path: ci-locks/
+          if-no-files-found: error
+          retention-days: 7
+
+  build-and-verify:
+    needs: prepare-ci-lockfiles
+    name: Verify package on PHP ${{ matrix.php-version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ["8.3", "8.4"]
+    steps:
+      - name: Checkout exact branch or PR head
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - name: Set up Python 3.12
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Set up Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+      - name: Set up PHP and Composer
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
+        with:
+          php-version: ${{ matrix.php-version }}
+          coverage: none
+          tools: composer
+      - name: Download shared CI lockfiles
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: stockland-16.1.92-ci-lockfiles
+          path: ${{ runner.temp }}/stockland-16.1.92-ci-locks
+      - name: Install strictly from the tested locks
+        shell: bash
+        env:
+          COMPOSER_ALLOW_SUPERUSER: "1"
+        run: |
+          set -euo pipefail
+          cp "$RUNNER_TEMP/stockland-16.1.92-ci-locks/package-lock.json" ci/cssqa/package-lock.json
+          cp "$RUNNER_TEMP/stockland-16.1.92-ci-locks/composer.lock" ci/phpcs/composer.lock
+          npm ci --prefix ci/cssqa --ignore-scripts --no-audit --no-fund
+          composer validate --working-dir=ci/phpcs --strict
+          composer install --working-dir=ci/phpcs --no-interaction --prefer-dist --no-progress
+      - name: Build locked candidate and verify exact package contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python ci/build_release_16_1_92.py
+          python ci/qa/test-release-16.1.92.py
+          mkdir -p "$RUNNER_TEMP/stockland-v1692"
+          unzip -q STOCKLAND_ERP_16.1.92_CANONICAL_WORDPRESS_UPDATE.zip -d "$RUNNER_TEMP/stockland-v1692"
+          test -d "$RUNNER_TEMP/stockland-v1692/stockland-erp-app"
+          echo "STOCKLAND_APP=$RUNNER_TEMP/stockland-v1692/stockland-erp-app" >> "$GITHUB_ENV"
+      - name: PHP lint and streaming Daily POS CSV tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          count=0
+          while IFS= read -r -d '' file; do php -l "$file"; count=$((count + 1)); done < <(find "$STOCKLAND_APP" -type f -name '*.php' -print0)
+          test "$count" -eq 48
+          echo "48/48 packaged PHP files passed on PHP ${{ matrix.php-version }}"
+          php ci/qa/test-stockland-csv-reader.php "$STOCKLAND_APP/includes/class-stockland-csv.php"
+      - name: JavaScript syntax and period-report CSV tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check "$STOCKLAND_APP/assets/app.js"
+          node --check "$STOCKLAND_APP/assets/pwa.js"
+          node ci/qa/test-period-summary-csv.js "$STOCKLAND_APP/assets/app.js"
+      - name: Existing payroll and System Health regressions
+        run: php ci/qa/test-payroll-health-policy.php "$STOCKLAND_APP"
+      - name: Existing notification and payroll-preview regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          node ci/qa/test-notification-drawer.js "$STOCKLAND_APP/assets/app.js"
+          node ci/qa/test-payroll-preview.js "$STOCKLAND_APP/assets/app.js"
+      - name: PostCSS source/minified parity from exact npm lock
+        run: NODE_PATH="$PWD/ci/cssqa/node_modules" node ci/qa/check-css-postcss.js "$STOCKLAND_APP"
+      - name: WordPress Coding Standards from exact Composer lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          ci/phpcs/vendor/bin/phpcs --standard=ci/qa/stockland-phpcs.xml --extensions=php --report=json --report-file=phpcs-16.1.92.json "$STOCKLAND_APP"
+          python - <<'PY'
+          import json
+          with open('phpcs-16.1.92.json', encoding='utf-8') as f:
+              totals = json.load(f).get('totals', {})
+          print('PHPCS/WPCS totals:', totals)
+          assert totals.get('errors', 0) == 0 and totals.get('warnings', 0) == 0, 'Unexpected WPCS findings'
+          PY
+      - name: Semgrep PHP/security rules
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'pydantic==2.12.5' 'semgrep==1.139.0'
+          semgrep scan --metrics=off --config p/php --config p/security-audit --include '*.php' --json --output semgrep-16.1.92.json "$STOCKLAND_APP"
+          python ci/qa/summarize-semgrep.py semgrep-16.1.92.json
+      - name: Upload package and QA evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: stockland-16.1.92-candidate-php-${{ matrix.php-version }}
+          path: |
+            STOCKLAND_ERP_16.1.92_CANONICAL_WORDPRESS_UPDATE.zip
+            STOCKLAND_ERP_16.1.92_CANONICAL_WORDPRESS_UPDATE.zip.sha256
+            STOCKLAND_ERP_16.1.92_LOCAL_QA_RESULTS.txt
+            STOCKLAND_ERP_16.1.92_DEEP_CODE_LEVEL_AUDIT.md
+            ci/cssqa/package-lock.json
+            ci/phpcs/composer.lock
+            phpcs-16.1.92.json
+            semgrep-16.1.92.json
+          if-no-files-found: warn
+
+  publish-canonical-package:
+    needs: [prepare-ci-lockfiles, build-and-verify]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/release/16.1.92-period-reports'
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout the tested release branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - name: Set up Python, Node and PHP/Composer
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
+        with:
+          php-version: "8.4"
+          coverage: none
+          tools: composer
+      - name: Download the same CI lockfiles used by the passing matrix
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: stockland-16.1.92-ci-lockfiles
+          path: ${{ runner.temp }}/stockland-16.1.92-ci-locks
+      - name: Rebuild, rerun critical tests and publish receipts only
+        shell: bash
+        env:
+          COMPOSER_ALLOW_SUPERUSER: "1"
+        run: |
+          set -euo pipefail
+          cp "$RUNNER_TEMP/stockland-16.1.92-ci-locks/package-lock.json" ci/cssqa/package-lock.json
+          cp "$RUNNER_TEMP/stockland-16.1.92-ci-locks/composer.lock" ci/phpcs/composer.lock
+          npm ci --prefix ci/cssqa --ignore-scripts --no-audit --no-fund
+          composer validate --working-dir=ci/phpcs --strict
+          composer install --working-dir=ci/phpcs --no-interaction --prefer-dist --no-progress
+          python ci/build_release_16_1_92.py
+          python ci/qa/test-release-16.1.92.py
+          mkdir -p "$RUNNER_TEMP/stockland-v1692"
+          unzip -q STOCKLAND_ERP_16.1.92_CANONICAL_WORDPRESS_UPDATE.zip -d "$RUNNER_TEMP/stockland-v1692"
+          app="$RUNNER_TEMP/stockland-v1692/stockland-erp-app"
+          find "$app" -type f -name '*.php' -print0 | while IFS= read -r -d '' f; do php -l "$f"; done
+          php ci/qa/test-stockland-csv-reader.php "$app/includes/class-stockland-csv.php"
+          node --check "$app/assets/app.js"
+          node ci/qa/test-period-summary-csv.js "$app/assets/app.js"
+          NODE_PATH="$PWD/ci/cssqa/node_modules" node ci/qa/check-css-postcss.js "$app"
+          ci/phpcs/vendor/bin/phpcs --standard=ci/qa/stockland-phpcs.xml --extensions=php "$app"
+          {
+            echo
+            echo 'Exact-version GitHub Actions: PASS — PHP 8.3/8.4 matrix and all listed source/package/regression/security gates passed before this publish job.'
+            echo 'Live WordPress/MariaDB deployment: NOT PERFORMED.'
+          } >> STOCKLAND_ERP_16.1.92_LOCAL_QA_RESULTS.txt
+          {
+            echo
+            echo '## Exact-version GitHub Actions result'
+            echo
+            echo '- PHP 8.3/8.4 exact-package checks and regression gates passed before package publication.'
+            echo '- Daily POS streaming CSV regression tests and read-only period summary CSV tests passed.'
+            echo '- Payroll/System Health, notification hooks, payroll preview, CSS parity, WPCS and Semgrep passed.'
+            echo '- No live WordPress/MariaDB installation or database mutation was performed.'
+          } >> STOCKLAND_ERP_16.1.92_DEEP_CODE_LEVEL_AUDIT.md
+      - name: Commit canonical ZIP, checksum, QA evidence and lockfiles to release branch
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add STOCKLAND_ERP_16.1.92_CANONICAL_WORDPRESS_UPDATE.zip STOCKLAND_ERP_16.1.92_CANONICAL_WORDPRESS_UPDATE.zip.sha256 STOCKLAND_ERP_16.1.92_LOCAL_QA_RESULTS.txt STOCKLAND_ERP_16.1.92_DEEP_CODE_LEVEL_AUDIT.md ci/cssqa/package-lock.json ci/phpcs/composer.lock
+          if git diff --cached --quiet; then
+            echo 'Installer, receipts and tested lockfiles already match this branch.'
+          else
+            git commit -m 'Publish canonical Stockland ERP 16.1.92 period summaries'
+            git push origin HEAD:release/16.1.92-period-reports
+          fi
