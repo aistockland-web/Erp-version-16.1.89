@@ -40,7 +40,7 @@ class Stockland_CSV {
 		if ( ! is_string( $file ) || ! is_file( $file ) || ! is_readable( $file ) ) {
 			throw new Exception( 'The uploaded CSV file could not be read.' );
 		}
-		$size  = filesize( $file );
+		$size = filesize( $file );
 		if ( false === $size || $size <= 0 ) {
 			throw new Exception( 'The CSV file is empty.' );
 		}
@@ -48,10 +48,7 @@ class Stockland_CSV {
 			throw new Exception( 'CSV file is too large. Maximum allowed size is 8 MB.' );
 		}
 		$this->file = $file;
-		$delimiter = $this->detect_delimiter();
-		if ( 1 > $delimiter['columns'] ) {
-			throw new Exception( 'Could not detect a CSV delimiter. Upload a delimited CSV file with a header row.' );
-		}
+		$this->detect_delimiter();
 	}
 
 	/**
