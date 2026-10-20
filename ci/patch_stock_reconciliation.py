@@ -112,7 +112,7 @@ def patch_dashboard_js(source: str) -> str:
     source = replace_literal_once(
         source,
         "}).filter(r=>Number(r.physical_stock||0)<=r._reorder).sort((a,b)=>Number(a.physical_stock||0)-Number(b.physical_stock||0)).slice(0,4);",
-        "}).filter(r=>r._available<=r._reorder).sort((a,b)=>Number(a._available||0)-Number(b._available||0)).slice(0,4);",
+        "}).filter(r=>r._reorder>0&&r._available<=r._reorder).sort((a,b)=>Number(a._available||0)-Number(b._available||0)).slice(0,4);",
         "dashboard reorder list filters and sorts available stock",
     )
     source = replace_literal_once(
