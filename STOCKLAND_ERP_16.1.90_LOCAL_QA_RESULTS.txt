@@ -1,0 +1,12 @@
+STOCKLAND ETHIOPIA ERP 16.1.90 — PACKAGE BUILD RECORD
+Installer: STOCKLAND_ERP_16.1.90_CANONICAL_WORDPRESS_UPDATE.zip
+Size bytes: 1106346
+SHA-256: 6a7619c834fb37ef69024e68f15ae524efae39b5586b01441ab47270842588e5
+Base: 16.1.89 exact checksum verified before build
+Package root: stockland-erp-app/
+Expected package members: 74
+PHP runtime files: 47
+PHPCBF scope: payroll statutory validator, System Health diagnostic, wholesale advisory
+Source scope: plain REST validation messages, path/capability-aware PHPCS, release/cache identity
+Not changed: CSS assets, schema, database data, inventory ledger/SKU history, role capabilities, approval state, payroll formula
+Live WordPress/MariaDB acceptance, production update, backup/restore and physical-device acceptance: NOT PERFORMED
