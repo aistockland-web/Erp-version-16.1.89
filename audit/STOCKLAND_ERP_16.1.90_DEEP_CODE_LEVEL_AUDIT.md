@@ -36,3 +36,15 @@ The canonical 16.1.90 workflow must pass package identity, 47-file PHP lint, Jav
 ## Production acceptance boundary
 
 **No authenticated live WordPress/MariaDB session was available for this build. No update to the running website, record mutation, live integrity scan, backup restore, rollback or physical-device install test is claimed.** These remain required before the owner can mark production acceptance complete. In particular, live stock/ledger/audit-chain/requisition/reservation/AP/AR/GL/PLEDGER reconciliation cannot be inferred from static tests.
+
+## Verified package identity and executed checks
+
+- **Canonical installer SHA-256:** `6a7619c834fb37ef69024e68f15ae524efae39b5586b01441ab47270842588e5`.
+- **Exact package build/validation run:** [Stockland ERP 16.1.90 canonical release gates](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/39350274106) — PHP 8.3 and 8.4 jobs succeeded on the checksum-addressed package.
+- **WPCS:** 0 errors, 0 warnings, 0 fixable findings in `phpcs-16.1.90.json`.
+- **Semgrep:** 0 findings, 0 blocking, 25 PHP/security rules over 47 PHP files; report `semgrep-16.1.90.json`.
+- **Package/runtime checks:** valid ZIP CRC; 74 unique file members, 47 PHP files, safe single-root layout; all 47 PHP files syntax-checked; JavaScript syntax and the payroll/System Health, notification, browser payroll preview and six-module PostCSS/responsive-equivalence tests passed.
+- **Dependency Review:** [Enterprise-security run](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/39350274041) reports success; no supported dependency manifest or lockfile changed, so the actual dependency-review scan was skipped as not applicable. The separate packaged dependency/license inventory and repository secret scan succeeded in that run.
+- Current PR head continues to re-run the same checks after the final workflow scoping change. The exact package SHA remains tied to the committed sidecar; any failed or waiting current-head checks remain visible in [PR #8](https://github.com/aistockland-web/Erp-version-16.1.89/pull/8).
+
+These checks verify the released source/package, not live WordPress/MariaDB behavior. The production acceptance boundary below remains in force.
