@@ -7,6 +7,7 @@
  *
  * @package Stockland_ERP
  */
+
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
@@ -83,7 +84,11 @@ class Stockland_CSV {
 		}
 		$row_number = 0;
 		try {
-			while ( false !== ( $values = fgetcsv( $handle, self::MAX_FILE_BYTES + 1, $delimiter, '"', '' ) ) ) {
+			while ( true ) {
+				$values = fgetcsv( $handle, self::MAX_FILE_BYTES + 1, $delimiter, '"', '' );
+				if ( false === $values ) {
+					break;
+				}
 				++$row_number;
 				if ( $row_number > $max_physical_rows || $row_number > self::MAX_PHYSICAL_ROW_NODES ) {
 					throw new Exception( 'CSV exceeds the physical row safety limit. Split the file.' );
