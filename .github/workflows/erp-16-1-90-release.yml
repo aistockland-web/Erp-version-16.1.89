@@ -113,12 +113,14 @@ jobs:
           python -m pip install --disable-pip-version-check 'pydantic==2.12.5' 'semgrep==1.139.0'
           semgrep scan --metrics=off --config p/php --config p/security-audit --include '*.php' --json --output semgrep-16.1.90.json "$STOCKLAND_APP"
           python ci/qa/summarize-semgrep.py semgrep-16.1.90.json
-      - name: Upload exact version PHPCS / Semgrep reports
+      - name: Upload exact version package, checksum, PHPCS and Semgrep reports
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: stockland-16.1.90-source-security-reports-php-${{ matrix.php-version }}
           path: |
+            STOCKLAND_ERP_16.1.90_CANONICAL_WORDPRESS_UPDATE.zip
+            STOCKLAND_ERP_16.1.90_CANONICAL_WORDPRESS_UPDATE.zip.sha256
             phpcs-16.1.90.json
             semgrep-16.1.90.json
           if-no-files-found: warn
