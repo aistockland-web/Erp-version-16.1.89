@@ -11,6 +11,7 @@ import zipfile
 from pathlib import Path
 
 PHP_PATH = "stockland-erp-app/includes/rest/class-rest-app.php"
+JS_PATH = "stockland-erp-app/assets/app.js"
 MANIFEST_PATH = "stockland-erp-app/RELEASE_MANIFEST.json"
 
 STOCK_SQL_PATTERN = re.compile(
@@ -100,6 +101,29 @@ def replace_literal_once(source: str, old: str, new: str, label: str) -> str:
         raise ValueError(f"{label}: expected exactly one anchor, found {count}")
     return source.replace(old, new, 1)
 
+
+def patch_dashboard_js(source: str) -> str:
+    old_available = "Number(r.available_stock??(Number(r.physical_stock||0)-Number(r.reserved_stock||0)))"
+    new_available = "Number(r.available_stock??Math.max(0,Number(r.physical_stock||0)-Number(r.reserved_stock||0)))"
+    count = source.count(old_available)
+    if count != 2:
+        raise ValueError(f"Dashboard availability fallback: expected exactly two anchors, found {count}")
+    source = source.replace(old_available, new_available)
+    source = replace_literal_once(
+        source,
+        "}).filter(r=>Number(r.physical_stock||0)<=r._reorder).sort((a,b)=>Number(a.physical_stock||0)-Number(b.physical_stock||0)).slice(0,4);",
+        "}).filter(r=>r._available<=r._reorder).sort((a,b)=>Number(a._available||0)-Number(b._available||0)).slice(0,4);",
+        "dashboard reorder list filters and sorts available stock",
+    )
+    source = replace_literal_once(
+        source,
+        "Physical stock is at or below its configured reorder threshold.",
+        "Sellable available stock (after active reservations) is at or below its configured reorder threshold.",
+        "dashboard reorder alert wording",
+    )
+    return source
+
+
 def patch_php(source: str) -> str:
     source = replace_exactly_once(STOCK_SQL_PATTERN, STOCK_SQL, source, "report inventory SQL")
     source = replace_literal_once(
@@ -174,14 +198,17 @@ def rebuild_zip(path: Path) -> dict:
         names = [i.filename for i in infos if not i.is_dir()]
         if len(names) != 75 or len(names) != len(set(names)):
             raise ValueError(f"Unexpected plugin archive inventory: {len(names)} files.")
-        if PHP_PATH not in names or MANIFEST_PATH not in names:
-            raise ValueError("Required ERP source or release manifest is missing.")
+        if PHP_PATH not in names or JS_PATH not in names or MANIFEST_PATH not in names:
+            raise ValueError("Required ERP source, dashboard script, or release manifest is missing.")
         contents = {i.filename: zin.read(i.filename) for i in infos if not i.is_dir()}
         info_by_name = {i.filename: i for i in infos}
 
     php_before = contents[PHP_PATH].decode("utf-8")
     php_after = patch_php(php_before)
     contents[PHP_PATH] = php_after.encode("utf-8")
+    js_before = contents[JS_PATH].decode("utf-8")
+    js_after = patch_dashboard_js(js_before)
+    contents[JS_PATH] = js_after.encode("utf-8")
 
     manifest = json.loads(contents[MANIFEST_PATH].decode("utf-8"))
     changes = list(manifest.get("release_candidate_changes", []))
@@ -202,6 +229,7 @@ def rebuild_zip(path: Path) -> dict:
         "availability_integrity": "reservation excess is displayed as OVER-RESERVED",
         "inventory_valuation_legacy_rows": "SKU-only ledger movements are resolved to canonical variant for dashboard valuation",
         "inventory_valuation_basis": "current Product Master purchase_cost; stock_transactions has no unit_cost column",
+        "dashboard_low_stock_ui": "front-end alert list filters and sorts against sellable available quantity, not physical stock",
         "schema_changed": False,
         "live_data_changed": False,
     })
@@ -244,7 +272,8 @@ def rebuild_zip(path: Path) -> dict:
             "live_data_changed": False,
             "inventory_reporting": "ledger plus active variant-linked and SKU-only legacy records",
                 "reorder_reporting": "sellable availability is max of zero and physical stock less active reservations; reservation excess is separately flagged",
-            "dashboard_alerts": "available stock after active reservations, including SKU-only legacy reservation rows",
+            "dashboard_alerts": "server count and front-end list use sellable availability after active reservations, including SKU-only legacy reservation rows",
+            "dashboard_low_stock_list": "filter and sort by sellable available stock; availability fallback is floored at zero",
         }
     finally:
         if tmp.exists():
