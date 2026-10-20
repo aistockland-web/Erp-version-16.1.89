@@ -67,7 +67,7 @@ with zipfile.ZipFile(BASE) as bz, zipfile.ZipFile(OUT) as z:
     min_css = new[app + "assets/app.min.css"].decode().strip()
     need(normalize(expanded) == min_css, "app.min.css equals the canonical CSS normalization")
     need(min_css.startswith(old[app + "assets/app.min.css"].decode().strip()), "existing minified stylesheet preserved as prefix")
-    for sel in [".sl-notification-card.action", ".sl-notification-card.warning", ".sl-notification-card.danger", ".sl-notification-card.info"]:
+    for sel in [".sl-notification-card.action", ".sl-notification-card.success", ".sl-notification-card.warning", ".sl-notification-card.danger", ".sl-notification-card.info"]:
         need(sel in min_css, "semantic notification severity style exists: " + sel)
     for hook in ["data-review-notification", "data-review-notification-id", "data-review-purchase-order",
                  "data-review-purchase-order-id", "data-read-notification"]:
