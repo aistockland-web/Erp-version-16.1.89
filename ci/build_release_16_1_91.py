@@ -16,6 +16,7 @@ CSS = r"""/* 16.1.91 — consistent notification typography for every authorized
 .sl-overlay .sl-alert-drawer .sl-alert-summary{font-size:12px;line-height:1.5}
 .sl-overlay .sl-alert-drawer .sl-notification-card{gap:12px;padding:15px 16px;border-left:3px solid var(--sl-accent,var(--sl-cobalt))}
 .sl-overlay .sl-alert-drawer .sl-notification-card.action{border-left-color:var(--sl-cobalt)}
+.sl-overlay .sl-alert-drawer .sl-notification-card.success{border-left-color:var(--sl-emerald)}
 .sl-overlay .sl-alert-drawer .sl-notification-card.warning{border-left-color:var(--sl-amber)}
 .sl-overlay .sl-alert-drawer .sl-notification-card.danger{border-left-color:var(--sl-red)}
 .sl-overlay .sl-alert-drawer .sl-notification-card.info{border-left-color:var(--sl-teal)}
