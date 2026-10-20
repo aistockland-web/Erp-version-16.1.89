@@ -15,8 +15,8 @@ jobs:
     name: Verify targeted PHPCS findings after candidate fixes
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 — immutable SHA
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0 — immutable SHA
         with:
           python-version: "3.12"
       - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
@@ -67,7 +67,7 @@ jobs:
           find "$APP" -type f -name '*.php' -print0 | xargs -0 -n1 php -l
       - name: Upload PHPCS residual report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2 — immutable SHA
         with:
           name: stockland-remediation-phpcs-recheck
           path: remediation-phpcs-results.json
