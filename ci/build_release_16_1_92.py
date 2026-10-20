@@ -40,13 +40,21 @@ def main():
       'stockland-erp-app/assets/app.js',
       'stockland-erp-app/includes/rest/class-rest-import-v16.php',
       'stockland-erp-app/README.md',
-      'stockland-erp-app/RELEASE_MANIFEST.json'}
+      'stockland-erp-app/RELEASE_MANIFEST.json',
+      'stockland-erp-app/assets/css/modules.json'}
     if not required.issubset(files): raise SystemExit('Required runtime source file is missing')
     p='stockland-erp-app/stockland-inventory.php'
     files[p]=replace_once(files[p],'* Version:           16.1.91','* Version:           16.1.92',p)
     files[p]=replace_once(files[p],"define( 'STOCKLAND_VERSION', '16.1.91' );","define( 'STOCKLAND_VERSION', '16.1.92' );",p)
     p='stockland-erp-app/includes/class-stockland-frontend.php'
     files[p]=replace_once(files[p],"const ROUTE_VERSION      = '16.1.91';","const ROUTE_VERSION      = '16.1.92';",p)
+    css_manifest_path='stockland-erp-app/assets/css/modules.json'
+    css_manifest=json.loads(files[css_manifest_path].decode('utf-8'))
+    if css_manifest.get('release')!='16.1.91' or len(css_manifest.get('modules',[]))!=6:
+        raise SystemExit('CSS module manifest does not match the locked 16.1.91 baseline')
+    css_manifest['release']=TARGET
+    css_manifest['description']='16.1.92 release metadata only; the six approved source modules and compiled CSS remain byte-identical.'
+    files[css_manifest_path]=(json.dumps(css_manifest,ensure_ascii=False,indent=2)+'\n').encode('utf-8')
     p='stockland-erp-app/assets/app.js'
     files[p]=patch_app_js(files[p].decode('utf-8')).encode('utf-8')
     p='stockland-erp-app/includes/rest/class-rest-import-v16.php'
@@ -127,7 +135,7 @@ Live WordPress/MariaDB deployment: NOT PERFORMED
 - Adds daily/today, rolling-seven-day, and month-to-date summary CSV export to Reports & Analytics using the existing role/location-scoped response. Staff detail and live stock snapshots are omitted; gross profit is gated by the existing cost permission.
 - Adds bounded streaming CSV reading only to Daily POS. CSV and XLSX both use the existing column mapping, validation, preview, staging/approval, duplicate/source hash and locked posting pipeline. Product Master stays XLSX-only.
 - CSV limits are 8 MB file, 15,050 records, 250 columns and 64 KB cells, with UTF-8 and NUL validation. No new business tables, REST routes, role capabilities, external providers, cron dependency, database trigger, ledger posting, or payroll calculation changes.
-- Existing SQL day lock, transaction and import-job FOR UPDATE remain intact.
+- Existing SQL day lock, transaction and import-job FOR UPDATE remain intact. CSS module release metadata is updated without changing module CSS source or compiled files.
 
 ## Verification and production boundary
 

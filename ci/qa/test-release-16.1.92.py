@@ -14,7 +14,8 @@ ALLOWED={
 'stockland-erp-app/assets/app.js',
 'stockland-erp-app/includes/rest/class-rest-import-v16.php',
 'stockland-erp-app/README.md',
-'stockland-erp-app/RELEASE_MANIFEST.json'}
+'stockland-erp-app/RELEASE_MANIFEST.json',
+'stockland-erp-app/assets/css/modules.json'}
 def require(ok, message):
     if not ok: raise SystemExit('FAIL: '+message)
 def digest(raw): return hashlib.sha256(raw).hexdigest()
@@ -36,7 +37,8 @@ def main():
         names={p:z.read(p) for p in nn}
         before={p:bz.read(p) for p in bn}
     require(sum(p.endswith('.php') for p in names)==48,'expected 48 packaged PHP runtime files')
-    require({p for p in before if before[p]!=names[p]}==ALLOWED,'changes outside the narrow allow-list: '+str(sorted({p for p in before if before[p]!=names[p]} ^ ALLOWED)))
+    changed={p for p in before if before[p]!=names[p]}
+    require(changed==ALLOWED,'changes outside the narrow allow-list: '+str(sorted(changed ^ ALLOWED)))
     require(set(names)-set(before)=={'stockland-erp-app/includes/class-stockland-csv.php'},'candidate added unexpected package member')
     entry=names['stockland-erp-app/stockland-inventory.php'].decode()
     front=names['stockland-erp-app/includes/class-stockland-frontend.php'].decode()
@@ -45,8 +47,10 @@ def main():
     csv=names['stockland-erp-app/includes/class-stockland-csv.php'].decode()
     readme=names['stockland-erp-app/README.md'].decode()
     manifest=json.loads(names['stockland-erp-app/RELEASE_MANIFEST.json'].decode())
+    cssmanifest=json.loads(names['stockland-erp-app/assets/css/modules.json'].decode())
     require('* Version:           16.1.92' in entry and "define( 'STOCKLAND_VERSION', '16.1.92' );" in entry,'plugin version is inconsistent')
     require("const ROUTE_VERSION      = '16.1.92';" in front,'frontend cache/route marker is inconsistent')
+    require(cssmanifest.get('release')==TARGET and len(cssmanifest.get('modules',[]))==6 and len(set(cssmanifest['modules']))==6,'CSS module release marker/inventory is inconsistent')
     require('function buildPeriodSummaryCsv(' in js and 'function reportPresetRange(' in js,'report CSV or period presets missing')
     require('data-report-preset="daily"' in js and 'data-report-preset="weekly"' in js and 'data-report-preset="monthly"' in js,'all three report preset buttons are required')
     require('downloadOpsReportCsv' in js,'CSV download action is missing')
@@ -73,7 +77,8 @@ def main():
     locked={x.get('name'):x.get('version') for x in lock.get('packages-dev',[])}
     require(bool(lock.get('content-hash')),'Composer lock content-hash is missing')
     require('wp-coding-standards/wpcs' in locked,'Composer lock must pin WPCS')
-    print('PASS: SHA-locked base; ZIP CRC and member order; 75 files / 48 PHP; only the allow-listed app patches and one CSV reader.')
+    print('PASS: SHA-locked base; ZIP CRC and member order; 75 files / 48 PHP; limited report/import changes and one CSV reader.')
+    print('PASS: CSS module release marker matches 16.1.92; module sources and compiled CSS remain unmodified.')
     print('PASS: daily, weekly and monthly read-only report CSV; safe Daily POS CSV staged through the existing locked posting workflow; Product Master remains XLSX-only.')
     print('PASS: 29 + 16 + 4 = 49 schema unchanged; npm and Composer QA lockfiles validated; no live acceptance claim.')
 if __name__=='__main__': main()
