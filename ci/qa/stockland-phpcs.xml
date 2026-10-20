@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<ruleset name="StocklandERP">
+  <description>WordPress standards plus the canonical registered Stockland custom capabilities. File path exceptions are scoped inside their established REST files; security and SQL rules remain enabled.</description>
+  <rule ref="WordPress"/>
+  <rule ref="WordPress.WP.Capabilities">
+    <properties>
+      <property name="custom_capabilities" type="array">
+        <element value="stockland_approve_purchase_orders"/>
+        <element value="stockland_approve_transfers"/>
+        <element value="stockland_close_day"/>
+        <element value="stockland_create_sale"/>
+        <element value="stockland_create_wholesale"/>
+        <element value="stockland_daily_import"/>
+        <element value="stockland_install_schema"/>
+        <element value="stockland_manage_customers"/>
+        <element value="stockland_manage_expenses"/>
+        <element value="stockland_manage_hr"/>
+        <element value="stockland_manage_payables"/>
+        <element value="stockland_manage_payments"/>
+        <element value="stockland_manage_payroll"/>
+        <element value="stockland_manage_products"/>
+        <element value="stockland_manage_purchase_orders"/>
+        <element value="stockland_manage_receivables"/>
+        <element value="stockland_manage_reservations"/>
+        <element value="stockland_manage_settings"/>
+        <element value="stockland_manage_suppliers"/>
+        <element value="stockland_manage_transfers"/>
+        <element value="stockland_owner"/>
+        <element value="stockland_receive_transfer"/>
+        <element value="stockland_receive_warehouse"/>
+        <element value="stockland_record_return"/>
+        <element value="stockland_request_adjustment"/>
+        <element value="stockland_request_stock"/>
+        <element value="stockland_review_requisitions"/>
+        <element value="stockland_view_all_branches"/>
+        <element value="stockland_view_audit_log"/>
+        <element value="stockland_view_branch_reports"/>
+        <element value="stockland_view_cost_and_profit"/>
+        <element value="stockland_view_financials"/>
+        <element value="stockland_view_own_branch"/>
+        <element value="stockland_view_payroll"/>
+        <element value="stockland_view_warehouse"/>
+        <element value="stockland_view_warehouse_availability"/>
+      </property>
+    </properties>
+  </rule>
+</ruleset>

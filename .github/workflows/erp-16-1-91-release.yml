@@ -1,0 +1,166 @@
+name: Stockland ERP 16.1.91 canonical release gates
+
+on:
+  push:
+    branches:
+      - release/16.1.91-notification-ux
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+  security-events: write
+
+jobs:
+  build-and-verify:
+    name: Build and verify exact 16.1.91 package / PHP ${{ matrix.php-version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ["8.3", "8.4"]
+    steps:
+      - name: Checkout exact branch or PR head
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Verify Python and Node toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          python --version
+          node --version
+          python - <<'PY'
+          import sys
+          assert sys.version_info[:2] == (3, 12), f"Expected Python 3.12; got {sys.version}"
+          PY
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
+        with:
+          php-version: ${{ matrix.php-version }}
+          coverage: none
+          tools: composer
+
+      - name: Install workbook QA dependency
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'openpyxl==3.1.5'
+
+      - name: Build exact canonical update from SHA-verified 16.1.90 installer
+        run: python ci/build_release_16_1_91.py
+
+      - name: Validate package structure, source preservation, templates and CSS
+        run: python ci/qa/test-release-16.1.91.py
+
+      - name: Extract the exact package under test
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/stockland-v1691"
+          unzip -q STOCKLAND_ERP_16.1.91_CANONICAL_WORDPRESS_UPDATE.zip -d "$RUNNER_TEMP/stockland-v1691"
+          test -d "$RUNNER_TEMP/stockland-v1691/stockland-erp-app"
+          echo "STOCKLAND_APP=$RUNNER_TEMP/stockland-v1691/stockland-erp-app" >> "$GITHUB_ENV"
+
+      - name: PHP syntax lint — every packaged runtime file
+        shell: bash
+        run: |
+          set -euo pipefail
+          count=0
+          while IFS= read -r -d '' file; do
+            php -l "$file"
+            count=$((count + 1))
+          done < <(find "$STOCKLAND_APP" -type f -name '*.php' -print0)
+          test "$count" -eq 47
+          echo "47/47 PHP files passed on PHP ${{ matrix.php-version }}"
+
+      - name: JavaScript syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check "$STOCKLAND_APP/assets/app.js"
+          node --check "$STOCKLAND_APP/assets/pwa.js"
+
+      - name: Payroll and System Health regression
+        run: php ci/qa/test-payroll-health-policy.php "$STOCKLAND_APP"
+
+      - name: Notification rendering and existing role-action hooks
+        run: node ci/qa/test-notification-drawer.js "$STOCKLAND_APP/assets/app.js"
+
+      - name: Browser payroll preview regression
+        run: node ci/qa/test-payroll-preview.js "$STOCKLAND_APP/assets/app.js"
+
+      - name: PostCSS, six-module source build and minified CSS parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --prefix "$RUNNER_TEMP/cssqa" --no-save postcss@8
+          NODE_PATH="$RUNNER_TEMP/cssqa/node_modules" node ci/qa/check-css-postcss.js "$STOCKLAND_APP"
+
+      - name: Install PHPCS and WordPress Coding Standards
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/wpcs-project"
+          cd "$RUNNER_TEMP/wpcs-project"
+          composer init --name=stockland/erp-ci --no-interaction --stability=stable --type=project
+          composer config allow-plugins.dealerdirect/phpcodesniffer-composer-installer true
+          composer require --dev --no-interaction wp-coding-standards/wpcs:"^3.0"
+          echo "$RUNNER_TEMP/wpcs-project/vendor/bin" >> "$GITHUB_PATH"
+
+      - name: WordPress Coding Standards with existing Stockland capabilities
+        shell: bash
+        run: |
+          set -euo pipefail
+          phpcs --standard=ci/qa/stockland-phpcs.xml --extensions=php --report=json --report-file=phpcs-16.1.91.json "$STOCKLAND_APP"
+          python - <<'PY'
+          import json
+          with open("phpcs-16.1.91.json", encoding="utf-8") as f:
+              result = json.load(f)
+          totals = result.get("totals", {})
+          print("PHPCS/WPCS: {} errors, {} warnings, {} fixable".format(
+              totals.get("errors", 0), totals.get("warnings", 0), totals.get("fixable", 0)))
+          assert totals.get("errors", 0) == 0 and totals.get("warnings", 0) == 0, "Unexpected WPCS finding"
+          PY
+
+      - name: Semgrep PHP and security audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'pydantic==2.12.5' 'semgrep==1.139.0'
+          semgrep scan --metrics=off --config p/php --config p/security-audit --include '*.php' --json --output semgrep-16.1.91.json "$STOCKLAND_APP"
+          python ci/qa/summarize-semgrep.py semgrep-16.1.91.json
+
+      - name: Write exact-package acceptance record
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "## Stockland ERP 16.1.91 exact-package CI"
+            echo
+            echo "- PHP matrix: ${{ matrix.php-version }}"
+            echo "- ZIP SHA-256: $(sha256sum STOCKLAND_ERP_16.1.91_CANONICAL_WORDPRESS_UPDATE.zip | cut -d ' ' -f1)"
+            echo "- PHP files: 47/47 linted"
+            echo "- Live WordPress/MariaDB deployment: NOT PERFORMED by CI"
+            echo "- Production acceptance: separate from this source/package CI"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload exact installer and QA evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: stockland-16.1.91-canonical-php-${{ matrix.php-version }}
+          path: |
+            STOCKLAND_ERP_16.1.91_CANONICAL_WORDPRESS_UPDATE.zip
+            STOCKLAND_ERP_16.1.91_CANONICAL_WORDPRESS_UPDATE.zip.sha256
+            STOCKLAND_ERP_16.1.91_LOCAL_QA_RESULTS.txt
+            STOCKLAND_ERP_16.1.91_DEEP_CODE_LEVEL_AUDIT.md
+            phpcs-16.1.91.json
+            semgrep-16.1.91.json
+          if-no-files-found: warn

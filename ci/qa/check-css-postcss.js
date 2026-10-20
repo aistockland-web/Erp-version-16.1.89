@@ -6,8 +6,9 @@ const root = process.argv[2];
 if (!root || !fs.existsSync(root)) throw new Error('Pass extracted stockland-erp-app path');
 const assets = path.join(root, 'assets');
 const manifest = JSON.parse(fs.readFileSync(path.join(assets, 'css/modules.json'), 'utf8'));
-if (manifest.release !== '16.1.89' || manifest.modules.length !== 6 || new Set(manifest.modules).size !== 6) {
-  throw new Error('Expected six unique 16.1.89 CSS modules');
+const releaseManifest = JSON.parse(fs.readFileSync(path.join(root, 'RELEASE_MANIFEST.json'), 'utf8'));
+if (!releaseManifest.release || manifest.release !== releaseManifest.release || manifest.modules.length !== 6 || new Set(manifest.modules).size !== 6) {
+  throw new Error('Expected six unique CSS modules with a release marker matching RELEASE_MANIFEST.json');
 }
 const chunks = manifest.modules.map(name => fs.readFileSync(path.join(assets, 'css', name), 'utf8').trim());
 const built = chunks.join('\n\n') + '\n';

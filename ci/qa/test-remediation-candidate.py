@@ -9,7 +9,8 @@ wh = (root / "includes/rest/class-rest-wholesale.php").read_text(encoding="utf-8
 roles = (root / "includes/class-stockland-roles.php").read_text(encoding="utf-8")
 db = (root / "includes/class-stockland-db.php").read_text(encoding="utf-8")
 checks = [
-    ("HR validation error is escaped in the exception message", "esc_html( (string) $validation_error ) . ' Employee '" in hr),
+    ("HR exception message remains context-neutral rather than HTML-escaped", "$validation_error . ' Employee '" in hr and "esc_html( (string) $validation_error ) . ' Employee '" not in hr),
+    ("HR exception-context PHPCS suppression explains output-boundary escaping", "phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- exception text is internal catalog text, not HTML output; escape only at a rendering sink." in hr),
     ("HR exception remains a RuntimeException", "throw new RuntimeException(" in hr),
     ("prepared SQL uses $wpdb->prepare", "$wpdb->prepare( $sql, $args )" in wh),
     ("prepared result is checked before execution", "! is_string( $prepared ) || '' === $prepared" in wh),
