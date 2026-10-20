@@ -67,6 +67,27 @@ LOW_SQL = '''$low_sql  = "SELECT l.location_name,p.sku,p.product_name,
              AND (COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0))<=IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level)
              ORDER BY available_stock,p.sku";'''
 
+
+DASHBOARD_LOW_COUNT_PATTERN = re.compile(
+    r'\$low_sql\s*=\s*"SELECT COUNT\(\*\) FROM %i p CROSS JOIN %i l LEFT JOIN \(SELECT location_id,variant_id,SUM\(quantity_signed\) physical_stock FROM %i WHERE variant_id IS NOT NULL GROUP BY location_id,variant_id\) b ON b\.variant_id=p\.variant_id AND b\.location_id=l\.id WHERE p\.is_active=1 AND l\.location_type IN\(\'Warehouse\',\'Branch\'\)";'
+)
+DASHBOARD_LOW_COUNT_SQL = '''$low_sql  = "SELECT COUNT(*) FROM %i p CROSS JOIN %i l
+             LEFT JOIN (
+               SELECT t.location_id,COALESCE(t.variant_id,legacy_p.variant_id) variant_id,SUM(t.quantity_signed) physical_stock
+               FROM %i t
+               LEFT JOIN %i legacy_p ON t.variant_id IS NULL AND legacy_p.sku=t.sku
+               WHERE COALESCE(t.variant_id,legacy_p.variant_id) IS NOT NULL
+               GROUP BY t.location_id,COALESCE(t.variant_id,legacy_p.variant_id)
+             ) b ON b.variant_id=p.variant_id AND b.location_id=l.id
+             LEFT JOIN (
+               SELECT r.location_id,COALESCE(r.variant_id,legacy_r.variant_id) variant_id,SUM(r.quantity_reserved) reserved_stock
+               FROM %i r
+               LEFT JOIN %i legacy_r ON r.variant_id IS NULL AND legacy_r.sku=r.sku
+               WHERE r.status='Active' AND COALESCE(r.variant_id,legacy_r.variant_id) IS NOT NULL
+               GROUP BY r.location_id,COALESCE(r.variant_id,legacy_r.variant_id)
+             ) a ON a.variant_id=p.variant_id AND a.location_id=l.id
+             WHERE p.is_active=1 AND l.is_active=1 AND l.location_type IN('Warehouse','Branch')";'''
+
 def replace_exactly_once(pattern: re.Pattern[str], replacement: str, source: str, label: str) -> str:
     matches = list(pattern.finditer(source))
     if len(matches) != 1:
@@ -94,6 +115,20 @@ def patch_php(source: str) -> str:
         "$low_args = array( Stockland_DB::table( 'products' ), Stockland_DB::table( 'locations' ), Stockland_DB::table( 'transactions' ), Stockland_DB::table( 'products' ), Stockland_DB::table( 'reservations' ), Stockland_DB::table( 'products' ) );",
         "low-stock SQL parameter order",
     )
+    source = replace_exactly_once(DASHBOARD_LOW_COUNT_PATTERN, DASHBOARD_LOW_COUNT_SQL, source, "dashboard low-stock counter SQL")
+    source = replace_literal_once(
+        source,
+        "$low_args = array( $prod, $loc, $tx );",
+        "$low_args = array( $prod, $loc, $tx, $prod, Stockland_DB::table( 'reservations' ), $prod );",
+        "dashboard low-stock parameter order",
+    )
+    source = replace_literal_once(
+        source,
+        '$low_sql .= " AND COALESCE(b.physical_stock,0)<=IF(l.location_type=\\'Warehouse\\',p.central_reorder_level,p.branch_reorder_level)";',
+        '$low_sql .= " AND IF(l.location_type=\\'Warehouse\\',p.central_reorder_level,p.branch_reorder_level)>0 AND (COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0))<=IF(l.location_type=\\'Warehouse\\',p.central_reorder_level,p.branch_reorder_level)";',
+        "dashboard reorder compares available stock",
+    )
+
     # Ensure explicit stock semantics remain present in the source package.
     for required in (
         "COALESCE(t.variant_id,legacy_p.variant_id)",
@@ -180,6 +215,7 @@ def rebuild_zip(path: Path) -> dict:
             "live_data_changed": False,
             "inventory_reporting": "ledger plus active variant-linked and SKU-only legacy records",
             "reorder_reporting": "physical stock less active reservations",
+        "dashboard_alerts": "available stock after active reservations, including SKU-only legacy reservation rows",
         }
     finally:
         if tmp.exists():
