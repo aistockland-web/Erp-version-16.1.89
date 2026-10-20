@@ -40,7 +40,7 @@ with zipfile.ZipFile(ZIP) as z:
         need(hr.count("phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped")>=4,"plain-text REST message context is explicitly documented at four throw sites")
         wh=(app/"includes/rest/class-rest-wholesale.php").read_text()
         need("wpdb->prepare( $sql, $args )" in wh and "wpdb->get_results( $prepared, ARRAY_A )" in wh,"wholesale advice still uses prepared SQL")
-        need("phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching" in wh,"live stock/commitment query deliberately remains uncached")
+        need("WordPress.DB.DirectDatabaseQuery.NoCaching" in wh,"live stock/commitment query deliberately remains uncached")
         need(sum((app/"includes/rest"/p).read_text().count("phpcs:ignoreFile WordPress.Files.FileName.InvalidClassFileName") for p in LEGACY)==18,"only 18 established REST include paths are exempted from class filename sniff")
         need(len(list(app.rglob("*.php")))==47,"47 PHP files retained")
         # Compare UI runtime assets byte-for-byte against the exact 16.1.89 baseline.
@@ -48,6 +48,9 @@ with zipfile.ZipFile(ZIP) as z:
         need(len(base_candidates)==1 and hashlib.sha256(base_candidates[0].read_bytes()).hexdigest()==BASE_SHA,"baseline is the reviewed exact 16.1.89 ZIP")
         with zipfile.ZipFile(base_candidates[0]) as bz:
             bnames=set(bz.namelist())
+            package_rel={n[len("stockland-erp-app/"):] for n in names}
+            baseline_rel={n[len("stockland-erp-app/"):] for n in bnames if n.startswith("stockland-erp-app/")}
+            need(package_rel==baseline_rel,"file inventory is unchanged from the exact 16.1.89 baseline")
             for rel in ("assets/app.js","assets/pwa.js","assets/app.css","assets/app.min.css","assets/bootstrap.min.css","assets/stockland-logo.jpg","assets/stockland-sidebar-brand.png","assets/css/01-foundation.css","assets/css/02-shell-navigation.css","assets/css/03-content-data-components.css","assets/css/04-overlays-workflows.css","assets/css/05-responsive-layout.css","assets/css/06-operational-guards.css"):
                 name="stockland-erp-app/"+rel
                 need(name in bnames and bz.read(name)==(app/rel).read_bytes(),"UI asset preserved byte-for-byte: "+rel)
