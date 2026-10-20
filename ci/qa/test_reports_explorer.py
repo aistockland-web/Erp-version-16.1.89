@@ -53,6 +53,7 @@ def main():
             ("strlen( $sku ) > 128", "SKU input limit"),
             ("current_user_can( 'stockland_view_cost_and_profit' )", "cost/profit permission"),
             ("'critical_reorder' === $type && ! Stockland_Authority::is_owner()", "owner-only handler restriction"),
+            ("(float) ( $row['reorder_level'] ?? 0 ) > 0 && (float) ( $row['available_stock'] ?? 0 ) <=", "exclude disabled zero reorder thresholds"),
         ]:
             need(phrase in php, "server contract: " + label)
 
