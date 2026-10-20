@@ -39,6 +39,7 @@ jobs:
           shellcheck --version
 
   remediation-candidate:
+    if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'remediation/')
     name: Build and test non-deployable remediation candidate
     runs-on: ubuntu-latest
     timeout-minutes: 30
