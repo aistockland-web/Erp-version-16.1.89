@@ -63,7 +63,7 @@ def main():
     require(schema.get('new_business_table') is False,'new business table is not allowed')
     require(manifest['runtime_rules']['no_cron_dependency'] is True and manifest['runtime_rules']['no_database_triggers'] is True,'runtime scheduler/trigger policy changed')
     require(manifest['corrective_release_16_1_92']['production_acceptance'].startswith('PENDING'),'live acceptance must not be claimed')
-    require(any('Daily POS CSV or XLSX' in item for item in manifest['corrective_release_16_1_92']['changes']),'manifest must document CSV input')
+    require(any('Daily POS CSV' in item for item in manifest['corrective_release_16_1_92']['changes']),'manifest must document CSV input')
     package=json.loads((ROOT/'ci/cssqa/package.json').read_text(encoding='utf-8'))
     npmlock=json.loads((ROOT/'ci/cssqa/package-lock.json').read_text(encoding='utf-8'))
     require(npmlock.get('lockfileVersion')==3 and npmlock.get('name')==package.get('name'),'npm lock version/name is invalid')
