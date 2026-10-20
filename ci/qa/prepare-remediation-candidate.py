@@ -46,7 +46,7 @@ indent = hr_line[:len(hr_line) - len(hr_line.lstrip())]
 review_note = (
     indent
     + "// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- "
-    + "exception text is internal catalog text, not HTML output; escape only at a rendering sink.\\n"
+    + "exception text is internal catalog text, not HTML output; escape only at a rendering sink.\n"
 )
 hr_lines[hr_matches[0]] = review_note + hr_line
 hr_path.write_text("".join(hr_lines), encoding="utf-8")
