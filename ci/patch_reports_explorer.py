@@ -303,7 +303,7 @@ def patch_php(source: str) -> str:
 				);
 				$rows = is_array( $data['stock'] ?? null ) ? $data['stock'] : array();
 				if ( 'critical_reorder' === $type ) {
-					$rows = array_values( array_filter( $rows, static function ( $row ) { return (float) ( $row['available_stock'] ?? 0 ) <= (float) ( $row['reorder_level'] ?? 0 ); } ) );
+					$rows = array_values( array_filter( $rows, static function ( $row ) { return (float) ( $row['reorder_level'] ?? 0 ) > 0 && (float) ( $row['available_stock'] ?? 0 ) <= (float) ( $row['reorder_level'] ?? 0 ); } ) );
 					foreach ( $rows as &$row ) { $row['suggested_replenishment'] = max( 0, (float) ( $row['reorder_level'] ?? 0 ) - (float) ( $row['available_stock'] ?? 0 ) ); }
 					unset( $row );
 					$columns[] = array( 'key' => 'suggested_replenishment', 'label' => 'Suggested replenishment', 'format' => 'number' );
