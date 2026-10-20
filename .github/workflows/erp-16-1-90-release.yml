@@ -110,7 +110,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python -m pip install --disable-pip-version-check 'semgrep==1.139.0'
+          python -m pip install --disable-pip-version-check 'pydantic==2.12.5' 'semgrep==1.139.0'
           semgrep scan --metrics=off --config p/php --config p/security-audit --include '*.php' --json --output semgrep-16.1.90.json "$STOCKLAND_APP"
           python ci/qa/summarize-semgrep.py semgrep-16.1.90.json
       - name: Upload exact version PHPCS / Semgrep reports
