@@ -23,7 +23,7 @@ LOW_SQL_PATTERN = re.compile(
 STOCK_SQL = '''$stock_sql  = "SELECT l.location_name,p.sku,p.product_name,p.brand,p.size,p.color,
                     COALESCE(b.physical_stock,0) physical_stock,
                     COALESCE(a.reserved_stock,0) reserved_stock,
-                    COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0) available_stock,
+                    GREATEST(0,COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0)) available_stock,\n                    CASE WHEN COALESCE(a.reserved_stock,0)>COALESCE(b.physical_stock,0) THEN 'OVER-RESERVED' ELSE '' END availability_exception,
                     IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level) reorder_level
              FROM %i p JOIN %i l ON l.location_type IN('Warehouse','Branch') AND l.is_active=1
              LEFT JOIN (
@@ -45,7 +45,7 @@ STOCK_SQL = '''$stock_sql  = "SELECT l.location_name,p.sku,p.product_name,p.bran
 LOW_SQL = '''$low_sql  = "SELECT l.location_name,p.sku,p.product_name,
                     COALESCE(b.physical_stock,0) current_stock,
                     COALESCE(a.reserved_stock,0) reserved_stock,
-                    COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0) available_stock,
+                    GREATEST(0,COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0)) available_stock,\n                    CASE WHEN COALESCE(a.reserved_stock,0)>COALESCE(b.physical_stock,0) THEN 'OVER-RESERVED' ELSE '' END availability_exception,
                     IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level) reorder_level
              FROM %i p CROSS JOIN %i l
              LEFT JOIN (
@@ -64,7 +64,7 @@ LOW_SQL = '''$low_sql  = "SELECT l.location_name,p.sku,p.product_name,
              ) a ON a.variant_id=p.variant_id AND a.location_id=l.id
              WHERE p.is_active=1 AND l.is_active=1 AND l.location_type IN('Warehouse','Branch')" . $low_scope_sql . "
              AND IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level)>0
-             AND (COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0))<=IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level)
+             AND GREATEST(0,COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0))<=IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level)
              ORDER BY available_stock,p.sku";'''
 
 
@@ -125,8 +125,21 @@ def patch_php(source: str) -> str:
     source = replace_literal_once(
         source,
         r"""$low_sql .= " AND COALESCE(b.physical_stock,0)<=IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level)";""",
-        r"""$low_sql .= " AND IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level)>0 AND (COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0))<=IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level)";""",
+        r"""$low_sql .= " AND IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level)>0 AND GREATEST(0,COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0))<=IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level)";""",
         "dashboard reorder compares available stock",
+    )
+
+    source = replace_literal_once(
+        source,
+        "array( 'key' => 'available_stock', 'label' => 'Available', 'format' => 'number' ),",
+        "array( 'key' => 'available_stock', 'label' => 'Available', 'format' => 'number' ),\\n\\t\\t\\t\\t\\tarray( 'key' => 'availability_exception', 'label' => 'Reservation integrity' ),",
+        "show reservation integrity beside availability",
+    )
+    source = replace_literal_once(
+        source,
+        "Available stock equals physical stock less active reservations; suggested replenishment is the minimum quantity needed to reach the configured reorder level.",
+        "Sellable availability is max(0, physical stock less active reservations). OVER-RESERVED flags reservations exceeding physical stock; suggested replenishment is based on sellable availability.",
+        "critical reorder description",
     )
 
     # Ensure explicit stock semantics remain present in the source package.
@@ -171,8 +184,8 @@ def rebuild_zip(path: Path) -> dict:
         "physical_stock_source": "immutable stock ledger",
         "legacy_sku_only_ledger_rows": "resolved to active product variant where SKU mapping exists",
         "reservation_scope": "active reservations, including legacy SKU-only rows",
-        "availability": "physical stock minus active reservations; negative discrepancies remain visible",
-        "reorder_basis": "available stock after active reservations",
+        "availability": "sellable availability is max(0, physical stock minus active reservations); reservation excess remains separately visible",
+        "reorder_basis": "available stock after active reservations",\n        "availability_integrity": "reservation excess is displayed as OVER-RESERVED",
         "schema_changed": False,
         "live_data_changed": False,
     })
@@ -214,7 +227,7 @@ def rebuild_zip(path: Path) -> dict:
             "schema_changed": False,
             "live_data_changed": False,
             "inventory_reporting": "ledger plus active variant-linked and SKU-only legacy records",
-            "reorder_reporting": "physical stock less active reservations",
+            "reorder_reporting": "sellable availability is max of zero and physical stock less active reservations; reservation excess is separately flagged",
         "dashboard_alerts": "available stock after active reservations, including SKU-only legacy reservation rows",
         }
     finally:
