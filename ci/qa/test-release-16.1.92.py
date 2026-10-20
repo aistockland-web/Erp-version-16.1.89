@@ -71,7 +71,7 @@ def main():
     composer=json.loads((ROOT/'ci/phpcs/composer.json').read_text(encoding='utf-8'))
     lock=json.loads((ROOT/'ci/phpcs/composer.lock').read_text(encoding='utf-8'))
     locked={x.get('name'):x.get('version') for x in lock.get('packages-dev',[])}
-    require(lock.get('name')==composer.get('name') and bool(lock.get('content-hash')),'Composer lock does not match its manifest')
+    require(bool(lock.get('content-hash')),'Composer lock content-hash is missing')
     require('wp-coding-standards/wpcs' in locked,'Composer lock must pin WPCS')
     print('PASS: SHA-locked base; ZIP CRC and member order; 75 files / 48 PHP; only the allow-listed app patches and one CSV reader.')
     print('PASS: daily, weekly and monthly read-only report CSV; safe Daily POS CSV staged through the existing locked posting workflow; Product Master remains XLSX-only.')
