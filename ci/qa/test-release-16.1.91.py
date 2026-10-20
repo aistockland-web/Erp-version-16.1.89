@@ -91,7 +91,7 @@ qa = REPO / "STOCKLAND_ERP_16.1.91_LOCAL_QA_RESULTS.txt"
 audit = REPO / "STOCKLAND_ERP_16.1.91_DEEP_CODE_LEVEL_AUDIT.md"
 need(qa.is_file() and audit.is_file(), "exact-package QA and audit reports emitted")
 need(sha in qa.read_text(encoding="utf-8") and sha in audit.read_text(encoding="utf-8"), "QA and audit report identify exact installer checksum")
-need("NOT PERFORMED" in audit.read_text(encoding="utf-8"), "production acceptance boundary documented")
+need("No authenticated live WordPress/MariaDB connection" in audit.read_text(encoding="utf-8") and "CAPs remain open" in audit.read_text(encoding="utf-8"), "production acceptance boundary states live validation is not performed and CAPs stay open")
 print("PASS exact 16.1.91 package contract")
 print("SHA256=" + sha)
 print("SIZE_BYTES=" + str(len(raw)))
