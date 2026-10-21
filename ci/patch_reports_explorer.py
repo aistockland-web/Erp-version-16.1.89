@@ -377,6 +377,67 @@ def patch_php(source: str) -> str:
 		) );
 	}
 '''
+    stock_query_old = """\t\t$stock_sql  = "SELECT l.location_name,p.sku,p.product_name,p.brand,p.size,p.color,
+                    COALESCE(b.physical_stock,0) physical_stock,COALESCE(a.reserved_stock,0) reserved_stock,
+                    COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0) available_stock,
+                    IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level) reorder_level
+             FROM %i p JOIN %i l ON l.location_type IN('Warehouse','Branch')
+             LEFT JOIN (SELECT location_id,variant_id,SUM(quantity_signed) physical_stock FROM %i WHERE variant_id IS NOT NULL GROUP BY location_id,variant_id) b
+               ON b.variant_id=p.variant_id AND b.location_id=l.id
+             LEFT JOIN (SELECT location_id,variant_id,SUM(quantity_reserved) reserved_stock FROM %i WHERE status='Active' AND variant_id IS NOT NULL GROUP BY location_id,variant_id) a
+               ON a.variant_id=p.variant_id AND a.location_id=l.id
+             WHERE p.is_active=1";"""
+    stock_query_new = """\t\t$stock_sql  = "SELECT l.location_name,p.sku,p.product_name,p.brand,p.size,p.color,
+                    COALESCE(b.physical_stock,0) physical_stock,
+                    COALESCE(a.reserved_stock,0) reserved_stock,
+                    COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0) available_stock,
+                    COALESCE(i.inbound_stock,0) inbound_stock,
+                    COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0)+COALESCE(i.inbound_stock,0) reorder_position,
+                    IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level) reorder_level
+             FROM %i p JOIN %i l ON l.location_type IN('Warehouse','Branch') AND l.is_active=1
+             LEFT JOIN (SELECT location_id,variant_id,SUM(quantity_signed) physical_stock FROM %i WHERE variant_id IS NOT NULL GROUP BY location_id,variant_id) b
+               ON b.variant_id=p.variant_id AND b.location_id=l.id
+             LEFT JOIN (SELECT location_id,variant_id,SUM(quantity_reserved) reserved_stock FROM %i WHERE status='Active' AND variant_id IS NOT NULL GROUP BY location_id,variant_id) a
+               ON a.variant_id=p.variant_id AND a.location_id=l.id
+             LEFT JOIN (
+                 SELECT t.to_location_id AS location_id,COALESCE(t.variant_id,ip.variant_id) AS variant_id,
+                        SUM(GREATEST(COALESCE(t.dispatched_qty,0)-COALESCE(t.received_qty,0),0)) AS inbound_stock
+                 FROM %i t
+                 LEFT JOIN %i ip ON ((t.variant_id IS NOT NULL AND ip.variant_id=t.variant_id) OR (t.variant_id IS NULL AND ip.sku=t.sku))
+                 WHERE t.status IN('Picked','In Transit')
+                   AND COALESCE(t.dispatched_qty,0)>COALESCE(t.received_qty,0)
+                   AND COALESCE(t.variant_id,ip.variant_id) IS NOT NULL
+                 GROUP BY t.to_location_id,COALESCE(t.variant_id,ip.variant_id)
+             ) i ON i.variant_id=p.variant_id AND i.location_id=l.id
+             WHERE p.is_active=1";"""
+    source = replace_once(source, stock_query_old, stock_query_new, "reorder query uses current active locations and confirmed inbound transfers")
+    source = replace_once(source, "$stock_args = array( $prod, $loc, $tx, $res );", "$stock_args = array( $prod, $loc, $tx, $res, $tr, $prod );", "bind inbound transfer table arguments")
+
+    method = replace_once(method,
+        """\t\t\t\t\tarray( 'key' => 'available_stock', 'label' => 'Available', 'format' => 'number' ),
+\t\t\t\t\tarray( 'key' => 'reorder_level', 'label' => 'Reorder level', 'format' => 'number' ),""",
+        """\t\t\t\t\tarray( 'key' => 'available_stock', 'label' => 'Available now', 'format' => 'number' ),
+\t\t\t\t\tarray( 'key' => 'inbound_stock', 'label' => 'Inbound transfer', 'format' => 'number' ),
+\t\t\t\t\tarray( 'key' => 'reorder_position', 'label' => 'Reorder position', 'format' => 'number' ),
+\t\t\t\t\tarray( 'key' => 'reorder_level', 'label' => 'Reorder level', 'format' => 'number' ),""",
+        "show physical availability and inbound reorder position")
+    method = replace_once(method,
+        """\t\t\t\t\t\t$available_minor = Stockland_Money::minor( $row['available_stock'] ?? '0' );
+\t\t\t\t\t\treturn $reorder_minor > 0 && $available_minor <= $reorder_minor;""",
+        """\t\t\t\t\t\t$position_minor = Stockland_Money::minor( $row['reorder_position'] ?? $row['available_stock'] ?? '0' );
+\t\t\t\t\t\treturn $reorder_minor > 0 && $position_minor <= $reorder_minor;""",
+        "critical reorder uses available plus inbound transfer position")
+    method = replace_once(method,
+        """\t\t\t\t\t\t$available_minor = Stockland_Money::minor( $row['available_stock'] ?? '0' );
+\t\t\t\t\t\t$row['suggested_replenishment'] = Stockland_Money::decimal( max( 0, $reorder_minor - $available_minor ) );""",
+        """\t\t\t\t\t\t$position_minor = Stockland_Money::minor( $row['reorder_position'] ?? $row['available_stock'] ?? '0' );
+\t\t\t\t\t\t$row['suggested_replenishment'] = Stockland_Money::decimal( max( 0, $reorder_minor - $position_minor ) );""",
+        "replenishment suggestion subtracts dispatched inbound transfers")
+    method = replace_once(method,
+        """\t\t\t\t\t$description = 'Owner-only read-only list. Available stock equals physical stock less active reservations; suggested replenishment is the minimum quantity needed to reach the configured reorder level. No stock is ordered or changed.';""",
+        """\t\t\t\t\t$description = 'Owner-only read-only list. Physical, reserved, available and dispatched-but-unreceived transfer quantities are shown separately. Reorder position equals current available stock plus confirmed inbound transfer remainder; the suggestion is the non-negative quantity needed to reach the configured location reorder level. In-transit quantity does not change physical stock. No order or stock movement is created.';""",
+        "explain inbound-aware reorder semantics")
+
     source = replace_once(source, "\n\t/**\n\t * Builds a date-scoped summary of operational transactions.\n", "\n" + method + "\n\t/**\n\t * Builds a date-scoped summary of operational transactions.\n", "add reports_explorer method")
     return source
 
