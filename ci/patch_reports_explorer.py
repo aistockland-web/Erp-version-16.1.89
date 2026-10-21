@@ -508,6 +508,19 @@ if(!document.__slNewProductCaptureBound){
              LEFT JOIN (SELECT location_id,sku,SUM(quantity_reserved) reserved_stock FROM %i WHERE status='Active' AND variant_id IS NULL GROUP BY location_id,sku) al
                ON al.location_id=l.id AND al.sku=p.sku
              WHERE p.is_active=1 AND p.product_type<>'STYLE'";""", "legacy SKU stock/reservation parity")
+    source = replace_once(source, """		$stock_args = array( $prod, $loc, $tx, $res );
+		$stock_sql .= $this->append_scope_filter( 'l.id', $stock_args, $scope );
+		if ( '' !== $sku ) {
+			$stock_sql   .= ' AND p.sku=%s';
+			$stock_args[] = $sku;
+		}
+		$stock_sql .= ' ORDER BY l.location_name,p.sku';""", """		$stock_args = array( $prod, $loc, $tx, $tx, $res, $res );
+		$stock_sql .= $this->append_scope_filter( 'l.id', $stock_args, $scope );
+		if ( '' !== $sku ) {
+			$stock_sql   .= ' AND p.sku=%s';
+			$stock_args[] = $sku;
+		}
+		$stock_sql .= ' ORDER BY l.location_name,p.sku';""", "legacy SKU stock query placeholder order")
     return source
 
 def apply_to_installer(input_zip: Path, output_zip: Path) -> dict:
