@@ -100,15 +100,20 @@ process.stdout.write(JSON.stringify(r));
         need(ranges["last7"] == {"from":"2026-10-14","to":"2026-10-20"}, "last-seven-days date")
         need(ranges["month"] == {"from":"2026-10-01","to":"2026-10-20"}, "month-to-date date")
         # Independent arithmetic fixtures for variant-linked and legacy SKU-only rows.
-        # The report must preserve negative availability as an integrity signal.
+        # Sellable availability is floored at zero; over-reservation remains explicit.
         stock_fixtures = [
-            {"variant_on_hand": 4, "legacy_on_hand": 2, "variant_reserved": 3, "legacy_reserved": 1, "expected_available": 2},
-            {"variant_on_hand": 0, "legacy_on_hand": 1, "variant_reserved": 0, "legacy_reserved": 3, "expected_available": -2},
-            {"variant_on_hand": 0, "legacy_on_hand": 0, "variant_reserved": 0, "legacy_reserved": 0, "expected_available": 0},
+            {"variant_on_hand": 4, "legacy_on_hand": 2, "variant_reserved": 3, "legacy_reserved": 1, "expected_available": 2, "expected_over_reserved": False},
+            {"variant_on_hand": 0, "legacy_on_hand": 1, "variant_reserved": 0, "legacy_reserved": 3, "expected_available": 0, "expected_over_reserved": True},
+            {"variant_on_hand": 0, "legacy_on_hand": 0, "variant_reserved": 0, "legacy_reserved": 0, "expected_available": 0, "expected_over_reserved": False},
         ]
         for case in stock_fixtures:
-            observed = (case["variant_on_hand"] + case["legacy_on_hand"]) - (case["variant_reserved"] + case["legacy_reserved"])
-            need(observed == case["expected_available"], "legacy/variant stock arithmetic fixture")
+            physical = case["variant_on_hand"] + case["legacy_on_hand"]
+            reserved = case["variant_reserved"] + case["legacy_reserved"]
+            raw_available = physical - reserved
+            observed_available = max(0, raw_available)
+            observed_over_reserved = reserved > physical
+            need(observed_available == case["expected_available"], "sellable availability fixture")
+            need(observed_over_reserved == case["expected_over_reserved"], "reservation integrity fixture")
         for phrase, label in [
             ("COALESCE(t.variant_id,legacy_p.variant_id)", "live stock and reorder endpoints resolve legacy SKU-only ledger rows"),
             ("COALESCE(r.variant_id,legacy_r.variant_id)", "live stock and reorder endpoints resolve legacy SKU-only reservations"),
@@ -119,8 +124,10 @@ process.stdout.write(JSON.stringify(r));
         ]:
             need(phrase in stock_api, "live stock API contract: " + label)
 
-        need("COALESCE(b.physical_stock,0)+COALESCE(bl.physical_stock,0)" in php, "on-hand sums variant and legacy transaction rows")
-        need("(COALESCE(b.physical_stock,0)+COALESCE(bl.physical_stock,0))-(COALESCE(a.reserved_stock,0)+COALESCE(al.reserved_stock,0)) available_stock" in php, "availability formula includes both reservation formats")
+        need("COALESCE(t.variant_id,legacy_p.variant_id)" in php, "report on-hand resolves variant-linked and legacy SKU-only ledger rows")
+        need("COALESCE(r.variant_id,legacy_r.variant_id)" in php, "report reservations resolve variant-linked and legacy SKU-only rows")
+        need("GREATEST(0,COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0)) available_stock" in php, "report sellable availability is floored at zero")
+        need("CASE WHEN COALESCE(a.reserved_stock,0)>COALESCE(b.physical_stock,0) THEN 'OVER-RESERVED'" in php, "report exposes over-reservation as an integrity exception")
         print("PASS exact 16.1.92 checksum/size; ZIP CRC, inventory and root")
         print("PASS selector defaults, report-type selection, SKU autocomplete, selected-only print/PDF and CSV contracts")
         print("PASS server permission/location/SKU/cost scope assertions; Owner-only critical reorder")
