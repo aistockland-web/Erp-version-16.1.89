@@ -252,4 +252,45 @@ AI or narrative analysis may summarize and compare verified data but must not in
 
 ### 11.4 Final acceptance rule
 
-**Current overall status: NOT CERTIFIED FOR PRODUCTION.** Existing CI success is necessary but not sufficient. The known build-parity gap, full financial reconciliation, all-button matrix, real-theme desktop verification, management-page access checks, and provider configuration remain explicit blockers. Keep them on this one PR and deliver one consolidated release after they are resolved; do not create a new version per issue.
+**Historical disposition for Sections 1–11:** the package build and live-environment gates described above were open at the time those sections were written. See Section 12 for the latest WordPress installer source and package receipts. A successful package check is not proof that the file has already been uploaded or activated on the authenticated InfinityFree site.
+
+
+## 12. Consolidated WordPress update — latest artifact and source alignment
+
+**Artifact:** `STOCKLAND_ERP_16.1.93_WORDPRESS_UPDATE.zip`  
+**SHA-256:** `0e1f21ec02d33710921249f06e61aba4d4cbc24dae26d50c2513f19fe72442ba`  
+**Size:** 1,096,594 bytes  
+**Package:** 75 uniquely named files, single `stockland-erp-app/` plugin root  
+**Disposition:** installable update for the existing WordPress plugin folder; no new database schema or live record changes are packaged.
+
+### 12.1 Locally verified package facts
+
+- ZIP CRC, unique archive inventory and safe single plugin root passed.
+- PHP syntax: 48/48 files passed the installed PHP linter.
+- JavaScript syntax: `assets/app.js` and `assets/pwa.js` passed.
+- JSON parse: release manifest, PWA manifest and CSS module manifest passed.
+- Nine CSS files are byte-identical to the checked-out source tree.
+- Table contract remains 49 tables: 29 Core/Operations, 16 Accounting/Procurement, 4 HR/Payroll. Database schema version stays at 16.1.1; the schema activator is unchanged.
+- Release metadata and README identify this as a Stockland WordPress update and do not label the plugin update as a trial installation.
+- The source contains the dedicated Owner/Management Management Intelligence workspace and report query failures return explicit errors instead of valid-looking zero totals.
+- WordPress/PHP runtime checks, plug-in header and hosting notes align to PHP 8.3+. XLSX streaming health accepts the disk-backed reader fallback when supported XMLReader and ZipArchive are available.
+
+### 12.2 Stock / reorder audit findings incorporated
+
+The Reports Explorer, dashboard low-stock calculation, inventory list, live reorder endpoint and Daily Inventory now use consistent definitions. Posted stock ledger movements remain the physical-stock authority. Active reservations are resolved both by canonical variant and by legacy SKU-only rows where a valid Product Master mapping exists. Physical on-hand, reserved, sellable available, inbound transfer, reorder position and reorder threshold are separate. Sellable availability is floored at zero while `OVER-RESERVED` remains visible as an integrity warning. Unconfigured reorder thresholds do not create a false replenishment alert. Inbound quantity includes only eligible transfers whose state is explicitly `In Transit`; `Picked` alone is not assumed to mean a transfer has been dispatched. The proposed quantity is advisory and does not mutate stock or auto-create a purchase order.
+
+### 12.3 Payroll reference and arithmetic disposition
+
+The supplied standalone example was not installed as a second Node.js/Express service or PostgreSQL schema, and its sample names, TINs and salary values were not imported. Payroll remains in the existing WordPress/PHP/MySQL service using the canonical decimal-safe money engine, versioned rule `ET-PAYE-1395-2025-v3-PENSION-BASE`, effective-dated compensation, Owner-approved classifications, period locking and accounting posting.
+
+The installed PHP statutory calculator was invoked with synthetic fixture values. Six PAYE bracket boundaries and a complete payroll line reconcile: taxable income ETB 10,300.00; income tax ETB 1,740.00; employee pension ETB 700.00 (7%); employer pension ETB 1,100.00 (11%); gross pay ETB 11,000.00; net pay ETB 8,560.00; employer cost ETB 12,100.00. Five independent reorder boundary cases also match the stated threshold and minimum-one-unit suggestion policy. These are formula-level receipts, not a claim that any employee’s actual pay was changed or independently audited.
+
+The reported seven active employees without current compensation remain visible for authorized HR review. No salary, employee identity or effective-dated compensation record was invented, auto-filled or rewritten.
+
+### 12.4 Repository generation and installed-site boundary
+
+The existing PR #12 build workflow now invokes the ordered Reports Explorer, stock/reorder reconciliation and shared-host/report-protection steps. The stock query parameter-order assertions were corrected to match the expanded canonical-variant/reservation/transfer joins, and the regression contract explicitly checks that only `In Transit` contributes inbound stock. The production hardening source includes fail-closed guards for both report-source queries and Command Center sales/inventory measures.
+
+At the time this update was written, the GitHub connector had not returned a workflow run for the newest branch head; therefore the repository-generated artifact hash and current workflow status are **not represented as CI-verified**. The manually prepared installer above has the local receipts listed in Section 12.1. A later green repository run should be compared against the same package hash before treating CI reproducibility as closed.
+
+No authenticated control channel to the owner’s InfinityFree WordPress installation was available in this session. The ZIP was not uploaded, activated, or run against live tables, and no production data was modified. That boundary is not an open code change inside the installer; it is an external access/action limit. Do not represent live-site activation, all-button coverage, every finance/POS transaction path, or complete AP/AR/GL reconciliation as performed from package-level receipts alone.
