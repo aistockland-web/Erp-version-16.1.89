@@ -155,6 +155,21 @@ process.stdout.write(JSON.stringify(r));
         need("CASE WHEN COALESCE(a.reserved_stock,0)>COALESCE(b.physical_stock,0) THEN 'OVER-RESERVED'" in php, "report exposes over-reservation as an integrity exception")
         need(php.count("WHERE l.location_type='Branch' AND l.is_active=1") >= 2, "branch rollups exclude inactive locations")
         need("FROM %i p JOIN %i l ON l.location_type IN('Warehouse','Branch') AND l.is_active=1" in php, "inventory/reorder report excludes inactive locations")
+        need("'key' => 'inbound_stock', 'label' => 'Inbound transfer'" in php, "critical reorder displays inbound transfer quantities")
+        need("'key' => 'reorder_position', 'label' => 'Reorder position'" in php, "critical reorder displays reorder position")
+        need("$row['reorder_position'] ?? $row['available_stock'] ?? '0'" in php, "critical reorder filter uses reorder position")
+        need("max( 0, $reorder_minor - $position_minor )" in php, "suggested replenishment subtracts available plus inbound position")
+        reorder_cases = [
+            {"physical": 5, "reserved": 2, "inbound": 1, "level": 6, "alert": True, "suggested": 2},
+            {"physical": 2, "reserved": 0, "inbound": 4, "level": 5, "alert": False, "suggested": 0},
+            {"physical": 0, "reserved": 2, "inbound": 0, "level": 3, "alert": True, "suggested": 3},
+            {"physical": 5, "reserved": 1, "inbound": 0, "level": 4, "alert": False, "suggested": 0},
+        ]
+        for case in reorder_cases:
+            available = max(0, case["physical"] - case["reserved"])
+            position = available + case["inbound"]
+            need((case["level"] > 0 and position <= case["level"]) == case["alert"], "reorder position boundary fixture")
+            need(max(0, case["level"] - position) == case["suggested"], "replenishment quantity fixture")
         print("PASS exact 16.1.92 checksum/size; ZIP CRC, inventory and root")
         print("PASS selector defaults, report-type selection, SKU autocomplete, selected-only print/PDF and CSV contracts")
         print("PASS server permission/location/SKU/cost scope assertions; Owner-only critical reorder")
