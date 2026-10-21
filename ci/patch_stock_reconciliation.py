@@ -46,7 +46,7 @@ STOCK_SQL = '''$stock_sql  = "SELECT l.location_name,p.sku,p.product_name,p.bran
                SELECT t.to_location_id location_id,COALESCE(t.variant_id,inbound_p.variant_id) variant_id,
                       SUM(GREATEST(0,COALESCE(t.dispatched_qty,0)-COALESCE(t.received_qty,0))) inbound_stock
                FROM %i t LEFT JOIN %i inbound_p ON t.variant_id IS NULL AND inbound_p.sku=t.sku
-               WHERE t.status IN('Picked','In Transit') AND COALESCE(t.variant_id,inbound_p.variant_id) IS NOT NULL
+               WHERE t.status='In Transit' AND COALESCE(t.variant_id,inbound_p.variant_id) IS NOT NULL
                GROUP BY t.to_location_id,COALESCE(t.variant_id,inbound_p.variant_id)
              ) i ON i.variant_id=p.variant_id AND i.location_id=l.id
              WHERE p.is_active=1 AND p.product_type<>'STYLE' AND l.is_active=1";'''
@@ -79,7 +79,7 @@ LOW_SQL = '''$low_sql  = "SELECT l.location_name,p.sku,p.product_name,
                SELECT t.to_location_id location_id,COALESCE(t.variant_id,inbound_p.variant_id) variant_id,
                       SUM(GREATEST(0,COALESCE(t.dispatched_qty,0)-COALESCE(t.received_qty,0))) inbound_stock
                FROM %i t LEFT JOIN %i inbound_p ON t.variant_id IS NULL AND inbound_p.sku=t.sku
-               WHERE t.status IN('Picked','In Transit') AND COALESCE(t.variant_id,inbound_p.variant_id) IS NOT NULL
+               WHERE t.status='In Transit' AND COALESCE(t.variant_id,inbound_p.variant_id) IS NOT NULL
                GROUP BY t.to_location_id,COALESCE(t.variant_id,inbound_p.variant_id)
              ) i ON i.variant_id=p.variant_id AND i.location_id=l.id
              WHERE p.is_active=1 AND p.product_type<>'STYLE' AND l.is_active=1 AND l.location_type IN('Warehouse','Branch')" . $low_scope_sql . "
@@ -109,7 +109,7 @@ DASHBOARD_LOW_COUNT_SQL = '''$low_sql  = "SELECT COUNT(*) FROM %i p CROSS JOIN %
                SELECT t.to_location_id location_id,COALESCE(t.variant_id,inbound_p.variant_id) variant_id,
                       SUM(GREATEST(0,COALESCE(t.dispatched_qty,0)-COALESCE(t.received_qty,0))) inbound_stock
                FROM %i t LEFT JOIN %i inbound_p ON t.variant_id IS NULL AND inbound_p.sku=t.sku
-               WHERE t.status IN('Picked','In Transit') AND COALESCE(t.variant_id,inbound_p.variant_id) IS NOT NULL
+               WHERE t.status='In Transit' AND COALESCE(t.variant_id,inbound_p.variant_id) IS NOT NULL
                GROUP BY t.to_location_id,COALESCE(t.variant_id,inbound_p.variant_id)
              ) i ON i.variant_id=p.variant_id AND i.location_id=l.id
              WHERE p.is_active=1 AND p.product_type<>'STYLE' AND l.is_active=1 AND l.location_type IN('Warehouse','Branch')";'''
@@ -268,7 +268,7 @@ NEW_REORDER_SQL = r'''SELECT l.id location_id,l.location_type,l.location_name,p.
                     SELECT t.to_location_id location_id,COALESCE(t.variant_id,inbound_p.variant_id) variant_id,
                            SUM(GREATEST(0,COALESCE(t.dispatched_qty,0)-COALESCE(t.received_qty,0))) inbound_stock
                     FROM %i t LEFT JOIN %i inbound_p ON t.variant_id IS NULL AND inbound_p.sku=t.sku
-                    WHERE t.status IN('Picked','In Transit') AND COALESCE(t.variant_id,inbound_p.variant_id) IS NOT NULL
+                    WHERE t.status='In Transit' AND COALESCE(t.variant_id,inbound_p.variant_id) IS NOT NULL
                     GROUP BY t.to_location_id,COALESCE(t.variant_id,inbound_p.variant_id)
                 ) i ON i.variant_id=p.variant_id AND i.location_id=l.id
                 WHERE l.location_type IN('Warehouse','Branch') AND l.is_active=1 AND p.is_active=1 AND p.product_type<>'STYLE'
@@ -338,7 +338,7 @@ def patch_stock_api(source: str) -> str:
         "COALESCE(t.variant_id,legacy_p.variant_id)",
         "reorder_position",
         "suggested_replenishment",
-        "t.status IN('Picked','In Transit')",
+        "t.status='In Transit'",
     ):
         if marker not in source:
             raise ValueError("Live stock API reconciliation marker missing: " + marker)
@@ -513,7 +513,7 @@ def rebuild_zip(path: Path) -> dict:
                 "COALESCE(t.variant_id,legacy_p.variant_id)",
                 "reorder_position",
                 "suggested_replenishment",
-                "t.status IN('Picked','In Transit')",
+                "t.status='In Transit'",
             ):
                 if required_marker not in stock_api_final:
                     raise ValueError("Live stock API reconciliation changes were not retained: " + required_marker)
