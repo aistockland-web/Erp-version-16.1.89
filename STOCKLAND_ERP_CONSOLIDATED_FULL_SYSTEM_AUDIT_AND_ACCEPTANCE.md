@@ -171,7 +171,7 @@ Release gate: **zero unexplained reconciliation differences, zero unhandled crit
 
 ## 8. Consolidated stock / reorder correctness correction
 
-The consolidated package builder aligns the Reports Explorer, dashboard stock summary, live stock list, and live reorder-status endpoint with the same operational stock rules:
+The installable WordPress update artifact now aligns the Reports Explorer, dashboard stock summary, live stock list, and live reorder-status endpoint with the same operational stock rules:
 
 - Physical stock sums immutable ledger movements linked directly to a variant and legacy SKU-only movements that resolve unambiguously to a Product Master variant.
 - Active reservation totals include both variant-linked reservations and legacy SKU-only reservations. Released/cancelled reservations are excluded.
@@ -183,6 +183,21 @@ The consolidated package builder aligns the Reports Explorer, dashboard stock su
 
 ## 9. Additional gap closed in the consolidated source update
 
-The prior reconciliation builder corrected report/dashboard SQL but left the general stock-list and reorder-status REST handlers using variant-linked rows only. Those endpoints could therefore disagree with the report for legacy SKU-only ledger movements/reservations and could evaluate reorder using physical stock. The same builder now updates `includes/rest/class-rest-stock.php` to resolve legacy SKU-only records, show physical/reserved/available separately, clamp sellable availability at zero while emitting the over-reservation exception, and evaluate configured reorder thresholds against available stock. The source assertions now check those exact semantics, including `NO_LEVEL` for an unconfigured zero threshold.
+A previous report/dashboard correction left the general stock-list and reorder-status REST handlers using variant-linked rows only. Those endpoints could therefore disagree with the report for legacy SKU-only ledger movements/reservations and could evaluate reorder using physical stock. The delivered WordPress update archive corrects `includes/rest/class-rest-stock.php` to resolve legacy SKU-only records, show physical/reserved/available separately, clamp sellable availability at zero while emitting the over-reservation exception, and evaluate configured reorder thresholds against available stock. The source assertions now check those exact semantics, including `NO_LEVEL` for an unconfigured zero threshold.
 
 This is a source-level correction on the existing branch/PR. It is not a claim that the installed WordPress site's database, user roles, or every finance/ledger workflow has already been verified. These source edits do not change live data or the schema.
+
+
+## 10. Installable WordPress update artifact and current disposition
+
+The following WordPress plugin archive has been prepared from the existing 16.1.93 Reports Explorer candidate with the consolidated stock/reorder corrections incorporated; no separate release has been created for an individual defect.
+
+- Installer filename: `STOCKLAND_ERP_16.1.93_WORDPRESS_UPDATE.zip`
+- SHA-256: `24f9813aa1b59c20107b13cf4786f3577b331baddaf47f3ff1b8ea396831a99d`
+- Size: 1,119,653 bytes; 75 files; single `stockland-erp-app/` plugin root.
+- Source files changed by the supplemental correction: `includes/rest/class-rest-stock.php`, `includes/rest/class-rest-reports.php`, and `includes/rest/class-rest-app.php`, with the release manifest and README updated to describe the operational corrections.
+- Package verification results: ZIP CRC passed; 48/48 PHP files passed `php -l`; `assets/app.js` and `assets/pwa.js` passed Node syntax parsing; the release/PWA/CSS module JSON manifests parsed; all nine CSS files are byte-identical to the pre-correction 16.1.93 package; and `includes/class-stockland-activator.php` is unchanged. The database version marker remains `16.1.1`; no schema migration or new table was introduced.
+
+**Installed-site boundary:** this session does not have an authenticated control channel to the user's InfinityFree WordPress installation, so it did not upload, activate, or modify that live installation. The archive is a WordPress update package ready for an owner-controlled plugin update. Installed records, financial balances, branch permissions, every POS path and the complete ledger must not be represented as live-verified based only on package checks.
+
+**Repository reproducibility gap:** the supplemental correction was applied to the delivered archive; the current GitHub CI builder/QA allowlist has not yet been synchronized to reproduce this exact hash. Keep PR #12 open and do not merge/release through its current automated build until the stock correction is brought into the same builder and its existing regression gates. This remains part of the same consolidated release—not a request to create another version or one PR per issue.
