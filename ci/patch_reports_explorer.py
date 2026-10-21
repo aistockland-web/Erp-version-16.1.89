@@ -150,7 +150,7 @@ def patch_php(source: str) -> str:
 			$stock_sql   .= ' AND l.id=%d';
 			$stock_args[] = (int) $scope;
 		}
-		$stock_sql .= ' ORDER BY l.location_name,p.sku';""", """		$stock_args = array( $prod, $loc, $tx, $res );
+		$stock_sql .= ' ORDER BY l.location_name,p.sku';""", """		$stock_args = array( $prod, $loc, $tx, $tx, $res, $res );
 		$stock_sql .= $this->append_scope_filter( 'l.id', $stock_args, $scope );
 		if ( '' !== $sku ) {
 			$stock_sql   .= ' AND p.sku=%s';
@@ -484,6 +484,30 @@ if(!document.__slNewProductCaptureBound){
   },true);
 }"""
     source = replace_once(source, "if($('#newProduct'))$('#newProduct').onclick=()=>openProductEditor(null);", product_click_guard + "\nif($('#newProduct'))$('#newProduct').onclick=()=>openProductEditor(null);", "desktop product create layering + capture delegation")
+    source = replace_once(source, """		$stock_sql  = "SELECT l.location_name,p.sku,p.product_name,p.brand,p.size,p.color,
+                    COALESCE(b.physical_stock,0) physical_stock,COALESCE(a.reserved_stock,0) reserved_stock,
+                    COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0) available_stock,
+                    IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level) reorder_level
+             FROM %i p JOIN %i l ON l.location_type IN('Warehouse','Branch')
+             LEFT JOIN (SELECT location_id,variant_id,SUM(quantity_signed) physical_stock FROM %i WHERE variant_id IS NOT NULL GROUP BY location_id,variant_id) b
+               ON b.variant_id=p.variant_id AND b.location_id=l.id
+             LEFT JOIN (SELECT location_id,variant_id,SUM(quantity_reserved) reserved_stock FROM %i WHERE status='Active' AND variant_id IS NOT NULL GROUP BY location_id,variant_id) a
+               ON a.variant_id=p.variant_id AND a.location_id=l.id
+             WHERE p.is_active=1";""", """		$stock_sql  = "SELECT l.location_name,p.sku,p.product_name,p.brand,p.size,p.color,
+                    COALESCE(b.physical_stock,0)+COALESCE(bl.physical_stock,0) physical_stock,
+                    COALESCE(a.reserved_stock,0)+COALESCE(al.reserved_stock,0) reserved_stock,
+                    (COALESCE(b.physical_stock,0)+COALESCE(bl.physical_stock,0))-(COALESCE(a.reserved_stock,0)+COALESCE(al.reserved_stock,0)) available_stock,
+                    IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level) reorder_level
+             FROM %i p JOIN %i l ON l.location_type IN('Warehouse','Branch')
+             LEFT JOIN (SELECT location_id,variant_id,SUM(quantity_signed) physical_stock FROM %i WHERE variant_id IS NOT NULL GROUP BY location_id,variant_id) b
+               ON b.variant_id=p.variant_id AND b.location_id=l.id
+             LEFT JOIN (SELECT location_id,sku,SUM(quantity_signed) physical_stock FROM %i WHERE variant_id IS NULL GROUP BY location_id,sku) bl
+               ON bl.location_id=l.id AND bl.sku=p.sku
+             LEFT JOIN (SELECT location_id,variant_id,SUM(quantity_reserved) reserved_stock FROM %i WHERE status='Active' AND variant_id IS NOT NULL GROUP BY location_id,variant_id) a
+               ON a.variant_id=p.variant_id AND a.location_id=l.id
+             LEFT JOIN (SELECT location_id,sku,SUM(quantity_reserved) reserved_stock FROM %i WHERE status='Active' AND variant_id IS NULL GROUP BY location_id,sku) al
+               ON al.location_id=l.id AND al.sku=p.sku
+             WHERE p.is_active=1 AND p.product_type<>'STYLE'";""", "legacy SKU stock/reservation parity")
     return source
 
 def apply_to_installer(input_zip: Path, output_zip: Path) -> dict:
