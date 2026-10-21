@@ -117,6 +117,18 @@ async def run_candidate(zip_path: Path) -> None:
                     "() => { const p=document.querySelector('#slGlobalSearchResults'); return p && !p.hidden && p.textContent.includes('TCP-1234'); }",
                     timeout=5000,
                 )
+                box = await page.locator("#newProduct").bounding_box()
+                if not box:
+                    raise AssertionError(f"{width}px Product Master create button has no visible bounds")
+
+                # Model a WordPress/theme overlay which is painted above the ERP root at desktop size.
+                # A physical mouse click on the visible action's coordinates must still open its editor.
+                await page.evaluate("""(r) => {
+                    const overlay=document.createElement('div');
+                    overlay.id='hostThemeActionOverlay';
+                    overlay.style.cssText='position:fixed!important;z-index:2147483001!important;left:'+r.x+'px;top:'+r.y+'px;width:'+r.width+'px;height:'+r.height+'px;background:rgba(220,38,38,.08);pointer-events:auto!important;';
+                    document.body.appendChild(overlay);
+                }""", box)
                 hit = await page.evaluate("""() => {
                     const b=document.querySelector('#newProduct');
                     const r=b.getBoundingClientRect();
@@ -125,12 +137,12 @@ async def run_candidate(zip_path: Path) -> None:
                       actionZ:getComputedStyle(b.parentElement).zIndex,
                       guard:!!document.getElementById('sl-desktop-title-action-layer-fix')};
                 }""")
-                if hit["hitId"] != "newProduct":
-                    raise AssertionError(f"{width}px desktop button intercepted before click: {hit}")
-                if not hit["guard"] or int(hit["actionZ"]) < 80:
-                    raise AssertionError(f"{width}px desktop layering guard missing: {hit}")
+                if hit["hitId"] != "hostThemeActionOverlay":
+                    raise AssertionError(f"{width}px desktop overlay reproduction did not cover action: {hit}")
+                if not hit["guard"] or int(hit["actionZ"]) < 81:
+                    raise AssertionError(f"{width}px desktop action-layer protection missing: {hit}")
 
-                await page.locator("#newProduct").click(timeout=3000)
+                await page.mouse.click(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
                 await page.wait_for_selector("#productOverlay #productForm", state="visible", timeout=3000)
                 if not await page.evaluate("() => typeof document.querySelector('#productForm').onsubmit === 'function'"):
                     raise AssertionError(f"{width}px create form submit handler was not bound")
