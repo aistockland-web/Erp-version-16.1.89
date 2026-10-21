@@ -137,7 +137,7 @@ process.stdout.write(JSON.stringify(r));
 
         need("<th>Inbound transfer</th><th>Reorder position</th>" in js, "Reorder Alerts shows dispatched inbound and reorder position")
         need("x.reorder_position" in js and "x.suggested_replenishment" in js, "Reorder Alerts uses server-authoritative suggested quantity")
-        need("data-inbound=\\"'+esc(inbound)+'\\" data-position=\\"'+esc(position)+'\\" " not in js or "data-position" in js, "requisition context includes inbound position")
+        need("data-inbound" in js and "data-position" in js, "requisition context includes inbound position")
         need("$row['suggested_replenishment']" in stock_api, "live reorder endpoint returns suggested replenishment")
         need("$available <= 0 ? 'CRITICAL'" in daily_inventory, "Daily Inventory critical state uses sellable availability")
         need("$available <= $reorder_level" in daily_inventory, "Daily Inventory reorder boundary uses available stock")
