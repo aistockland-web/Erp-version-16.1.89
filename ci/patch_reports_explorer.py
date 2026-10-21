@@ -303,8 +303,16 @@ def patch_php(source: str) -> str:
 				);
 				$rows = is_array( $data['stock'] ?? null ) ? $data['stock'] : array();
 				if ( 'critical_reorder' === $type ) {
-					$rows = array_values( array_filter( $rows, static function ( $row ) { return (float) ( $row['reorder_level'] ?? 0 ) > 0 && (float) ( $row['available_stock'] ?? 0 ) <= (float) ( $row['reorder_level'] ?? 0 ); } ) );
-					foreach ( $rows as &$row ) { $row['suggested_replenishment'] = max( 0, (float) ( $row['reorder_level'] ?? 0 ) - (float) ( $row['available_stock'] ?? 0 ) ); }
+					$rows = array_values( array_filter( $rows, static function ( $row ) {
+						$reorder_minor   = Stockland_Money::minor( $row['reorder_level'] ?? '0' );
+						$available_minor = Stockland_Money::minor( $row['available_stock'] ?? '0' );
+						return $reorder_minor > 0 && $available_minor <= $reorder_minor;
+					} ) );
+					foreach ( $rows as &$row ) {
+						$reorder_minor   = Stockland_Money::minor( $row['reorder_level'] ?? '0' );
+						$available_minor = Stockland_Money::minor( $row['available_stock'] ?? '0' );
+						$row['suggested_replenishment'] = Stockland_Money::decimal( max( 0, $reorder_minor - $available_minor ) );
+					}
 					unset( $row );
 					$columns[] = array( 'key' => 'suggested_replenishment', 'label' => 'Suggested replenishment', 'format' => 'number' );
 					$description = 'Owner-only read-only list. Available stock equals physical stock less active reservations; suggested replenishment is the minimum quantity needed to reach the configured reorder level. No stock is ordered or changed.';
