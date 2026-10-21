@@ -599,51 +599,51 @@ def patch_operational_integrity_php(source: str) -> str:
     """Correct reservation-aware reorder calculations and preserve decimal money."""
     dashboard_at = source.index("private function dashboard(")
     low_at = source.index('$low_sql  = "SELECT COUNT(*) FROM %i p CROSS JOIN %i l', dashboard_at)
-    low_end = source.index("\\n\\t\\t\\t$today       =", low_at)
-    dashboard_low = """\\t\\t\\t$low_reorder_expr  = "IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level)";
-\\t\\t\\t$low_available_expr = 'COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0)';
-\\t\\t\\t$low_from_sql  = "FROM %i p CROSS JOIN %i l
-\\t\\t\\t\\tLEFT JOIN (SELECT location_id,variant_id,SUM(quantity_signed) physical_stock FROM %i WHERE variant_id IS NOT NULL GROUP BY location_id,variant_id) b ON b.variant_id=p.variant_id AND b.location_id=l.id
-\\t\\t\\t\\tLEFT JOIN (SELECT location_id,variant_id,SUM(quantity_reserved) reserved_stock FROM %i WHERE status='Active' AND variant_id IS NOT NULL GROUP BY location_id,variant_id) a ON a.variant_id=p.variant_id AND a.location_id=l.id
-\\t\\t\\t\\tWHERE p.is_active=1 AND p.product_type<>'STYLE' AND l.location_type IN('Warehouse','Branch')";
-\\t\\t\\t$low_args     = array( $prod, $loc, $tx, Stockland_DB::table( 'reservations' ) );
-\\t\\t\\tif ( is_array( $scope_ids ) ) {
-\\t\\t\\t\\t$ph          = implode( ',', array_fill( 0, count( $scope_ids ), '%d' ) );
-\\t\\t\\t\\t$low_from_sql .= ' AND l.id IN (' . $ph . ')';
-\\t\\t\\t\\t$low_args     = array_merge( $low_args, $scope_ids );
-\\t\\t\\t} elseif ( null !== $scope_ids ) {
-\\t\\t\\t\\t$low_from_sql .= ' AND l.id=%d';
-\\t\\t\\t\\t$low_args[]    = (int) $scope_ids;
-\\t\\t\\t}
-\\t\\t\\t$low_from_sql .= ' AND ' . $low_reorder_expr . ' > 0 AND ' . $low_available_expr . ' <= ' . $low_reorder_expr;
-\\t\\t\\t$low_sql = 'SELECT COUNT(*) ' . $low_from_sql;
-\\t\\t\\t// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- SQL fragments are fixed; identifiers/values are bound via prepare().
-\\t\\t\\t$low = (int) Stockland_DB::read_var( $wpdb->prepare( $low_sql, $low_args ) );
-\\t\\t\\t$low_rows_sql = 'SELECT l.id location_id,l.location_name,l.location_type,p.variant_id,p.sku,p.product_name,COALESCE(b.physical_stock,0) physical_stock,COALESCE(a.reserved_stock,0) reserved_stock,' . $low_available_expr . ' available_stock,' . $low_reorder_expr . ' reorder_level ' . $low_from_sql . ' ORDER BY available_stock ASC,p.sku LIMIT 12';
-\\t\\t\\t// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Same location scope and prepared arguments as the counter query.
-\\t\\t\\t$low_stock_rows = Stockland_DB::read_results( $wpdb->prepare( $low_rows_sql, $low_args ), ARRAY_A );"""
+    low_end = source.index("\n\t\t\t$today       =", low_at)
+    dashboard_low = """\t\t\t$low_reorder_expr  = "IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level)";
+\t\t\t$low_available_expr = 'COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0)';
+\t\t\t$low_from_sql  = "FROM %i p CROSS JOIN %i l
+\t\t\t\tLEFT JOIN (SELECT location_id,variant_id,SUM(quantity_signed) physical_stock FROM %i WHERE variant_id IS NOT NULL GROUP BY location_id,variant_id) b ON b.variant_id=p.variant_id AND b.location_id=l.id
+\t\t\t\tLEFT JOIN (SELECT location_id,variant_id,SUM(quantity_reserved) reserved_stock FROM %i WHERE status='Active' AND variant_id IS NOT NULL GROUP BY location_id,variant_id) a ON a.variant_id=p.variant_id AND a.location_id=l.id
+\t\t\t\tWHERE p.is_active=1 AND p.product_type<>'STYLE' AND l.location_type IN('Warehouse','Branch')";
+\t\t\t$low_args     = array( $prod, $loc, $tx, Stockland_DB::table( 'reservations' ) );
+\t\t\tif ( is_array( $scope_ids ) ) {
+\t\t\t\t$ph          = implode( ',', array_fill( 0, count( $scope_ids ), '%d' ) );
+\t\t\t\t$low_from_sql .= ' AND l.id IN (' . $ph . ')';
+\t\t\t\t$low_args     = array_merge( $low_args, $scope_ids );
+\t\t\t} elseif ( null !== $scope_ids ) {
+\t\t\t\t$low_from_sql .= ' AND l.id=%d';
+\t\t\t\t$low_args[]    = (int) $scope_ids;
+\t\t\t}
+\t\t\t$low_from_sql .= ' AND ' . $low_reorder_expr . ' > 0 AND ' . $low_available_expr . ' <= ' . $low_reorder_expr;
+\t\t\t$low_sql = 'SELECT COUNT(*) ' . $low_from_sql;
+\t\t\t// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- SQL fragments are fixed; identifiers/values are bound via prepare().
+\t\t\t$low = (int) Stockland_DB::read_var( $wpdb->prepare( $low_sql, $low_args ) );
+\t\t\t$low_rows_sql = 'SELECT l.id location_id,l.location_name,l.location_type,p.variant_id,p.sku,p.product_name,COALESCE(b.physical_stock,0) physical_stock,COALESCE(a.reserved_stock,0) reserved_stock,' . $low_available_expr . ' available_stock,' . $low_reorder_expr . ' reorder_level ' . $low_from_sql . ' ORDER BY available_stock ASC,p.sku LIMIT 12';
+\t\t\t// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Same location scope and prepared arguments as the counter query.
+\t\t\t$low_stock_rows = Stockland_DB::read_results( $wpdb->prepare( $low_rows_sql, $low_args ), ARRAY_A );"""
     source = source[:low_at] + dashboard_low + source[low_end:]
     source = replace_once(
         source,
-        "\\t\\t\\t\\t\\t'low_stock'               => $low,",
-        "\\t\\t\\t\\t\\t'low_stock'               => $low,\\n\\t\\t\\t\\t\\t'low_stock_rows'          => is_array( $low_stock_rows ) ? $low_stock_rows : array(),",
+        "\t\t\t\t\t'low_stock'               => $low,",
+        "\t\t\t\t\t'low_stock'               => $low,\n\t\t\t\t\t'low_stock_rows'          => is_array( $low_stock_rows ) ? $low_stock_rows : array(),",
         "dashboard low-stock rows"
     )
     # Month/year dashboard totals use the WordPress site-local calendar and decimal-safe output.
     month_at = source.index("$month_sql =")
     if month_at < dashboard_at:
         raise ValueError("dashboard month summary anchor is out of order")
-    month_end = source.index("\\n\\t\\t\\t\\t$stock_sql  = \\"SELECT l.id,l.location_name", month_at)
-    month_block = """\\t\\t\\t\\t$month_start = current_time( 'Y-m-01' );
-\\t\\t\\t\\t$year_start  = current_time( 'Y-01-01' );
-\\t\\t\\t\\t$month_sql   = "SELECT COALESCE(SUM(sales_total),0) FROM %i WHERE posting_status='CLOSED' AND sale_date BETWEEN %s AND %s" . $sales_where;
-\\t\\t\\t\\t$month_args  = array_merge( array( $sales, $month_start, $today_value ), $sales_args );
-\\t\\t\\t\\t// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- fixed SQL fragments; scoped values are bound.
-\\t\\t\\t\\t$month = Stockland_Money::decimal( Stockland_Money::minor( Stockland_DB::read_var( $wpdb->prepare( $month_sql, $month_args ) ) ?? '0' ) );
-\\t\\t\\t\\t$year_sql   = "SELECT COALESCE(SUM(sales_total),0) FROM %i WHERE posting_status='CLOSED' AND sale_date BETWEEN %s AND %s" . $sales_where;
-\\t\\t\\t\\t$year_args  = array_merge( array( $sales, $year_start, $today_value ), $sales_args );
-\\t\\t\\t\\t// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- fixed SQL fragments; scoped values are bound.
-\\t\\t\\t\\t$year = Stockland_Money::decimal( Stockland_Money::minor( Stockland_DB::read_var( $wpdb->prepare( $year_sql, $year_args ) ) ?? '0' ) );"""
+    month_end = source.index("\n\t\t\t\t$stock_sql  = \\"SELECT l.id,l.location_name", month_at)
+    month_block = """\t\t\t\t$month_start = current_time( 'Y-m-01' );
+\t\t\t\t$year_start  = current_time( 'Y-01-01' );
+\t\t\t\t$month_sql   = "SELECT COALESCE(SUM(sales_total),0) FROM %i WHERE posting_status='CLOSED' AND sale_date BETWEEN %s AND %s" . $sales_where;
+\t\t\t\t$month_args  = array_merge( array( $sales, $month_start, $today_value ), $sales_args );
+\t\t\t\t// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- fixed SQL fragments; scoped values are bound.
+\t\t\t\t$month = Stockland_Money::decimal( Stockland_Money::minor( Stockland_DB::read_var( $wpdb->prepare( $month_sql, $month_args ) ) ?? '0' ) );
+\t\t\t\t$year_sql   = "SELECT COALESCE(SUM(sales_total),0) FROM %i WHERE posting_status='CLOSED' AND sale_date BETWEEN %s AND %s" . $sales_where;
+\t\t\t\t$year_args  = array_merge( array( $sales, $year_start, $today_value ), $sales_args );
+\t\t\t\t// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- fixed SQL fragments; scoped values are bound.
+\t\t\t\t$year = Stockland_Money::decimal( Stockland_Money::minor( Stockland_DB::read_var( $wpdb->prepare( $year_sql, $year_args ) ) ?? '0' ) );"""
     source = source[:month_at] + month_block + source[month_end:]
     # Keep monetary values as decimal strings at the JSON boundary.
     source = replace_once(source, "$inv = (float) Stockland_DB::read_var( $wpdb->prepare( $inv_sql, $inv_args ) );",
@@ -665,14 +665,14 @@ def patch_operational_integrity_php(source: str) -> str:
     daily_low_at = source.index('$low_sql  = "SELECT l.location_name,p.sku,p.product_name', daily_at)
     args_at = source.index("$low_args = array( Stockland_DB::table( 'products' )", daily_low_at)
     low_end = source.index(");", args_at) + 2
-    daily_low = """\\t\\t$low_reorder_expr  = "IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level)";
-\\t\\t$low_available_expr = 'COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0)';
-\\t\\t$low_sql  = 'SELECT l.id location_id,l.location_name,l.location_type,p.variant_id,p.sku,p.product_name,COALESCE(b.physical_stock,0) physical_stock,COALESCE(a.reserved_stock,0) reserved_stock,' . $low_available_expr . ' available_stock,' . $low_reorder_expr . ' reorder_level
-\\t\\t\\tFROM %i p CROSS JOIN %i l
-\\t\\t\\tLEFT JOIN (SELECT location_id,variant_id,SUM(quantity_signed) physical_stock FROM %i WHERE variant_id IS NOT NULL GROUP BY location_id,variant_id) b ON b.variant_id=p.variant_id AND b.location_id=l.id
-\\t\\t\\tLEFT JOIN (SELECT location_id,variant_id,SUM(quantity_reserved) reserved_stock FROM %i WHERE status=\\'Active\\' AND variant_id IS NOT NULL GROUP BY location_id,variant_id) a ON a.variant_id=p.variant_id AND a.location_id=l.id
-\\t\\t\\tWHERE p.is_active=1 AND p.product_type<>\\'STYLE\\' AND l.location_type IN(\\'Warehouse\\',\\'Branch\\')' . $low_scope_sql . ' AND ' . $low_reorder_expr . ' > 0 AND ' . $low_available_expr . ' <= ' . $low_reorder_expr . ' ORDER BY available_stock,p.sku';
-\\t\\t$low_args = array( Stockland_DB::table( 'products' ), Stockland_DB::table( 'locations' ), Stockland_DB::table( 'transactions' ), Stockland_DB::table( 'reservations' ) );"""
+    daily_low = """\t\t$low_reorder_expr  = "IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level)";
+\t\t$low_available_expr = 'COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0)';
+\t\t$low_sql  = 'SELECT l.id location_id,l.location_name,l.location_type,p.variant_id,p.sku,p.product_name,COALESCE(b.physical_stock,0) physical_stock,COALESCE(a.reserved_stock,0) reserved_stock,' . $low_available_expr . ' available_stock,' . $low_reorder_expr . ' reorder_level
+\t\t\tFROM %i p CROSS JOIN %i l
+\t\t\tLEFT JOIN (SELECT location_id,variant_id,SUM(quantity_signed) physical_stock FROM %i WHERE variant_id IS NOT NULL GROUP BY location_id,variant_id) b ON b.variant_id=p.variant_id AND b.location_id=l.id
+\t\t\tLEFT JOIN (SELECT location_id,variant_id,SUM(quantity_reserved) reserved_stock FROM %i WHERE status=\\'Active\\' AND variant_id IS NOT NULL GROUP BY location_id,variant_id) a ON a.variant_id=p.variant_id AND a.location_id=l.id
+\t\t\tWHERE p.is_active=1 AND p.product_type<>\\'STYLE\\' AND l.location_type IN(\\'Warehouse\\',\\'Branch\\')' . $low_scope_sql . ' AND ' . $low_reorder_expr . ' > 0 AND ' . $low_available_expr . ' <= ' . $low_reorder_expr . ' ORDER BY available_stock,p.sku';
+\t\t$low_args = array( Stockland_DB::table( 'products' ), Stockland_DB::table( 'locations' ), Stockland_DB::table( 'transactions' ), Stockland_DB::table( 'reservations' ) );"""
     source = source[:daily_low_at] + daily_low + source[low_end:]
     # Report money and reorder quantities must not pass through binary float arithmetic.
     replacements = [
@@ -697,20 +697,20 @@ def patch_operational_integrity_php(source: str) -> str:
     ]
     for old, new, label in replacements:
         source = replace_once(source, old, new, label)
-    old = """\\t\\t\\t\\t\\t$rows = array_values( array_filter( $rows, static function ( $row ) { return (float) ( $row['reorder_level'] ?? 0 ) > 0 && (float) ( $row['available_stock'] ?? 0 ) <= (float) ( $row['reorder_level'] ?? 0 ); } ) );
-\\t\\t\\t\\t\\tforeach ( $rows as &$row ) { $row['suggested_replenishment'] = max( 0, (float) ( $row['reorder_level'] ?? 0 ) - (float) ( $row['available_stock'] ?? 0 ) ); }
-\\t\\t\\t\\t\\tunset( $row );"""
-    new = """\\t\\t\\t\\t\\t$rows = array_values( array_filter( $rows, static function ( $row ) {
-\\t\\t\\t\\t\\t\\t$level_minor = Stockland_Money::minor( (string) ( $row['reorder_level'] ?? '0' ) );
-\\t\\t\\t\\t\\t\\t$available_minor = Stockland_Money::minor( (string) ( $row['available_stock'] ?? '0' ) );
-\\t\\t\\t\\t\\t\\treturn $level_minor > 0 && $available_minor <= $level_minor;
-\\t\\t\\t\\t\\t} ) );
-\\t\\t\\t\\t\\tforeach ( $rows as &$row ) {
-\\t\\t\\t\\t\\t\\t$level_minor = Stockland_Money::minor( (string) ( $row['reorder_level'] ?? '0' ) );
-\\t\\t\\t\\t\\t\\t$available_minor = Stockland_Money::minor( (string) ( $row['available_stock'] ?? '0' ) );
-\\t\\t\\t\\t\\t\\t$row['suggested_replenishment'] = Stockland_Money::decimal( max( 0, $level_minor - $available_minor ) );
-\\t\\t\\t\\t\\t}
-\\t\\t\\t\\t\\tunset( $row );"""
+    old = """\t\t\t\t\t$rows = array_values( array_filter( $rows, static function ( $row ) { return (float) ( $row['reorder_level'] ?? 0 ) > 0 && (float) ( $row['available_stock'] ?? 0 ) <= (float) ( $row['reorder_level'] ?? 0 ); } ) );
+\t\t\t\t\tforeach ( $rows as &$row ) { $row['suggested_replenishment'] = max( 0, (float) ( $row['reorder_level'] ?? 0 ) - (float) ( $row['available_stock'] ?? 0 ) ); }
+\t\t\t\t\tunset( $row );"""
+    new = """\t\t\t\t\t$rows = array_values( array_filter( $rows, static function ( $row ) {
+\t\t\t\t\t\t$level_minor = Stockland_Money::minor( (string) ( $row['reorder_level'] ?? '0' ) );
+\t\t\t\t\t\t$available_minor = Stockland_Money::minor( (string) ( $row['available_stock'] ?? '0' ) );
+\t\t\t\t\t\treturn $level_minor > 0 && $available_minor <= $level_minor;
+\t\t\t\t\t} ) );
+\t\t\t\t\tforeach ( $rows as &$row ) {
+\t\t\t\t\t\t$level_minor = Stockland_Money::minor( (string) ( $row['reorder_level'] ?? '0' ) );
+\t\t\t\t\t\t$available_minor = Stockland_Money::minor( (string) ( $row['available_stock'] ?? '0' ) );
+\t\t\t\t\t\t$row['suggested_replenishment'] = Stockland_Money::decimal( max( 0, $level_minor - $available_minor ) );
+\t\t\t\t\t}
+\t\t\t\t\tunset( $row );"""
     source = replace_once(source, old, new, "fixed-point critical reorder")
     return source
 
