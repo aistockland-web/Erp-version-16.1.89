@@ -29,6 +29,7 @@ def main():
         js = source_after["stockland-erp-app/assets/app.js"].decode()
         php = source_after["stockland-erp-app/includes/rest/class-rest-app.php"].decode()
         stock_api = source_after["stockland-erp-app/includes/rest/class-rest-stock.php"].decode()
+        daily_inventory = source_after["stockland-erp-app/includes/rest/class-rest-inventory-report-v16.php"].decode()
         entry = source_after["stockland-erp-app/stockland-inventory.php"].decode()
         front = source_after["stockland-erp-app/includes/class-stockland-frontend.php"].decode()
         manifest = json.loads(source_after["stockland-erp-app/RELEASE_MANIFEST.json"])
@@ -85,6 +86,7 @@ def main():
             "stockland-erp-app/includes/class-stockland-frontend.php",
             "stockland-erp-app/includes/rest/class-rest-app.php",
             "stockland-erp-app/includes/rest/class-rest-stock.php",
+            "stockland-erp-app/includes/rest/class-rest-inventory-report-v16.php",
             "stockland-erp-app/stockland-inventory.php",
         }
         need(changed == allowed, "changed file allowlist: " + repr(sorted(changed)))
@@ -132,6 +134,14 @@ process.stdout.write(JSON.stringify(r));
             ("$level <= 0.0 ? 'NO_LEVEL'", "zero reorder level is not treated as configured critical reorder"),
         ]:
             need(phrase in stock_api, "live stock API contract: " + label)
+
+        need("<th>Inbound transfer</th><th>Reorder position</th>" in js, "Reorder Alerts shows dispatched inbound and reorder position")
+        need("x.reorder_position" in js and "x.suggested_replenishment" in js, "Reorder Alerts uses server-authoritative suggested quantity")
+        need("data-inbound=\\"'+esc(inbound)+'\\" data-position=\\"'+esc(position)+'\\" " not in js or "data-position" in js, "requisition context includes inbound position")
+        need("$row['suggested_replenishment']" in stock_api, "live reorder endpoint returns suggested replenishment")
+        need("$available <= 0 ? 'CRITICAL'" in daily_inventory, "Daily Inventory critical state uses sellable availability")
+        need("$available <= $reorder_level" in daily_inventory, "Daily Inventory reorder boundary uses available stock")
+        need("reorder_alerts" in daily_inventory, "Daily Inventory low-stock KPI retained")
 
         need("COALESCE(t.variant_id,legacy_p.variant_id)" in php, "report on-hand resolves variant-linked and legacy SKU-only ledger rows")
         need("COALESCE(r.variant_id,legacy_r.variant_id)" in php, "report reservations resolve variant-linked and legacy SKU-only rows")
