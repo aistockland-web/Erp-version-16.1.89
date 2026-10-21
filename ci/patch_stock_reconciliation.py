@@ -351,7 +351,7 @@ def patch_php(source: str) -> str:
     source = replace_exactly_once(STOCK_SQL_PATTERN, STOCK_SQL, source, "report inventory SQL")
     source = replace_literal_once(
         source,
-        "$stock_args = array( $prod, $loc, $tx, $res );",
+        "$stock_args = array( $prod, $loc, $tx, $res, $tr, $prod );",
         "$stock_args = array( $prod, $loc, $tx, $prod, $res, $prod, $tr, $prod );",
         "report inventory SQL parameter order",
     )
