@@ -198,11 +198,11 @@ This package-level correction is not evidence that the installed WordPress datab
 The following WordPress plugin archive has been prepared from the existing 16.1.93 Reports Explorer candidate with the consolidated stock/reorder corrections incorporated; no separate release has been created for an individual defect.
 
 - Installer filename: `STOCKLAND_ERP_16.1.93_WORDPRESS_UPDATE.zip`
-- SHA-256: `24f9813aa1b59c20107b13cf4786f3577b331baddaf47f3ff1b8ea396831a99d`
-- Size: 1,119,653 bytes; 75 files; single `stockland-erp-app/` plugin root.
+- SHA-256: `414298ea395ad9aafaf1c973a93f7f9f2a4b0179e83df4ceca86ec5f5e1208b2`
+- Size: 1,119,689 bytes; 75 files; single `stockland-erp-app/` plugin root.
 - Source files changed by the supplemental correction: `includes/rest/class-rest-stock.php`, `includes/rest/class-rest-reports.php`, and `includes/rest/class-rest-app.php`, with the release manifest and README updated to describe the operational corrections.
 - Package verification results: ZIP CRC passed; 48/48 PHP files passed `php -l`; `assets/app.js` and `assets/pwa.js` passed Node syntax parsing; the release/PWA/CSS module JSON manifests parsed; all nine CSS files are byte-identical to the pre-correction 16.1.93 package; and `includes/class-stockland-activator.php` is unchanged. The database version marker remains `16.1.1`; no schema migration or new table was introduced.
 
-**Installed-site boundary:** this session does not have an authenticated control channel to the user's InfinityFree WordPress installation, so it did not upload, activate, or modify that live installation. The archive is a WordPress update package ready for an owner-controlled plugin update. Installed records, financial balances, branch permissions, every POS path and the complete ledger must not be represented as live-verified based only on package checks.
+**Installed-site boundary:** this session does not have an authenticated control channel to the user's InfinityFree WordPress installation, so it did not upload, activate, or modify that live installation. The archive is a WordPress update package ready for an owner-controlled plugin update. The README was updated to present it as an installed-site update package rather than a separate trial package. Installed records, financial balances, branch permissions, every POS path and the complete ledger must not be represented as live-verified based only on package checks.
 
 **Repository reproducibility gap:** the supplemental correction was applied to the delivered archive; the current GitHub CI builder/QA allowlist has not yet been synchronized to reproduce this exact hash. Keep PR #12 open and do not merge/release through its current automated build until the stock correction is brought into the same builder and its existing regression gates. This remains part of the same consolidated release—not a request to create another version or one PR per issue.
