@@ -561,9 +561,10 @@ def apply_to_installer(input_zip: Path, output_zip: Path) -> dict:
     manifest_path = "stockland-erp-app/RELEASE_MANIFEST.json"
     manifest = json.loads(files[manifest_path].decode("utf-8"))
     manifest["release"] = "16.1.93"
-    manifest["release_label"] = "16.1.93 — selected Reports & Analytics explorer"
+    manifest["release_label"] = "16.1.93 — Reports Explorer and desktop Product Master action protection"
     changes = list(manifest.get("release_candidate_changes", []))
     changes.append("16.1.93: selected read-only Reports & Analytics, site-local periods, authorized locations, exact SKU filter, selected-report Print/PDF and CSV; Owner-only critical reorder enforced server-side.")
+    changes.append("16.1.93: constrain the desktop global-search popover to its own search-field bounds so host-theme sizing cannot mask Product Master page actions; preserve the existing create/save validation chain.")
     manifest["release_candidate_changes"] = changes
     manifest.setdefault("quality", {})["release"] = "16.1.93"
     manifest["quality"]["local_validation_status"] = "See 16.1.93 Reports Explorer CI artifact and QA receipt; target-host acceptance remains pending."
@@ -574,7 +575,7 @@ def apply_to_installer(input_zip: Path, output_zip: Path) -> dict:
         "report_default": "branch_performance", "period_default": "today",
         "location_default": "all authorized locations", "sku_default": "empty",
         "selected_report_print_pdf": True, "server_enforced_location_scope": True,
-        "critical_reorder_server_owner_only": True, "schema_changed": False,
+        "critical_reorder_server_owner_only": True, "desktop_search_overlay_guard": True, "schema_changed": False,
         "database_version_changed": False, "css_source_or_compiled_bytes_changed": False,
         "live_deployment_performed": False,
         "note": "CSS release metadata changes only to align cache identity; no CSS source or compiled styles are modified."
@@ -583,8 +584,10 @@ def apply_to_installer(input_zip: Path, output_zip: Path) -> dict:
     readme_path = "stockland-erp-app/README.md"
     readme = files[readme_path].decode("utf-8")
     readme = replace_once(readme, "# Stockland Ethiopia ERP 16.1.92", "# Stockland Ethiopia ERP 16.1.93", "README heading")
-    feature = """\n## Selected Reports & Analytics explorer — 16.1.93\n\n- Default selection: Branch performance, Today, All authorized locations, empty SKU search. Period options include Yesterday, Last 7 days, This month and a validated custom range using the ERP site-local date.\n- One selected report is returned at a time. Print / Save PDF prints that selected report only; selected-report CSV preserves CSV escaping and formula-injection mitigation.\n- Location IDs are checked against the current authenticated user's scope on the server. Critical reorder is Owner-only in both the REST permission callback and handler; its suggested replenishment is read-only and never changes stock.\n- Plugin and frontend route-cache identity are aligned to 16.1.93. Database/schema version markers stay unchanged. CSS source/compiled bytes are preserved; only CSS release metadata is bumped.\n- This candidate has not been deployed to the live WordPress site. CI and live-host acceptance are separate gates.\n\n"""
+    feature = """\n## Selected Reports & Analytics explorer — 16.1.93\n\n- Default selection: Branch performance, Today, All authorized locations, empty SKU search. Period options include Yesterday, Last 7 days, This month and a validated custom range using the ERP site-local date.\n- One selected report is returned at a time. Print / Save PDF prints that selected report only; selected-report CSV preserves CSV escaping and formula-injection mitigation.\n- Location IDs are checked against the current authenticated user's scope on the server. Critical reorder is Owner-only in both the REST permission callback and handler; its suggested replenishment is read-only and never changes stock.\n- Plugin and frontend route-cache identity are aligned to 16.1.93. Database/schema version markers stay unchanged. CSS source/compiled bytes are preserved; only CSS release metadata is bumped.\n- Desktop search popover is constrained to its own search field so a host theme cannot stretch it across the page-title actions and intercept the Product Master create button. The existing product-create click chain, validation, REST permission checks and save verification remain intact.
+- For an existing installation, back up the WordPress files and database first. Update the Stockland ERP plugin folder as a whole; do not uninstall it or delete its database tables.\n\n"""
     readme = readme.replace("## Daily, weekly and monthly summary CSV — 16.1.92", feature + "## Daily, weekly and monthly summary CSV — 16.1.92", 1)
+    readme = readme.replace("**Acceptance boundary:** source/package checks do not certify the live ERP. Live role tests, ledger/deep integrity, verified backup restore and rollback remain separate acceptance steps.\\n", "", 1)
     files[readme_path] = readme.encode("utf-8")
     with zipfile.ZipFile(output_zip, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as zout:
         for info in infos:
