@@ -206,3 +206,50 @@ The following WordPress plugin archive has been prepared from the existing 16.1.
 **Installed-site boundary:** this session does not have an authenticated control channel to the user's InfinityFree WordPress installation, so it did not upload, activate, or modify that live installation. The archive is a WordPress update package ready for an owner-controlled plugin update. The README was updated to present it as an installed-site update package rather than a separate trial package. Installed records, financial balances, branch permissions, every POS path and the complete ledger must not be represented as live-verified based only on package checks.
 
 **Repository reproducibility gap:** the supplemental correction was applied to the delivered archive; the current GitHub CI builder/QA allowlist has not yet been synchronized to reproduce this exact hash. Keep PR #12 open and do not merge/release through its current automated build until the stock correction is brought into the same builder and its existing regression gates. This remains part of the same consolidated release—not a request to create another version or one PR per issue.
+
+
+## 11. Owner-requested final consolidation — no per-defect releases
+
+**Policy:** continue in this existing PR/branch. Do not cut a new plugin version, duplicate PR, or install package for every individual defect. The next publishable package is created only once, after the consolidated change set and acceptance gates pass. Keep all interim work review-only.
+
+### 11.1 Current evidence versus not-yet-proven claims
+
+| Area | Evidence available now | Final disposition |
+|---|---|---|
+| Exact baseline and package integrity | 16.1.92 checksum lock, 75-file archive inventory, ZIP CRC, PHP/JS/JSON syntax checks | Verified at source/package level |
+| Desktop Product Master create action | Playwright reproduces overlapping search-popup click interception; fixed candidate passes 7 desktop widths using mocked REST | Regression fixed in harness; real host/theme still requires staging confirmation |
+| Reports & Analytics | Selector, default filters, selected-report print/PDF, CSV, server-side location and Owner-only reorder checks | Static/automated gates pass; all report totals still require independent fixture reconciliation |
+| Stock and reorder definitions | Candidate artifact has supplemental logic for legacy SKU-only movements/reservations, sellable availability and over-reservation flag | **Repository build parity is open**; builder must reproduce exact supplemental artifact before release |
+| Finance, AP/AR, tax, COGS and general ledger | Business contracts and required fixture suite are documented | **Not certified** until transaction-level reconciliation has expected/observed receipts |
+| Front-end final look | Design and viewport acceptance requirements are documented; desktop button has focused browser test | **Whole-app visual/button matrix is open**; do not claim every button/view is verified |
+| User profile dropdown | Requirement identified for profile, preferences, notification, session/security, help and sign-out | **Not yet proven** that every menu action is implemented and permission-safe |
+| Management intelligence page | Required as a separate management-only WordPress page with read-only decision intelligence and drill-down | **Not yet evidenced as implemented**; requires a dedicated acceptance test and role/access checks |
+| Microsoft sign-in / Teams | Entra OIDC is a separate authentication integration; Teams/Graph permissions are separate | **Configuration required / not connected** until owner-provided app registration and authenticated tests |
+| Slack | Slack OAuth v2 and minimal approved scopes are required | **Configuration required / not connected** until owner workspace/app approval and callback tests |
+| Native chat/collaboration | Needs user identity, room/message authorization, persistence/retention, notifications, audit, retry and revocation | **Not yet certified**; a decorative popup does not count as chat integration |
+| Production data and schema | No live deployment or live mutation was performed; schema activator/version marker unchanged in the reviewed package | Preserved by this work; actual installed-site state still requires owner-controlled staging/production verification |
+
+### 11.2 Required implementation sequence within this same PR
+
+1. **P0 — Build reproducibility:** bring the supplemental stock/reorder correction into `ci/patch_reports_explorer.py` and its assertions so the repository rebuild produces the exact approved artifact. Compare all changed file hashes, CSS byte parity, schema activator and database version; no manual post-build patching.
+2. **P0 — Accounting/stock correctness:** add deterministic fixtures with independently calculated expected values for receive/sale/return/transfer/reservation/reorder, tax, staged COGS, cash/tender, AP/AR and journal balancing. Test duplicate, retry, concurrent and failed-write behavior. A zero-difference target is mandatory; current status is not certified.
+3. **P1 — UI and button chain:** inventory every visible button/link/submit by route, role and viewport. Test hit target, handler, request, authorization, success read-back, validation error, server error, duplicate click and unauthorized attempt. Include dashboard, Product Master, POS, wholesale, receiving, warehouse, requisitions, transfers, returns, adjustments, finance, HR/payroll, reports, users, settings, audit and System Health.
+4. **P1 — Shared page/table design:** apply one Stockland-owned shell and page-holder contract; each data grid must have a page title, action toolbar, filter area, table/card holder, loading/empty/error states, totals/pagination where appropriate, focus/keyboard support, responsive overflow and scoped print/export. Do not copy proprietary SAP/Odoo/NetSuite screens or globally replace existing fonts.
+5. **P1 — Reports and management intelligence:** reconcile each report to source records; require a report definition, date/time basis, location scope, currency/tax/cost basis, access rule, drill-down and print/PDF check. Implement the separate management page as read-only by default, role-gated, traceable to source records, with explicit uncertainty/exception states and no automatic stock/finance posting.
+6. **P1 — Profile menu and integrations:** verify profile/preferences, notifications, session/security, help and sign-out. Add provider adapters only after credentials/configuration are supplied. Microsoft OIDC, Teams/Graph, Slack OAuth and internal chat must be separate capability-tested features; provider outages must not block ERP sales/stock/finance.
+7. **Release candidate:** generate one ZIP only after the above code changes and regression suites are in the same builder. Publish one checksum, full changed-file manifest, test receipts and rollback instructions on this PR. No merge/deployment until staging acceptance is signed off.
+
+### 11.3 Management intelligence and sensitive decision safety
+
+Management intelligence should provide explainable answers rather than an unconstrained chatbot that can post transactions. Every result should state:
+- the date range, authorized locations and canonical source records used;
+- calculation/metric definition, cost/tax basis and refresh timestamp;
+- whether the figure is posted, derived, estimated or incomplete;
+- exceptions such as missing compensation, over-reservation, unknown SKU, stale data or failed integrations;
+- a drill-down path and an audit entry for sensitive report access where appropriate.
+
+AI or narrative analysis may summarize and compare verified data but must not invent missing amounts, silently correct payroll, write ledger entries, approve adjustments, change reorder thresholds or post stock movements. Any action must go through the same authorized workflow, confirmation and server-side transaction services as a human operator.
+
+### 11.4 Final acceptance rule
+
+**Current overall status: NOT CERTIFIED FOR PRODUCTION.** Existing CI success is necessary but not sufficient. The known build-parity gap, full financial reconciliation, all-button matrix, real-theme desktop verification, management-page access checks, and provider configuration remain explicit blockers. Keep them on this one PR and deliver one consolidated release after they are resolved; do not create a new version per issue.
