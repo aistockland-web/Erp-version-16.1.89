@@ -776,8 +776,18 @@ Microsoft Entra sign-in, Teams and Slack require owner-provided provider applica
 
 def main():
     inp = TARGET / "STOCKLAND_ERP_16.1.92_CANONICAL_WORDPRESS_UPDATE.zip"
-    out = TARGET / "STOCKLAND_ERP_16.1.93_REPORTS_EXPLORER_CANDIDATE.zip"
-    print(json.dumps(apply_to_installer(inp, out), indent=2))
+    out = TARGET / "STOCKLAND_ERP_16.1.93_WORDPRESS_UPDATE.zip"
+    reports = apply_to_installer(inp, out)
+    from patch_stock_reconciliation import rebuild_zip
+    from patch_production_hardening import patch_archive
+    stock = rebuild_zip(out)
+    production = patch_archive(out)
+    print(json.dumps({
+        "installer": out.name,
+        "reports_explorer": reports,
+        "stock_reconciliation": stock,
+        "production_hardening": production
+    }, indent=2))
 
 if __name__ == "__main__":
     main()
