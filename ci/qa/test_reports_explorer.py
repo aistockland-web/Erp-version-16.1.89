@@ -158,12 +158,12 @@ process.stdout.write(JSON.stringify(r));
         need("'key' => 'inbound_stock', 'label' => 'Inbound transfer'" in php, "critical reorder displays inbound transfer quantities")
         need("'key' => 'reorder_position', 'label' => 'Reorder position'" in php, "critical reorder displays reorder position")
         need("$row['reorder_position'] ?? $row['available_stock'] ?? '0'" in php, "critical reorder filter uses reorder position")
-        need("max( 0, $reorder_minor - $position_minor )" in php, "suggested replenishment subtracts available plus inbound position")
+        need("max( 100, $reorder_minor - $position_minor )" in php, "suggested replenishment matches the live minimum-one-unit policy")
         reorder_cases = [
             {"physical": 5, "reserved": 2, "inbound": 1, "level": 6, "alert": True, "suggested": 2},
             {"physical": 2, "reserved": 0, "inbound": 4, "level": 5, "alert": False, "suggested": 0},
             {"physical": 0, "reserved": 2, "inbound": 0, "level": 3, "alert": True, "suggested": 3},
-            {"physical": 5, "reserved": 1, "inbound": 0, "level": 4, "alert": False, "suggested": 0},
+            {"physical": 5, "reserved": 1, "inbound": 0, "level": 4, "alert": True, "suggested": 1},
         ]
         for case in reorder_cases:
             available = max(0, case["physical"] - case["reserved"])
