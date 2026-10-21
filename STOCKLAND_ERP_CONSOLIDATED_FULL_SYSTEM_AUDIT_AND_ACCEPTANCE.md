@@ -171,21 +171,26 @@ Release gate: **zero unexplained reconciliation differences, zero unhandled crit
 
 ## 8. Consolidated stock / reorder correctness correction
 
-The installable WordPress update artifact now aligns the Reports Explorer, dashboard stock summary, live stock list, and live reorder-status endpoint with the same operational stock rules:
+The installable WordPress update archive is corrected across the Reports Explorer, dashboard stock summary, live stock list and live reorder-status endpoint so these views use consistent operational stock definitions:
 
-- Physical stock sums immutable ledger movements linked directly to a variant and legacy SKU-only movements that resolve unambiguously to a Product Master variant.
-- Active reservation totals include both variant-linked reservations and legacy SKU-only reservations. Released/cancelled reservations are excluded.
-- Physical, reserved, and sellable available quantities remain distinct. Sellable availability is `max(0, physical - active reservations)`; if reservations exceed physical stock, the response also emits `OVER-RESERVED` so the integrity issue is not hidden.
-- Critical reorder uses the location-specific branch/central reorder level against sellable available stock, not physical stock. A zero/unconfigured reorder level returns `NO_LEVEL` rather than generating a false critical alert.
-- Inactive locations and inactive/non-stockable Product Master records are excluded from the relevant stock/reorder result sets.
-- Dashboard inventory valuation resolves legacy SKU-only ledger rows to the canonical variant, while retaining the current Product Master cost basis supported by the existing schema. It does not represent that value as historic transaction-staged COGS.
-- The correction changes existing query logic and release metadata only; it adds no database table, schema migration, live-data mutation, or new product mode.
+- Physical stock sums posted ledger movements linked directly to a variant and legacy SKU-only movements that can be resolved to the canonical Product Master variant.
+- Active reservation totals include both variant-linked and legacy SKU-only reservation rows. Released/cancelled reservations are excluded.
+- Physical, reserved and sellable available quantities remain distinct. Sellable availability is `max(0, physical - active reservations)`; when reservations exceed physical stock, the result also emits `OVER-RESERVED` so the integrity exception is visible instead of silently displaying a negative available figure.
+- Critical reorder applies the branch/warehouse-specific reorder level to sellable available stock, not merely physical stock. A zero or missing threshold is shown as `NOT CONFIGURED` and does not generate a false reorder alert.
+- Inactive locations and inactive/non-stockable Product Master records are excluded from relevant stock/reorder summaries.
+- Dashboard inventory valuation maps resolvable legacy SKU-only ledger entries to their Product Master variant while using the current Product Master cost basis supported by the existing schema. This is not a substitute for historic transaction-staged COGS.
+- The package correction changes existing query logic and release metadata only. It adds no table, schema migration, live-data mutation or new product mode.
 
-## 9. Additional gap closed in the consolidated source update
+## 9. Gap addressed in the delivered WordPress package
 
-A previous report/dashboard correction left the general stock-list and reorder-status REST handlers using variant-linked rows only. Those endpoints could therefore disagree with the report for legacy SKU-only ledger movements/reservations and could evaluate reorder using physical stock. The delivered WordPress update archive corrects `includes/rest/class-rest-stock.php` to resolve legacy SKU-only records, show physical/reserved/available separately, clamp sellable availability at zero while emitting the over-reservation exception, and evaluate configured reorder thresholds against available stock. The source assertions now check those exact semantics, including `NO_LEVEL` for an unconfigured zero threshold.
+The prior report/dashboard correction left the general stock-list and reorder-status REST handlers using only variant-linked records. Those endpoints could therefore disagree with reports when legacy SKU-only ledger movements or reservations existed, and could assess reorder using physical stock instead of sellable availability.
 
-This is a source-level correction on the existing branch/PR. It is not a claim that the installed WordPress site's database, user roles, or every finance/ledger workflow has already been verified. These source edits do not change live data or the schema.
+The delivered `STOCKLAND_ERP_16.1.93_WORDPRESS_UPDATE.zip` includes the correction in `includes/rest/class-rest-stock.php`, `includes/rest/class-rest-reports.php` and `includes/rest/class-rest-app.php`. It keeps physical/reserved/available figures distinct, flags over-reservation, excludes disabled reorder thresholds, and uses sellable availability for critical-reorder calculations.
+
+**Repository parity is still open:** the supplemental source correction has been applied to the delivered ZIP, but the current GitHub build workflow and source-level assertions have not yet been updated to regenerate this exact artifact hash. This is explicitly tracked in Section 10; it must be reconciled within PR #12 before relying on a repository-generated package. Do not treat the current source/build pipeline as fully synchronized.
+
+This package-level correction is not evidence that the installed WordPress database or all finance, POS, identity and ledger workflows have been verified. It does not alter live data or the schema.
+
 
 
 ## 10. Installable WordPress update artifact and current disposition
