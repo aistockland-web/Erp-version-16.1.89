@@ -659,7 +659,7 @@ def apply_to_installer(input_zip: Path, output_zip: Path) -> dict:
             "stock_authority": "Posted stock ledger",
             "available_stock": "Physical on-hand less active reservations; inbound and in-transit quantities remain separate",
             "critical_reorder_access": "Owner only",
-            "critical_reorder_arithmetic": "Uses Stockland_Money integer minor units and decimal formatting; replenishment is max(0, reorder threshold minus available quantity).",
+            "critical_reorder_arithmetic": "Uses decimal-safe quantity arithmetic; reorder position equals available stock plus dispatched-but-unreceived transfer quantity, and replenishment is max(0, configured location reorder level minus reorder position).",
             "reorder_is_read_only": True,
             "money_arithmetic": "Stockland_Money decimal-safe service",
             "historical_cost_policy": "Transaction-staged COGS; current Product Master cost does not silently rewrite posted history",
@@ -715,7 +715,7 @@ On desktop-sized layouts, the global-search panel is constrained to the search f
 - Posted stock-ledger movements are authoritative. Physical stock, reservations, available stock and inbound/in-transit quantities are distinct.
 - Money arithmetic uses the shared Stockland decimal-safe service. VAT mode/rate is centrally controlled and posted transaction values are preserved.
 - Historical COGS is staged at transaction time. Updating Product Master cost does not rewrite posted history; negotiated sale prices are kept with their transactions.
-- Critical reorder is Owner-only and read-only. It uses available stock and the configured reorder level; it does not create a purchase order, reserve stock or post a stock movement.
+- Critical reorder is Owner-only and read-only. It shows physical, reserved and currently available stock separately, plus dispatched-but-unreceived transfers. Reorder position is available stock plus confirmed inbound transfer remainder. Suggested replenishment targets the location-specific reorder level without treating inbound stock as physically received; it does not create a purchase order, reserve stock or post a stock movement.
 - The schema contract remains 49 tables: 29 Core/Operations, 16 Finance/Procurement, and 4 HR/Payroll. Database schema version remains 16.1.1.
 
 ## Update an existing InfinityFree WordPress installation
