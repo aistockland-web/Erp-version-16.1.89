@@ -171,27 +171,18 @@ Release gate: **zero unexplained reconciliation differences, zero unhandled crit
 
 ## 8. Consolidated stock / reorder correctness correction
 
-The package builder now includes a focused correction to keep report numbers aligned with the operational stock service:
+The consolidated package builder aligns the Reports Explorer, dashboard stock summary, live stock list, and live reorder-status endpoint with the same operational stock rules:
 
-- Physical stock reporting resolves both variant-linked ledger movements and legacy SKU-only movements to the Product Master variant when the SKU mapping exists.
-- Active reservation reporting includes both variant-linked reservations and legacy SKU-only reservations.
-- Inventory/low-stock views expose physical, reserved, and sellable available quantities distinctly. Sellable availability is floored at zero; `OVER-RESERVED` separately flags excess reservation quantities. Reorder thresholds use sellable availability; zero thresholds do not create configured reorder alerts.
-- Inactive locations are excluded from the corrected report query.
-- Dashboard inventory valuation now resolves legacy SKU-only ledger movements to the canonical Product Master variant, so those movements are not silently excluded from the summary. The existing transaction ledger has no `unit_cost` column; this dashboard figure still uses the current Product Master `purchase_cost` and must not be represented as historic-cost inventory valuation.
-- The change is confined to the existing application report queries and release manifest; it adds no new database table, migration, live data mutation, or new product mode.
-- This source/package correction is not by itself proof of the live account's balances. The installed WordPress runtime must be confirmed against the same canonical ledger and reservation records before final release certification.
+- Physical stock sums immutable ledger movements linked directly to a variant and legacy SKU-only movements that resolve unambiguously to a Product Master variant.
+- Active reservation totals include both variant-linked reservations and legacy SKU-only reservations. Released/cancelled reservations are excluded.
+- Physical, reserved, and sellable available quantities remain distinct. Sellable availability is `max(0, physical - active reservations)`; if reservations exceed physical stock, the response also emits `OVER-RESERVED` so the integrity issue is not hidden.
+- Critical reorder uses the location-specific branch/central reorder level against sellable available stock, not physical stock. A zero/unconfigured reorder level returns `NO_LEVEL` rather than generating a false critical alert.
+- Inactive locations and inactive/non-stockable Product Master records are excluded from the relevant stock/reorder result sets.
+- Dashboard inventory valuation resolves legacy SKU-only ledger rows to the canonical variant, while retaining the current Product Master cost basis supported by the existing schema. It does not represent that value as historic transaction-staged COGS.
+- The correction changes existing query logic and release metadata only; it adds no database table, schema migration, live-data mutation, or new product mode.
 
+## 9. Additional gap closed in the consolidated source update
 
-## 8. Confirmed stock-report consistency defect and correction in this workstream
+The prior reconciliation builder corrected report/dashboard SQL but left the general stock-list and reorder-status REST handlers using variant-linked rows only. Those endpoints could therefore disagree with the report for legacy SKU-only ledger movements/reservations and could evaluate reorder using physical stock. The same builder now updates `includes/rest/class-rest-stock.php` to resolve legacy SKU-only records, show physical/reserved/available separately, clamp sellable availability at zero while emitting the over-reservation exception, and evaluate configured reorder thresholds against available stock. The source assertions now check those exact semantics, including `NO_LEVEL` for an unconfigured zero threshold.
 
-Source review found that the Reports Explorer inventory/reorder query aggregated only transaction and reservation rows with a non-null `variant_id`. The shared stock service also supports legacy rows where `variant_id` is null and the exact SKU is present. As a result, reports could understate physical stock and active reservations for legacy rows and calculate availability/reorder incorrectly. The report query also needed to exclude non-stock STYLE parent records.
-
-The package builder now separates and aggregates:
-- variant-linked stock movements by location and variant;
-- legacy SKU-only stock movements by location and SKU;
-- variant-linked active reservations by location and variant;
-- legacy SKU-only active reservations by location and SKU.
-
-It sums both formats once per Product Master variant, excludes STYLE parents, and aligns SQL placeholder arguments with the six table references. Regression assertions and independent arithmetic fixtures have been added for normal, zero, and over-reserved cases. Negative availability remains visible as an integrity signal rather than being silently clamped in this report.
-
-**Scope limitation:** this is a source-level correction to the generated inventory/reorder report, not proof that all installed records, every financial posting, or the live InfinityFree site have been reconciled. Before this release is certified, execute the package build and its automated checks, then verify the resulting installer and run authenticated operational acceptance against the actual installed system with owner-approved expected values. Do not state that this or any other calculation is 100% accurate until the required reconciliations pass.
+This is a source-level correction on the existing branch/PR. It is not a claim that the installed WordPress site's database, user roles, or every finance/ledger workflow has already been verified. These source edits do not change live data or the schema.
