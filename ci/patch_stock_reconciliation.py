@@ -52,7 +52,6 @@ STOCK_SQL = '''$stock_sql  = "SELECT l.location_name,p.sku,p.product_name,p.bran
              WHERE p.is_active=1 AND p.product_type<>'STYLE' AND l.is_active=1";'''
 
 
-
 LOW_SQL = '''$low_sql  = "SELECT l.location_name,p.sku,p.product_name,
                     COALESCE(b.physical_stock,0) current_stock,
                     COALESCE(b.physical_stock,0) physical_stock,
@@ -88,7 +87,6 @@ LOW_SQL = '''$low_sql  = "SELECT l.location_name,p.sku,p.product_name,
              ORDER BY reorder_position,p.sku";'''
 
 
-
 DASHBOARD_LOW_COUNT_PATTERN = re.compile(
     r'\$low_sql\s*=\s*"SELECT COUNT\(\*\) FROM %i p CROSS JOIN %i l LEFT JOIN \(SELECT location_id,variant_id,SUM\(quantity_signed\) physical_stock FROM %i WHERE variant_id IS NOT NULL GROUP BY location_id,variant_id\) b ON b\.variant_id=p\.variant_id AND b\.location_id=l\.id WHERE p\.is_active=1 AND l\.location_type IN\(\'Warehouse\',\'Branch\'\)";'
 )
@@ -113,7 +111,6 @@ DASHBOARD_LOW_COUNT_SQL = '''$low_sql  = "SELECT COUNT(*) FROM %i p CROSS JOIN %
                GROUP BY t.to_location_id,COALESCE(t.variant_id,inbound_p.variant_id)
              ) i ON i.variant_id=p.variant_id AND i.location_id=l.id
              WHERE p.is_active=1 AND p.product_type<>'STYLE' AND l.is_active=1 AND l.location_type IN('Warehouse','Branch')";'''
-
 
 
 def replace_exactly_once(pattern: re.Pattern[str], replacement: str, source: str, label: str) -> str:
@@ -151,7 +148,6 @@ def patch_dashboard_js(source: str) -> str:
     return source
 
 
-
 def patch_operational_reorder_ui(source: str) -> str:
     """Display the same server-authoritative stock measures in Reorder Alerts."""
     source = replace_literal_once(
@@ -172,12 +168,12 @@ def patch_operational_reorder_ui(source: str) -> str:
         "<th>Location</th><th>SKU / Product</th><th>Physical on-hand</th><th>Reserved</th><th>Available</th><th>Inbound transfer</th><th>Reorder position</th><th>Reorder level</th><th>Suggested qty</th><th>Status</th><th>Branch action</th>",
         "reorder table headers",
     )
-    source = replace_literal_once(
-        source,
-        "<td data-label=\"Current stock\">'+esc(current)+'</td><td data-label=\"Reorder level\">'+esc(level)+'</td><td data-label=\"Status\"><span class=\"sl-pill '+(status==='CRITICAL'?'bad':status==='REORDER NOW'?'warn':'ok')+'\">'+status+'</span></td><td data-label=\"Branch action\">'+action+'</td></tr>';",
-        "<td data-label=\"Physical on-hand\">'+esc(current)+'</td><td data-label=\"Reserved\">'+esc(reserved)+'</td><td data-label=\"Available\"><b>'+esc(available)+'</b>'+(x.availability_exception?'<div><span class=\"sl-pill bad\">'+esc(x.availability_exception)+'</span></div>':'')+'</td><td data-label=\"Inbound transfer\">'+esc(inbound)+'</td><td data-label=\"Reorder position\"><b>'+esc(position)+'</b></td><td data-label=\"Reorder level\">'+esc(level>0?level:'Not set')+'</td><td data-label=\"Suggested qty\">'+esc(suggested)+'</td><td data-label=\"Status\"><span class=\"sl-pill '+(status==='CRITICAL'?'bad':(status==='REORDER NOW'||status==='NO_LEVEL')?'warn':'ok')+'\">'+esc(status)+'</span></td><td data-label=\"Branch action\">'+action+'</td></tr>';",
-        "reorder table values and reservation exception",
-    )
+    row_pattern = re.compile(r"""^   return '<tr><td data-label="Location".*?</tr>';\\s*$""", re.M)
+    new_row = r"""   return '<tr><td data-label="Location"><b>'+esc(x.location_name||'')+'</b><div class="sl-sub">'+esc(x.location_type||'')+'</div></td><td data-label="SKU / Product"><b>'+esc(x.sku||'')+'</b><div class="sl-sub">'+esc(x.product_name||'')+'</div></td><td data-label="Physical on-hand">'+esc(current)+'</td><td data-label="Reserved">'+esc(reserved)+'</td><td data-label="Available"><b>'+esc(available)+'</b>'+(x.availability_exception?'<div><span class="sl-pill bad">'+esc(x.availability_exception)+'</span></div>':'')+'</td><td data-label="Inbound transfer">'+esc(inbound)+'</td><td data-label="Reorder position"><b>'+esc(position)+'</b></td><td data-label="Reorder level">'+esc(level>0?level:'Not set')+'</td><td data-label="Suggested qty">'+esc(suggested)+'</td><td data-label="Status"><span class="sl-pill '+(status==='CRITICAL'?'bad':(status==='REORDER NOW'||status==='NO_LEVEL')?'warn':'ok')+'">'+esc(status)+'</span></td><td data-label="Branch action">'+action+'</td></tr>';"""
+    row_matches = list(row_pattern.finditer(source))
+    if len(row_matches) != 1:
+        raise ValueError(f"Reorder table row: expected exactly one row anchor, got {len(row_matches)}")
+    source = row_pattern.sub(lambda _match: new_row, source, count=1)
     source = replace_literal_once(
         source,
         "notes:'Reorder alert: current ledger stock '+button.dataset.current+'; configured reorder level '+button.dataset.level+'. Please review and approve under the existing SOP.'",
@@ -276,7 +272,6 @@ NEW_REORDER_SQL = r'''SELECT l.id location_id,l.location_type,l.location_name,p.
                 ORDER BY reorder_position,p.sku'''
 
 
-
 def patch_stock_api(source: str) -> str:
     source = replace_literal_once(source, OLD_STOCK_LIST_SQL, NEW_STOCK_LIST_SQL, "live stock list resolves legacy ledger and reservations")
     source = replace_literal_once(
@@ -296,22 +291,21 @@ def patch_stock_api(source: str) -> str:
     source = replace_literal_once(source, OLD_REORDER_SQL, NEW_REORDER_SQL, "live reorder endpoint uses sellable availability")
     source = replace_literal_once(
         source,
-        """\t\t\t\t$products,
-\t\t\t\t$locations,
-\t\t\t\t$tx,
-\t\t\t\t$products,
-\t\t\t\t$res,
-\t\t\t\t$products,
-\t\t\t\tStockland_DB::table( 'transfers' ),
-\t\t\t\t$products,
-\t\t\t\t$location_id ? 1 : 0,""",
-        """\t\t\t\t$products,
-\t\t\t\t$locations,
-\t\t\t\t$tx,
-\t\t\t\t$products,
-\t\t\t\t$res,
-\t\t\t\t$products,
-\t\t\t\t$location_id ? 1 : 0,""",
+        """\\t\\t\\t\\t$products,
+\\t\\t\\t\\t$locations,
+\\t\\t\\t\\t$tx,
+\\t\\t\\t\\t$location_id ? 1 : 0,
+\\t\\t\\t\\t$location_id ? (int) $location_id : 0""",
+        """\\t\\t\\t\\t$products,
+\\t\\t\\t\\t$locations,
+\\t\\t\\t\\t$tx,
+\\t\\t\\t\\t$products,
+\\t\\t\\t\\t$res,
+\\t\\t\\t\\t$products,
+\\t\\t\\t\\tStockland_DB::table( 'transfers' ),
+\\t\\t\\t\\t$products,
+\\t\\t\\t\\t$location_id ? 1 : 0,
+\\t\\t\\t\\t$location_id ? (int) $location_id : 0""",
         "live reorder SQL placeholder order",
     )
     source = replace_literal_once(
@@ -362,12 +356,7 @@ def patch_php(source: str) -> str:
         "$low_args = array( $prod, $loc, $tx, $prod, Stockland_DB::table( 'reservations' ), $prod, Stockland_DB::table( 'transfers' ), $prod );",
         "dashboard low-stock parameter order",
     )
-    source = replace_literal_once(
-        source,
-        r"""$low_sql .= " AND IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level)>0 AND GREATEST(0,COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0))+COALESCE(i.inbound_stock,0)<=IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level)";""",
-        r"""$low_sql .= " AND IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level)>0 AND GREATEST(0,COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0))<=IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level)";""",
-        "dashboard reorder compares available stock",
-    )
+
 
     source = replace_literal_once(
         source,
