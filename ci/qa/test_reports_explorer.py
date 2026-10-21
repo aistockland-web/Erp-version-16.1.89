@@ -133,6 +133,7 @@ process.stdout.write(JSON.stringify(r));
             ("COALESCE(t.variant_id,legacy_p.variant_id)", "live stock and reorder endpoints resolve legacy SKU-only ledger rows"),
             ("COALESCE(r.variant_id,legacy_r.variant_id)", "live stock and reorder endpoints resolve legacy SKU-only reservations"),
             ("GREATEST(0,v.physical_stock-COALESCE(r.reserved_stock,0)) available_stock", "live stock list floors sellable availability at zero"),
+            ("GREATEST(0,COALESCE((SELECT SUM(t.quantity_signed)", "SKU detail endpoint floors available stock at zero"),
             ("OVER-RESERVED", "live stock and reorder endpoints expose reservation integrity exception"),
             ("$position <= 0.0 ? 'CRITICAL'", "reorder status uses available quantity plus eligible inbound transfer position"),
             ("$level <= 0.0 ? 'NO_LEVEL'", "zero reorder level is not treated as configured critical reorder"),
@@ -150,6 +151,7 @@ process.stdout.write(JSON.stringify(r));
         need("COALESCE(t.variant_id,legacy_p.variant_id)" in php, "report on-hand resolves variant-linked and legacy SKU-only ledger rows")
         need("COALESCE(r.variant_id,legacy_r.variant_id)" in php, "report reservations resolve variant-linked and legacy SKU-only rows")
         need("GREATEST(0,COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0)) available_stock" in php, "report sellable availability is floored at zero")
+        need("GREATEST(0,COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0))<=IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level)" in php, "dashboard reorder KPI uses available stock after active reservations")
         need("CASE WHEN COALESCE(a.reserved_stock,0)>COALESCE(b.physical_stock,0) THEN 'OVER-RESERVED'" in php, "report exposes over-reservation as an integrity exception")
         print("PASS exact 16.1.92 checksum/size; ZIP CRC, inventory and root")
         print("PASS selector defaults, report-type selection, SKU autocomplete, selected-only print/PDF and CSV contracts")
