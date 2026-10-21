@@ -404,7 +404,7 @@ def patch_php(source: str) -> str:
                         SUM(GREATEST(COALESCE(t.dispatched_qty,0)-COALESCE(t.received_qty,0),0)) AS inbound_stock
                  FROM %i t
                  LEFT JOIN %i ip ON ((t.variant_id IS NOT NULL AND ip.variant_id=t.variant_id) OR (t.variant_id IS NULL AND ip.sku=t.sku))
-                 WHERE t.status IN('Picked','In Transit')
+                 WHERE t.status='In Transit'
                    AND COALESCE(t.dispatched_qty,0)>COALESCE(t.received_qty,0)
                    AND COALESCE(t.variant_id,ip.variant_id) IS NOT NULL
                  GROUP BY t.to_location_id,COALESCE(t.variant_id,ip.variant_id)
@@ -460,7 +460,7 @@ def patch_php(source: str) -> str:
                         SUM(GREATEST(COALESCE(t.dispatched_qty,0)-COALESCE(t.received_qty,0),0)) AS inbound_stock
                  FROM %i t
                  LEFT JOIN %i ip ON ((t.variant_id IS NOT NULL AND ip.variant_id=t.variant_id) OR (t.variant_id IS NULL AND ip.sku=t.sku))
-                 WHERE t.status IN('Picked','In Transit')
+                 WHERE t.status='In Transit'
                    AND COALESCE(t.dispatched_qty,0)>COALESCE(t.received_qty,0)
                    AND COALESCE(t.variant_id,ip.variant_id) IS NOT NULL
                  GROUP BY t.to_location_id,COALESCE(t.variant_id,ip.variant_id)
