@@ -59,6 +59,11 @@ def main():
             ("current_user_can( 'stockland_view_cost_and_profit' )", "cost/profit permission"),
             ("'critical_reorder' === $type && ! Stockland_Authority::is_owner()", "owner-only handler restriction"),
             ("(float) ( $row['reorder_level'] ?? 0 ) > 0 && (float) ( $row['available_stock'] ?? 0 ) <=", "exclude disabled zero reorder thresholds"),
+            ("COALESCE(bl.physical_stock,0)", "legacy SKU-only stock included"),
+            ("COALESCE(al.reserved_stock,0)", "legacy SKU-only active reservations included"),
+            ("WHERE variant_id IS NULL GROUP BY location_id,sku", "legacy SKU-only rows aggregated separately"),
+            ("p.product_type<>'STYLE'", "style parent rows excluded from variant availability"),
+            ("$stock_args = array( $prod, $loc, $tx, $tx, $res, $res )", "stock SQL placeholder order matches six table references"),
         ]:
             need(phrase in php, "server contract: " + label)
 
@@ -91,6 +96,18 @@ process.stdout.write(JSON.stringify(r));
         need(ranges["yesterday"] == {"from":"2026-10-19","to":"2026-10-19"}, "yesterday date")
         need(ranges["last7"] == {"from":"2026-10-14","to":"2026-10-20"}, "last-seven-days date")
         need(ranges["month"] == {"from":"2026-10-01","to":"2026-10-20"}, "month-to-date date")
+        # Independent arithmetic fixtures for variant-linked and legacy SKU-only rows.
+        # The report must preserve negative availability as an integrity signal.
+        stock_fixtures = [
+            {"variant_on_hand": 4, "legacy_on_hand": 2, "variant_reserved": 3, "legacy_reserved": 1, "expected_available": 2},
+            {"variant_on_hand": 0, "legacy_on_hand": 1, "variant_reserved": 0, "legacy_reserved": 3, "expected_available": -2},
+            {"variant_on_hand": 0, "legacy_on_hand": 0, "variant_reserved": 0, "legacy_reserved": 0, "expected_available": 0},
+        ]
+        for case in stock_fixtures:
+            observed = (case["variant_on_hand"] + case["legacy_on_hand"]) - (case["variant_reserved"] + case["legacy_reserved"])
+            need(observed == case["expected_available"], "legacy/variant stock arithmetic fixture")
+        need("COALESCE(b.physical_stock,0)+COALESCE(bl.physical_stock,0)" in php, "on-hand sums variant and legacy transaction rows")
+        need("(COALESCE(b.physical_stock,0)+COALESCE(bl.physical_stock,0))-(COALESCE(a.reserved_stock,0)+COALESCE(al.reserved_stock,0)) available_stock" in php, "availability formula includes both reservation formats")
         print("PASS exact 16.1.92 checksum/size; ZIP CRC, inventory and root")
         print("PASS selector defaults, report-type selection, SKU autocomplete, selected-only print/PDF and CSV contracts")
         print("PASS server permission/location/SKU/cost scope assertions; Owner-only critical reorder")
