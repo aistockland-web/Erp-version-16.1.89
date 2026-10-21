@@ -62,6 +62,8 @@ jobs:
           set -euo pipefail
           python3 ci/patch_reports_explorer.py | tee STOCKLAND_ERP_16.1.93_BUILD_RECEIPT.json
           python3 ci/patch_stock_reconciliation.py STOCKLAND_ERP_16.1.93_REPORTS_EXPLORER_CANDIDATE.zip | tee STOCKLAND_ERP_16.1.93_STOCK_RECONCILIATION_RECEIPT.json
+          cp STOCKLAND_ERP_16.1.93_REPORTS_EXPLORER_CANDIDATE.zip STOCKLAND_ERP_16.1.93_WORDPRESS_UPDATE.zip
+          sha256sum STOCKLAND_ERP_16.1.93_WORDPRESS_UPDATE.zip > STOCKLAND_ERP_16.1.93_WORDPRESS_UPDATE.zip.sha256
           mkdir -p build/candidate
           unzip -q STOCKLAND_ERP_16.1.93_REPORTS_EXPLORER_CANDIDATE.zip -d build/candidate
           sha256sum STOCKLAND_ERP_16.1.93_REPORTS_EXPLORER_CANDIDATE.zip > STOCKLAND_ERP_16.1.93_REPORTS_EXPLORER_CANDIDATE.zip.sha256
@@ -72,21 +74,41 @@ jobs:
       - name: Test desktop Product Master click-to-create chain across wide viewports
         run: |
           python3 ci/qa/test_desktop_product_create.py STOCKLAND_ERP_16.1.93_REPORTS_EXPLORER_CANDIDATE.zip | tee STOCKLAND_ERP_16.1.93_DESKTOP_BUTTON_QA.json
+      - name: Verify installable WordPress update archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum --check STOCKLAND_ERP_16.1.93_WORDPRESS_UPDATE.zip.sha256
+          python3 - <<'PY'
+          import zipfile
+          from pathlib import Path
+          p = Path('STOCKLAND_ERP_16.1.93_WORDPRESS_UPDATE.zip')
+          with zipfile.ZipFile(p) as z:
+              assert z.testzip() is None, 'WordPress ZIP CRC failure'
+              names = [i.filename for i in z.infolist() if not i.is_dir()]
+              assert len(names) == 75 and len(names) == len(set(names)), 'WordPress package inventory changed'
+              assert all(n.startswith('stockland-erp-app/') and '..' not in n.split('/') for n in names), 'Unsafe ZIP path'
+              assert 'stockland-erp-app/includes/rest/class-rest-inventory-report-v16.php' in names
+          print('PASS installable WordPress update archive, 75 plugin files')
+          PY
+          rm -rf build/wordpress-update
+          mkdir -p build/wordpress-update
+          unzip -q STOCKLAND_ERP_16.1.93_WORDPRESS_UPDATE.zip -d build/wordpress-update
       - name: Lint every packaged PHP file
         shell: bash
         run: |
           set -euo pipefail
-          find build/candidate/stockland-erp-app -type f -name '*.php' -print0 | xargs -0 -n1 php -l | tee STOCKLAND_ERP_16.1.93_PHP_LINT.txt
+          find build/wordpress-update/stockland-erp-app -type f -name '*.php' -print0 | xargs -0 -n1 php -l | tee STOCKLAND_ERP_16.1.93_PHP_LINT.txt
       - name: Check JavaScript syntax
         run: |
-          node --check build/candidate/stockland-erp-app/assets/app.js
-          node --check build/candidate/stockland-erp-app/assets/pwa.js
+          node --check build/wordpress-update/stockland-erp-app/assets/app.js
+          node --check build/wordpress-update/stockland-erp-app/assets/pwa.js
       - name: Check release JSON
         run: |
           python3 - <<'PY'
           import json
           from pathlib import Path
-          root=Path('build/candidate/stockland-erp-app')
+          root=Path('build/wordpress-update/stockland-erp-app')
           for name in ('RELEASE_MANIFEST.json','assets/manifest.json','assets/css/modules.json'):
               json.loads((root/name).read_text(encoding='utf-8'))
           manifest=json.loads((root/'RELEASE_MANIFEST.json').read_text())
@@ -96,8 +118,10 @@ jobs:
       - name: Publish review-only candidate artifact
         uses: actions/upload-artifact@v4
         with:
-          name: STOCKLAND-ERP-16.1.93-Reports-Explorer-Candidate
+          name: STOCKLAND-ERP-16.1.93-WordPress-Update
           path: |
+            STOCKLAND_ERP_16.1.93_WORDPRESS_UPDATE.zip
+            STOCKLAND_ERP_16.1.93_WORDPRESS_UPDATE.zip.sha256
             STOCKLAND_ERP_16.1.93_REPORTS_EXPLORER_CANDIDATE.zip
             STOCKLAND_ERP_16.1.93_REPORTS_EXPLORER_CANDIDATE.zip.sha256
             STOCKLAND_ERP_16.1.93_LOCAL_QA_RESULTS.txt
