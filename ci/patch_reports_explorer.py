@@ -431,7 +431,7 @@ def patch_php(source: str) -> str:
         """\t\t\t\t\t\t$available_minor = Stockland_Money::minor( $row['available_stock'] ?? '0' );
 \t\t\t\t\t\t$row['suggested_replenishment'] = Stockland_Money::decimal( max( 0, $reorder_minor - $available_minor ) );""",
         """\t\t\t\t\t\t$position_minor = Stockland_Money::minor( $row['reorder_position'] ?? $row['available_stock'] ?? '0' );
-\t\t\t\t\t\t$row['suggested_replenishment'] = Stockland_Money::decimal( max( 0, $reorder_minor - $position_minor ) );""",
+\t\t\t\t\t\t$row['suggested_replenishment'] = Stockland_Money::decimal( max( 100, $reorder_minor - $position_minor ) );""",
         "replenishment suggestion subtracts dispatched inbound transfers")
     method = replace_once(method,
         """\t\t\t\t\t$description = 'Owner-only read-only list. Available stock equals physical stock less active reservations; suggested replenishment is the minimum quantity needed to reach the configured reorder level. No stock is ordered or changed.';""",
