@@ -150,7 +150,7 @@ def patch_php(source: str) -> str:
 			$stock_sql   .= ' AND l.id=%d';
 			$stock_args[] = (int) $scope;
 		}
-		$stock_sql .= ' ORDER BY l.location_name,p.sku';""", """		$stock_args = array( $prod, $loc, $tx, $tx, $res, $res );
+		$stock_sql .= ' ORDER BY l.location_name,p.sku';""", """		$stock_args = array( $prod, $loc, $tx, $res, $tr, $prod );
 		$stock_sql .= $this->append_scope_filter( 'l.id', $stock_args, $scope );
 		if ( '' !== $sku ) {
 			$stock_sql   .= ' AND p.sku=%s';
