@@ -151,6 +151,58 @@ def patch_dashboard_js(source: str) -> str:
     return source
 
 
+
+def patch_operational_reorder_ui(source: str) -> str:
+    """Display the same server-authoritative stock measures in Reorder Alerts."""
+    source = replace_literal_once(
+        source,
+        "const current=Number(x.current_stock||0),level=Math.max(0,Number(x.reorder_level||0));\n   const status=current<=0?'CRITICAL':(current<=level?'REORDER NOW':'OK');\n   const branch=String(x.location_type||'')==='Branch';\n   const canRequest=branch&&!!caps.request&&Number(x.location_id)>0&&status!=='OK';\n   const qty=Math.max(1,Math.ceil(level||1));",
+        "const current=Number(x.current_stock||0),reserved=Number(x.reserved_stock||0),available=Number(x.available_stock??Math.max(0,current-reserved)),inbound=Number(x.inbound_stock||0),position=Number(x.reorder_position??(available+inbound)),level=Math.max(0,Number(x.reorder_level||0));\n   const status=String(x.status||'')||(level<=0?'NO_LEVEL':(position<=0?'CRITICAL':(position<=level?'REORDER NOW':'OK')));\n   const branch=String(x.location_type||'')==='Branch';\n   const canRequest=branch&&!!caps.request&&Number(x.location_id)>0&&level>0&&['CRITICAL','REORDER NOW'].includes(status);\n   const suggested=Math.max(0,Number(x.suggested_replenishment??(level>0&&position<=level?Math.max(1,Math.ceil(level-position)):0)));\n   const qty=Math.max(1,Math.ceil(suggested));",
+        "reorder UI uses backend status, active reservations and inbound reorder position",
+    )
+    source = replace_literal_once(
+        source,
+        "const action=canRequest?'<div class=\"sl-reorder-action\"><label class=\"sl-sr-only\" for=\"reorderQty-'+esc(x.location_id)+'-'+esc(x.variant_id||x.sku)+'\">Requisition quantity for '+esc(x.sku)+'</label><input id=\"reorderQty-'+esc(x.location_id)+'-'+esc(x.variant_id||x.sku)+'\" class=\"sl-reorder-qty\" type=\"number\" min=\"1\" step=\"1\" value=\"'+qty+'\" data-reorder-qty aria-label=\"Requisition quantity for '+esc(x.sku)+'\"><button type=\"button\" class=\"sl-btn sl-btn-sm primary\" data-reorder-create data-location-id=\"'+esc(x.location_id)+'\" data-sku=\"'+esc(x.sku)+'\" data-current=\"'+esc(current)+'\" data-level=\"'+esc(level)+'\">Create requisition</button></div>':'<span class=\"sl-sub\">'+(branch?'Not authorized to request for this branch.':(String(x.location_type||'')==='Warehouse'?'Use the approved purchase-order workflow.':'No action required.'))+'</span>';",
+        "const action=canRequest?'<div class=\"sl-reorder-action\"><label class=\"sl-sr-only\" for=\"reorderQty-'+esc(x.location_id)+'-'+esc(x.variant_id||x.sku)+'\">Requisition quantity for '+esc(x.sku)+'</label><input id=\"reorderQty-'+esc(x.location_id)+'-'+esc(x.variant_id||x.sku)+'\" class=\"sl-reorder-qty\" type=\"number\" min=\"1\" step=\"1\" value=\"'+qty+'\" data-reorder-qty aria-label=\"Requisition quantity for '+esc(x.sku)+'\"><button type=\"button\" class=\"sl-btn sl-btn-sm primary\" data-reorder-create data-location-id=\"'+esc(x.location_id)+'\" data-sku=\"'+esc(x.sku)+'\" data-current=\"'+esc(current)+'\" data-reserved=\"'+esc(reserved)+'\" data-available=\"'+esc(available)+'\" data-inbound=\"'+esc(inbound)+'\" data-position=\"'+esc(position)+'\" data-level=\"'+esc(level)+'\">Create requisition</button></div>':'<span class=\"sl-sub\">'+(branch?(level<=0?'Set this branch reorder level in Product Master.':(status==='OK'?'No replenishment required.':'Review this branch and follow the authorization workflow.')):(String(x.location_type||'')==='Warehouse'?'Use the approved purchase-order workflow.':'No action required.'))+'</span>';",
+        "reorder action uses configured thresholds and records the calculation inputs",
+    )
+    source = replace_literal_once(
+        source,
+        "<th>Location</th><th>SKU / Product</th><th>Current stock</th><th>Reorder level</th><th>Status</th><th>Branch action</th>",
+        "<th>Location</th><th>SKU / Product</th><th>Physical on-hand</th><th>Reserved</th><th>Available</th><th>Inbound transfer</th><th>Reorder position</th><th>Reorder level</th><th>Suggested qty</th><th>Status</th><th>Branch action</th>",
+        "reorder table headers",
+    )
+    source = replace_literal_once(
+        source,
+        "<td data-label=\"Current stock\">'+esc(current)+'</td><td data-label=\"Reorder level\">'+esc(level)+'</td><td data-label=\"Status\"><span class=\"sl-pill '+(status==='CRITICAL'?'bad':status==='REORDER NOW'?'warn':'ok')+'\">'+status+'</span></td><td data-label=\"Branch action\">'+action+'</td></tr>';",
+        "<td data-label=\"Physical on-hand\">'+esc(current)+'</td><td data-label=\"Reserved\">'+esc(reserved)+'</td><td data-label=\"Available\"><b>'+esc(available)+'</b>'+(x.availability_exception?'<div><span class=\"sl-pill bad\">'+esc(x.availability_exception)+'</span></div>':'')+'</td><td data-label=\"Inbound transfer\">'+esc(inbound)+'</td><td data-label=\"Reorder position\"><b>'+esc(position)+'</b></td><td data-label=\"Reorder level\">'+esc(level>0?level:'Not set')+'</td><td data-label=\"Suggested qty\">'+esc(suggested)+'</td><td data-label=\"Status\"><span class=\"sl-pill '+(status==='CRITICAL'?'bad':(status==='REORDER NOW'||status==='NO_LEVEL')?'warn':'ok')+'\">'+esc(status)+'</span></td><td data-label=\"Branch action\">'+action+'</td></tr>';",
+        "reorder table values and reservation exception",
+    )
+    source = replace_literal_once(
+        source,
+        "notes:'Reorder alert: current ledger stock '+button.dataset.current+'; configured reorder level '+button.dataset.level+'. Please review and approve under the existing SOP.'",
+        "notes:'Reorder review: physical on-hand '+button.dataset.current+', active reserved '+button.dataset.reserved+', available '+button.dataset.available+', dispatched inbound '+button.dataset.inbound+', reorder position '+button.dataset.position+', configured reorder level '+button.dataset.level+'. Please review and approve under the existing SOP.'",
+        "requisition audit context",
+    )
+    return source
+
+
+def patch_daily_inventory(source: str) -> str:
+    source = replace_literal_once(source,
+        "$reorder_qty         = null === $reorder_level ? 0 : max( 0, $reorder_level - $closing );",
+        "$reorder_qty         = null === $reorder_level || $reorder_level <= 0 ? 0 : ( $available <= $reorder_level ? max( 1, (int) ceil( max( 0, $reorder_level - $available ) ) ) : 0 );",
+        "Daily Inventory reorder quantity uses available stock")
+    source = replace_literal_once(source,
+        "$status = null === $reorder_level ? 'NO_LEVEL' : ( $reorder_qty > 0 ? ( $warehouse_shortfall > 0 ? 'SHORTFALL' : 'REORDER' ) : 'OK' );",
+        "$status = $available <= 0 ? 'CRITICAL' : ( null === $reorder_level || $reorder_level <= 0 ? 'NO_LEVEL' : ( $available <= $reorder_level ? ( $warehouse_shortfall > 0 ? 'SHORTFALL' : 'REORDER' ) : 'OK' ) );",
+        "Daily Inventory status uses available stock and missing thresholds")
+    source = replace_literal_once(source,
+        "if ( $reorder_qty > 0 ) {\n\t\t\t\t\t++$summary['reorder_alerts'];\n\t\t\t\t}",
+        "if ( $available <= 0 || ( null !== $reorder_level && $reorder_level > 0 && $available <= $reorder_level ) ) {\n\t\t\t\t\t++$summary['reorder_alerts'];\n\t\t\t\t}",
+        "Daily Inventory alerts count zero/negative availability and reorder boundary")
+    return source
+
+
 STOCK_API_PATH = "stockland-erp-app/includes/rest/class-rest-stock.php"
 
 OLD_STOCK_LIST_SQL = r'''SELECT v.location_id,v.variant_id,p.sku,p.product_name,p.product_type,p.style_code,p.parent_sku,p.color,p.size,p.barcode,p.gtin,v.physical_stock,COALESCE(r.reserved_stock,0) reserved_stock,v.physical_stock-COALESCE(r.reserved_stock,0) available_stock
@@ -269,7 +321,8 @@ def patch_stock_api(source: str) -> str:
 \t\t\t$row['status'] = $current <= 0.0 ? 'CRITICAL' : ( $current <= $level ? 'REORDER NOW' : 'OK' );""",
         """\t\t\t$position       = (float) $row['reorder_position'];
 \t\t\t$level          = (float) $row['reorder_level'];
-\t\t\t$row['status']  = $level <= 0.0 ? 'NO_LEVEL' : ( $position <= 0.0 ? 'CRITICAL' : ( $position <= $level ? 'REORDER NOW' : 'OK' ) );""",
+\t\t\t$row['status']  = $level <= 0.0 ? 'NO_LEVEL' : ( $position <= 0.0 ? 'CRITICAL' : ( $position <= $level ? 'REORDER NOW' : 'OK' ) );
+\t\t\t$row['suggested_replenishment'] = $level > 0.0 && $position <= $level ? max( 1, (int) ceil( max( 0, $level - $position ) ) ) : 0;""",
         "live reorder status evaluates configured level against sellable availability",
     )
     for marker in ("OVER-RESERVED", "GREATEST(0,COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0))", "COALESCE(t.variant_id,legacy_p.variant_id)"):
@@ -364,8 +417,11 @@ def rebuild_zip(path: Path) -> dict:
     stock_api_after = patch_stock_api(stock_api_before)
     contents[STOCK_API_PATH] = stock_api_after.encode("utf-8")
     js_before = contents[JS_PATH].decode("utf-8")
-    js_after = patch_dashboard_js(js_before)
+    js_after = patch_operational_reorder_ui(patch_dashboard_js(js_before))
     contents[JS_PATH] = js_after.encode("utf-8")
+    daily_path = "stockland-erp-app/includes/rest/class-rest-inventory-report-v16.php"
+    daily_before = contents[daily_path].decode("utf-8")
+    contents[daily_path] = patch_daily_inventory(daily_before).encode("utf-8")
 
     manifest = json.loads(contents[MANIFEST_PATH].decode("utf-8"))
     changes = list(manifest.get("release_candidate_changes", []))
@@ -376,6 +432,9 @@ def rebuild_zip(path: Path) -> dict:
     )
     if note not in changes:
         changes.append(note)
+    ui_note = "16.1.93 Reorder Alerts and Daily Inventory align displayed quantities, status and advisory suggestions with the reservation-aware ledger calculation."
+    if ui_note not in changes:
+        changes.append(ui_note)
     manifest["release_candidate_changes"] = changes
     manifest.setdefault("stock_reconciliation", {}).update({
         "physical_stock_source": "immutable stock ledger",
@@ -393,6 +452,13 @@ def rebuild_zip(path: Path) -> dict:
         "live_data_changed": False,
     })
     contents[MANIFEST_PATH] = (json.dumps(manifest, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+
+    readme_path = "stockland-erp-app/README.md"
+    readme = contents[readme_path].decode("utf-8")
+    readme_section = """\\n## Reorder and availability — 16.1.93\\n\\n- Physical on-hand is posted-ledger quantity; active reservations and eligible dispatched inbound transfers remain separate figures.\\n- Sellable available quantity is shown independently; over-reservation is explicitly flagged.\\n- Reorder position includes sellable available quantity plus eligible dispatched inbound transfers and is compared with the branch or Central Warehouse configured threshold.\\n- Daily Inventory evaluates reorder using available quantity and shows zero/negative availability and unconfigured levels distinctly.\\n- Suggestions are advisory; opening reports never posts stock movements. Branch requisitions continue through the existing authorization and approval workflow.\\n\\n"""
+    marker = "## Selected Reports & Analytics explorer — 16.1.93"
+    if marker in readme and "## Reorder and availability — 16.1.93" not in readme:
+        contents[readme_path] = readme.replace(marker, readme_section + marker, 1).encode("utf-8")
 
     fd, temp_name = tempfile.mkstemp(prefix=path.stem + "-", suffix=".zip", dir=str(path.parent))
     os.close(fd)
