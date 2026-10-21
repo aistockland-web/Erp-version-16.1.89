@@ -24,49 +24,69 @@ LOW_SQL_PATTERN = re.compile(
 STOCK_SQL = '''$stock_sql  = "SELECT l.location_name,p.sku,p.product_name,p.brand,p.size,p.color,
                     COALESCE(b.physical_stock,0) physical_stock,
                     COALESCE(a.reserved_stock,0) reserved_stock,
-                    GREATEST(0,COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0)) available_stock,\n                    CASE WHEN COALESCE(a.reserved_stock,0)>COALESCE(b.physical_stock,0) THEN 'OVER-RESERVED' ELSE '' END availability_exception,
+                    GREATEST(0,COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0)) available_stock,
+                    CASE WHEN COALESCE(a.reserved_stock,0)>COALESCE(b.physical_stock,0) THEN 'OVER-RESERVED' ELSE '' END availability_exception,
+                    COALESCE(i.inbound_stock,0) inbound_stock,
+                    GREATEST(0,COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0))+COALESCE(i.inbound_stock,0) reorder_position,
                     IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level) reorder_level
              FROM %i p JOIN %i l ON l.location_type IN('Warehouse','Branch') AND l.is_active=1
              LEFT JOIN (
                SELECT t.location_id,COALESCE(t.variant_id,legacy_p.variant_id) variant_id,SUM(t.quantity_signed) physical_stock
-               FROM %i t
-               LEFT JOIN %i legacy_p ON t.variant_id IS NULL AND legacy_p.sku=t.sku
+               FROM %i t LEFT JOIN %i legacy_p ON t.variant_id IS NULL AND legacy_p.sku=t.sku
                WHERE COALESCE(t.variant_id,legacy_p.variant_id) IS NOT NULL
                GROUP BY t.location_id,COALESCE(t.variant_id,legacy_p.variant_id)
              ) b ON b.variant_id=p.variant_id AND b.location_id=l.id
              LEFT JOIN (
                SELECT r.location_id,COALESCE(r.variant_id,legacy_r.variant_id) variant_id,SUM(r.quantity_reserved) reserved_stock
-               FROM %i r
-               LEFT JOIN %i legacy_r ON r.variant_id IS NULL AND legacy_r.sku=r.sku
+               FROM %i r LEFT JOIN %i legacy_r ON r.variant_id IS NULL AND legacy_r.sku=r.sku
                WHERE r.status='Active' AND COALESCE(r.variant_id,legacy_r.variant_id) IS NOT NULL
                GROUP BY r.location_id,COALESCE(r.variant_id,legacy_r.variant_id)
              ) a ON a.variant_id=p.variant_id AND a.location_id=l.id
-             WHERE p.is_active=1 AND l.is_active=1";'''
+             LEFT JOIN (
+               SELECT t.to_location_id location_id,COALESCE(t.variant_id,inbound_p.variant_id) variant_id,
+                      SUM(GREATEST(0,COALESCE(t.dispatched_qty,0)-COALESCE(t.received_qty,0))) inbound_stock
+               FROM %i t LEFT JOIN %i inbound_p ON t.variant_id IS NULL AND inbound_p.sku=t.sku
+               WHERE t.status IN('Picked','In Transit') AND COALESCE(t.variant_id,inbound_p.variant_id) IS NOT NULL
+               GROUP BY t.to_location_id,COALESCE(t.variant_id,inbound_p.variant_id)
+             ) i ON i.variant_id=p.variant_id AND i.location_id=l.id
+             WHERE p.is_active=1 AND p.product_type<>'STYLE' AND l.is_active=1";'''
+
+
 
 LOW_SQL = '''$low_sql  = "SELECT l.location_name,p.sku,p.product_name,
                     COALESCE(b.physical_stock,0) current_stock,
+                    COALESCE(b.physical_stock,0) physical_stock,
                     COALESCE(a.reserved_stock,0) reserved_stock,
-                    GREATEST(0,COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0)) available_stock,\n                    CASE WHEN COALESCE(a.reserved_stock,0)>COALESCE(b.physical_stock,0) THEN 'OVER-RESERVED' ELSE '' END availability_exception,
+                    GREATEST(0,COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0)) available_stock,
+                    CASE WHEN COALESCE(a.reserved_stock,0)>COALESCE(b.physical_stock,0) THEN 'OVER-RESERVED' ELSE '' END availability_exception,
+                    COALESCE(i.inbound_stock,0) inbound_stock,
+                    GREATEST(0,COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0))+COALESCE(i.inbound_stock,0) reorder_position,
                     IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level) reorder_level
              FROM %i p CROSS JOIN %i l
              LEFT JOIN (
                SELECT t.location_id,COALESCE(t.variant_id,legacy_p.variant_id) variant_id,SUM(t.quantity_signed) physical_stock
-               FROM %i t
-               LEFT JOIN %i legacy_p ON t.variant_id IS NULL AND legacy_p.sku=t.sku
+               FROM %i t LEFT JOIN %i legacy_p ON t.variant_id IS NULL AND legacy_p.sku=t.sku
                WHERE COALESCE(t.variant_id,legacy_p.variant_id) IS NOT NULL
                GROUP BY t.location_id,COALESCE(t.variant_id,legacy_p.variant_id)
              ) b ON b.variant_id=p.variant_id AND b.location_id=l.id
              LEFT JOIN (
                SELECT r.location_id,COALESCE(r.variant_id,legacy_r.variant_id) variant_id,SUM(r.quantity_reserved) reserved_stock
-               FROM %i r
-               LEFT JOIN %i legacy_r ON r.variant_id IS NULL AND legacy_r.sku=r.sku
+               FROM %i r LEFT JOIN %i legacy_r ON r.variant_id IS NULL AND legacy_r.sku=r.sku
                WHERE r.status='Active' AND COALESCE(r.variant_id,legacy_r.variant_id) IS NOT NULL
                GROUP BY r.location_id,COALESCE(r.variant_id,legacy_r.variant_id)
              ) a ON a.variant_id=p.variant_id AND a.location_id=l.id
-             WHERE p.is_active=1 AND l.is_active=1 AND l.location_type IN('Warehouse','Branch')" . $low_scope_sql . "
+             LEFT JOIN (
+               SELECT t.to_location_id location_id,COALESCE(t.variant_id,inbound_p.variant_id) variant_id,
+                      SUM(GREATEST(0,COALESCE(t.dispatched_qty,0)-COALESCE(t.received_qty,0))) inbound_stock
+               FROM %i t LEFT JOIN %i inbound_p ON t.variant_id IS NULL AND inbound_p.sku=t.sku
+               WHERE t.status IN('Picked','In Transit') AND COALESCE(t.variant_id,inbound_p.variant_id) IS NOT NULL
+               GROUP BY t.to_location_id,COALESCE(t.variant_id,inbound_p.variant_id)
+             ) i ON i.variant_id=p.variant_id AND i.location_id=l.id
+             WHERE p.is_active=1 AND p.product_type<>'STYLE' AND l.is_active=1 AND l.location_type IN('Warehouse','Branch')" . $low_scope_sql . "
              AND IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level)>0
-             AND GREATEST(0,COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0))<=IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level)
-             ORDER BY available_stock,p.sku";'''
+             AND GREATEST(0,COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0))+COALESCE(i.inbound_stock,0)<=IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level)
+             ORDER BY reorder_position,p.sku";'''
+
 
 
 DASHBOARD_LOW_COUNT_PATTERN = re.compile(
@@ -75,19 +95,26 @@ DASHBOARD_LOW_COUNT_PATTERN = re.compile(
 DASHBOARD_LOW_COUNT_SQL = '''$low_sql  = "SELECT COUNT(*) FROM %i p CROSS JOIN %i l
              LEFT JOIN (
                SELECT t.location_id,COALESCE(t.variant_id,legacy_p.variant_id) variant_id,SUM(t.quantity_signed) physical_stock
-               FROM %i t
-               LEFT JOIN %i legacy_p ON t.variant_id IS NULL AND legacy_p.sku=t.sku
+               FROM %i t LEFT JOIN %i legacy_p ON t.variant_id IS NULL AND legacy_p.sku=t.sku
                WHERE COALESCE(t.variant_id,legacy_p.variant_id) IS NOT NULL
                GROUP BY t.location_id,COALESCE(t.variant_id,legacy_p.variant_id)
              ) b ON b.variant_id=p.variant_id AND b.location_id=l.id
              LEFT JOIN (
                SELECT r.location_id,COALESCE(r.variant_id,legacy_r.variant_id) variant_id,SUM(r.quantity_reserved) reserved_stock
-               FROM %i r
-               LEFT JOIN %i legacy_r ON r.variant_id IS NULL AND legacy_r.sku=r.sku
+               FROM %i r LEFT JOIN %i legacy_r ON r.variant_id IS NULL AND legacy_r.sku=r.sku
                WHERE r.status='Active' AND COALESCE(r.variant_id,legacy_r.variant_id) IS NOT NULL
                GROUP BY r.location_id,COALESCE(r.variant_id,legacy_r.variant_id)
              ) a ON a.variant_id=p.variant_id AND a.location_id=l.id
-             WHERE p.is_active=1 AND l.is_active=1 AND l.location_type IN('Warehouse','Branch')";'''
+             LEFT JOIN (
+               SELECT t.to_location_id location_id,COALESCE(t.variant_id,inbound_p.variant_id) variant_id,
+                      SUM(GREATEST(0,COALESCE(t.dispatched_qty,0)-COALESCE(t.received_qty,0))) inbound_stock
+               FROM %i t LEFT JOIN %i inbound_p ON t.variant_id IS NULL AND inbound_p.sku=t.sku
+               WHERE t.status IN('Picked','In Transit') AND COALESCE(t.variant_id,inbound_p.variant_id) IS NOT NULL
+               GROUP BY t.to_location_id,COALESCE(t.variant_id,inbound_p.variant_id)
+             ) i ON i.variant_id=p.variant_id AND i.location_id=l.id
+             WHERE p.is_active=1 AND p.product_type<>'STYLE' AND l.is_active=1 AND l.location_type IN('Warehouse','Branch')";'''
+
+
 
 def replace_exactly_once(pattern: re.Pattern[str], replacement: str, source: str, label: str) -> str:
     matches = list(pattern.finditer(source))
