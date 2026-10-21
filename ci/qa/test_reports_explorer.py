@@ -169,7 +169,8 @@ process.stdout.write(JSON.stringify(r));
             available = max(0, case["physical"] - case["reserved"])
             position = available + case["inbound"]
             need((case["level"] > 0 and position <= case["level"]) == case["alert"], "reorder position boundary fixture")
-            need(max(0, case["level"] - position) == case["suggested"], "replenishment quantity fixture")
+            suggested = max(1, case["level"] - position) if case["level"] > 0 and position <= case["level"] else 0
+            need(suggested == case["suggested"], "minimum-one-unit replenishment quantity fixture")
         print("PASS exact 16.1.92 checksum/size; ZIP CRC, inventory and root")
         print("PASS selector defaults, report-type selection, SKU autocomplete, selected-only print/PDF and CSV contracts")
         print("PASS server permission/location/SKU/cost scope assertions; Owner-only critical reorder")
