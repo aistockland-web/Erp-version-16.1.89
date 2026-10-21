@@ -26,6 +26,7 @@ def main():
             source_after = {p: new.read(p) for p in new_names}
         js = source_after["stockland-erp-app/assets/app.js"].decode()
         php = source_after["stockland-erp-app/includes/rest/class-rest-app.php"].decode()
+        stock_api = source_after["stockland-erp-app/includes/rest/class-rest-stock.php"].decode()
         entry = source_after["stockland-erp-app/stockland-inventory.php"].decode()
         front = source_after["stockland-erp-app/includes/class-stockland-frontend.php"].decode()
         manifest = json.loads(source_after["stockland-erp-app/RELEASE_MANIFEST.json"])
@@ -74,6 +75,7 @@ def main():
             "stockland-erp-app/assets/app.js", "stockland-erp-app/assets/css/modules.json",
             "stockland-erp-app/includes/class-stockland-frontend.php",
             "stockland-erp-app/includes/rest/class-rest-app.php",
+            "stockland-erp-app/includes/rest/class-rest-stock.php",
             "stockland-erp-app/stockland-inventory.php",
         }
         need(changed == allowed, "changed file allowlist: " + repr(sorted(changed)))
@@ -107,6 +109,16 @@ process.stdout.write(JSON.stringify(r));
         for case in stock_fixtures:
             observed = (case["variant_on_hand"] + case["legacy_on_hand"]) - (case["variant_reserved"] + case["legacy_reserved"])
             need(observed == case["expected_available"], "legacy/variant stock arithmetic fixture")
+        for phrase, label in [
+            ("COALESCE(t.variant_id,legacy_p.variant_id)", "live stock and reorder endpoints resolve legacy SKU-only ledger rows"),
+            ("COALESCE(r.variant_id,legacy_r.variant_id)", "live stock and reorder endpoints resolve legacy SKU-only reservations"),
+            ("GREATEST(0,v.physical_stock-COALESCE(r.reserved_stock,0)) available_stock", "live stock list floors sellable availability at zero"),
+            ("OVER-RESERVED", "live stock and reorder endpoints expose reservation integrity exception"),
+            ("$available <= 0.0 ? 'CRITICAL'", "reorder status uses available quantity"),
+            ("$level <= 0.0 ? 'NO_LEVEL'", "zero reorder level is not treated as configured critical reorder"),
+        ]:
+            need(phrase in stock_api, "live stock API contract: " + label)
+
         need("COALESCE(b.physical_stock,0)+COALESCE(bl.physical_stock,0)" in php, "on-hand sums variant and legacy transaction rows")
         need("(COALESCE(b.physical_stock,0)+COALESCE(bl.physical_stock,0))-(COALESCE(a.reserved_stock,0)+COALESCE(al.reserved_stock,0)) available_stock" in php, "availability formula includes both reservation formats")
         print("PASS exact 16.1.92 checksum/size; ZIP CRC, inventory and root")
