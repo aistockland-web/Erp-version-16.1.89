@@ -715,6 +715,44 @@ def patch_operational_integrity_php(source: str) -> str:
     return source
 
 
+def patch_operational_integrity_js(source: str) -> str:
+    """Render server-side reorder rows and keep decimal currency strings exact."""
+    source = replace_once(
+        source,
+        "const money=n=>new Intl.NumberFormat('en-ET',{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(n||0))+' ETB';",
+        """const money=n=>{
+  const raw=(n===null||n===undefined||n==='')?'0':String(n).trim();
+  const m=/^([+-]?)(\\d+)(?:\\.(\\d+))?$/.exec(raw);
+  if(!m)return new Intl.NumberFormat('en-ET',{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(n||0))+' ETB';
+  let whole=m[2].replace(/^0+(?=\\d)/,'');let cents=(m[3]||'').padEnd(2,'0').slice(0,2);const roundDigit=((m[3]||'')+'000')[2];
+  if(roundDigit>='5'){
+    if(cents==='99'){
+      cents='00';const d=whole.split('');let carry=1;for(let i=d.length-1;i>=0&&carry;i--){const v=d[i].charCodeAt(0)-48;if(v===9)d[i]='0';else{d[i]=String(v+1);carry=0}}if(carry)d.unshift('1');whole=d.join('');
+    }else cents=String(Number(cents)+1).padStart(2,'0');
+  }
+  const nonzero=/[1-9]/.test(whole+cents);const sign=m[1]==='-'&&nonzero?'-':'';const grouped=whole.replace(/\\B(?=(\\d{3})+(?!\\d))/g,',');
+  return sign+grouped+'.'+cents+' ETB';
+};""",
+        "decimal-string money formatter"
+    )
+    source = replace_once(source, "if(format==='money')return money(Number(value)||0);", "if(format==='money')return money(value);", "report money without Number coercion")
+    old = """const lowRows=stockRows.map(r=>{
+ const product=bySku.get(String(r.sku||''))||r;
+ const loc=byLocation.get(String(r.location_id))||{};
+ const reorder=String(loc.location_type||'').toLowerCase()==='warehouse'?Number(product.central_reorder_level||0):Number(product.branch_reorder_level||0);
+ return {...r,_location:loc,_reorder:reorder,_available:Number(r.available_stock??(Number(r.physical_stock||0)-Number(r.reserved_stock||0)))};
+}).filter(r=>Number(r.physical_stock||0)<=r._reorder).sort((a,b)=>Number(a.physical_stock||0)-Number(b.physical_stock||0)).slice(0,4);"""
+    new = """const lowRows=(Array.isArray(d.low_stock_rows)?d.low_stock_rows:[]).slice(0,4).map(r=>({
+ ...r,
+ _location:{location_name:r.location_name||'Authorized location'},
+ _reorder:Number(r.reorder_level||0),
+ _available:Number(r.available_stock??(Number(r.physical_stock||0)-Number(r.reserved_stock||0)))
+}));"""
+    source = replace_once(source, old, new, "dashboard server-scoped reorder rows")
+    source = source.replace("Physical stock is at or below its configured reorder threshold.", "Available stock after active reservations is at or below the configured reorder threshold.")
+    return source
+
+
 def apply_to_installer(input_zip: Path, output_zip: Path) -> dict:
     raw = input_zip.read_bytes()
     digest = hashlib.sha256(raw).hexdigest()
@@ -732,7 +770,7 @@ def apply_to_installer(input_zip: Path, output_zip: Path) -> dict:
     php_path = "stockland-erp-app/includes/rest/class-rest-app.php"
     css_paths = [n for n in names if (n.startswith("stockland-erp-app/assets/css/") and n.endswith(".css")) or n in ("stockland-erp-app/assets/app.css", "stockland-erp-app/assets/app.min.css", "stockland-erp-app/assets/bootstrap.min.css")]
     css_before = {n: hashlib.sha256(files[n]).hexdigest() for n in css_paths}
-    files[js_path] = patch_js(files[js_path].decode("utf-8")).encode("utf-8")
+    files[js_path] = patch_operational_integrity_js(patch_js(files[js_path].decode("utf-8"))).encode("utf-8")
     files[php_path] = patch_operational_integrity_php(patch_php(files[php_path].decode("utf-8"))).encode("utf-8")
     entry_path = "stockland-erp-app/stockland-inventory.php"
     entry = files[entry_path].decode("utf-8")
