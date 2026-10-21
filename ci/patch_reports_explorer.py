@@ -471,16 +471,29 @@ if($('#openDailyPosImportFromReport'))$('#openDailyPosImportFromReport').onclick
     product_click_guard = """if(!document.getElementById('sl-desktop-title-action-layer-fix')){
   const style=document.createElement('style');
   style.id='sl-desktop-title-action-layer-fix';
-  style.textContent='@media (min-width:992px){#stockland-app .sl-content-inner>.sl-page-title>.sl-actions{position:relative!important;z-index:80!important;isolation:isolate;pointer-events:auto!important}#stockland-app .sl-content-inner>.sl-page-title>.sl-actions>*{pointer-events:auto!important}}';
+  style.textContent='@media (min-width:992px){#stockland-app .sl-top{z-index:auto!important}#stockland-app .sl-global-search{position:relative!important;z-index:2!important}#stockland-app .sl-global-search-results:not([hidden]){position:absolute!important;left:0!important;right:0!important;top:calc(100% + 8px)!important;width:auto!important;height:auto!important;min-height:0!important;max-height:min(62vh,520px)!important;overflow:auto!important;z-index:3!important}#stockland-app .sl-content-inner>.sl-page-title{position:relative!important;z-index:80!important;isolation:isolate}#stockland-app .sl-content-inner>.sl-page-title>.sl-actions{position:relative!important;z-index:81!important;isolation:isolate;pointer-events:auto!important}#stockland-app .sl-content-inner>.sl-page-title>.sl-actions>*{pointer-events:auto!important}}';
   (document.head||document.documentElement).appendChild(style);
 }
 if(!document.__slNewProductCaptureBound){
   document.__slNewProductCaptureBound=true;
   document.addEventListener('click',function(e){
-    const target=e.target instanceof Element?e.target.closest('#newProduct'):null;
     const appRoot=document.getElementById('stockland-app');
-    if(!target||!appRoot||!appRoot.contains(target)||target.disabled)return;
-    e.preventDefault();e.stopImmediatePropagation();openProductEditor(null);
+    if(!appRoot)return;
+    const pointTarget=e.target instanceof Element?e.target:null;
+    const target=pointTarget?pointTarget.closest('#newProduct'):null;
+    if(target&&appRoot.contains(target)&&!target.disabled){
+      e.preventDefault();e.stopImmediatePropagation();openProductEditor(null);return;
+    }
+    const button=appRoot.querySelector('#newProduct');
+    if(!button||button.disabled||state.view!=='products')return;
+    const rect=button.getBoundingClientRect();
+    const x=Number(e.clientX),y=Number(e.clientY);
+    if(!Number.isFinite(x)||!Number.isFinite(y)||x<rect.left||x>rect.right||y<rect.top||y>rect.bottom)return;
+    const hit=document.elementFromPoint(x,y);
+    if(hit===button||(hit&&button.contains(hit)))return;
+    e.preventDefault();e.stopImmediatePropagation();
+    document.querySelectorAll('#stockland-app .sl-global-search-results:not([hidden])').forEach(node=>{node.hidden=true;});
+    openProductEditor(null);
   },true);
 }"""
     source = replace_once(source, "if($('#newProduct'))$('#newProduct').onclick=()=>openProductEditor(null);", product_click_guard + "\nif($('#newProduct'))$('#newProduct').onclick=()=>openProductEditor(null);", "desktop product create layering + capture delegation")
