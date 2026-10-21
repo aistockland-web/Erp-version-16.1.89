@@ -196,9 +196,11 @@ NEW_REORDER_SQL = r'''SELECT l.id location_id,l.location_type,l.location_name,p.
                 COALESCE(a.reserved_stock,0) reserved_stock,
                 GREATEST(0,COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0)) available_stock,
                 CASE WHEN COALESCE(a.reserved_stock,0)>COALESCE(b.physical_stock,0) THEN 'OVER-RESERVED' ELSE '' END availability_exception,
+                COALESCE(i.inbound_stock,0) inbound_stock,
+                GREATEST(0,COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0))+COALESCE(i.inbound_stock,0) reorder_position,
                 IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level) reorder_level
-				FROM %i p CROSS JOIN %i l
-				LEFT JOIN (
+                FROM %i p CROSS JOIN %i l
+                LEFT JOIN (
                     SELECT t.location_id,COALESCE(t.variant_id,legacy_p.variant_id) variant_id,SUM(t.quantity_signed) physical_stock
                     FROM %i t LEFT JOIN %i legacy_p ON t.variant_id IS NULL AND legacy_p.sku=t.sku
                     WHERE COALESCE(t.variant_id,legacy_p.variant_id) IS NOT NULL
@@ -210,9 +212,18 @@ NEW_REORDER_SQL = r'''SELECT l.id location_id,l.location_type,l.location_name,p.
                     WHERE r.status='Active' AND COALESCE(r.variant_id,legacy_r.variant_id) IS NOT NULL
                     GROUP BY r.location_id,COALESCE(r.variant_id,legacy_r.variant_id)
                 ) a ON a.variant_id=p.variant_id AND a.location_id=l.id
-				WHERE l.location_type IN('Warehouse','Branch') AND l.is_active=1 AND p.is_active=1 AND p.product_type<>'STYLE'
-					AND (%d = 0 OR l.id=%d)
-				ORDER BY available_stock,p.sku'''
+                LEFT JOIN (
+                    SELECT t.to_location_id location_id,COALESCE(t.variant_id,inbound_p.variant_id) variant_id,
+                           SUM(GREATEST(0,COALESCE(t.dispatched_qty,0)-COALESCE(t.received_qty,0))) inbound_stock
+                    FROM %i t LEFT JOIN %i inbound_p ON t.variant_id IS NULL AND inbound_p.sku=t.sku
+                    WHERE t.status IN('Picked','In Transit') AND COALESCE(t.variant_id,inbound_p.variant_id) IS NOT NULL
+                    GROUP BY t.to_location_id,COALESCE(t.variant_id,inbound_p.variant_id)
+                ) i ON i.variant_id=p.variant_id AND i.location_id=l.id
+                WHERE l.location_type IN('Warehouse','Branch') AND l.is_active=1 AND p.is_active=1 AND p.product_type<>'STYLE'
+                    AND (%d = 0 OR l.id=%d)
+                ORDER BY reorder_position,p.sku'''
+
+
 
 def patch_stock_api(source: str) -> str:
     source = replace_literal_once(source, OLD_STOCK_LIST_SQL, NEW_STOCK_LIST_SQL, "live stock list resolves legacy ledger and reservations")
@@ -236,6 +247,11 @@ def patch_stock_api(source: str) -> str:
         """\t\t\t\t$products,
 \t\t\t\t$locations,
 \t\t\t\t$tx,
+\t\t\t\t$products,
+\t\t\t\t$res,
+\t\t\t\t$products,
+\t\t\t\tStockland_DB::table( 'transfers' ),
+\t\t\t\t$products,
 \t\t\t\t$location_id ? 1 : 0,""",
         """\t\t\t\t$products,
 \t\t\t\t$locations,
@@ -251,9 +267,9 @@ def patch_stock_api(source: str) -> str:
         """\t\t\t$current       = (float) $row['current_stock'];
 \t\t\t$level         = (float) $row['reorder_level'];
 \t\t\t$row['status'] = $current <= 0.0 ? 'CRITICAL' : ( $current <= $level ? 'REORDER NOW' : 'OK' );""",
-        """\t\t\t$available      = (float) $row['available_stock'];
+        """\t\t\t$position       = (float) $row['reorder_position'];
 \t\t\t$level          = (float) $row['reorder_level'];
-\t\t\t$row['status']  = $level <= 0.0 ? 'NO_LEVEL' : ( $available <= 0.0 ? 'CRITICAL' : ( $available <= $level ? 'REORDER NOW' : 'OK' ) );""",
+\t\t\t$row['status']  = $level <= 0.0 ? 'NO_LEVEL' : ( $position <= 0.0 ? 'CRITICAL' : ( $position <= $level ? 'REORDER NOW' : 'OK' ) );""",
         "live reorder status evaluates configured level against sellable availability",
     )
     for marker in ("OVER-RESERVED", "GREATEST(0,COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0))", "COALESCE(t.variant_id,legacy_p.variant_id)"):
