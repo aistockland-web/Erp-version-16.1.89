@@ -6,6 +6,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "ci"))
 import patch_reports_explorer as patcher
+import patch_stock_reconciliation as stock_patcher
 
 def need(ok, message):
     if not ok:
@@ -17,6 +18,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix="stockland-report-test-") as td:
         output = Path(td) / "candidate.zip"
         receipt = patcher.apply_to_installer(baseline, output)
+        stock_receipt = stock_patcher.rebuild_zip(output)
         with zipfile.ZipFile(baseline) as old, zipfile.ZipFile(output) as new:
             need(old.testzip() is None and new.testzip() is None, "ZIP CRC")
             old_names = [x.filename for x in old.infolist() if not x.is_dir()]
@@ -135,8 +137,8 @@ process.stdout.write(JSON.stringify(r));
         print("PASS release/route metadata alignment; 49-table contract unchanged")
         print("PASS deterministic local-date ranges: today/yesterday/last7/month")
         print("BASELINE_SHA256=" + receipt["baseline_sha256"])
-        print("CANDIDATE_SHA256=" + receipt["candidate_sha256"])
-        print("CANDIDATE_BYTES=" + str(receipt["candidate_bytes"]))
+        print("CANDIDATE_SHA256=" + stock_receipt["candidate_sha256"])
+        print("CANDIDATE_BYTES=" + str(stock_receipt["candidate_bytes"]))
         print("CSS_FILES_UNCHANGED=" + str(receipt["css_files_unchanged"]))
 
 if __name__ == "__main__":
