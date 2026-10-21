@@ -7,6 +7,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "ci"))
 import patch_reports_explorer as patcher
 import patch_stock_reconciliation as stock_patcher
+import patch_production_hardening as production_patcher
 
 def need(ok, message):
     if not ok:
@@ -19,6 +20,7 @@ def main():
         output = Path(td) / "candidate.zip"
         receipt = patcher.apply_to_installer(baseline, output)
         stock_receipt = stock_patcher.rebuild_zip(output)
+        production_receipt = production_patcher.patch_archive(output)
         with zipfile.ZipFile(baseline) as old, zipfile.ZipFile(output) as new:
             need(old.testzip() is None and new.testzip() is None, "ZIP CRC")
             old_names = [x.filename for x in old.infolist() if not x.is_dir()]
@@ -48,6 +50,11 @@ def main():
         ]:
             need(phrase in js, "UI contract: " + label)
         need("sl-desktop-title-action-layer-fix" in js, "desktop title-action layering guard injected")
+        need("function managementIntelligence()" in js, "dedicated management intelligence workspace")
+        need("case'intelligence':b=managementIntelligence();break;" in js, "management intelligence route")
+        need("data-mi-kpi" in js and "refreshManagementIntelligence" in js, "management view uses authorized insight metrics and refresh action")
+        need(php.count("report_source_query_failed") >= 10, "report query errors fail closed instead of returning zero totals")
+        need("report_location_label_failed" in php, "selected report location-label lookup fails closed")
         need("z-index:80!important" in js, "desktop actions raised above header/search stacking context")
         need("pointer-events:auto!important" in js, "desktop action pointer events preserved")
         need("document.__slNewProductCaptureBound" in js, "desktop Product Master delegated click guard")
@@ -87,10 +94,19 @@ def main():
             "stockland-erp-app/includes/rest/class-rest-app.php",
             "stockland-erp-app/includes/rest/class-rest-stock.php",
             "stockland-erp-app/includes/rest/class-rest-inventory-report-v16.php",
+            "stockland-erp-app/includes/class-stockland-admin.php",
+            "stockland-erp-app/includes/class-stockland-xlsx.php",
             "stockland-erp-app/stockland-inventory.php",
         }
         need(changed == allowed, "changed file allowlist: " + repr(sorted(changed)))
         need(manifest.get("release") == "16.1.93" and css.get("release") == "16.1.93", "release identity")
+        need(manifest.get("minimum_php") == "8.3", "host PHP floor is 8.3")
+        need("release_candidate_changes" not in manifest, "installed plugin metadata is not branded as a candidate")
+        need(manifest.get("payroll_integrity", {}).get("employee_pension_rate") == "7%", "employee pension rule metadata")
+        need(manifest.get("payroll_integrity", {}).get("employer_pension_rate") == "11%", "employer pension rule metadata")
+        need(manifest.get("payroll_integrity", {}).get("sample_personal_records_imported") is False, "no payroll demo data seeded")
+        need("version_compare( PHP_VERSION, '8.4', '>=' )" not in php, "System Health runtime check aligned to PHP 8.3")
+        need("plugin requires 8.4+" not in source_after["stockland-erp-app/includes/class-stockland-admin.php"].decode(), "admin health panel aligned to PHP 8.3")
         need("Version:           16.1.93" in entry and "define( 'STOCKLAND_VERSION', '16.1.93' );" in entry, "plugin release version")
         need(" * Requires PHP:      8.3" in entry, "InfinityFree PHP 8.3 compatibility floor")
         need("setInterval(()=>{if(document.visibilityState==='visible')refreshLiveIndicators()},60000)" in js, "low-resource activity refresh cadence")
@@ -114,6 +130,41 @@ process.stdout.write(JSON.stringify(r));
         need(ranges["yesterday"] == {"from":"2026-10-19","to":"2026-10-19"}, "yesterday date")
         need(ranges["last7"] == {"from":"2026-10-14","to":"2026-10-20"}, "last-seven-days date")
         need(ranges["month"] == {"from":"2026-10-01","to":"2026-10-20"}, "month-to-date date")
+        # Exercise the existing PHP statutory payroll service using independent deterministic fixtures.
+        # This validates its configured arithmetic; it does not import employee data or claim legal advice.
+        payroll_dir = Path(td) / "payroll_fixture"
+        payroll_dir.mkdir()
+        (payroll_dir / "class-stockland-money.php").write_bytes(source_after["stockland-erp-app/includes/class-stockland-money.php"])
+        (payroll_dir / "class-stockland-payroll-statutory.php").write_bytes(source_after["stockland-erp-app/includes/class-stockland-payroll-statutory.php"])
+        payroll_harness = payroll_dir / "payroll_fixture.php"
+        payroll_harness.write_text("""<?php
+define('ABSPATH', __DIR__);
+require __DIR__ . '/class-stockland-money.php';
+require __DIR__ . '/class-stockland-payroll-statutory.php';
+$inputs = array('2000.00','4000.00','7000.00','10000.00','14000.00','14000.01');
+$bands = array();
+foreach ($inputs as $income) { $bands[$income] = Stockland_Payroll_Statutory::income_tax($income); }
+$line = Stockland_Payroll_Statutory::calculate('10000.00','1000.00','0.00','10000.00','0.00');
+echo json_encode(array('bands'=>$bands,'line'=>$line,'rule'=>Stockland_Payroll_Statutory::RULE_VERSION), JSON_THROW_ON_ERROR);
+""", encoding="utf-8")
+        payroll_output = subprocess.run(["php", str(payroll_harness)], check=True, capture_output=True, text=True)
+        payroll = json.loads(payroll_output.stdout)
+        expected_bands = {
+            "2000.00": ["0.00", "0.00"],
+            "4000.00": ["300.00", "15.00"],
+            "7000.00": ["900.00", "20.00"],
+            "10000.00": ["1650.00", "25.00"],
+            "14000.00": ["2850.00", "30.00"],
+            "14000.01": ["2850.00", "35.00"],
+        }
+        need(payroll["bands"] == expected_bands, "PAYE band boundary fixtures from installed statutory service")
+        line = payroll["line"]
+        need(payroll["rule"] == "ET-PAYE-1395-2025-v3-PENSION-BASE", "payroll rule version is explicit")
+        need(line["employee_pension"] == "700.00" and line["employer_pension"] == "1100.00", "employee 7% and employer 11% pension arithmetic")
+        need(line["taxable_income"] == "10300.00" and line["income_tax"] == "1740.00", "taxable base and PAYE arithmetic fixture")
+        need(line["gross_pay"] == "11000.00" and line["net_pay"] == "8560.00" and line["employer_cost_total"] == "12100.00", "gross/net/employer-cost ledger fixture")
+        need("function managementIntelligence()" in js and "case'intelligence':b=managementIntelligence();break;" in js, "management intelligence included in canonical package build")
+        need(production_receipt["schema_activator_unchanged"] is True, "production patch preserved the database activator")
         # Independent arithmetic fixtures for variant-linked and legacy SKU-only rows.
         # Sellable availability is floored at zero; over-reservation remains explicit.
         stock_fixtures = [
@@ -175,11 +226,13 @@ process.stdout.write(JSON.stringify(r));
         print("PASS selector defaults, report-type selection, SKU autocomplete, selected-only print/PDF and CSV contracts")
         print("PASS server permission/location/SKU/cost scope assertions; Owner-only critical reorder")
         print("PASS exact changed-file allowlist; CSS source/compiled bytes and schema DDL untouched")
+        print("PASS Management Intelligence, report fail-closed guards and PHP 8.3 compatibility")
+        print("PASS deterministic PHP payroll tax boundaries, 7% employee / 11% employer pension and net-pay reconciliation")
         print("PASS release/route metadata alignment; 49-table contract unchanged")
         print("PASS deterministic local-date ranges: today/yesterday/last7/month")
         print("BASELINE_SHA256=" + receipt["baseline_sha256"])
-        print("CANDIDATE_SHA256=" + stock_receipt["candidate_sha256"])
-        print("CANDIDATE_BYTES=" + str(stock_receipt["candidate_bytes"]))
+        print("WORDPRESS_UPDATE_SHA256=" + production_receipt["archive_sha256"])
+        print("WORDPRESS_UPDATE_BYTES=" + str(production_receipt["archive_bytes"]))
         print("CSS_FILES_UNCHANGED=" + str(receipt["css_files_unchanged"]))
 
 if __name__ == "__main__":
