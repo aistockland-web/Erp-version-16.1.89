@@ -124,6 +124,117 @@ def patch_dashboard_js(source: str) -> str:
     return source
 
 
+STOCK_API_PATH = "stockland-erp-app/includes/rest/class-rest-stock.php"
+
+OLD_STOCK_LIST_SQL = r'''SELECT v.location_id,v.variant_id,p.sku,p.product_name,p.product_type,p.style_code,p.parent_sku,p.color,p.size,p.barcode,p.gtin,v.physical_stock,COALESCE(r.reserved_stock,0) reserved_stock,v.physical_stock-COALESCE(r.reserved_stock,0) available_stock
+				FROM (SELECT t.location_id,t.variant_id,SUM(t.quantity_signed) physical_stock FROM %i t WHERE t.variant_id IS NOT NULL GROUP BY t.location_id,t.variant_id) v
+				JOIN %i p ON p.variant_id=v.variant_id
+				LEFT JOIN (SELECT location_id,variant_id,sku,SUM(quantity_reserved) reserved_stock FROM %i WHERE status='Active' GROUP BY location_id,variant_id,sku) r ON r.location_id=v.location_id AND r.variant_id=p.variant_id
+				WHERE p.is_active=1 AND p.product_type<>'STYLE'
+					AND (%d = 0 OR v.location_id=%d)
+					AND (%d = 0 OR v.variant_id=%d)
+				ORDER BY v.location_id,p.sku'''
+
+NEW_STOCK_LIST_SQL = r'''SELECT v.location_id,v.variant_id,p.sku,p.product_name,p.product_type,p.style_code,p.parent_sku,p.color,p.size,p.barcode,p.gtin,
+                v.physical_stock,COALESCE(r.reserved_stock,0) reserved_stock,
+                GREATEST(0,v.physical_stock-COALESCE(r.reserved_stock,0)) available_stock,
+                CASE WHEN COALESCE(r.reserved_stock,0)>v.physical_stock THEN 'OVER-RESERVED' ELSE '' END availability_exception
+				FROM (
+                    SELECT t.location_id,COALESCE(t.variant_id,legacy_p.variant_id) variant_id,SUM(t.quantity_signed) physical_stock
+                    FROM %i t LEFT JOIN %i legacy_p ON t.variant_id IS NULL AND legacy_p.sku=t.sku
+                    WHERE COALESCE(t.variant_id,legacy_p.variant_id) IS NOT NULL
+                    GROUP BY t.location_id,COALESCE(t.variant_id,legacy_p.variant_id)
+                ) v
+				JOIN %i p ON p.variant_id=v.variant_id
+				LEFT JOIN (
+                    SELECT r.location_id,COALESCE(r.variant_id,legacy_r.variant_id) variant_id,SUM(r.quantity_reserved) reserved_stock
+                    FROM %i r LEFT JOIN %i legacy_r ON r.variant_id IS NULL AND legacy_r.sku=r.sku
+                    WHERE r.status='Active' AND COALESCE(r.variant_id,legacy_r.variant_id) IS NOT NULL
+                    GROUP BY r.location_id,COALESCE(r.variant_id,legacy_r.variant_id)
+                ) r ON r.location_id=v.location_id AND r.variant_id=p.variant_id
+				WHERE p.is_active=1 AND p.product_type<>'STYLE'
+					AND (%d = 0 OR v.location_id=%d)
+					AND (%d = 0 OR v.variant_id=%d)
+				ORDER BY v.location_id,p.sku'''
+
+OLD_REORDER_SQL = r'''SELECT l.id location_id,l.location_type,l.location_name,p.variant_id,p.sku,p.product_name,p.style_code,p.brand,p.color,p.size,p.barcode,p.gtin,COALESCE(b.physical_stock,0) current_stock,IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level) reorder_level
+				FROM %i p CROSS JOIN %i l
+				LEFT JOIN (SELECT location_id,variant_id,SUM(quantity_signed) physical_stock FROM %i WHERE variant_id IS NOT NULL GROUP BY location_id,variant_id) b ON b.variant_id=p.variant_id AND b.location_id=l.id
+				WHERE l.location_type IN('Warehouse','Branch') AND p.is_active=1 AND p.product_type<>'STYLE'
+					AND (%d = 0 OR l.id=%d)
+				ORDER BY current_stock,p.sku'''
+
+NEW_REORDER_SQL = r'''SELECT l.id location_id,l.location_type,l.location_name,p.variant_id,p.sku,p.product_name,p.style_code,p.brand,p.color,p.size,p.barcode,p.gtin,
+                COALESCE(b.physical_stock,0) current_stock,COALESCE(b.physical_stock,0) physical_stock,
+                COALESCE(a.reserved_stock,0) reserved_stock,
+                GREATEST(0,COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0)) available_stock,
+                CASE WHEN COALESCE(a.reserved_stock,0)>COALESCE(b.physical_stock,0) THEN 'OVER-RESERVED' ELSE '' END availability_exception,
+                IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level) reorder_level
+				FROM %i p CROSS JOIN %i l
+				LEFT JOIN (
+                    SELECT t.location_id,COALESCE(t.variant_id,legacy_p.variant_id) variant_id,SUM(t.quantity_signed) physical_stock
+                    FROM %i t LEFT JOIN %i legacy_p ON t.variant_id IS NULL AND legacy_p.sku=t.sku
+                    WHERE COALESCE(t.variant_id,legacy_p.variant_id) IS NOT NULL
+                    GROUP BY t.location_id,COALESCE(t.variant_id,legacy_p.variant_id)
+                ) b ON b.variant_id=p.variant_id AND b.location_id=l.id
+                LEFT JOIN (
+                    SELECT r.location_id,COALESCE(r.variant_id,legacy_r.variant_id) variant_id,SUM(r.quantity_reserved) reserved_stock
+                    FROM %i r LEFT JOIN %i legacy_r ON r.variant_id IS NULL AND legacy_r.sku=r.sku
+                    WHERE r.status='Active' AND COALESCE(r.variant_id,legacy_r.variant_id) IS NOT NULL
+                    GROUP BY r.location_id,COALESCE(r.variant_id,legacy_r.variant_id)
+                ) a ON a.variant_id=p.variant_id AND a.location_id=l.id
+				WHERE l.location_type IN('Warehouse','Branch') AND l.is_active=1 AND p.is_active=1 AND p.product_type<>'STYLE'
+					AND (%d = 0 OR l.id=%d)
+				ORDER BY available_stock,p.sku'''
+
+def patch_stock_api(source: str) -> str:
+    source = replace_literal_once(source, OLD_STOCK_LIST_SQL, NEW_STOCK_LIST_SQL, "live stock list resolves legacy ledger and reservations")
+    source = replace_literal_once(
+        source,
+        """\t\t\t\t$tx,
+\t\t\t\t$products,
+\t\t\t\t$res,
+\t\t\t\t$location_id ? 1 : 0,""",
+        """\t\t\t\t$tx,
+\t\t\t\t$products,
+\t\t\t\t$products,
+\t\t\t\t$res,
+\t\t\t\t$products,
+\t\t\t\t$location_id ? 1 : 0,""",
+        "live stock list SQL placeholder order",
+    )
+    source = replace_literal_once(source, OLD_REORDER_SQL, NEW_REORDER_SQL, "live reorder endpoint uses sellable availability")
+    source = replace_literal_once(
+        source,
+        """\t\t\t\t$products,
+\t\t\t\t$locations,
+\t\t\t\t$tx,
+\t\t\t\t$location_id ? 1 : 0,""",
+        """\t\t\t\t$products,
+\t\t\t\t$locations,
+\t\t\t\t$tx,
+\t\t\t\t$products,
+\t\t\t\t$res,
+\t\t\t\t$products,
+\t\t\t\t$location_id ? 1 : 0,""",
+        "live reorder SQL placeholder order",
+    )
+    source = replace_literal_once(
+        source,
+        """\t\t\t$current       = (float) $row['current_stock'];
+\t\t\t$level         = (float) $row['reorder_level'];
+\t\t\t$row['status'] = $current <= 0.0 ? 'CRITICAL' : ( $current <= $level ? 'REORDER NOW' : 'OK' );""",
+        """\t\t\t$available      = (float) $row['available_stock'];
+\t\t\t$level          = (float) $row['reorder_level'];
+\t\t\t$row['status']  = $level <= 0.0 ? 'NO_LEVEL' : ( $available <= 0.0 ? 'CRITICAL' : ( $available <= $level ? 'REORDER NOW' : 'OK' ) );""",
+        "live reorder status evaluates configured level against sellable availability",
+    )
+    for marker in ("OVER-RESERVED", "GREATEST(0,COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0))", "COALESCE(t.variant_id,legacy_p.variant_id)"):
+        if marker not in source:
+            raise ValueError("Live stock API reconciliation marker missing: " + marker)
+    return source
+
+
 def patch_php(source: str) -> str:
     source = replace_exactly_once(STOCK_SQL_PATTERN, STOCK_SQL, source, "report inventory SQL")
     source = replace_literal_once(
@@ -198,14 +309,17 @@ def rebuild_zip(path: Path) -> dict:
         names = [i.filename for i in infos if not i.is_dir()]
         if len(names) != 75 or len(names) != len(set(names)):
             raise ValueError(f"Unexpected plugin archive inventory: {len(names)} files.")
-        if PHP_PATH not in names or JS_PATH not in names or MANIFEST_PATH not in names:
-            raise ValueError("Required ERP source, dashboard script, or release manifest is missing.")
+        if PHP_PATH not in names or JS_PATH not in names or MANIFEST_PATH not in names or STOCK_API_PATH not in names:
+            raise ValueError("Required ERP source, dashboard script, live stock API, or release manifest is missing.")
         contents = {i.filename: zin.read(i.filename) for i in infos if not i.is_dir()}
         info_by_name = {i.filename: i for i in infos}
 
     php_before = contents[PHP_PATH].decode("utf-8")
     php_after = patch_php(php_before)
     contents[PHP_PATH] = php_after.encode("utf-8")
+    stock_api_before = contents[STOCK_API_PATH].decode("utf-8")
+    stock_api_after = patch_stock_api(stock_api_before)
+    contents[STOCK_API_PATH] = stock_api_after.encode("utf-8")
     js_before = contents[JS_PATH].decode("utf-8")
     js_after = patch_dashboard_js(js_before)
     contents[JS_PATH] = js_after.encode("utf-8")
@@ -230,6 +344,8 @@ def rebuild_zip(path: Path) -> dict:
         "inventory_valuation_legacy_rows": "SKU-only ledger movements are resolved to canonical variant for dashboard valuation",
         "inventory_valuation_basis": "current Product Master purchase_cost; stock_transactions has no unit_cost column",
         "dashboard_low_stock_ui": "front-end alert list filters and sorts against sellable available quantity, not physical stock",
+        "live_stock_api": "variant-linked and legacy SKU-only ledger/reservation rows are combined; available is floored at zero and over-reservation is separately flagged",
+        "live_reorder_api": "configured reorder levels are evaluated against sellable available quantity; zero/blank levels return NO_LEVEL",
         "schema_changed": False,
         "live_data_changed": False,
     })
@@ -257,6 +373,9 @@ def rebuild_zip(path: Path) -> dict:
             if final_names != names:
                 raise ValueError("Package path inventory or order changed.")
             php_final = zfinal.read(PHP_PATH).decode("utf-8")
+            stock_api_final = zfinal.read(STOCK_API_PATH).decode("utf-8")
+            if "OVER-RESERVED" not in stock_api_final or "COALESCE(t.variant_id,legacy_p.variant_id)" not in stock_api_final:
+                raise ValueError("Live stock API reconciliation changes were not retained.")
             if "$stock_args = array( $prod, $loc, $tx, $prod, $res, $prod );" not in php_final:
                 raise ValueError("Report query parameter order not retained.")
             if "$low_args = array( Stockland_DB::table( 'products' ), Stockland_DB::table( 'locations' ), Stockland_DB::table( 'transactions' ), Stockland_DB::table( 'products' ), Stockland_DB::table( 'reservations' ), Stockland_DB::table( 'products' ) );" not in php_final:
@@ -274,6 +393,8 @@ def rebuild_zip(path: Path) -> dict:
                 "reorder_reporting": "sellable availability is max of zero and physical stock less active reservations; reservation excess is separately flagged",
             "dashboard_alerts": "server count and front-end list use sellable availability after active reservations, including SKU-only legacy reservation rows",
             "dashboard_low_stock_list": "filter and sort by sellable available stock; availability fallback is floored at zero",
+            "live_stock_api": "legacy SKU-only ledger and active reservation rows included; availability exception exposed",
+            "live_reorder_api": "reorder status uses sellable availability and ignores unconfigured zero thresholds",
         }
     finally:
         if tmp.exists():
