@@ -439,6 +439,46 @@ def patch_php(source: str) -> str:
         "explain inbound-aware reorder semantics")
 
     source = replace_once(source, "\n\t/**\n\t * Builds a date-scoped summary of operational transactions.\n", "\n" + method + "\n\t/**\n\t * Builds a date-scoped summary of operational transactions.\n", "add reports_explorer method")
+    source = replace_once(source, stock_query_new, """\t\t$stock_sql  = "SELECT l.location_name,p.sku,p.product_name,p.brand,p.size,p.color,
+                    COALESCE(b.physical_stock,0)+COALESCE(bl.physical_stock,0) physical_stock,
+                    COALESCE(a.reserved_stock,0)+COALESCE(al.reserved_stock,0) reserved_stock,
+                    (COALESCE(b.physical_stock,0)+COALESCE(bl.physical_stock,0))-(COALESCE(a.reserved_stock,0)+COALESCE(al.reserved_stock,0)) available_stock,
+                    COALESCE(i.inbound_stock,0) inbound_stock,
+                    (COALESCE(b.physical_stock,0)+COALESCE(bl.physical_stock,0))-(COALESCE(a.reserved_stock,0)+COALESCE(al.reserved_stock,0))+COALESCE(i.inbound_stock,0) reorder_position,
+                    IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level) reorder_level
+             FROM %i p JOIN %i l ON l.location_type IN('Warehouse','Branch') AND l.is_active=1
+             LEFT JOIN (SELECT location_id,variant_id,SUM(quantity_signed) physical_stock FROM %i WHERE variant_id IS NOT NULL GROUP BY location_id,variant_id) b
+               ON b.variant_id=p.variant_id AND b.location_id=l.id
+             LEFT JOIN (SELECT location_id,sku,SUM(quantity_signed) physical_stock FROM %i WHERE variant_id IS NULL GROUP BY location_id,sku) bl
+               ON bl.location_id=l.id AND bl.sku=p.sku
+             LEFT JOIN (SELECT location_id,variant_id,SUM(quantity_reserved) reserved_stock FROM %i WHERE status='Active' AND variant_id IS NOT NULL GROUP BY location_id,variant_id) a
+               ON a.variant_id=p.variant_id AND a.location_id=l.id
+             LEFT JOIN (SELECT location_id,sku,SUM(quantity_reserved) reserved_stock FROM %i WHERE status='Active' AND variant_id IS NULL GROUP BY location_id,sku) al
+               ON al.location_id=l.id AND al.sku=p.sku
+             LEFT JOIN (
+                 SELECT t.to_location_id AS location_id,COALESCE(t.variant_id,ip.variant_id) AS variant_id,
+                        SUM(GREATEST(COALESCE(t.dispatched_qty,0)-COALESCE(t.received_qty,0),0)) AS inbound_stock
+                 FROM %i t
+                 LEFT JOIN %i ip ON ((t.variant_id IS NOT NULL AND ip.variant_id=t.variant_id) OR (t.variant_id IS NULL AND ip.sku=t.sku))
+                 WHERE t.status IN('Picked','In Transit')
+                   AND COALESCE(t.dispatched_qty,0)>COALESCE(t.received_qty,0)
+                   AND COALESCE(t.variant_id,ip.variant_id) IS NOT NULL
+                 GROUP BY t.to_location_id,COALESCE(t.variant_id,ip.variant_id)
+             ) i ON i.variant_id=p.variant_id AND i.location_id=l.id
+             WHERE p.is_active=1 AND p.product_type<>'STYLE'";""", "legacy and inbound stock / reservation parity")
+    source = replace_once(source, """\t\t$stock_args = array( $prod, $loc, $tx, $res, $tr, $prod );
+\t\t$stock_sql .= $this->append_scope_filter( 'l.id', $stock_args, $scope );
+\t\tif ( '' !== $sku ) {
+\t\t\t$stock_sql   .= ' AND p.sku=%s';
+\t\t\t$stock_args[] = $sku;
+\t\t}
+\t\t$stock_sql .= ' ORDER BY l.location_name,p.sku';""", """\t\t$stock_args = array( $prod, $loc, $tx, $tx, $res, $res, $tr, $prod );
+\t\t$stock_sql .= $this->append_scope_filter( 'l.id', $stock_args, $scope );
+\t\tif ( '' !== $sku ) {
+\t\t\t$stock_sql   .= ' AND p.sku=%s';
+\t\t\t$stock_args[] = $sku;
+\t\t}
+\t\t$stock_sql .= ' ORDER BY l.location_name,p.sku';""", "legacy and inbound stock query placeholder order")
     return source
 
 def patch_js(source: str) -> str:
@@ -553,34 +593,6 @@ if(!document.__slNewProductCaptureBound){
   },true);
 }"""
     source = replace_once(source, "if($('#newProduct'))$('#newProduct').onclick=()=>openProductEditor(null);", product_click_guard + "\nif($('#newProduct'))$('#newProduct').onclick=()=>openProductEditor(null);", "desktop product create layering + capture delegation")
-    source = replace_once(source, stock_query_new, """		$stock_sql  = "SELECT l.location_name,p.sku,p.product_name,p.brand,p.size,p.color,
-                    COALESCE(b.physical_stock,0)+COALESCE(bl.physical_stock,0) physical_stock,
-                    COALESCE(a.reserved_stock,0)+COALESCE(al.reserved_stock,0) reserved_stock,
-                    (COALESCE(b.physical_stock,0)+COALESCE(bl.physical_stock,0))-(COALESCE(a.reserved_stock,0)+COALESCE(al.reserved_stock,0)) available_stock,
-                    IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level) reorder_level
-             FROM %i p JOIN %i l ON l.location_type IN('Warehouse','Branch')
-             LEFT JOIN (SELECT location_id,variant_id,SUM(quantity_signed) physical_stock FROM %i WHERE variant_id IS NOT NULL GROUP BY location_id,variant_id) b
-               ON b.variant_id=p.variant_id AND b.location_id=l.id
-             LEFT JOIN (SELECT location_id,sku,SUM(quantity_signed) physical_stock FROM %i WHERE variant_id IS NULL GROUP BY location_id,sku) bl
-               ON bl.location_id=l.id AND bl.sku=p.sku
-             LEFT JOIN (SELECT location_id,variant_id,SUM(quantity_reserved) reserved_stock FROM %i WHERE status='Active' AND variant_id IS NOT NULL GROUP BY location_id,variant_id) a
-               ON a.variant_id=p.variant_id AND a.location_id=l.id
-             LEFT JOIN (SELECT location_id,sku,SUM(quantity_reserved) reserved_stock FROM %i WHERE status='Active' AND variant_id IS NULL GROUP BY location_id,sku) al
-               ON al.location_id=l.id AND al.sku=p.sku
-             WHERE p.is_active=1 AND p.product_type<>'STYLE'";""", "legacy SKU stock/reservation parity")
-    source = replace_once(source, """		$stock_args = array( $prod, $loc, $tx, $res, $tr, $prod );
-		$stock_sql .= $this->append_scope_filter( 'l.id', $stock_args, $scope );
-		if ( '' !== $sku ) {
-			$stock_sql   .= ' AND p.sku=%s';
-			$stock_args[] = $sku;
-		}
-		$stock_sql .= ' ORDER BY l.location_name,p.sku';""", """		$stock_args = array( $prod, $loc, $tx, $tx, $res, $res, $tr, $prod );
-		$stock_sql .= $this->append_scope_filter( 'l.id', $stock_args, $scope );
-		if ( '' !== $sku ) {
-			$stock_sql   .= ' AND p.sku=%s';
-			$stock_args[] = $sku;
-		}
-		$stock_sql .= ' ORDER BY l.location_name,p.sku';""", "legacy and inbound stock query placeholder order")
     return source
 
 def apply_to_installer(input_zip: Path, output_zip: Path) -> dict:
