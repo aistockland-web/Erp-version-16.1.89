@@ -54,6 +54,16 @@ def main():
         need("case'intelligence':b=managementIntelligence();break;" in js, "management intelligence route")
         need("data-mi-kpi" in js and "refreshManagementIntelligence" in js, "management view uses authorized insight metrics and refresh action")
         need(php.count("report_source_query_failed") >= 10, "report query errors fail closed instead of returning zero totals")
+        for marker, label in [
+            ("dashboard_sales_source_failed", "Command Center retail totals fail closed"),
+            ("dashboard_wholesale_source_failed", "Command Center wholesale totals fail closed"),
+            ("dashboard_inventory_source_failed", "Command Center inventory valuation fails closed"),
+            ("dashboard_low_stock_source_failed", "Command Center low-stock KPI fails closed"),
+            ("dashboard_today_sales_source_failed", "Command Center today sales fails closed"),
+        ]:
+            need(marker in php, label)
+        need("$checks['xlsx_xmlreader_stream']    = ! empty( $runtime['xml_reader'] ) && class_exists( 'ZipArchive' );" in php, "System Health accepts disk-backed PHP 8.3 XMLReader fallback")
+        need("t.status='In Transit'" in php and "t.status='In Transit'" in stock_api, "only in-transit transfers count toward inbound")
         need("report_location_label_failed" in php, "selected report location-label lookup fails closed")
         need("z-index:80!important" in js, "desktop actions raised above header/search stacking context")
         need("pointer-events:auto!important" in js, "desktop action pointer events preserved")
