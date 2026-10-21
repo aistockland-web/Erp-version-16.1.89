@@ -180,3 +180,18 @@ The package builder now includes a focused correction to keep report numbers ali
 - Dashboard inventory valuation now resolves legacy SKU-only ledger movements to the canonical Product Master variant, so those movements are not silently excluded from the summary. The existing transaction ledger has no `unit_cost` column; this dashboard figure still uses the current Product Master `purchase_cost` and must not be represented as historic-cost inventory valuation.
 - The change is confined to the existing application report queries and release manifest; it adds no new database table, migration, live data mutation, or new product mode.
 - This source/package correction is not by itself proof of the live account's balances. The installed WordPress runtime must be confirmed against the same canonical ledger and reservation records before final release certification.
+
+
+## 8. Confirmed stock-report consistency defect and correction in this workstream
+
+Source review found that the Reports Explorer inventory/reorder query aggregated only transaction and reservation rows with a non-null `variant_id`. The shared stock service also supports legacy rows where `variant_id` is null and the exact SKU is present. As a result, reports could understate physical stock and active reservations for legacy rows and calculate availability/reorder incorrectly. The report query also needed to exclude non-stock STYLE parent records.
+
+The package builder now separates and aggregates:
+- variant-linked stock movements by location and variant;
+- legacy SKU-only stock movements by location and SKU;
+- variant-linked active reservations by location and variant;
+- legacy SKU-only active reservations by location and SKU.
+
+It sums both formats once per Product Master variant, excludes STYLE parents, and aligns SQL placeholder arguments with the six table references. Regression assertions and independent arithmetic fixtures have been added for normal, zero, and over-reserved cases. Negative availability remains visible as an integrity signal rather than being silently clamped in this report.
+
+**Scope limitation:** this is a source-level correction to the generated inventory/reorder report, not proof that all installed records, every financial posting, or the live InfinityFree site have been reconciled. Before this release is certified, execute the package build and its automated checks, then verify the resulting installer and run authenticated operational acceptance against the actual installed system with owner-approved expected values. Do not state that this or any other calculation is 100% accurate until the required reconciliations pass.
