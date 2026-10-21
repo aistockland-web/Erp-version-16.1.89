@@ -281,6 +281,14 @@ def patch_stock_api(source: str) -> str:
     source = replace_literal_once(source, OLD_STOCK_LIST_SQL, NEW_STOCK_LIST_SQL, "live stock list resolves legacy ledger and reservations")
     source = replace_literal_once(
         source,
+        """COALESCE((SELECT SUM(t.quantity_signed) FROM %i t WHERE t.location_id=%d AND (t.variant_id=p.variant_id OR (t.variant_id IS NULL AND t.sku=p.sku))),0)-
+\t\t\t\t\t\tCOALESCE((SELECT SUM(r.quantity_reserved) FROM %i r WHERE r.location_id=%d AND r.status='Active' AND (r.variant_id=p.variant_id OR (r.variant_id IS NULL AND r.sku=p.sku))),0) available_stock""",
+        """GREATEST(0,COALESCE((SELECT SUM(t.quantity_signed) FROM %i t WHERE t.location_id=%d AND (t.variant_id=p.variant_id OR (t.variant_id IS NULL AND t.sku=p.sku))),0)-
+\t\t\t\t\t\tCOALESCE((SELECT SUM(r.quantity_reserved) FROM %i r WHERE r.location_id=%d AND r.status='Active' AND (r.variant_id=p.variant_id OR (r.variant_id IS NULL AND r.sku=p.sku))),0)) available_stock""",
+        "SKU detail sellable availability floor",
+    )
+    source = replace_literal_once(
+        source,
         """\t\t\t\t$tx,
 \t\t\t\t$products,
 \t\t\t\t$res,
@@ -360,6 +368,13 @@ def patch_php(source: str) -> str:
         "$low_args = array( $prod, $loc, $tx );",
         "$low_args = array( $prod, $loc, $tx, $prod, Stockland_DB::table( 'reservations' ), $prod, Stockland_DB::table( 'transfers' ), $prod );",
         "dashboard low-stock parameter order",
+    )
+
+    source = replace_literal_once(
+        source,
+        """$low_sql .= " AND COALESCE(b.physical_stock,0)<=IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level)";""",
+        """$low_sql .= " AND IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level)>0 AND GREATEST(0,COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0))<=IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level)";""",
+        "dashboard low count uses available stock and configured thresholds",
     )
 
 
