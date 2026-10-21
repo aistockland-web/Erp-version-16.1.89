@@ -628,7 +628,7 @@ def apply_to_installer(input_zip: Path, output_zip: Path) -> dict:
     if css_manifest.get("release") != "16.1.92" or len(css_manifest.get("modules", [])) != 6:
         raise ValueError("CSS release metadata mismatch")
     css_manifest["release"] = "16.1.93"
-    css_manifest["description"] = "16.1.93 cache/release metadata only; six approved CSS source modules and compiled CSS remain byte-identical."
+    css_manifest["description"] = "Six ordered, locally bundled CSS modules; original Stockland design system with responsive ERP tables and work areas."
     files[css_manifest_path] = (json.dumps(css_manifest, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
     manifest_path = "stockland-erp-app/RELEASE_MANIFEST.json"
     manifest = {
