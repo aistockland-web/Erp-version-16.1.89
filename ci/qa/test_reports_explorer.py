@@ -75,7 +75,7 @@ def main():
             ("COALESCE(al.reserved_stock,0)", "legacy SKU-only active reservations included"),
             ("WHERE variant_id IS NULL GROUP BY location_id,sku", "legacy SKU-only rows aggregated separately"),
             ("p.product_type<>'STYLE'", "style parent rows excluded from variant availability"),
-            ("$stock_args = array( $prod, $loc, $tx, $tx, $res, $res )", "stock SQL placeholder order matches six table references"),
+            ("$stock_args = array( $prod, $loc, $tx, $prod, $res, $prod, $tr, $prod )", "stock SQL placeholder order matches ledger, SKU mapping, reservations and transfer references"),
         ]:
             need(phrase in php, "server contract: " + label)
 
@@ -134,7 +134,7 @@ process.stdout.write(JSON.stringify(r));
             ("COALESCE(r.variant_id,legacy_r.variant_id)", "live stock and reorder endpoints resolve legacy SKU-only reservations"),
             ("GREATEST(0,v.physical_stock-COALESCE(r.reserved_stock,0)) available_stock", "live stock list floors sellable availability at zero"),
             ("OVER-RESERVED", "live stock and reorder endpoints expose reservation integrity exception"),
-            ("$available <= 0.0 ? 'CRITICAL'", "reorder status uses available quantity"),
+            ("$position <= 0.0 ? 'CRITICAL'", "reorder status uses available quantity plus eligible inbound transfer position"),
             ("$level <= 0.0 ? 'NO_LEVEL'", "zero reorder level is not treated as configured critical reorder"),
         ]:
             need(phrase in stock_api, "live stock API contract: " + label)
