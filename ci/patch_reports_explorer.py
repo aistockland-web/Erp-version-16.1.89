@@ -612,12 +612,17 @@ def apply_to_installer(input_zip: Path, output_zip: Path) -> dict:
     php_path = "stockland-erp-app/includes/rest/class-rest-app.php"
     css_paths = [n for n in names if (n.startswith("stockland-erp-app/assets/css/") and n.endswith(".css")) or n in ("stockland-erp-app/assets/app.css", "stockland-erp-app/assets/app.min.css", "stockland-erp-app/assets/bootstrap.min.css")]
     css_before = {n: hashlib.sha256(files[n]).hexdigest() for n in css_paths}
-    files[js_path] = patch_js(files[js_path].decode("utf-8")).encode("utf-8")
+    app = patch_js(files[js_path].decode("utf-8"))
+    app = replace_once(app, "setInterval(()=>{if(document.visibilityState==='visible')refreshLiveIndicators()},8000)", "setInterval(()=>{if(document.visibilityState==='visible')refreshLiveIndicators()},60000)", "InfinityFree activity refresh cadence")
+    app = replace_once(app, "await new Promise(r=>setTimeout(r,60));", "await new Promise(r=>setTimeout(r,300));", "Product Master import chunk pacing")
+    app = replace_once(app, "await new Promise(r=>setTimeout(r,80));", "await new Promise(r=>setTimeout(r,300));", "Daily POS import chunk pacing")
+    files[js_path] = app.encode("utf-8")
     files[php_path] = patch_php(files[php_path].decode("utf-8")).encode("utf-8")
     entry_path = "stockland-erp-app/stockland-inventory.php"
     entry = files[entry_path].decode("utf-8")
     entry = replace_once(entry, "* Version:           16.1.92", "* Version:           16.1.93", "plugin header version")
     entry = replace_once(entry, "define( 'STOCKLAND_VERSION', '16.1.92' );", "define( 'STOCKLAND_VERSION', '16.1.93' );", "plugin constant version")
+    entry = replace_once(entry, " * Requires PHP:      8.4", " * Requires PHP:      8.3", "InfinityFree PHP minimum")
     files[entry_path] = entry.encode("utf-8")
     frontend_path = "stockland-erp-app/includes/class-stockland-frontend.php"
     frontend = files[frontend_path].decode("utf-8")
@@ -636,6 +641,18 @@ def apply_to_installer(input_zip: Path, output_zip: Path) -> dict:
         "release": "16.1.93",
         "release_label": "16.1.93 — Reports Explorer, desktop Product Master protection and exact reorder arithmetic",
         "baseline_release": "16.1.92",
+        "minimum_php": "8.3",
+        "hosting_profile": {
+            "target": "InfinityFree free WordPress hosting",
+            "normal_operations": "same-origin actions initiated through a signed-in user's browser",
+            "external_api_host_required": False,
+            "external_runtime_dependencies_added": False,
+            "scheduled_worker_required": False,
+            "activity_refresh_seconds": 60,
+            "import_chunk_delay_milliseconds": 300,
+            "database_schema_changed": False,
+            "business_data_migration_included": False
+        },
         "baseline_sha256": BASELINE_SHA256,
         "package_root": "stockland-erp-app/",
         "archive_file_count": len(names),
@@ -717,6 +734,13 @@ On desktop-sized layouts, the global-search panel is constrained to the search f
 - Historical COGS is staged at transaction time. Updating Product Master cost does not rewrite posted history; negotiated sale prices are kept with their transactions.
 - Critical reorder is Owner-only and read-only. It shows physical, reserved and currently available stock separately, plus dispatched-but-unreceived transfers. Reorder position is available stock plus confirmed inbound transfer remainder. Suggested replenishment targets the location-specific reorder level without treating inbound stock as physically received; it does not create a purchase order, reserve stock or post a stock movement.
 - The schema contract remains 49 tables: 29 Core/Operations, 16 Finance/Procurement, and 4 HR/Payroll. Database schema version remains 16.1.1.
+
+## Low-resource hosting profile
+
+- Visible-session activity refresh runs every 60 seconds. Successful user transactions still refresh the affected work area immediately.
+- Daily POS and Product Master commit chunks are spaced by 300 milliseconds when more chunks remain, reducing rapid request bursts.
+- The package adds no remote runtime assets, external API service, scheduled worker or separate database.
+- ERP requests are same-origin and initiated from the signed-in user's regular browser. Do not operate the site through external scripts, command-line API clients or cross-domain webhook callers.
 
 ## Update an existing InfinityFree WordPress installation
 
