@@ -325,9 +325,18 @@ def patch_stock_api(source: str) -> str:
 \t\t\t$row['suggested_replenishment'] = $level > 0.0 && $position <= $level ? max( 1, (int) ceil( max( 0, $level - $position ) ) ) : 0;""",
         "live reorder status evaluates configured level against sellable availability",
     )
-    for marker in ("OVER-RESERVED", "GREATEST(0,COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0))", "COALESCE(t.variant_id,legacy_p.variant_id)"):
+    for marker in (
+        "OVER-RESERVED",
+        "GREATEST(0,COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0))",
+        "COALESCE(t.variant_id,legacy_p.variant_id)",
+        "reorder_position",
+        "suggested_replenishment",
+        "t.status IN('Picked','In Transit')",
+    ):
         if marker not in source:
             raise ValueError("Live stock API reconciliation marker missing: " + marker)
+    if "$row['status']  = $level <= 0.0 ? 'NO_LEVEL' : ( $position <= 0.0 ? 'CRITICAL' : ( $position <= $level ? 'REORDER NOW' : 'OK' ) );" not in source:
+        raise ValueError("Live reorder status must use the displayed reorder position and expose unconfigured levels.")
     return source
 
 
@@ -441,7 +450,8 @@ def rebuild_zip(path: Path) -> dict:
         "legacy_sku_only_ledger_rows": "resolved to active product variant where SKU mapping exists",
         "reservation_scope": "active reservations, including legacy SKU-only rows",
         "availability": "sellable availability is max(0, physical stock minus active reservations); reservation excess remains separately visible",
-        "reorder_basis": "available stock after active reservations",
+        "reorder_position": "sellable available quantity plus dispatched-but-not-yet-received internal transfers to the destination; supplier purchase orders are not physical stock before receipt",
+        "reorder_basis": "reorder position (sellable available plus eligible in-transit transfers); physical, reserved, available, and inbound remain separate displayed measures",
         "availability_integrity": "reservation excess is displayed as OVER-RESERVED",
         "inventory_valuation_legacy_rows": "SKU-only ledger movements are resolved to canonical variant for dashboard valuation",
         "inventory_valuation_basis": "current Product Master purchase_cost; stock_transactions has no unit_cost column",
@@ -483,8 +493,15 @@ def rebuild_zip(path: Path) -> dict:
                 raise ValueError("Package path inventory or order changed.")
             php_final = zfinal.read(PHP_PATH).decode("utf-8")
             stock_api_final = zfinal.read(STOCK_API_PATH).decode("utf-8")
-            if "OVER-RESERVED" not in stock_api_final or "COALESCE(t.variant_id,legacy_p.variant_id)" not in stock_api_final:
-                raise ValueError("Live stock API reconciliation changes were not retained.")
+            for required_marker in (
+                "OVER-RESERVED",
+                "COALESCE(t.variant_id,legacy_p.variant_id)",
+                "reorder_position",
+                "suggested_replenishment",
+                "t.status IN('Picked','In Transit')",
+            ):
+                if required_marker not in stock_api_final:
+                    raise ValueError("Live stock API reconciliation changes were not retained: " + required_marker)
             if "$stock_args = array( $prod, $loc, $tx, $prod, $res, $prod );" not in php_final:
                 raise ValueError("Report query parameter order not retained.")
             if "$low_args = array( Stockland_DB::table( 'products' ), Stockland_DB::table( 'locations' ), Stockland_DB::table( 'transactions' ), Stockland_DB::table( 'products' ), Stockland_DB::table( 'reservations' ), Stockland_DB::table( 'products' ) );" not in php_final:
@@ -499,7 +516,7 @@ def rebuild_zip(path: Path) -> dict:
             "schema_changed": False,
             "live_data_changed": False,
             "inventory_reporting": "ledger plus active variant-linked and SKU-only legacy records",
-                "reorder_reporting": "sellable availability is max of zero and physical stock less active reservations; reservation excess is separately flagged",
+                "reorder_reporting": "sellable available plus eligible dispatched inbound transfers; physical, reserved, available and inbound are separately displayed",
             "dashboard_alerts": "server count and front-end list use sellable availability after active reservations, including SKU-only legacy reservation rows",
             "dashboard_low_stock_list": "filter and sort by sellable available stock; availability fallback is floored at zero",
             "live_stock_api": "legacy SKU-only ledger and active reservation rows included; availability exception exposed",
