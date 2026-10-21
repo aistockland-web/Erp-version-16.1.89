@@ -479,6 +479,7 @@ def patch_php(source: str) -> str:
 \t\t\t$stock_args[] = $sku;
 \t\t}
 \t\t$stock_sql .= ' ORDER BY l.location_name,p.sku';""", "legacy and inbound stock query placeholder order")
+    source = replace_once(source, """WHERE l.location_type='Branch'";""", """WHERE l.location_type='Branch' AND l.is_active=1";""", "exclude inactive branches from branch performance report")
     return source
 
 def patch_js(source: str) -> str:
