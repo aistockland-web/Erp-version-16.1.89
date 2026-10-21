@@ -267,26 +267,26 @@ def patch_php(source: str) -> str:
     source = replace_literal_once(
         source,
         "$stock_args = array( $prod, $loc, $tx, $res );",
-        "$stock_args = array( $prod, $loc, $tx, $prod, $res, $prod );",
+        "$stock_args = array( $prod, $loc, $tx, $prod, $res, $prod, $tr, $prod );",
         "report inventory SQL parameter order",
     )
     source = replace_exactly_once(LOW_SQL_PATTERN, LOW_SQL, source, "low-stock SQL")
     source = replace_literal_once(
         source,
         "$low_args = array( Stockland_DB::table( 'products' ), Stockland_DB::table( 'locations' ), Stockland_DB::table( 'transactions' ) );",
-        "$low_args = array( Stockland_DB::table( 'products' ), Stockland_DB::table( 'locations' ), Stockland_DB::table( 'transactions' ), Stockland_DB::table( 'products' ), Stockland_DB::table( 'reservations' ), Stockland_DB::table( 'products' ) );",
+        "$low_args = array( Stockland_DB::table( 'products' ), Stockland_DB::table( 'locations' ), Stockland_DB::table( 'transactions' ), Stockland_DB::table( 'products' ), Stockland_DB::table( 'reservations' ), Stockland_DB::table( 'products' ), Stockland_DB::table( 'transfers' ), Stockland_DB::table( 'products' ) );",
         "low-stock SQL parameter order",
     )
     source = replace_exactly_once(DASHBOARD_LOW_COUNT_PATTERN, DASHBOARD_LOW_COUNT_SQL, source, "dashboard low-stock counter SQL")
     source = replace_literal_once(
         source,
         "$low_args = array( $prod, $loc, $tx );",
-        "$low_args = array( $prod, $loc, $tx, $prod, Stockland_DB::table( 'reservations' ), $prod );",
+        "$low_args = array( $prod, $loc, $tx, $prod, Stockland_DB::table( 'reservations' ), $prod, Stockland_DB::table( 'transfers' ), $prod );",
         "dashboard low-stock parameter order",
     )
     source = replace_literal_once(
         source,
-        r"""$low_sql .= " AND COALESCE(b.physical_stock,0)<=IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level)";""",
+        r"""$low_sql .= " AND IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level)>0 AND GREATEST(0,COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0))+COALESCE(i.inbound_stock,0)<=IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level)";""",
         r"""$low_sql .= " AND IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level)>0 AND GREATEST(0,COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0))<=IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level)";""",
         "dashboard reorder compares available stock",
     )
