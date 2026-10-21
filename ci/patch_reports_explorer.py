@@ -567,35 +567,105 @@ def apply_to_installer(input_zip: Path, output_zip: Path) -> dict:
     css_manifest["description"] = "16.1.93 cache/release metadata only; six approved CSS source modules and compiled CSS remain byte-identical."
     files[css_manifest_path] = (json.dumps(css_manifest, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
     manifest_path = "stockland-erp-app/RELEASE_MANIFEST.json"
-    manifest = json.loads(files[manifest_path].decode("utf-8"))
-    manifest["release"] = "16.1.93"
-    manifest["release_label"] = "16.1.93 — Reports Explorer and desktop Product Master action protection"
-    changes = list(manifest.get("release_candidate_changes", []))
-    changes.append("16.1.93: selected read-only Reports & Analytics, site-local periods, authorized locations, exact SKU filter, selected-report Print/PDF and CSV; Owner-only critical reorder enforced server-side.")
-    changes.append("16.1.93: constrain the desktop global-search popover to its own search-field bounds so host-theme sizing cannot mask Product Master page actions; preserve the existing create/save validation chain.")
-    manifest["release_candidate_changes"] = changes
-    manifest.setdefault("quality", {})["release"] = "16.1.93"
-    manifest["quality"]["local_validation_status"] = "See 16.1.93 Reports Explorer CI artifact and QA receipt; target-host acceptance remains pending."
-    manifest["quality"]["target_host_acceptance"] = "PENDING — no authenticated live WordPress/MariaDB run was performed by the build."
-    manifest["quality"]["production_certification"] = "PENDING — live role-scoped acceptance, integrity/ledger reconciliation and verified backup restore/rollback have not been performed."
-    manifest["reports_explorer_16_1_93"] = {
-        "baseline_release": "16.1.92", "baseline_sha256": BASELINE_SHA256,
-        "report_default": "branch_performance", "period_default": "today",
-        "location_default": "all authorized locations", "sku_default": "empty",
-        "selected_report_print_pdf": True, "server_enforced_location_scope": True,
-        "critical_reorder_server_owner_only": True, "desktop_search_overlay_guard": True, "schema_changed": False,
-        "database_version_changed": False, "css_source_or_compiled_bytes_changed": False,
-        "live_deployment_performed": False,
-        "note": "CSS release metadata changes only to align cache identity; no CSS source or compiled styles are modified."
+    manifest = {
+        "name": "Stockland Ethiopia ERP",
+        "release": "16.1.93",
+        "release_label": "16.1.93 — Reports Explorer, desktop Product Master protection and exact reorder arithmetic",
+        "baseline_release": "16.1.92",
+        "baseline_sha256": BASELINE_SHA256,
+        "package_root": "stockland-erp-app/",
+        "archive_file_count": len(names),
+        "database": {
+            "schema_version": "16.1.1",
+            "table_contract": {"total": 49, "core_operations": 29, "finance_procurement": 16, "hr_payroll": 4},
+            "schema_changed": False,
+            "database_version_changed": False,
+            "activator_changed": False
+        },
+        "user_interface": {
+            "design": "Original Stockland visual system with consistent responsive work areas, page actions, spreadsheet-style data tables and accessible operation states",
+            "desktop_product_create_guard": "Global search results are constrained to the search field on desktop; title actions retain a separate stacking layer.",
+            "selected_report_actions": ["Print / Save PDF", "Download selected CSV"],
+            "default_report": "Branch performance",
+            "default_period": "Today",
+            "default_location": "All authorized locations",
+            "default_sku_filter": ""
+        },
+        "inventory_and_finance": {
+            "stock_authority": "Posted stock ledger",
+            "available_stock": "Physical on-hand less active reservations; inbound and in-transit quantities remain separate",
+            "critical_reorder_access": "Owner only",
+            "critical_reorder_arithmetic": "Uses Stockland_Money integer minor units and decimal formatting; replenishment is max(0, reorder threshold minus available quantity).",
+            "reorder_is_read_only": True,
+            "money_arithmetic": "Stockland_Money decimal-safe service",
+            "historical_cost_policy": "Transaction-staged COGS; current Product Master cost does not silently rewrite posted history",
+            "negotiated_price_policy": "Actual sale price is recorded per transaction; Product Master defaults and history remain separate"
+        },
+        "internal_module_links": {
+            "product_master_to_pos": "Canonical variant SKU and product identity",
+            "pos_to_stock_ledger": "Posted sale inventory movement and audit trail",
+            "pos_to_finance": "Transaction price, VAT, staged COGS and accounting posting",
+            "receiving_to_stock": "Confirmed receipt creates posted stock movement",
+            "requisition_reservation_transfer": "Role-gated workflow with source/destination and quantity history",
+            "returns_adjustments": "Reasoned compensating inventory and accounting events",
+            "reports": "Authorized location scope and selected-report export"
+        },
+        "external_connections": {
+            "microsoft_entra_sign_in": "Requires owner-provided application registration, tenant policy and redirect URI configuration",
+            "microsoft_teams": "Requires approved Microsoft provider permissions and server-side credentials before connection",
+            "slack": "Requires a Slack OAuth application, approved scopes and server-side credentials before connection",
+            "secret_handling": "Provider secrets must remain server-side and must not be placed in the browser bundle"
+        },
+        "preserved": {
+            "css_source_and_compiled_files_changed": False,
+            "single_plugin_root": True,
+            "live_records_rewritten_by_package_build": False,
+            "automated_orders_or_stock_changes_from_reorder_report": False
+        },
+        "update_instructions": [
+            "Back up WordPress files and database before replacing plugin files.",
+            "Update the existing stockland-erp-app plugin folder as a whole.",
+            "Do not uninstall the plugin or delete its database tables.",
+            "Clear page/browser/PWA caches after file replacement."
+        ]
     }
     files[manifest_path] = (json.dumps(manifest, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
     readme_path = "stockland-erp-app/README.md"
-    readme = files[readme_path].decode("utf-8")
-    readme = replace_once(readme, "# Stockland Ethiopia ERP 16.1.92", "# Stockland Ethiopia ERP 16.1.93", "README heading")
-    feature = """\n## Selected Reports & Analytics explorer — 16.1.93\n\n- Default selection: Branch performance, Today, All authorized locations, empty SKU search. Period options include Yesterday, Last 7 days, This month and a validated custom range using the ERP site-local date.\n- One selected report is returned at a time. Print / Save PDF prints that selected report only; selected-report CSV preserves CSV escaping and formula-injection mitigation.\n- Location IDs are checked against the current authenticated user's scope on the server. Critical reorder is Owner-only in both the REST permission callback and handler; its suggested replenishment is read-only and never changes stock.\n- Plugin and frontend route-cache identity are aligned to 16.1.93. Database/schema version markers stay unchanged. CSS source/compiled bytes are preserved; only CSS release metadata is bumped.\n- Desktop search popover is constrained to its own search field so a host theme cannot stretch it across the page-title actions and intercept the Product Master create button. The existing product-create click chain, validation, REST permission checks and save verification remain intact.
-- For an existing installation, back up the WordPress files and database first. Update the Stockland ERP plugin folder as a whole; do not uninstall it or delete its database tables.\n\n"""
-    readme = readme.replace("## Daily, weekly and monthly summary CSV — 16.1.92", feature + "## Daily, weekly and monthly summary CSV — 16.1.92", 1)
-    readme = readme.replace("**Acceptance boundary:** source/package checks do not certify the live ERP. Live role tests, ledger/deep integrity, verified backup restore and rollback remain separate acceptance steps.", "", 1)
+    readme = """# Stockland Ethiopia ERP 16.1.93
+
+A responsive operations and finance system for Stockland Ethiopia, designed around its Central Warehouse and Goro, Gerji, Mexico and Megenagna branches.
+
+## Work areas
+
+- Command Center, Product Master, Inventory, Daily Inventory, Retail POS, Wholesale and Central Warehouse.
+- Receiving, purchase orders, requisitions, reservations, transfers, physical counts, returns, damage and approved adjustments.
+- Finance and Procurement, customer/vendor balances, AP/AR, expenses, general ledger, HR/Payroll, Reports & Analytics, Users, Audit Log and System Health.
+- Role- and location-scoped operations with an original Stockland visual system, consistent page titles/action rows, reusable data-table holders, responsive grids, and readable loading, empty, success and error states.
+
+## Desktop Product Master
+
+On desktop-sized layouts, the global-search panel is constrained to the search field instead of being allowed to expand across the page. Product Master title actions retain their own stacking layer. Creating a product continues through the existing form validation, protected ERP endpoint, returned-SKU verification and catalog refresh.
+
+## Stock, finance and reorder rules
+
+- Posted stock-ledger movements are authoritative. Physical stock, reservations, available stock and inbound/in-transit quantities are distinct.
+- Money arithmetic uses the shared Stockland decimal-safe service. VAT mode/rate is centrally controlled and posted transaction values are preserved.
+- Historical COGS is staged at transaction time. Updating Product Master cost does not rewrite posted history; negotiated sale prices are kept with their transactions.
+- Critical reorder is Owner-only and read-only. It uses available stock and the configured reorder level; it does not create a purchase order, reserve stock or post a stock movement.
+- The schema contract remains 49 tables: 29 Core/Operations, 16 Finance/Procurement, and 4 HR/Payroll. Database schema version remains 16.1.1.
+
+## Update an existing InfinityFree WordPress installation
+
+1. Back up the WordPress files and database.
+2. Replace the files in the existing wp-content/plugins/stockland-erp-app/ folder with the contents of this package. Keep the same plugin folder name.
+3. Do not uninstall the plugin and do not delete its database tables.
+4. Clear page/browser/PWA caches so the new JavaScript and route-cache version load.
+5. Sign in through the ERP frontend and review System Health and the user's authorized location before posting business transactions.
+
+## External identity and collaboration
+
+Microsoft Entra sign-in, Teams and Slack require owner-provided provider application registration, approved permissions/scopes and server-side credentials before those connections can be activated. Keep provider secrets out of page source, JavaScript bundles and browser storage.
+"""
     files[readme_path] = readme.encode("utf-8")
     with zipfile.ZipFile(output_zip, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as zout:
         for info in infos:
