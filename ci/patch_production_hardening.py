@@ -76,6 +76,87 @@ def patch_report_errors(source: str) -> str:
     return source
 
 
+def patch_dashboard_error_guards(source: str) -> str:
+    """Protect Command Center KPI values from being fabricated as zero on SQL failures."""
+    mappings = [
+        (
+            "\t\t$rt = Stockland_DB::read_row( $wpdb->prepare( $rt_sql, array_merge( array( $sales ), $sales_args ) ), ARRAY_A );",
+            "\t\t$rt",
+            "dashboard_sales_source_failed",
+            "Command Center retail-sales totals could not be read. No zero sales value was assumed.",
+        ),
+        (
+            "\t\t$inv = (float) Stockland_DB::read_var( $wpdb->prepare( $inv_sql, $inv_args ) );",
+            "\t\t$inv",
+            "dashboard_inventory_source_failed",
+            "Command Center inventory valuation could not be read. No zero inventory value was assumed.",
+        ),
+        (
+            "\t\t\t$low = (int) Stockland_DB::read_var( $wpdb->prepare( $low_sql, $low_args ) );",
+            "\t\t\t$low",
+            "dashboard_low_stock_source_failed",
+            "Command Center low-stock count could not be read. No zero low-stock value was assumed.",
+        ),
+        (
+            "\t\t\t$today_sales = (float) Stockland_DB::read_var( $wpdb->prepare( $today_sql, array_merge( array( $sales ), $today_args ) ) );",
+            "\t\t\t$today_sales",
+            "dashboard_today_sales_source_failed",
+            "Command Center today-sales total could not be read. No zero sales value was assumed.",
+        ),
+    ]
+    for statement, var, code, message in mappings:
+        if var == "\t\t$inv":
+            replacement = (
+                "\t\t$wpdb->last_error = '';\n"
+                "\t\t$inv_value = Stockland_DB::read_var( $wpdb->prepare( $inv_sql, $inv_args ) );\n"
+                "\t\tif ( '' !== (string) $wpdb->last_error ) {\n"
+                "\t\t\treturn new WP_Error( '" + code + "', '" + message + "', array( 'status' => 500 ) );\n"
+                "\t\t}\n"
+                "\t\t$inv = (float) $inv_value;"
+            )
+        elif var == "\t\t\t$low":
+            replacement = (
+                "\t\t\t$wpdb->last_error = '';\n"
+                + statement
+                + "\n\t\t\tif ( '' !== (string) $wpdb->last_error ) {\n"
+                + "\t\t\t\treturn new WP_Error( '" + code + "', '" + message + "', array( 'status' => 500 ) );\n"
+                + "\t\t\t}"
+            )
+        elif var == "\t\t\t$today_sales":
+            replacement = (
+                "\t\t\t$wpdb->last_error = '';\n"
+                "\t\t\t$today_sales_value = Stockland_DB::read_var( $wpdb->prepare( $today_sql, array_merge( array( $sales ), $today_args ) ) );\n"
+                "\t\t\tif ( '' !== (string) $wpdb->last_error ) {\n"
+                "\t\t\t\treturn new WP_Error( '" + code + "', '" + message + "', array( 'status' => 500 ) );\n"
+                "\t\t\t}\n"
+                "\t\t\t$today_sales = (float) $today_sales_value;"
+            )
+        else:
+            replacement = (
+                "\t\t$wpdb->last_error = '';\n"
+                + statement
+                + "\n\t\tif ( '' !== (string) $wpdb->last_error ) {\n"
+                + "\t\t\treturn new WP_Error( '" + code + "', '" + message + "', array( 'status' => 500 ) );\n"
+                + "\t\t}"
+            )
+        source = once(source, statement, replacement, code)
+
+    # Wholesale sales are included only when scope permits them; still never substitute a zero on read failure.
+    wt_start = "\t\t\t$wt = null !== $scope_ids ? array("
+    if source.count(wt_start) != 1:
+        raise ValueError("Could not locate the Command Center wholesale totals block.")
+    source = source.replace(wt_start, "\t\t\t$wpdb->last_error = '';\n" + wt_start, 1)
+    wt_end = "\t\t\t) : Stockland_DB::read_row( $wpdb->prepare( 'SELECT COALESCE(SUM(sales_value),0) revenue,COALESCE(SUM(net_sales_excl_vat),0) net,COALESCE(SUM(gross_profit),0) profit,COALESCE(SUM(vat_amount),0) vat,COALESCE(SUM(quantity),0) units FROM %i', $wh ), ARRAY_A );"
+    source = once(
+        source, wt_end,
+        wt_end + "\n\t\t\tif ( '' !== (string) $wpdb->last_error ) {\n"
+        + "\t\t\t\treturn new WP_Error( 'dashboard_wholesale_source_failed', 'Command Center wholesale-sales totals could not be read. No zero sales value was assumed.', array( 'status' => 500 ) );\n"
+        + "\t\t\t}",
+        "dashboard wholesale error guard",
+    )
+    return source
+
+
 def patch_management_ui(source: str, fragment: str) -> str:
     source = once(source, "const iconFor={dashboard:'home',pos:'cash'", "const iconFor={dashboard:'home',intelligence:'chart',pos:'cash'", "navigation icon")
     source = once(
@@ -241,7 +322,9 @@ def patch_archive(archive: Path) -> dict:
 
     fragment_path = Path(__file__).with_name("management_intelligence_fragment.js")
     fragment = fragment_path.read_text(encoding="utf-8")
-    files[PHP] = patch_report_errors(files[PHP].decode("utf-8")).encode("utf-8")
+    php = patch_report_errors(files[PHP].decode("utf-8"))
+    php = patch_dashboard_error_guards(php)
+    files[PHP] = php.encode("utf-8")
     files[JS] = patch_management_ui(files[JS].decode("utf-8"), fragment).encode("utf-8")
     patch_runtime(files)
     patch_metadata(files)
