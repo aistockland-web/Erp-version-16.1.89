@@ -153,6 +153,8 @@ process.stdout.write(JSON.stringify(r));
         need("GREATEST(0,COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0)) available_stock" in php, "report sellable availability is floored at zero")
         need("GREATEST(0,COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0))<=IF(l.location_type='Warehouse',p.central_reorder_level,p.branch_reorder_level)" in php, "dashboard reorder KPI uses available stock after active reservations")
         need("CASE WHEN COALESCE(a.reserved_stock,0)>COALESCE(b.physical_stock,0) THEN 'OVER-RESERVED'" in php, "report exposes over-reservation as an integrity exception")
+        need(php.count("WHERE l.location_type='Branch' AND l.is_active=1") >= 2, "branch rollups exclude inactive locations")
+        need("FROM %i p JOIN %i l ON l.location_type IN('Warehouse','Branch') AND l.is_active=1" in php, "inventory/reorder report excludes inactive locations")
         print("PASS exact 16.1.92 checksum/size; ZIP CRC, inventory and root")
         print("PASS selector defaults, report-type selection, SKU autocomplete, selected-only print/PDF and CSV contracts")
         print("PASS server permission/location/SKU/cost scope assertions; Owner-only critical reorder")
