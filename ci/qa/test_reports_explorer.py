@@ -144,6 +144,12 @@ def main():
                     continue
                 unexpected_urls.append((path_name, found_url.decode("utf-8", "ignore")))
         need(not unexpected_urls, "installed plugin contains non-approved website URLs: " + repr(unexpected_urls))
+        logo_url = b"https://stocklandshop.rf.gd/wp-content/uploads/2026/09/22623-20kb.jpeg"
+        prohibited_hosts = (b"stocklandet.gamer.gd", b"stocklandethio.rf.gd", b"infinityfreeapp.com", b"stockland-erp-project", b"gamer.gd")
+        for path_name, payload in source_after.items():
+            normalized_payload = payload.replace(logo_url, b"")
+            for host_marker in prohibited_hosts + (b"stocklandshop.rf.gd",):
+                need(host_marker not in normalized_payload, "fixed/redirected host appears in installed plugin: " + path_name + " / " + host_marker.decode())
         need(manifest.get("release") == "16.1.93" and css.get("release") == "16.1.93", "release identity")
         need(manifest.get("minimum_php") == "8.3", "host PHP floor is 8.3")
         need("release_candidate_changes" not in manifest, "installed plugin metadata is not branded as a candidate")
