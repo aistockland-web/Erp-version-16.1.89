@@ -37,6 +37,21 @@ def main():
         manifest = json.loads(source_after["stockland-erp-app/RELEASE_MANIFEST.json"])
         css = json.loads(source_after["stockland-erp-app/assets/css/modules.json"])
 
+        # The downloadable plugin must describe the installed ERP, not a trial/candidate package.
+        readme = source_after["stockland-erp-app/README.md"].decode("utf-8")
+        manifest_text = json.dumps(manifest, ensure_ascii=False).lower()
+        readme_lower = readme.lower()
+        need(manifest.get("release") == "16.1.93", "installed WordPress update release identity")
+        need("release_candidate_changes" not in manifest, "candidate-only manifest fields removed")
+        need("external_connections" not in manifest, "third-party provider integration metadata excluded")
+        need("reports_explorer_16_1_93" not in manifest, "intermediate reports candidate metadata removed")
+        quality = manifest.get("quality", {})
+        need("target_host_acceptance" not in quality and "production_certification" not in quality and "local_validation_status" not in quality, "intermediate acceptance-status fields removed from installed manifest")
+        for phrase in ("microsoft teams", "slack oauth", "oauth buttons", "placeholder chat panels", "test-only package", "test on staging", "trial installation"):
+            need(phrase not in readme_lower, "installed guide excludes provider/demo/staging branding: " + phrase)
+        need("native sign-in" in readme_lower and "role-based access" in readme_lower and "internal notifications" in readme_lower, "native ERP identity, role access and notifications remain described")
+        need("third-party chat" not in readme_lower and "external single-sign-on" not in readme_lower, "provider chat/external SSO excluded from installed guide")
+
         for phrase, label in [
             ("['branch_performance','Branch performance']", "default branch report"),
             ('<option value="today" selected>Today</option>', "today default"),
