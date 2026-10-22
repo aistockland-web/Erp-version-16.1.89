@@ -101,7 +101,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 """
     if "## Third-party software notice" not in readme:
-        readme = readme.rstrip() + "\\n\\n" + license_notice + "\\n"
+        readme = readme.rstrip() + "\n\n" + license_notice + "\n"
     contents[README] = readme.encode("utf-8")
 
     fd, temp_name = tempfile.mkstemp(prefix=path.stem + "-domain-clean-", suffix=".zip", dir=str(path.parent))
