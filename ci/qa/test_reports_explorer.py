@@ -135,7 +135,7 @@ def main():
         need("justice.gov.et" not in js, "no fixed legal-source website in installed payroll UI")
         need("justice.gov.et" not in source_after["stockland-erp-app/includes/rest/class-rest-hr.php"].decode(), "no fixed legal-source website in installed HR API")
         need("workflow_run_url" not in json.dumps(manifest), "no build-workflow URLs in installed release manifest")
-        url_pattern = re.compile(rb"https?://[^\\s\\\"'<>\\)]+", re.I)
+        url_pattern = re.compile(rb"""https?://[^\\s"'<>\\\\)]+""", re.I)
         allowed_uri_ids = {b"http://www.w3.org/2000/svg", b"http://schemas.openxmlformats.org/officeDocument/2006/relationships"}
         unexpected_urls = []
         for path_name, payload in source_after.items():
