@@ -301,7 +301,7 @@ The attached standalone reference material is not installed as a second Node.js/
 
 ## Runtime
 
-WordPress 6.8+; PHP 8.3+; MySQL 8.0+ or MariaDB 10.11+; HTTPS enabled. The package runs inside WordPress/PHP/MySQL on the configured host and does not require an independent Node.js service or PostgreSQL instance. Microsoft Entra sign-in, Teams/Graph and Slack OAuth require owner-provided application registration and server-side credentials before those providers can be connected.
+WordPress 6.8+; PHP 8.3+; MySQL 8.0+ or MariaDB 10.11+; HTTPS enabled. This is a native WordPress/PHP/MySQL plugin update for the configured host; it does not require an independent Node.js service or PostgreSQL instance. This release excludes third-party chat and external single-sign-on connectors. Preserve Stockland ERP's native sign-in, role-based access, profile preferences, internal notifications, and all existing business work areas; do not add Microsoft Teams, Slack, OAuth buttons, or placeholder chat panels.
 """
     files[README] = readme.encode("utf-8")
 
