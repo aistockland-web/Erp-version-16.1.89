@@ -294,3 +294,17 @@ The existing PR #12 build workflow now invokes the ordered Reports Explorer, sto
 At the time this update was written, the GitHub connector had not returned a workflow run for the newest branch head; therefore the repository-generated artifact hash and current workflow status are **not represented as CI-verified**. The manually prepared installer above has the local receipts listed in Section 12.1. A later green repository run should be compared against the same package hash before treating CI reproducibility as closed.
 
 No authenticated control channel to the owner’s InfinityFree WordPress installation was available in this session. The ZIP was not uploaded, activated, or run against live tables, and no production data was modified. That boundary is not an open code change inside the installer; it is an external access/action limit. Do not represent live-site activation, all-button coverage, every finance/POS transaction path, or complete AP/AR/GL reconciliation as performed from package-level receipts alone.
+
+
+## 11. Domain portability and removal of fixed external website links
+
+The installable plugin must not rely on the previous test/redirect host, an InfinityFree subdomain, an old GitHub project URL, or a hard-coded external website for ordinary ERP operation. The ERP page/REST/assets use WordPress URL functions and the running site's origin. The existing bundled Stockland logo asset remains local to the plugin; no additional remote logo/image request is required.
+
+The package-build routine now removes:
+- fixed Ethiopian legal-source hyperlinks and their hard-coded fallback domains from the payroll interface/API (the legal labels remain visible, without a remote click-through);
+- old GitHub Actions workflow URLs from the embedded release manifest;
+- website/license URL text from the bundled Bootstrap stylesheet's header comment only (the CSS rules and framework version/MIT attribution text remain intact).
+
+The package QA contract scans all packaged file bytes for web URLs. Only the required SVG namespace `http://www.w3.org/2000/svg`, the OpenXML relationships namespace `http://schemas.openxmlformats.org/officeDocument/2006/relationships`, and the exact official Stockland logo URL if one is intentionally used are allowlisted. Namespace URIs are technical identifiers, not browser requests. Bootstrap CSS changes are restricted to its header-comment URL text; its styling rules must remain identical. The archive file list/root and schema activator remain unchanged.
+
+This is a source/build contract in the existing PR, not proof that the host redirected or that the installed WordPress files have already been replaced. The generated ZIP's checksum and build receipt must be checked before describing it as the package for manual update. No remote files, credentials, database rows, stock or financial records are changed by the cleanup itself.
