@@ -8,6 +8,7 @@ sys.path.insert(0, str(ROOT / "ci"))
 import patch_reports_explorer as patcher
 import patch_stock_reconciliation as stock_patcher
 import patch_production_hardening as production_patcher
+import patch_domain_cleanup as domain_patcher
 
 def need(ok, message):
     if not ok:
@@ -21,6 +22,7 @@ def main():
         receipt = patcher.apply_to_installer(baseline, output)
         stock_receipt = stock_patcher.rebuild_zip(output)
         production_receipt = production_patcher.patch_archive(output)
+        domain_receipt = domain_patcher.clean_archive(output)
         with zipfile.ZipFile(baseline) as old, zipfile.ZipFile(output) as new:
             need(old.testzip() is None and new.testzip() is None, "ZIP CRC")
             old_names = [x.filename for x in old.infolist() if not x.is_dir()]
@@ -124,9 +126,24 @@ def main():
             "stockland-erp-app/includes/rest/class-rest-inventory-report-v16.php",
             "stockland-erp-app/includes/class-stockland-admin.php",
             "stockland-erp-app/includes/class-stockland-xlsx.php",
+            "stockland-erp-app/includes/rest/class-rest-hr.php",
+            "stockland-erp-app/assets/bootstrap.min.css",
             "stockland-erp-app/stockland-inventory.php",
         }
         need(changed == allowed, "changed file allowlist: " + repr(sorted(changed)))
+        need(domain_receipt["external_payroll_links_removed"] and domain_receipt["build_workflow_urls_removed"], "domain cleanup receipt")
+        need("justice.gov.et" not in js, "no fixed legal-source website in installed payroll UI")
+        need("justice.gov.et" not in source_after["stockland-erp-app/includes/rest/class-rest-hr.php"].decode(), "no fixed legal-source website in installed HR API")
+        need("workflow_run_url" not in json.dumps(manifest), "no build-workflow URLs in installed release manifest")
+        url_pattern = re.compile(rb"https?://[^\\s\\\"'<>\\)]+", re.I)
+        allowed_uri_ids = {b"http://www.w3.org/2000/svg", b"http://schemas.openxmlformats.org/officeDocument/2006/relationships"}
+        unexpected_urls = []
+        for path_name, payload in source_after.items():
+            for found_url in url_pattern.findall(payload):
+                if found_url in allowed_uri_ids or found_url == b"https://stocklandshop.rf.gd/wp-content/uploads/2026/09/22623-20kb.jpeg":
+                    continue
+                unexpected_urls.append((path_name, found_url.decode("utf-8", "ignore")))
+        need(not unexpected_urls, "installed plugin contains non-approved website URLs: " + repr(unexpected_urls))
         need(manifest.get("release") == "16.1.93" and css.get("release") == "16.1.93", "release identity")
         need(manifest.get("minimum_php") == "8.3", "host PHP floor is 8.3")
         need("release_candidate_changes" not in manifest, "installed plugin metadata is not branded as a candidate")
@@ -145,7 +162,12 @@ def main():
         need(source_before["stockland-erp-app/includes/class-stockland-activator.php"] == source_after["stockland-erp-app/includes/class-stockland-activator.php"], "schema DDL preserved")
         for p in source_before:
             if p.endswith(".css"):
-                need(source_before[p] == source_after[p], "CSS byte parity: " + p)
+                if p == "stockland-erp-app/assets/bootstrap.min.css":
+                    original = source_before[p].decode("utf-8")
+                    original = original.replace(" (https://getbootstrap.com/)", "").replace(" (https://github.com/twbs/bootstrap/blob/main/LICENSE)", "")
+                    need(original.encode("utf-8") == source_after[p], "Bootstrap CSS rules unchanged; only URL text in header comment removed")
+                else:
+                    need(source_before[p] == source_after[p], "CSS byte parity: " + p)
 
         m = re.search(r"function reportDateRange\(period\)\{.*?\n\}", js, re.S)
         need(m is not None, "site-local date-range helper")
