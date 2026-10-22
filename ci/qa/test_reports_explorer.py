@@ -51,6 +51,9 @@ def main():
             need(phrase not in readme_lower, "installed guide excludes provider/demo/staging branding: " + phrase)
         need("native sign-in" in readme_lower and "role-based access" in readme_lower and "internal notifications" in readme_lower, "native ERP identity, role access and notifications remain described")
         need("third-party chat" not in readme_lower and "external single-sign-on" not in readme_lower, "provider chat/external SSO excluded from installed guide")
+        for provider_marker in ("microsoft", "slack", "oauth"):
+            need(provider_marker not in readme_lower and provider_marker not in manifest_text, "external provider reference absent from installed guide/metadata: " + provider_marker)
+        need("test on staging" not in readme_lower and "staging environment" not in readme_lower and "test-only" not in readme_lower, "installed update guide contains no trial-environment branding")
 
         for phrase, label in [
             ("['branch_performance','Branch performance']", "default branch report"),
