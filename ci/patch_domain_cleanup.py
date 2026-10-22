@@ -14,6 +14,7 @@ JS = ROOT + "assets/app.js"
 HR = ROOT + "includes/rest/class-rest-hr.php"
 MANIFEST = ROOT + "RELEASE_MANIFEST.json"
 BOOTSTRAP = ROOT + "assets/bootstrap.min.css"
+README = ROOT + "README.md"
 
 
 def once(source: str, old: str, new: str, label: str) -> str:
@@ -71,6 +72,39 @@ def clean_archive(path: Path) -> dict:
     bootstrap = once(bootstrap, " (https://github.com/twbs/bootstrap/blob/main/LICENSE)", "", "Bootstrap license link in comment")
     contents[BOOTSTRAP] = bootstrap.encode("utf-8")
 
+    # Bootstrap's MIT attribution must remain in the package even though its
+    # upstream website/license hyperlinks are removed from the CSS header.
+    readme = contents[README].decode("utf-8")
+    license_notice = """## Third-party software notice
+
+Bootstrap 5.3.8 bundled CSS
+Code and documentation copyright 2011-2025 The Bootstrap Authors. Code is released under the MIT License.
+
+MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, and to permit persons to whom the Software is furnished
+to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+"""
+    if "## Third-party software notice" not in readme:
+        readme = readme.rstrip() + "\\n\\n" + license_notice + "\\n"
+    contents[README] = readme.encode("utf-8")
+
     fd, temp_name = tempfile.mkstemp(prefix=path.stem + "-domain-clean-", suffix=".zip", dir=str(path.parent))
     os.close(fd)
     tmp = Path(temp_name)
@@ -97,12 +131,17 @@ def clean_archive(path: Path) -> dict:
             final_hr = check.read(HR).decode("utf-8")
             final_manifest = json.loads(check.read(MANIFEST).decode("utf-8"))
             final_css = check.read(BOOTSTRAP).decode("utf-8")
+            final_readme = check.read(README).decode("utf-8")
             if "justice.gov.et" in final_js or "justice.gov.et" in final_hr:
                 raise ValueError("External legal source domain remains in the installed payroll workflow.")
             if "workflow_run_url" in json.dumps(final_manifest):
                 raise ValueError("External workflow URL remains in the installed release manifest.")
             if "https://getbootstrap.com/" in final_css or "https://github.com/twbs/bootstrap/blob/main/LICENSE" in final_css:
                 raise ValueError("External framework URLs remain in the Bootstrap comment.")
+            if "Code and documentation copyright 2011-2025 The Bootstrap Authors" not in final_readme or "The above copyright notice and this permission notice shall be included" in final_readme:
+                raise ValueError("Bootstrap attribution / MIT license notice is missing.")
+            if "Permission is hereby granted, free of charge" not in final_readme or "THE SOFTWARE IS PROVIDED \"AS IS\"" not in final_readme:
+                raise ValueError("Complete MIT permission/disclaimer text is missing.")
             # URI namespace identifiers used by SVG/OpenXML are not outbound links:
             # they are required document identifiers and stay local in the package.
             actual_hash = hashlib.sha256(tmp.read_bytes()).hexdigest()
