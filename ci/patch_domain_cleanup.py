@@ -137,7 +137,7 @@ THE SOFTWARE.
                 raise ValueError("External workflow URL remains in the installed release manifest.")
             if "https://getbootstrap.com/" in final_css or "https://github.com/twbs/bootstrap/blob/main/LICENSE" in final_css:
                 raise ValueError("External framework URLs remain in the Bootstrap comment.")
-            if "Code and documentation copyright 2011-2025 The Bootstrap Authors" not in final_readme or "The above copyright notice and this permission notice shall be included" in final_readme:
+            if "Code and documentation copyright 2011-2025 The Bootstrap Authors" not in final_readme or "The above copyright notice and this permission notice shall be included" not in final_readme:
                 raise ValueError("Bootstrap attribution / MIT license notice is missing.")
             if "Permission is hereby granted, free of charge" not in final_readme or "THE SOFTWARE IS PROVIDED \"AS IS\"" not in final_readme:
                 raise ValueError("Complete MIT permission/disclaimer text is missing.")
