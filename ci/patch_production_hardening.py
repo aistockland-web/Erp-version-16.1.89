@@ -277,7 +277,7 @@ def patch_metadata(files: dict[str, bytes]) -> None:
     if isinstance(quality, dict):
         for transient_key in ("local_validation_status", "target_host_acceptance", "production_certification"):
             quality.pop(transient_key, None)
-    files[MANIFEST] = (json.dumps(manifest, ensure_ascii=False, indent=2) + "\\n").encode("utf-8")
+    files[MANIFEST] = (json.dumps(manifest, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
 
 
 def patch_readme(files: dict[str, bytes]) -> None:
