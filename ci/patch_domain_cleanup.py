@@ -51,9 +51,7 @@ def clean_archive(path: Path) -> dict:
     js = contents[JS].decode("utf-8")
     # Keep the payroll rule explanation in the UI, but do not make the installed app
     # link to a fixed external legal URL or fall back to an external host.
-    legal_links = (
-        '<a href="\'+esc(rules.income_tax_source||\'https://justice.gov.et/en/law/\')+\'" target="_blank" rel="noopener noreferrer">Income tax law</a> · <a href="\'+esc(rules.pension_source||\'https://justice.gov.et/en/entity/private-organizatio-employees-social-security-administration/\')+\'" target="_blank" rel="noopener noreferrer">Pension law</a>'
-    )
+    legal_links = r"""<a href="'+esc(rules.income_tax_source||'https://justice.gov.et/en/law/')+'" target="_blank" rel="noopener noreferrer">Income tax law</a> · <a href="'+esc(rules.pension_source||'https://justice.gov.et/en/entity/private-organizatio-employees-social-security-administration/')+'" target="_blank" rel="noopener noreferrer">Pension law</a>"""
     js = once(js, legal_links, "Income tax law · Pension law", "payroll legal hyperlinks")
     contents[JS] = js.encode("utf-8")
 
