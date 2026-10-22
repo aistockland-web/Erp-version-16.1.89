@@ -309,7 +309,7 @@ The attached standalone reference material is not installed as a second Node.js/
 
 ## Runtime
 
-WordPress 6.8+; PHP 8.3+; MySQL 8.0+ or MariaDB 10.11+; HTTPS enabled. This is a native WordPress/PHP/MySQL plugin update for the configured host; it does not require an independent Node.js service or PostgreSQL instance. This release excludes third-party chat and external single-sign-on connectors. Preserve Stockland ERP's native sign-in, role-based access, profile preferences, internal notifications, and all existing business work areas; do not add Microsoft Teams, Slack, OAuth buttons, or placeholder chat panels.
+WordPress 6.8+; PHP 8.3+; MySQL 8.0+ or MariaDB 10.11+; HTTPS enabled. This is a native WordPress/PHP/MySQL plugin update for the configured host; it does not require an independent Node.js service or PostgreSQL instance. Use Stockland ERP's native sign-in, role-based access, profile preferences, internal notifications and existing work areas; no external identity or collaboration service is required for normal ERP operations.
 """
     files[README] = readme.encode("utf-8")
 
