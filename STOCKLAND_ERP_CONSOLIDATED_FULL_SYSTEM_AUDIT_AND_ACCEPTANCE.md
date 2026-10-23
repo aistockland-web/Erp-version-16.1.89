@@ -392,21 +392,27 @@ This is a **partial code/QA improvement**, not closure of CAP-24/27. GitHub curr
 
 The same local source audit found that the historical 16.1.93 package still shows “Server environment” and “plugin requires 8.4+” in the admin panel, and the release manifest includes older Node.js provenance. The current production-hardening build script contains corrections, but no exact-head built ZIP was available to prove their final output. It also exposes a single-SKU atomic POS form, not the precise live Cart source in the Owner's screenshots. This confirms the baseline mismatch blocker and must not be treated as a live Cart fix.
 
-### Final local visual regression rerun — 23 October 2026
+### Final cumulative local regression recheck — 23 October 2026
 
-A presentation-only approval-history patch now keeps two cards per row on desktop/tablet and stacks them on phone widths. The modal is appended under `document.body`, outside `#stockland-app`; the selectors are scoped to `.sl-overlay .sl-req-drawer`. The builder regenerates the existing ordered CSS source, `app.css` and `app.min.css` deterministically and refuses an already-present approval block that differs from the tested revision.
+The final available **local review fixture** is `STOCKLAND_ERP_16.1.93_LOCAL_CUMULATIVE_REVIEW_FIXTURE_ONLY.zip`, SHA-256 `0d2632ad75d6df81c5047b0937b9b551d7b9ee7d03104c8c91458682116e5883`, 1,101,969 bytes, manifest version 16.1.93. This is not an approved production update and must not be uploaded over live 16.1.94.
 
-**Current local review fixture:** `STOCKLAND_ERP_16.1.93_LOCAL_REVIEW_FIXTURE.zip`, SHA-256 `784bea5f7db6cee28c131d8ca4b9dea2edfea3d38115b4bead580e2344f614f5`, 1,119,373 bytes. The 75-file archive is CRC-valid, has unique filenames and one plugin root, but is not the live 16.1.94 package.
+**Static/package PASS on the review fixture:** ZIP CRC/path/root/inventory (75 unique files / one plugin root); PHP syntax 48/48; app.js and pwa.js syntax; JSON parsing; PostCSS for app.css/app.min.css/Bootstrap; six-module source → app.css exact rebuild; normalized source → app.min.css parity; ten fail-closed report source query guards plus location lookup failure; five dashboard KPI query-failure guards; Management Intelligence view/capability gate; PHP 8.3+ diagnostic normalization; archive-wide unapproved outbound URL scan zero; Bootstrap MIT attribution preserved. Static guards establish code presence, not the live queries' successful operation.
 
-- Approval history / supply table: 7 widths (320, 360, 390, 430, 768, 1024, 1440); 14 approval rows; no row-child overflow, no approver/status overlap, no page overflow and no browser exceptions.
-- Whole workspace: 25 views × 7 widths = **175 view/viewport combinations**, and six synthetic role profiles; zero blank-view failures, overflow failures, browser errors or console errors.
-- Reports: initial success → user-triggered source-read failure → explicit inline retry → success; three in-memory API responses; no duplicate toast, print/CSV disabled/enabled appropriately, no 390px page overflow, no browser errors.
-- Package/source checks: ZIP CRC/root/inventory pass (75 files); PHP lint **48/48**; app.js/pwa.js syntax pass; release/PWA/CSS JSON parse; CSS source modules reproduce `app.css`, deterministic normalized source matches `app.min.css`, and PostCSS parses the three CSS bundles; six CSS modules and 61 media-query occurrences.
-- The draft GitHub workflow has now been extended with report recovery, desktop Product Master create, requisition/approval responsiveness, all-workarea/role smoke and modal-specific CSS/PostCSS parity checks.
+**Browser smoke PASS using synthetic intercepted API responses:**
+- 175 view/viewport pairs across 25 work areas × 7 CSS widths (320, 360, 390, 430, 768, 1024, 1440).
+- Six role profiles: Sales Employee, Branch Manager, Warehouse Manager, Management, Employee, Owner; all tested navigation-capability assertions passed.
+- Management Intelligence separately checked once for Management, Owner and Sales Employee; workspace visible for the two authorized profiles and restriction message shown for Sales Employee.
+- Requisition approval history/supply table: 7 widths; no approver/decision/status overlap or page overflow, no table wrapper outside the drawer.
+- Reports: initial success → induced API failure → single inline error/no duplicate toast → successful retry; 3 requests in the focused failure/retry sequence, no overflow at 390px, print/CSV appropriately disabled then enabled.
+- Zero blank views, measured overflow failures, page errors or console errors in the final recorded browser run.
 
-**Evidence scope:** all browser tests above use synthetic in-memory REST responses and a temporary local copy. They do not prove the live database report query works, compensation data is lawfully complete, deep integrity has finished, the current 16.1.94 Cart/POS renderer is fixed, server-side role/location permissions or stock/money postings are correct, or backup/restore and rollback pass.
+Detailed report: [STOCKLAND_ERP_LOCAL_ACCEPTANCE_RECHECK_2026-10-23.md](STOCKLAND_ERP_LOCAL_ACCEPTANCE_RECHECK_2026-10-23.md); machine receipt is available locally as `STOCKLAND_ERP_LOCAL_CUMULATIVE_BROWSER_RESULTS_2026-10-23.json`.
 
-The exact live 16.1.94 installer/source and checksum were not found in the accessible repository. The available release lineage remains 16.1.92 baseline → 16.1.93 candidate. The latest branch changes have no exact-head Actions receipt; previously green runs are from 20 October. The live screen still reports nine missing compensation records. Those issues keep the release NO-GO even though local UI checks pass.
+**Not proved by these runs:** live DB/REST read success, actual SQL source of the report error, real server-side role/location permission denials, stock and ETB transactions/reconciliation, import idempotency, statutory-law signoff, real payroll corrections, the complete HR lifecycle, deep audit completion, backup/restore/rollback, or live 16.1.94 Cart/POS source parity. Tests ran against synthetic fixture responses in a temporary browser page and did not access or mutate production records.
+
+The integrated GitHub workflow has source steps for the new report-loading, requisition layout, all-work-area/role and CSS/PostCSS checks. **Exact-head CI remains pending**; the last visible green Actions receipts target previous commits from 20 October. A missing exact-head receipt is not inferred as PASS.
+
+**Release boundary:** live System Health reports plugin **16.1.94 / DB 16.1.1**, whereas this source lineage is 16.1.92 → review candidate 16.1.93. Exact installed 16.1.94 installer/source/checksum remains unavailable. Nine live employee compensation exceptions remain an Owner/HR data gate; no fake salary values can be inserted. The live report-source error and full HR-to-final-settlement workflow remain unresolved. Local fixture PASS therefore does not certify the WordPress update.
 
 ### Updated disposition
 
