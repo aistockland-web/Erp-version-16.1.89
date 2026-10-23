@@ -165,6 +165,9 @@ def main():
         need("z-index:80!important" in js, "desktop actions raised above header/search stacking context")
         need("pointer-events:auto!important" in js, "desktop action pointer events preserved")
         need("document.__slNewProductCaptureBound" in js, "desktop Product Master delegated click guard")
+        need("sl-desktop-title-action-layer-fix" not in js, "desktop CSS is not injected through a runtime JavaScript style element")
+        need('style="margin-top:10px"' not in js, "report Retry spacing is not an inline CSS attribute")
+        need("link.style.display='none'" not in js, "temporary CSV links do not rely on inline display CSS")
         need("e.stopImmediatePropagation();openProductEditor(null);" in js, "capture-phase create action chain")
         for phrase, label in [
             ("'/app/reports/explorer'", "route registration"),
@@ -221,6 +224,9 @@ def main():
         need(layout_receipt["schema_or_business_data_changed"] is False, "approval presentation patch leaves schema and business data untouched")
         need("single-column" in layout_receipt["mobile_approval_rows"], "responsive approval history uses contained single-column rows")
         approval_css = source_after["stockland-erp-app/assets/css/06-operational-guards.css"].decode("utf-8")
+        need(approval_css.count(patcher.DESKTOP_PRODUCT_CREATE_MARKER) == 1, "desktop CSS is emitted exactly once by Python")
+        need("@media (min-width: 992px)" in approval_css and "#stockland-app #slGlobalSearchResults" in approval_css, "desktop search popup is in the stylesheet")
+        need(".sl-report-retry-actions" in approval_css and ".sl-print-report-hidden" in approval_css, "report retry/print states use stylesheet utilities")
         need("/* Requisition approval routing — keep decisions readable on phones and desktop." in approval_css, "scoped responsive approval-history CSS is included")
         need("grid-template-columns: repeat(2, minmax(0, 1fr)) !important;" in approval_css, "approval cards retain a two-column desktop/tablet layout")
         need("@media (max-width: 767px)" in approval_css and "grid-template-columns: minmax(0, 1fr) !important;" in approval_css, "approval cards switch to one column on phone widths")

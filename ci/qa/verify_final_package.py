@@ -186,6 +186,11 @@ def inspect_payload(files: dict[str, bytes]) -> dict:
     if "document.getElementById('retryOpsReport')?.addEventListener('click',()=>loadReport());return null;" not in js:
         fail("single inline report error/retry handler is missing")
     css = files[ROOT + "assets/css/06-operational-guards.css"].decode("utf-8", "replace")
+    desktop_marker = "/* Stockland desktop layering and report UI utilities; emitted by the Python CSS build. */"
+    if css.count(desktop_marker) != 1 or "#stockland-app #slGlobalSearchResults" not in css:
+        fail("desktop search/action CSS is missing or duplicated in the compiled source module")
+    if "sl-desktop-title-action-layer-fix" in js:
+        fail("runtime JavaScript CSS injection remains; desktop styling must ship in the CSS bundle")
     approval_marker = "/* Requisition approval routing — keep decisions readable on phones and desktop."
     if css.count(approval_marker) != 1:
         fail("responsive requisition approval CSS is missing or duplicated")

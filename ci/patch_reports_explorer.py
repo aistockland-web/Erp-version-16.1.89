@@ -539,7 +539,7 @@ function buildSelectedReportCsv(report){
   rows.forEach(row=>data.push(cols.map(c=>row?.[c.key]??'')));
   return '\uFEFF'+data.map(row=>row.map(reportCsvField).join(',')).join('\r\n')+'\r\n';
 }
-function downloadSelectedReportCsv(){const report=state.report;if(!report||!Array.isArray(report.columns)){toast('Run a report before downloading CSV.',true);return}const blob=new Blob([buildSelectedReportCsv(report)],{type:'text/csv;charset=utf-8;'});const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download='stockland-'+String(report.type||'report')+'-'+String(report.from||'start')+'-to-'+String(report.to||'end')+'.csv';link.style.display='none';document.body.appendChild(link);link.click();link.remove();window.setTimeout(()=>URL.revokeObjectURL(url),1000)}
+function downloadSelectedReportCsv(){const report=state.report;if(!report||!Array.isArray(report.columns)){toast('Run a report before downloading CSV.',true);return}const blob=new Blob([buildSelectedReportCsv(report)],{type:'text/csv;charset=utf-8;'});const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download='stockland-'+String(report.type||'report')+'-'+String(report.from||'start')+'-to-'+String(report.to||'end')+'.csv';link.hidden=true;document.body.appendChild(link);link.click();link.remove();window.setTimeout(()=>URL.revokeObjectURL(url),1000)}
 async function loadReport(){
   const el=document.getElementById('reportResult');if(!el)return;const form=document.getElementById('reportForm');if(!form)return;
   const type=form.elements.type.value;const period=form.elements.period.value;let from,to;
@@ -553,7 +553,7 @@ async function loadReport(){
     const params=new URLSearchParams({type,from,to,location_id:String(form.elements.location_id.value||'all')});const sku=reportUsesSku(type)?String(form.elements.sku?.value||'').trim():'';if(sku)params.set('sku',sku);
     const report=await api('/app/reports/explorer?'+params.toString());state.report=report||{};renderSelectedReport(state.report);
     if(printButton)printButton.disabled=!(report&&Array.isArray(report.columns));if(csvButton)csvButton.disabled=!(report&&Array.isArray(report.columns));
-  }catch(e){state.report=null;el.innerHTML='<div class="sl-notice sl-danger-block"><b>Report could not load.</b> '+esc(e.message)+'<div class="sl-actions" style="margin-top:10px"><button type="button" class="sl-btn" id="retryOpsReport">RETRY REPORT</button></div></div>';document.getElementById('retryOpsReport')?.addEventListener('click',()=>loadReport());return null;
+  }catch(e){state.report=null;el.innerHTML='<div class="sl-notice sl-danger-block"><b>Report could not load.</b> '+esc(e.message)+'<div class="sl-actions sl-report-retry-actions"><button type="button" class="sl-btn" id="retryOpsReport">RETRY REPORT</button></div></div>';document.getElementById('retryOpsReport')?.addEventListener('click',()=>loadReport());return null;
   }finally{if(run){run.disabled=false;run.removeAttribute('aria-busy');run.textContent='RUN REPORT';}}
 }
 function bindReportExplorer(){
@@ -566,7 +566,7 @@ function bindReportExplorer(){
   let timer=null;let querySequence=0;
   if(sku&&suggestionBox){sku.addEventListener('input',()=>{if(timer)window.clearTimeout(timer);const q=sku.value.trim();const seq=++querySequence;if(q.length<1){suggestionBox.hidden=true;suggestionBox.innerHTML='';return}timer=window.setTimeout(async()=>{try{const found=await api16('/sku-search?q='+encodeURIComponent(q)+'&limit=8');if(seq!==querySequence||!Array.isArray(found))return;const results=found.slice(0,8);suggestionBox.innerHTML=results.map(x=>'<button type="button" class="sl-btn" role="option" data-report-sku="'+esc(String(x.sku||''))+'"><b>'+esc(String(x.sku||''))+'</b> · '+esc(String(x.product_name||''))+' '+esc(String(x.color||''))+' '+esc(String(x.size||''))+' <small>'+esc(String(x.barcode||''))+'</small></button>').join('')||'<div class="sl-empty">No matching Product Master item.</div>';suggestionBox.hidden=false;suggestionBox.querySelectorAll('[data-report-sku]').forEach(button=>button.addEventListener('click',()=>{sku.value=button.dataset.reportSku||'';suggestionBox.hidden=true;suggestionBox.innerHTML='';sku.focus()}));}catch(e){if(seq===querySequence){suggestionBox.hidden=true;suggestionBox.innerHTML='';}}},250)});sku.addEventListener('keydown',e=>{if(e.key==='Escape'&&suggestionBox){suggestionBox.hidden=true;suggestionBox.innerHTML=''}});if(!document.__slReportSkuDismissBound){document.__slReportSkuDismissBound=true;document.addEventListener('click',e=>{const liveBox=document.getElementById('reportSkuSuggestions');if(!e.target.closest('#reportSkuField')&&liveBox){liveBox.hidden=true}});}}
   $('#downloadOpsReportCsv')?.addEventListener('click',downloadSelectedReportCsv);
-  $('#printOpsReport')?.addEventListener('click',()=>{if(!document.getElementById('selectedOpsReport')||!state.report){toast('Run a report before printing.',true);return}const filterPanel=document.querySelector('#stockland-app .sl-report-panel');const detail=document.getElementById('reportRowDetail');const previousDisplay=filterPanel?filterPanel.style.display:'';const actions=[...document.querySelectorAll('#selectedOpsReport [data-report-action-column]')].map(node=>({node,display:node.style.display}));if(filterPanel)filterPanel.style.display='none';if(detail)detail.style.display='none';actions.forEach(x=>x.node.style.display='none');const restore=()=>{if(filterPanel)filterPanel.style.display=previousDisplay;if(detail)detail.style.display='';actions.forEach(x=>x.node.style.display=x.display);window.removeEventListener('afterprint',restore)};window.addEventListener('afterprint',restore);window.print();});
+  $('#printOpsReport')?.addEventListener('click',()=>{if(!document.getElementById('selectedOpsReport')||!state.report){toast('Run a report before printing.',true);return}const hiddenClass='sl-print-report-hidden';const filterPanel=document.querySelector('#stockland-app .sl-report-panel');const detail=document.getElementById('reportRowDetail');const actions=[...document.querySelectorAll('#selectedOpsReport [data-report-action-column]')];if(filterPanel)filterPanel.classList.add(hiddenClass);if(detail)detail.classList.add(hiddenClass);actions.forEach(node=>node.classList.add(hiddenClass));const restore=()=>{if(filterPanel)filterPanel.classList.remove(hiddenClass);if(detail)detail.classList.remove(hiddenClass);actions.forEach(node=>node.classList.remove(hiddenClass));window.removeEventListener('afterprint',restore)};window.addEventListener('afterprint',restore);window.print();});
   $('#openDailyPosImportFromReport')?.addEventListener('click',()=>{state.view='daily';render()});loadReport().catch(()=>{});
 }
 '''
@@ -584,13 +584,7 @@ if($('#openDailyPosImportFromReport'))$('#openDailyPosImportFromReport').onclick
     # A desktop header is a higher grid-item stacking context (z-index 50); if host theme CSS widens
     # the global-search popup, it can sit above the Product Master action row. Raise only title actions
     # above that header and keep dialogs/modals at their existing much higher z-index.
-    product_click_guard = """if(!document.getElementById('sl-desktop-title-action-layer-fix')){
-  const style=document.createElement('style');
-  style.id='sl-desktop-title-action-layer-fix';
-  style.textContent='@media (min-width:992px){#stockland-app .sl-global-search{position:relative!important;min-width:0!important;width:100%!important;max-width:440px!important;box-sizing:border-box!important}#stockland-app #slGlobalSearchResults{position:absolute!important;top:calc(100% + 8px)!important;left:0!important;right:0!important;inset-inline-start:0!important;inset-inline-end:0!important;width:auto!important;min-width:0!important;max-width:min(440px,calc(100vw - 24px))!important;box-sizing:border-box!important;max-height:min(62vh,520px)!important;overflow:auto!important;z-index:2147483647!important}#stockland-app .sl-content-inner>.sl-page-title>.sl-actions{position:relative!important;z-index:80!important;isolation:isolate;pointer-events:auto!important}#stockland-app .sl-content-inner>.sl-page-title>.sl-actions>*{pointer-events:auto!important}}';
-  (document.head||document.documentElement).appendChild(style);
-}
-if(!document.__slNewProductCaptureBound){
+    product_click_guard = """if(!document.__slNewProductCaptureBound){
   document.__slNewProductCaptureBound=true;
   document.addEventListener('click',function(e){
     const target=e.target instanceof Element?e.target.closest('#newProduct'):null;
@@ -787,6 +781,44 @@ Microsoft Entra sign-in, Teams and Slack require owner-provided provider applica
     return {"baseline_sha256": digest, "baseline_bytes": len(raw), "candidate_sha256": hashlib.sha256(output_zip.read_bytes()).hexdigest(), "candidate_bytes": output_zip.stat().st_size, "files": len(names), "css_files_unchanged": len(css_paths)}
 
 
+DESKTOP_PRODUCT_CREATE_MARKER = "/* Stockland desktop layering and report UI utilities; emitted by the Python CSS build. */"
+DESKTOP_PRODUCT_CREATE_CSS = """/* Stockland desktop layering and report UI utilities; emitted by the Python CSS build. */
+.sl-report-retry-actions { margin-top: 10px; }
+.sl-print-report-hidden { display: none !important; }
+@media (min-width: 992px) {
+  #stockland-app .sl-global-search {
+    position: relative !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    max-width: 440px !important;
+    box-sizing: border-box !important;
+  }
+  #stockland-app #slGlobalSearchResults {
+    position: absolute !important;
+    top: calc(100% + 8px) !important;
+    left: 0 !important;
+    right: 0 !important;
+    inset-inline-start: 0 !important;
+    inset-inline-end: 0 !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: min(440px, calc(100vw - 24px)) !important;
+    box-sizing: border-box !important;
+    max-height: min(62vh, 520px) !important;
+    overflow: auto !important;
+    z-index: 2147483647 !important;
+  }
+  #stockland-app .sl-content-inner>.sl-page-title>.sl-actions {
+    position: relative !important;
+    z-index: 80 !important;
+    isolation: isolate;
+    pointer-events: auto !important;
+  }
+  #stockland-app .sl-content-inner>.sl-page-title>.sl-actions>* {
+    pointer-events: auto !important;
+  }
+}
+
 APPROVAL_LAYOUT_MARKER = "/* Requisition approval routing — keep decisions readable on phones and desktop."
 APPROVAL_LAYOUT_CSS = """/* Requisition approval routing — keep decisions readable on phones and desktop.
  * Modal markup is appended to document.body, outside #stockland-app; scope to its overlay.
@@ -867,6 +899,26 @@ def patch_requisition_mobile_approval_layout(archive_path: Path) -> dict:
     manifest_path = "stockland-erp-app/RELEASE_MANIFEST.json"
     modules_path = "stockland-erp-app/assets/css/modules.json"
     module = files[module_path].decode("utf-8")
+    desktop_count = module.count(DESKTOP_PRODUCT_CREATE_MARKER)
+    if desktop_count > 1:
+        raise ValueError("Desktop CSS marker is duplicated")
+    desktop_applied = False
+    approval_index = module.find(APPROVAL_LAYOUT_MARKER)
+    if desktop_count == 1:
+        desktop_start = module.index(DESKTOP_PRODUCT_CREATE_MARKER)
+        desktop_end = approval_index if approval_index > desktop_start else len(module)
+        if approval_index >= 0 and approval_index < desktop_start:
+            raise ValueError("Desktop CSS block must precede the approval-layout block")
+        if module[desktop_start:desktop_end].strip() != DESKTOP_PRODUCT_CREATE_CSS.strip():
+            raise ValueError("Existing desktop CSS differs from the tested Python builder; rebuild from the canonical baseline")
+    else:
+        desktop_block = DESKTOP_PRODUCT_CREATE_CSS.strip()
+        if approval_index >= 0:
+            module = module[:approval_index].rstrip() + "\n\n" + desktop_block + "\n\n" + module[approval_index:].lstrip()
+        else:
+            module = module.rstrip() + "\n\n" + desktop_block + "\n"
+        desktop_applied = True
+
     if APPROVAL_LAYOUT_MARKER in module:
         if module.count(APPROVAL_LAYOUT_MARKER) != 1:
             raise ValueError("Existing approval-layout marker is duplicated")
@@ -898,6 +950,7 @@ def patch_requisition_mobile_approval_layout(archive_path: Path) -> dict:
         raise ValueError("Approval-layout release manifest mismatch")
     ui = manifest.setdefault("user_interface", {})
     ui["requisition_approval_history"] = "Two-column approval cards on tablet/desktop and single-column cards on phones; long labels, notes and status pills wrap without overlapping."
+    ui["desktop_product_create_action_layering"] = "Search popup bounds and Product Master title actions are served from the ordered CSS bundle; no runtime-injected style element."
     preserved = manifest.setdefault("preserved", {})
     preserved["css_source_and_compiled_files_changed"] = True
     preserved["css_source_build_parity_verified"] = True
@@ -928,7 +981,7 @@ def patch_requisition_mobile_approval_layout(archive_path: Path) -> dict:
             raise ValueError("Approval-layout CSS compiled bundle is not deterministic")
     temporary.replace(archive_path)
     return {
-        "applied": applied,
+        "applied": applied or desktop_applied,
         "baseline_candidate_sha256": before_sha,
         "candidate_sha256": hashlib.sha256(archive_path.read_bytes()).hexdigest(),
         "plugin_files": len(names),
@@ -937,6 +990,7 @@ def patch_requisition_mobile_approval_layout(archive_path: Path) -> dict:
         "css_source_build_parity": True,
         "schema_or_business_data_changed": False,
         "mobile_approval_rows": "two-column tablet/desktop grid and single-column phone grid; wrapped labels/notes/status pills",
+        "desktop_product_create_css": "Python builder -> 06-operational-guards.css -> ordered app.css/app.min.css; no runtime style injection",
     }
 
 
