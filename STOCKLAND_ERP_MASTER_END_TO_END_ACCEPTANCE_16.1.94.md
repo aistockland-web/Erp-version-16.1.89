@@ -144,6 +144,14 @@ Each item is PASS only when the named test ran against the **same exact built ZI
 7. Verify full workflow outputs and independent quantity/ETB reconciliations. Obtain Stockland process-owner sign-off for Warehouse, POS/Wholesale, Finance, HR and reporting.
 8. Only then create one cumulative WordPress installer from the same exact source head, publish its checksum and audit receipt, and get Owner approval for an in-place update. After installation, re-check the installed version/hash, quick/deep Health, report loading, cart, core workflows, history and role access.
 
-## 9. Release decision
+## 9. Local recheck receipt and exact-head automation state
+
+The [Local Recheck Receipt](STOCKLAND_ERP_LOCAL_RECHECK_2026-10-23.md) records what was actually run locally against a historical 16.1.93 candidate (SHA-256 `a8cb3767f363740387731928211febc315876a7b8c146e65e594930940e64e3b`). It passed ZIP structure/integrity (75 unique files, one plugin root), PHP syntax 48/48, JavaScript syntax, JSON parse, PostCSS parsing and ordered CSS source/build/minified parity. A temporary local Playwright/Chromium copy with the proposed report-error behavior passed a request sequence of initial success → explicit report-source failure → retry success; the error remained inline, no duplicate toast covered it, the 390px viewport had no page-level overflow, print/CSV controls were disabled on failure and re-enabled after success, and no browser exceptions occurred.
+
+**Evidence boundary:** this was not a build or test of the exact current GitHub branch source, the exact live 16.1.94 ZIP, or live WordPress/MariaDB. GitHub reports zero check runs directly on commit `5fa1bdc5bc3219e55c97b47774f6957dafacc417`; the related Actions runs are from 20 October and reference older source/build state. The current source contains the narrow report-error fix in the build script and regression assertions, but exact-head package/build/CI acceptance is still open.
+
+The historical candidate scan also confirms that the reviewed source exposes an atomic single-SKU POS form rather than the live multi-line Cart implementation shown in the Owner's screenshots; it still has stale host diagnostics / PHP 8.4+ wording and older manifest test-tool metadata before the current source-cleanup builder is applied. Those are reasons to require exact-head packaging and current-source parity, not to upload the old archive.
+
+## 10. Release decision
 
 **Current decision: NO-GO.** This is not a statement that the live ERP is wholly down; it is a statement that the evidence supplied contains a failing payroll readiness gate, a report source-read error and serious mobile UI defects, while the branch package under review is older than the installed plugin. The next approved installer must correct these issues on the true 16.1.94 baseline and prove the complete Stockland SOP end-to-end. Do not claim “100% operational” until every critical row in the master matrix has current evidence and Owner sign-off.
