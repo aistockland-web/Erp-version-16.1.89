@@ -191,9 +191,11 @@ def main():
             need(phrase in php, "server contract: " + label)
 
         for phrase, label in [
-            ("COALESCE(bl.physical_stock,0)", "legacy SKU-only stock included"),
-            ("COALESCE(al.reserved_stock,0)", "legacy SKU-only active reservations included"),
-            ("WHERE variant_id IS NULL GROUP BY location_id,sku", "legacy SKU-only rows aggregated separately"),
+            ("t.variant_id IS NULL AND legacy_p.sku=t.sku", "legacy SKU-only stock rows map to Product Master variant"),
+            ("r.variant_id IS NULL AND legacy_r.sku=r.sku", "legacy SKU-only reservations map to Product Master variant"),
+            ("WHERE r.status='Active' AND COALESCE(r.variant_id,legacy_r.variant_id) IS NOT NULL", "only valid active reservations enter the reserved total"),
+            ("GROUP BY t.location_id,COALESCE(t.variant_id,legacy_p.variant_id)", "legacy and variant stock rows aggregate by canonical variant"),
+            ("GROUP BY r.location_id,COALESCE(r.variant_id,legacy_r.variant_id)", "legacy and variant reservations aggregate by canonical variant"),
         ]:
             need(phrase in stock_api, "stock API contract: " + label)
 
