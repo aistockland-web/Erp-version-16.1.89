@@ -47,6 +47,13 @@ async def run_candidate(zip_path: Path) -> dict:
                 raise AssertionError(f"Candidate ZIP integrity failure: {bad}")
             archive.extractall(root)
         app = root / "stockland-erp-app"
+        manifest_path = app / "RELEASE_MANIFEST.json"
+        if not manifest_path.is_file():
+            raise AssertionError("Candidate release manifest is missing")
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        release = manifest.get("release")
+        if not isinstance(release, str) or not release:
+            raise AssertionError("Candidate release identity is missing from its manifest")
         for needed in ("assets/app.js", "assets/app.min.css", "assets/bootstrap.min.css"):
             if not (app / needed).is_file():
                 raise AssertionError(f"Candidate missing {needed}")
@@ -90,8 +97,8 @@ async def run_candidate(zip_path: Path) -> dict:
                 await page.set_content(
                     '<div id="stockland-app"></div><script>'
                     'window.StocklandApp={api:"http://127.0.0.1:8877/wp-json/stockland/v1",'
-                    'api_v16:"http://127.0.0.1:8877/wp-json/stockland/v16",nonce:"test",build:"16.1.93",'
-                    'logo:"",home:"/",logout:"/",wp_admin:""};</script>'
+                    'api_v16:"http://127.0.0.1:8877/wp-json/stockland/v16",nonce:"test",'
+                    + 'build:"' + release + '",logo:"",home:"/",logout:"/",wp_admin:""};</script>'
                 )
                 # Simulate a theme stylesheet loaded before the plugin assets; Stockland's
                 # more-specific compiled rule must restore the search popover to its own container.
@@ -159,7 +166,7 @@ async def run_candidate(zip_path: Path) -> dict:
         return {
             "result": "PASS",
             "mode": "mocked in-memory REST; no live connection",
-            "release": "16.1.94",
+            "release": release,
             "candidate_zip": zip_path.name,
             "viewports": checked,
             "total_viewports": len(checked),
