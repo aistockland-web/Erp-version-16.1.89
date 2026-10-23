@@ -831,11 +831,6 @@ APPROVAL_LAYOUT_CSS = """/* Requisition approval routing — keep decisions read
   .sl-overlay .sl-req-drawer .sl-approval-person {
     flex: 1 1 100%;
   }
-  .sl-overlay .sl-req-drawer .sl-approval-line > div:last-child {
-    box-sizing: border-box;
-    width: 100%;
-    padding-left: 38px;
-  }
 }
 """
 
