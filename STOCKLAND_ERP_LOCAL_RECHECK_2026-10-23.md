@@ -60,3 +60,23 @@ This is an independent local regression check of the intended JavaScript behavio
 - `ci/qa/test_reports_loading.py`: regression test simulates a user-triggered source failure, checks no duplicate toast, checks mobile bounds/no page overflow at 390px, then proves a successful retry.
 
 Updates remain in the existing draft PR/workstream. No alternative plugin or architecture was created. **Overall disposition remains DRAFT / NO-GO for installing over 16.1.94** until exact source is recovered and critical master acceptance gates pass.
+
+
+## Second local regression pass — 23 October 2026
+
+This second pass tested a **review-only fixture derived from the previously extracted historical 16.1.93 plugin**, after the report error presentation and responsive requisition approval CSS edits. This is not a verified WordPress installer and is not the exact live 16.1.94 release.
+
+- Review-fixture SHA-256: `767fb1f3703c179f5cce0bfc0391c69220963723c4290b807032e30ed57c08ed`.
+- Package: ZIP CRC PASS; 75 unique files; one `stockland-erp-app/` root.
+- PHP lint: 48/48; JavaScript syntax: `assets/app.js` and `assets/pwa.js`; JSON parse: release/PWA/CSS module manifests.
+- CSS: all six ordered source modules rebuild `app.css` exactly; deterministic normalization matches `app.min.css`; PostCSS parses `app.css`, `app.min.css` and `bootstrap.min.css`; 61 `@media` occurrences.
+- Requisition/approval layout: tested 320, 360, 390, 430, 768, 1024 and 1440 CSS px. Fourteen approval rows exercised; zero row-child overflow, zero approver-text/status overlap, and zero browser errors. Desktop/tablet keep two approval cards per row; phones use one card per row. Long labels, notes and decision badges wrap inside the card.
+- Whole-workspace smoke: 25 views × 7 viewports = 175 combinations; six synthetic role/capability profiles; zero blank-view failures, page-level horizontal overflow, browser errors or console errors.
+- Report recovery: successful initial read → user-triggered report source failure → Retry → success. Three in-memory API responses; no duplicate toast; Print/CSV disabled during the failure and enabled after success; 390px page scroll width remained 390; no browser errors.
+- No live WordPress request, live database query, employee or salary review, stock or finance posting was made during these tests.
+
+A first intermediate CSS attempt moved approval status content outside the row at 320px because of a flex-basis interaction. It was corrected, and only the final rerun above is counted as PASS.
+
+### Release status remains NO-GO
+
+These local results demonstrate the targeted front-end behavior in the historical candidate fixture. They do **not** close live CAP-25: the actual 16.1.94 source was not present. They also do not resolve the real report database/source-read failure, nine active employees without current compensation, full HR-to-final-settlement lifecycle, discrepancy between the separate PASS/supplemental health output and the earlier UNVERIFIED deep-audit panel, exact-head GitHub CI, independent stock/ETB reconciliation, or target-host backup/restore/rollback. Do not upload the review fixture as a production plugin.
