@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Apply the audited, read-only Reports & Analytics explorer patch to ERP 16.1.92."""
 from __future__ import annotations
-import hashlib, json, zipfile
+import hashlib, json, re, zipfile
 from pathlib import Path, PurePosixPath
 
 TARGET = Path(__file__).resolve().parents[1]
@@ -774,19 +774,160 @@ Microsoft Entra sign-in, Teams and Slack require owner-provided provider applica
                 raise ValueError("CSS bytes changed: " + n)
     return {"baseline_sha256": digest, "baseline_bytes": len(raw), "candidate_sha256": hashlib.sha256(output_zip.read_bytes()).hexdigest(), "candidate_bytes": output_zip.stat().st_size, "files": len(names), "css_files_unchanged": len(css_paths)}
 
+
+APPROVAL_LAYOUT_MARKER = "/* Requisition approval routing — keep decisions readable on phones and desktop."
+APPROVAL_LAYOUT_CSS = """/* Requisition approval routing — keep decisions readable on phones and desktop.
+ * Modal markup is appended to document.body, outside #stockland-app; scope to its overlay.
+ * Each decision receives a full-width row so long labels/notes cannot push status pills
+ * across adjacent cards or beyond the drawer. Presentation only; no workflow changes.
+ */
+.sl-overlay .sl-req-drawer .sl-approval-grid {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+.sl-overlay .sl-req-drawer .sl-approval-line {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  justify-content: initial;
+  gap: 8px;
+  min-width: 0;
+}
+.sl-overlay .sl-req-drawer .sl-approval-person {
+  min-width: 0;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+}
+.sl-overlay .sl-req-drawer .sl-approval-person > span:last-child {
+  min-width: 0;
+}
+.sl-overlay .sl-req-drawer .sl-approval-person strong,
+.sl-overlay .sl-req-drawer .sl-approval-person small {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  line-height: 1.4;
+}
+.sl-overlay .sl-req-drawer .sl-approval-line > div:last-child {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+}
+"""
+
+
+def patch_requisition_mobile_approval_layout(archive_path: Path) -> dict:
+    """Apply a tested presentation-only fix to approval history in the body-level requisition drawer."""
+    before_sha = hashlib.sha256(archive_path.read_bytes()).hexdigest()
+    with zipfile.ZipFile(archive_path) as zin:
+        if zin.testzip() is not None:
+            raise ValueError("Approval-layout input ZIP CRC failure")
+        infos = [item for item in zin.infolist() if not item.is_dir()]
+        names = [item.filename for item in infos]
+        if len(names) != 75 or len(names) != len(set(names)):
+            raise ValueError("Approval-layout patch requires the exact 75-file plugin inventory")
+        if not all(PurePosixPath(name).parts[0] == "stockland-erp-app" and ".." not in PurePosixPath(name).parts for name in names):
+            raise ValueError("Approval-layout patch rejected an unexpected archive path")
+        files = {name: zin.read(name) for name in names}
+
+    module_path = "stockland-erp-app/assets/css/06-operational-guards.css"
+    app_css_path = "stockland-erp-app/assets/app.css"
+    app_min_path = "stockland-erp-app/assets/app.min.css"
+    manifest_path = "stockland-erp-app/RELEASE_MANIFEST.json"
+    modules_path = "stockland-erp-app/assets/css/modules.json"
+    module = files[module_path].decode("utf-8")
+    if APPROVAL_LAYOUT_MARKER in module:
+        if module.count(APPROVAL_LAYOUT_MARKER) != 1 or ".sl-overlay .sl-req-drawer .sl-approval-grid" not in module:
+            raise ValueError("Existing approval-layout marker is partial or duplicated")
+        applied = False
+    else:
+        module = module.rstrip() + "\n\n" + APPROVAL_LAYOUT_CSS.strip() + "\n"
+        applied = True
+    files[module_path] = module.encode("utf-8")
+
+    modules = json.loads(files[modules_path].decode("utf-8"))
+    if modules.get("release") != "16.1.93" or len(modules.get("modules", [])) != 6 or len(set(modules["modules"])) != 6:
+        raise ValueError("Approval-layout CSS module manifest/release mismatch")
+    chunks = [
+        files["stockland-erp-app/assets/css/" + name].decode("utf-8").strip()
+        for name in modules["modules"]
+    ]
+    app_css = "\n\n".join(chunks) + "\n"
+    normalized = re.sub(r"/\\*[\\s\\S]*?\\*/", " ", app_css)
+    normalized = re.sub(r"\\s+", " ", normalized).strip()
+    normalized = re.sub(r"\\s*([{}:;,])\\s*", r"\\1", normalized).replace(";}", "}")
+    files[app_css_path] = app_css.encode("utf-8")
+    files[app_min_path] = normalized.encode("utf-8")
+
+    manifest = json.loads(files[manifest_path].decode("utf-8"))
+    if manifest.get("release") != "16.1.93":
+        raise ValueError("Approval-layout release manifest mismatch")
+    ui = manifest.setdefault("user_interface", {})
+    ui["requisition_approval_history"] = "Responsive single-column decision rows; long approver labels, notes and status pills wrap without overlapping."
+    preserved = manifest.setdefault("preserved", {})
+    preserved["css_source_and_compiled_files_changed"] = True
+    preserved["css_source_build_parity_verified"] = True
+    files[manifest_path] = (json.dumps(manifest, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+
+    temporary = archive_path.with_name(archive_path.name + ".approval-layout.tmp")
+    with zipfile.ZipFile(temporary, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as zout:
+        for info in infos:
+            zi = zipfile.ZipInfo(info.filename, date_time=info.date_time)
+            zi.compress_type = zipfile.ZIP_DEFLATED
+            zi.external_attr = info.external_attr
+            zi.create_system = info.create_system
+            zi.flag_bits = info.flag_bits
+            zout.writestr(zi, files[info.filename], compress_type=zipfile.ZIP_DEFLATED, compresslevel=9)
+    with zipfile.ZipFile(temporary) as check:
+        if check.testzip() is not None:
+            temporary.unlink(missing_ok=True)
+            raise ValueError("Approval-layout output ZIP CRC failure")
+        after_names = [item.filename for item in check.infolist() if not item.is_dir()]
+        if after_names != names:
+            temporary.unlink(missing_ok=True)
+            raise ValueError("Approval-layout patch changed archive inventory/order")
+        if check.read(app_css_path).decode("utf-8") != app_css:
+            temporary.unlink(missing_ok=True)
+            raise ValueError("Approval-layout CSS source bundle is not deterministic")
+        if check.read(app_min_path).decode("utf-8") != normalized:
+            temporary.unlink(missing_ok=True)
+            raise ValueError("Approval-layout CSS compiled bundle is not deterministic")
+    temporary.replace(archive_path)
+    return {
+        "applied": applied,
+        "baseline_candidate_sha256": before_sha,
+        "candidate_sha256": hashlib.sha256(archive_path.read_bytes()).hexdigest(),
+        "plugin_files": len(names),
+        "css_module_changed": module_path,
+        "compiled_css_rebuilt": [app_css_path, app_min_path],
+        "css_source_build_parity": True,
+        "schema_or_business_data_changed": False,
+        "mobile_approval_rows": "single-column; wrapped labels/notes/status pills",
+    }
+
 def main():
     inp = TARGET / "STOCKLAND_ERP_16.1.92_CANONICAL_WORDPRESS_UPDATE.zip"
     out = TARGET / "STOCKLAND_ERP_16.1.93_WORDPRESS_UPDATE.zip"
     reports = apply_to_installer(inp, out)
     from patch_stock_reconciliation import rebuild_zip
     from patch_production_hardening import patch_archive
+    from patch_domain_cleanup import clean_archive
     stock = rebuild_zip(out)
     production = patch_archive(out)
+    domain = clean_archive(out)
+    approval_layout = patch_requisition_mobile_approval_layout(out)
     print(json.dumps({
         "installer": out.name,
         "reports_explorer": reports,
         "stock_reconciliation": stock,
-        "production_hardening": production
+        "production_hardening": production,
+        "domain_cleanup": domain,
+        "responsive_approval_layout": approval_layout
     }, indent=2))
 
 if __name__ == "__main__":
