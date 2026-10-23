@@ -26,7 +26,8 @@ for (const [selector, label] of [
   ['.sl-payroll-readiness-reasons', 'payroll diagnostics styling'],
   ['.sl-mobile-menu', 'mobile navigation styling'],
   ['.sl-overlay .sl-req-drawer .sl-approval-grid', 'body-level requisition approval drawer layout'],
-  ['.sl-overlay .sl-req-drawer .sl-approval-person small', 'approval name and timestamp wrapping']
+  ['.sl-overlay .sl-req-drawer .sl-approval-person small', 'approval name and timestamp wrapping'],
+  ['body[data-sl-view="pos"] #stockland-app #posForm', 'Retail POS responsive checkout form']
 ]) {
   if (!source.includes(selector)) throw new Error('Missing ' + label);
   console.log('PASS ' + label);
@@ -36,6 +37,11 @@ if (!/@media\s*\(max-width\s*:\s*767px\)/.test(source)) {
 }
 if (!/flex:\s*0 1 auto/.test(source) || !/overflow-wrap:\s*anywhere/.test(source)) {
   throw new Error('Approval label/status wrapping and flex sizing protection is missing');
+}
+if (!/body\[data-sl-view="pos"\] #stockland-app #posForm/.test(source) ||
+    !/min-height:\s*52px/.test(source) ||
+    !/@media\s*\(max-width\s*:\s*359px\)/.test(source)) {
+  throw new Error('Responsive POS checkout touch targets or narrow-phone breakpoint are missing');
 }
 const mediaRules = (source.match(/@media\b/g) || []).length;
 if (mediaRules < 5 || !/max-width\s*:/.test(source)) {
