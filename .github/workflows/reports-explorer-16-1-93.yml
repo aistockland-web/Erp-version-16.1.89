@@ -102,7 +102,8 @@ jobs:
       - name: Install pinned Playwright browser test dependency
         run: |
           python3 -m pip install --disable-pip-version-check 'playwright==1.57.0'
-          python3 -m playwright install --with-deps chromium
+          # The hosted Ubuntu runner supplies Chromium's shared libraries; avoid a full apt upgrade during a UI smoke test.
+          timeout 180s python3 -m playwright install chromium
       - name: Test desktop Product Master click-to-create chain across wide viewports
         run: |
           python3 ci/qa/test_desktop_product_create.py STOCKLAND_ERP_16.1.95_CANONICAL_WORDPRESS_UPDATE.zip --receipt STOCKLAND_ERP_16.1.95_DESKTOP_BUTTON_QA.json
