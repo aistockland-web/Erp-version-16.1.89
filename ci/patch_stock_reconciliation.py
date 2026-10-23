@@ -435,11 +435,16 @@ def patch_php(source: str) -> str:
     if len(critical_blocks) != 1:
         raise ValueError("critical reorder calculation: expected exactly one Owner-only critical report block")
     critical = critical_blocks[0].group(2)
-    available_assignment = "$available_minor = Stockland_Money::minor( $row['available_stock'] ?? '0' );"
+    available_assignment_pattern = re.compile(
+        r"\$available_minor[ \t]*=[ \t]*Stockland_Money::minor\( \$row\['available_stock'\] \?\? '0' \);"
+    )
     position_assignment = "$position_minor = Stockland_Money::minor( $row['reorder_position'] ?? $row['available_stock'] ?? '0' );"
-    if critical.count(available_assignment) != 2:
-        raise ValueError("critical reorder calculation: expected both available_stock assignments exactly once")
-    critical = critical.replace(available_assignment, position_assignment)
+    critical, assignment_count = available_assignment_pattern.subn(position_assignment, critical)
+    if assignment_count != 2:
+        raise ValueError(
+            "critical reorder calculation: expected exactly two available_stock assignments, "
+            f"updated {assignment_count}"
+        )
     critical = replace_literal_once(
         critical,
         "return $reorder_minor > 0 && $available_minor <= $reorder_minor;",
