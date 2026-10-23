@@ -133,8 +133,6 @@ def inspect_payload(files: dict[str, bytes]) -> dict:
         fail("CSS module release marker does not match the package")
     if manifest.get("minimum_php") != "8.3":
         fail("release manifest does not declare PHP 8.3 compatibility")
-    if manifest.get("schema_contract") != manifest.get("schema_contract", {}):
-        fail("schema contract is invalid")
     for key, expected in EXPECTED_SCHEMA.items():
         if manifest.get("schema_contract", {}).get(key) != expected:
             fail(f"schema contract mismatch for {key}")
