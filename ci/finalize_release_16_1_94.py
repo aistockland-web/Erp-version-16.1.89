@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Finalize one cumulative Stockland ERP 16.1.94 update from the tested 16.1.93 build.
 
-This changes release/cache identity only after all 16.1.93 patch stages have run.
-It does not perform database migrations or change business logic/data.
+This adds scoped responsive POS presentation, regenerates ordered CSS bundles, and advances release/cache identity after all existing patch stages. It does not change database schema, posting handlers or live data.
 """
 from __future__ import annotations
 
@@ -100,6 +99,7 @@ def finalize(input_zip: Path, output_zip: Path) -> dict:
         if not all(name.startswith(ROOT) and ".." not in Path(name).parts for name in names):
             raise ValueError("Input package has an unsafe path or unexpected plugin root")
         files = {name: zin.read(name) for name in names}
+        original_files = dict(files)
 
     manifest = json.loads(files[MANIFEST].decode("utf-8"))
     css_manifest = json.loads(files[CSS_MODULES].decode("utf-8"))
@@ -265,7 +265,7 @@ Before deployment, back up the WordPress files and MariaDB/MySQL database and ve
                 raise ValueError("Final route/cache identity mismatch")
             if final_manifest.get("schema_contract", {}).get("total") != 49:
                 raise ValueError("Final 49-table schema contract changed")
-            if final_files[ACTIVATOR] != files[ACTIVATOR]:
+            if final_files[ACTIVATOR] != original_files[ACTIVATOR]:
                 raise ValueError("Schema activator changed during version finalization")
             rebuilt_css = "\n\n".join(
                 final_files[ROOT + "assets/css/" + name].decode("utf-8").strip()
@@ -278,7 +278,7 @@ Before deployment, back up the WordPress files and MariaDB/MySQL database and ve
             normalized_css = re.sub(r"\s*([{}:;,])\s*", r"\1", normalized_css).replace(";}", "}")
             if final_files[APP_MIN_PATH].decode("utf-8").strip() != normalized_css:
                 raise ValueError("Final app.min.css does not equal normalized source")
-            changed = sorted(name for name in names if files[name] != final_files[name])
+            changed = sorted(name for name in names if original_files[name] != final_files[name])
             allowed = sorted([README, MANIFEST, CSS_MODULES, FRONTEND, ENTRY, CSS_MODULE_PATH, APP_CSS_PATH, APP_MIN_PATH])
             if changed != allowed:
                 raise ValueError(f"Unexpected finalizer changed-file allowlist: {changed}")
