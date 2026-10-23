@@ -818,6 +818,7 @@ DESKTOP_PRODUCT_CREATE_CSS = """/* Stockland desktop layering and report UI util
     pointer-events: auto !important;
   }
 }
+"""
 
 APPROVAL_LAYOUT_MARKER = "/* Requisition approval routing — keep decisions readable on phones and desktop."
 APPROVAL_LAYOUT_CSS = """/* Requisition approval routing — keep decisions readable on phones and desktop.
