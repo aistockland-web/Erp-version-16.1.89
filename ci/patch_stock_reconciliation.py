@@ -357,12 +357,12 @@ def patch_php(source: str) -> str:
     # order as STOCK_SQL even if the earlier Reports Explorer patch has already
     # expanded or reformatted the initial argument array.
     stock_args_block = re.compile(
-        r"\\$stock_args\\s*=\\s*array\\([^;]*\\);\\s*"
-        r"\\$stock_sql\\s*\\.+=\\s*\\$this->append_scope_filter\\(\\s*'l\\.id',\\s*\\$stock_args,\\s*\\$scope\\s*\\);\\s*"
-        r"if\\s*\\(\\s*''\\s*!==\\s*\\$sku\\s*\\)\\s*\\{\\s*"
-        r"\\$stock_sql\\s*\\.+=\\s*' AND p\\.sku=%s';\\s*"
-        r"\\$stock_args\\s*\\[\\s*\\]\\s*=\\s*\\$sku;\\s*\\}\\s*"
-        r"\\$stock_sql\\s*\\.+=\\s*' ORDER BY l\\.location_name,p\\.sku';",
+        r"\$stock_args\s*=\s*array\([^;]*\);\s*"
+        r"\$stock_sql\s*\.\s*=\s*\$this->append_scope_filter\(\s*'l\.id',\s*\$stock_args,\s*\$scope\s*\);\s*"
+        r"if\s*\(\s*''\s*!==\s*\$sku\s*\)\s*\{\s*"
+        r"\$stock_sql\s*\.\s*=\s*' AND p\.sku=%s';\s*"
+        r"\$stock_args\s*\[\s*\]\s*=\s*\$sku;\s*\}\s*"
+        r"\$stock_sql\s*\.\s*=\s*' ORDER BY l\.location_name,p\.sku';",
         re.S,
     )
     stock_args_replacement = """$stock_args = array( $prod, $loc, $tx, $prod, $res, $prod, $tr, $prod );
@@ -374,7 +374,7 @@ def patch_php(source: str) -> str:
 		$stock_sql .= ' ORDER BY l.location_name,p.sku';"""
     stock_args_matches = list(stock_args_block.finditer(source))
     if len(stock_args_matches) != 1:
-        current_arrays = re.findall(r"\\$stock_args\\s*=\\s*array\\([^;]*;", source)
+        current_arrays = re.findall(r"\$stock_args\s*=\s*array\([^;]*;", source)
         raise ValueError(
             "report inventory parameter block: expected exactly one scoped inventory block, "
             f"found {len(stock_args_matches)}; current stock_args assignments={current_arrays!r}"
