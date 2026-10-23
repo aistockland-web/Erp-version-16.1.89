@@ -648,6 +648,12 @@ def apply_to_installer(input_zip: Path, output_zip: Path) -> dict:
         "release": "16.1.93",
         "release_label": "16.1.93 — Reports Explorer, desktop Product Master protection and exact reorder arithmetic",
         "baseline_release": "16.1.92",
+        "schema_contract": {
+            "total": 49,
+            "core_operations": 29,
+            "accounting_procurement": 16,
+            "hr_payroll": 4
+        },
         "minimum_php": "8.3",
         "hosting_profile": {
             "target": "InfinityFree free WordPress hosting",
