@@ -154,7 +154,12 @@ def main():
             ("dashboard_today_sales_source_failed", "Command Center today sales fails closed"),
         ]:
             need(marker in php, label)
-        need("$checks['xlsx_xmlreader_stream']    = ! empty( $runtime['xml_reader'] ) && class_exists( 'ZipArchive' );" in php, "System Health accepts disk-backed PHP 8.3 XMLReader fallback")
+        need("$checks['xlsx_xmlreader_stream']      = ! empty( $diagnostics['runtime_environment']['xml_reader_from_stream'] );" in php, "System Health reports XMLReader fromStream capability separately from streaming-reader availability")
+        runtime_diagnostics = source_after["stockland-erp-app/includes/class-stockland-runtime-diagnostics.php"].decode()
+        xlsx_reader_source = source_after["stockland-erp-app/includes/class-stockland-xlsx.php"].decode()
+        need("'xml_reader_from_stream' => class_exists( 'XMLReader' ) && method_exists( 'XMLReader', 'fromStream' )" in runtime_diagnostics, "runtime diagnostic accurately records XMLReader fromStream availability")
+        need("method_exists( 'XMLReader', 'fromStream' )" in xlsx_reader_source and "tempnam( sys_get_temp_dir(), 'sl_xlsx_' )" in xlsx_reader_source and "XMLReader::open( $temp_xml" in xlsx_reader_source and "stream_copy_to_stream( $stream, $out )" in xlsx_reader_source, "XLSX reader retains a disk-backed streaming fallback when XMLReader::fromStream is unavailable")
+        need("InfinityFree currently provides" not in xlsx_reader_source, "XLSX runtime documentation does not assume one fixed PHP version/host")
         need("t.status='In Transit'" in php and "t.status='In Transit'" in stock_api, "only in-transit transfers count toward inbound")
         need("report_location_label_failed" in php, "selected report location-label lookup fails closed")
         need("z-index:80!important" in js, "desktop actions raised above header/search stacking context")
