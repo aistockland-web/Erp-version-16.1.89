@@ -405,11 +405,19 @@ def patch_php(source: str) -> str:
     )
 
 
-    source = replace_literal_once(
+    # Keep the existing report's approved availability label while adding the
+    # integrity exception column. Earlier report-source variants use either
+    # "Available" or "Available now", so match the field contract, not wording.
+    available_column_pattern = re.compile(
+        r"array\\( 'key' => 'available_stock', 'label' => '[^']+', 'format' => 'number' \\),"
+    )
+    available_column_matches = list(available_column_pattern.finditer(source))
+    if len(available_column_matches) != 1:
+        raise ValueError("show reservation integrity beside availability: expected exactly one available_stock column")
+    source = available_column_pattern.sub(
+        lambda match: match.group(0) + "\\n\\t\\t\\t\\t\\tarray( 'key' => 'availability_exception', 'label' => 'Reservation integrity' ),",
         source,
-        "array( 'key' => 'available_stock', 'label' => 'Available', 'format' => 'number' ),",
-        "array( 'key' => 'available_stock', 'label' => 'Available', 'format' => 'number' ),\n\t\t\t\t\tarray( 'key' => 'availability_exception', 'label' => 'Reservation integrity' ),",
-        "show reservation integrity beside availability",
+        count=1,
     )
     source = replace_literal_once(
         source,
