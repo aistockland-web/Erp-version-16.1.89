@@ -189,6 +189,9 @@ def inspect_payload(files: dict[str, bytes]) -> dict:
     approval_marker = "/* Requisition approval routing — keep decisions readable on phones and desktop."
     if css.count(approval_marker) != 1:
         fail("responsive requisition approval CSS is missing or duplicated")
+    pos_marker = "/* Retail POS mobile checkout — responsive atomic sale form."
+    if css.count(pos_marker) != 1 or "body[data-sl-view=\\"pos\\"] #stockland-app #posForm" not in css:
+        fail("responsive Retail POS checkout styles are missing or duplicated")
 
     modules = css_manifest.get("modules")
     if not isinstance(modules, list) or len(modules) != 6 or len(set(modules)) != 6:
@@ -290,7 +293,8 @@ def main() -> None:
         fail("cumulative builder changed-file attestation differs from baseline-to-final source diff")
     if sorted(release.get("changed_files", [])) != sorted([
         ROOT + "README.md", ROOT + "RELEASE_MANIFEST.json", ROOT + "assets/css/modules.json",
-        ROOT + "includes/class-stockland-frontend.php", ROOT + "stockland-inventory.php"
+        ROOT + "includes/class-stockland-frontend.php", ROOT + "stockland-inventory.php",
+        ROOT + "assets/css/06-operational-guards.css", ROOT + "assets/app.css", ROOT + "assets/app.min.css"
     ]):
         fail("release finalizer changed-file allowlist is unexpected")
     if baseline_files[ROOT + "includes/class-stockland-activator.php"] != package_files[ROOT + "includes/class-stockland-activator.php"]:
