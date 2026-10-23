@@ -11,6 +11,7 @@ on:
       - 'ci/qa/test_reports_explorer.py'
       - 'ci/qa/test_reports_loading.py'
       - 'ci/qa/test_requisition_responsive.py'
+      - 'ci/qa/test_all_workareas_responsive.py'
       - 'ci/qa/check-css-postcss.js'
       - 'ci/cssqa/package.json'
       - 'ci/cssqa/package-lock.json'
@@ -84,6 +85,9 @@ jobs:
       - name: Test requisition approval history and supply tables at mobile/desktop widths
         run: |
           python3 ci/qa/test_requisition_responsive.py STOCKLAND_ERP_16.1.93_WORDPRESS_UPDATE.zip | tee STOCKLAND_ERP_16.1.93_REQUISITION_RESPONSIVE_QA.json
+      - name: Smoke-test all ERP work areas and role navigation at phone/desktop widths
+        run: |
+          python3 ci/qa/test_all_workareas_responsive.py STOCKLAND_ERP_16.1.93_WORDPRESS_UPDATE.zip | tee STOCKLAND_ERP_16.1.93_ALL_WORKAREAS_QA.json
       - name: Verify compiled CSS, source-module parity, and PostCSS parse
         shell: bash
         run: |
@@ -141,6 +145,7 @@ jobs:
             STOCKLAND_ERP_16.1.93_DESKTOP_BUTTON_QA.json
             STOCKLAND_ERP_16.1.93_REPORT_LOADING_QA.json
             STOCKLAND_ERP_16.1.93_REQUISITION_RESPONSIVE_QA.json
+            STOCKLAND_ERP_16.1.93_ALL_WORKAREAS_QA.json
             STOCKLAND_ERP_16.1.93_DESKTOP_PRODUCT_CREATE_AUDIT.md
           if-no-files-found: error
           retention-days: 14
