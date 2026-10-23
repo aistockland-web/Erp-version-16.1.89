@@ -66,6 +66,22 @@ For each page/view and each role, record: **control label → handler/function �
 
 The minimum role fixtures are Owner, Management, Branch Manager, Warehouse Manager, Finance, HR/Payroll and Employee/Cashier. Test both positive permissions and explicit negative cases. Check the top profile dropdown, global search, command palette, sidebar groups, mobile MENU, notifications and toasts, report-type/location/period/SKU filters, print/Save PDF, CSV export, and every action in the operational modules listed under CAP-10. A hidden item does not satisfy server-side authorization; a successful mock request does not prove a live business write.
 
+## Odoo/SAP-grade operating controls adapted to Stockland's hosting environment
+
+“100% exact to Odoo/SAP” would not be a truthful acceptance claim: those products have different architectures, licensed modules, and deployment environments. The achievable target is **enterprise-grade control outcomes** using Stockland's existing WordPress/PHP/MySQL ERP and SOPs, without copying proprietary UI/code or introducing unsupported infrastructure.
+
+| Enterprise control outcome | Stockland implementation rule | Acceptance proof |
+|---|---|---|
+| One source of truth (ERP master data) | The canonical Product Master variant and immutable stock ledger remain authoritative; Excel is an input/output tool, not a parallel runtime inventory database. Avoid duplicate writable balances. | Same variant/source IDs reconcile across Product Master, warehouse, POS, reports and audit trail. |
+| Procure-to-pay control | Keep approved PO → accepted GRN → supplier invoice → payment. Do not pay or increase stock from an unapproved document; handle partial quantities and variances explicitly. | Three-way comparison of ordered, received and invoiced quantities/costs; partial receipt/payment, duplicates, rejection and rollback all tested. |
+| Order-to-cash and margin integrity | POS/wholesale sale, actual transaction price, tender/AR, tax, stock movement and staged COGS share one traceable source event. Reversals compensate posted history. | Sale-to-stock-to-cash/AR-to-GL reconciliation; discount/price override/refund tests; debit equals credit. |
+| Warehouse and inventory controls | Use explicit reservation, pick, dispatch/in-transit, destination receipt and variance states; never treat in-transit units as pickable. Approval and location authority are server-enforced. | Partial transfer/receipt, competing reservation, oversell/over-reservation, unauthorized location and retry tests. |
+| Role-based work centres | Keep Owner/Management, Branch, Warehouse, Finance, HR/Payroll and Audit views relevant to each role; hidden controls are backed by REST capability checks and server-derived location scope. | Positive and negative role matrix across navigation, buttons, routes, exports, records and direct URL/API requests. |
+| Financial close and traceability | Every posted journal balances; opening balance + posted movement = closing balance; changes to posted records use approved reversal workflows with actor/reason/history. | Independent stock/GL/AP/AR/payroll/closing reconciliation, complete audit chain and forced-failure rollback tests. |
+| Operational reporting | Every report declares metric definition, date basis, location scope, permission, rounding/tax/cost basis, freshness and source drill-down. Print/CSV operates only on the selected, authorized dataset. | Report-by-report expected-vs-observed dataset checks, role isolation, CSV-injection protection, and selected-report-only print/PDF. |
+
+**Hosting-fit architecture must stay deliberately lightweight:** one installable WordPress plugin root; PHP 8.3+ and supported MySQL/MariaDB; HTTPS; the existing 49-table contract unless a demonstrated finding justifies a migration; bounded/resumable browser-request work instead of a required background worker/Cron; static assets only in the service-worker cache; never cache authenticated API responses; no separate Node/Express/PostgreSQL service; no global WordPress redirect or cross-plugin CSS/JS takeover. Setup/recovery UI must remain available while business mutations fail closed until schema/readiness checks pass. These are explicit release gates, not cosmetic preferences.
+
 ## Release-gate order
 
 1. Resolve/record missing employee compensation through HR/Owner, and obtain statutory rule-matrix sign-off.
