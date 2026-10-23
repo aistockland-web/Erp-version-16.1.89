@@ -176,7 +176,35 @@ jobs:
           assert manifest['release']=='16.1.95'
           print('PASS JSON syntax and release identity')
           PY
-      - name: Install locked WordPress Coding Standards tooling (CI only)
+- name: Build optional Cloud AI release 16.1.96 from the exact verified 16.1.95 installer
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 ci/qa/build-cloud-ai-16-1-96.py \
+            --input STOCKLAND_ERP_16.1.95_CANONICAL_WORDPRESS_UPDATE.zip \
+            --patch-part-prefix ci/patches/16.1.95-to-16.1.96-cloud-ai.patch.gz.b64.part \
+            --output STOCKLAND_ERP_16.1.96_CLOUD_AI_WORDPRESS_UPDATE_CANDIDATE.zip \
+            --receipt STOCKLAND_ERP_16.1.96_RELEASE_RECEIPT.json | tee STOCKLAND_ERP_16.1.96_BUILD_RECEIPT.json
+          rm -rf build/wordpress-update
+          mkdir -p build/wordpress-update
+          unzip -q STOCKLAND_ERP_16.1.96_CLOUD_AI_WORDPRESS_UPDATE_CANDIDATE.zip -d build/wordpress-update
+          APP="build/wordpress-update/stockland-erp-app"
+          python ci/qa/test-cloud-ai-release.py \
+            --zip STOCKLAND_ERP_16.1.96_CLOUD_AI_WORDPRESS_UPDATE_CANDIDATE.zip \
+            --baseline STOCKLAND_ERP_16.1.95_CANONICAL_WORDPRESS_UPDATE.zip \
+            --receipt STOCKLAND_ERP_16.1.96_CLOUD_AI_PACKAGE_QA_RECEIPT.json | tee STOCKLAND_ERP_16.1.96_CLOUD_AI_PACKAGE_QA.txt
+          python ci/qa/test-cloud-ai-health.py STOCKLAND_ERP_16.1.96_CLOUD_AI_WORDPRESS_UPDATE_CANDIDATE.zip | tee STOCKLAND_ERP_16.1.96_CLOUD_AI_HEALTH_QA.txt
+          php ci/qa/test-cloud-ai-service.php "$APP" | tee STOCKLAND_ERP_16.1.96_CLOUD_AI_SERVICE_QA.txt
+          find "$APP" -type f -name '*.php' -print0 | xargs -0 -n1 php -l | tee STOCKLAND_ERP_16.1.96_PHP_LINT.txt
+          node --check "$APP/assets/app.js"
+          node --check "$APP/assets/pwa.js"
+          NODE_PATH="${GITHUB_WORKSPACE}/ci/cssqa/node_modules" node ci/qa/check-css-postcss.js "$APP" | tee STOCKLAND_ERP_16.1.96_CSS_QA.txt
+          python3 ci/qa/test_desktop_product_create.py STOCKLAND_ERP_16.1.96_CLOUD_AI_WORDPRESS_UPDATE_CANDIDATE.zip --receipt STOCKLAND_ERP_16.1.96_DESKTOP_BUTTON_QA.json
+          test -s STOCKLAND_ERP_16.1.96_DESKTOP_BUTTON_QA.json
+          python3 ci/qa/test_reports_loading.py STOCKLAND_ERP_16.1.96_CLOUD_AI_WORDPRESS_UPDATE_CANDIDATE.zip | tee STOCKLAND_ERP_16.1.96_REPORT_LOADING_QA.json
+          python3 ci/qa/test_requisition_responsive.py STOCKLAND_ERP_16.1.96_CLOUD_AI_WORDPRESS_UPDATE_CANDIDATE.zip | tee STOCKLAND_ERP_16.1.96_REQUISITION_RESPONSIVE_QA.json
+          python3 ci/qa/test_all_workareas_responsive.py STOCKLAND_ERP_16.1.96_CLOUD_AI_WORDPRESS_UPDATE_CANDIDATE.zip | tee STOCKLAND_ERP_16.1.96_ALL_WORKAREAS_QA.json
+            - name: Install locked WordPress Coding Standards tooling (CI only)
         run: composer install --working-dir=ci/phpcs --no-interaction --prefer-dist --no-progress
       - name: Run PHPCS/WPCS and reviewed security/database invariants on the final ZIP
         shell: bash
@@ -184,20 +212,20 @@ jobs:
           set -euo pipefail
           APP="build/wordpress-update/stockland-erp-app"
           set +e
-          ci/phpcs/vendor/bin/phpcs --standard=WordPress --extensions=php --report=json --report-file=STOCKLAND_ERP_16.1.95_PHPCS_WPCS.json "$APP"
+          ci/phpcs/vendor/bin/phpcs --standard=WordPress --extensions=php --report=json --report-file=STOCKLAND_ERP_16.1.96_PHPCS_WPCS.json "$APP"
           PHPCS_EXIT=$?
           set -e
-          test -s STOCKLAND_ERP_16.1.95_PHPCS_WPCS.json
-          echo "Raw PHPCS exit code: $PHPCS_EXIT" > STOCKLAND_ERP_16.1.95_PHPCS_SUMMARY.txt
+          test -s STOCKLAND_ERP_16.1.96_PHPCS_WPCS.json
+          echo "Raw PHPCS exit code: $PHPCS_EXIT" > STOCKLAND_ERP_16.1.96_PHPCS_SUMMARY.txt
           python3 - <<'PY'
           import json
           from pathlib import Path
-          data=json.loads(Path('STOCKLAND_ERP_16.1.95_PHPCS_WPCS.json').read_text(encoding='utf-8'))
+          data=json.loads(Path('STOCKLAND_ERP_16.1.96_PHPCS_WPCS.json').read_text(encoding='utf-8'))
           totals=data.get('totals', {})
-          with Path('STOCKLAND_ERP_16.1.95_PHPCS_SUMMARY.txt').open('a', encoding='utf-8') as f:
+          with Path('STOCKLAND_ERP_16.1.96_PHPCS_SUMMARY.txt').open('a', encoding='utf-8') as f:
               f.write(f"errors={totals.get('errors',0)}; warnings={totals.get('warnings',0)}; fixable={totals.get('fixable',0)}\n")
           PY
-          python ci/qa/test-phpcs-security-review.py "$APP" STOCKLAND_ERP_16.1.95_PHPCS_WPCS.json | tee STOCKLAND_ERP_16.1.95_PHPCS_SECURITY_REVIEW.txt
+          python ci/qa/test-phpcs-security-review.py "$APP" STOCKLAND_ERP_16.1.96_PHPCS_WPCS.json | tee STOCKLAND_ERP_16.1.96_PHPCS_SECURITY_REVIEW.txt
       - name: Run Semgrep PHP/security-audit scan on the exact ZIP source (ignore-safe)
         shell: bash
         run: |
@@ -208,25 +236,47 @@ jobs:
           SCAN_ROOT="${RUNNER_TEMP}/stockland-erp-semgrep-source"
           rm -rf "$SCAN_ROOT"
           mkdir -p "$SCAN_ROOT"
-          unzip -q STOCKLAND_ERP_16.1.95_CANONICAL_WORDPRESS_UPDATE.zip -d "$SCAN_ROOT"
+          unzip -q STOCKLAND_ERP_16.1.96_CLOUD_AI_WORDPRESS_UPDATE_CANDIDATE.zip -d "$SCAN_ROOT"
           APP_SCAN="$SCAN_ROOT/stockland-erp-app"
           test -d "$APP_SCAN"
           PHP_COUNT="$(find "$APP_SCAN" -type f -name '*.php' | wc -l | tr -d ' ')"
           test "$PHP_COUNT" -gt 0
           echo "Packaged PHP source files to scan: $PHP_COUNT"
-          semgrep scan --metrics=off --no-git-ignore --config p/php --config p/security-audit --include '*.php' --json --output STOCKLAND_ERP_16.1.95_SEMGREP.json "$APP_SCAN"
-          python ci/qa/summarize-semgrep.py STOCKLAND_ERP_16.1.95_SEMGREP.json --expected-targets "$PHP_COUNT" | tee STOCKLAND_ERP_16.1.95_SEMGREP_SUMMARY.txt
+          semgrep scan --metrics=off --no-git-ignore --config p/php --config p/security-audit --include '*.php' --json --output STOCKLAND_ERP_16.1.96_SEMGREP.json "$APP_SCAN"
+          python ci/qa/summarize-semgrep.py STOCKLAND_ERP_16.1.96_SEMGREP.json --expected-targets "$PHP_COUNT" | tee STOCKLAND_ERP_16.1.96_SEMGREP_SUMMARY.txt
       - name: Verify runtime dependency and license inventory for the final ZIP
         shell: bash
         run: |
           set -euo pipefail
-          python ci/qa/test-dependency-inventory.py | tee STOCKLAND_ERP_16.1.95_DEPENDENCY_POLICY_TEST.txt
-          python ci/qa/dependency-inventory.py build/wordpress-update/stockland-erp-app STOCKLAND_ERP_16.1.95_DEPENDENCY_LICENSE_INVENTORY.json | tee STOCKLAND_ERP_16.1.95_DEPENDENCY_INVENTORY_SUMMARY.txt
-      - name: Publish the verified 16.1.95 WordPress update and audit receipts
+          python ci/qa/test-dependency-inventory.py | tee STOCKLAND_ERP_16.1.96_DEPENDENCY_POLICY_TEST.txt
+          python ci/qa/dependency-inventory.py build/wordpress-update/stockland-erp-app STOCKLAND_ERP_16.1.96_DEPENDENCY_LICENSE_INVENTORY.json | tee STOCKLAND_ERP_16.1.96_DEPENDENCY_INVENTORY_SUMMARY.txt
+      - name: Publish the verified 16.1.96 Cloud AI WordPress update and audit receipts
         uses: actions/upload-artifact@v4
         with:
-          name: STOCKLAND-ERP-16.1.95-Cumulative-WordPress-Update
+          name: STOCKLAND-ERP-16.1.96-Cumulative-WordPress-Update
           path: |
+            STOCKLAND_ERP_16.1.96_CLOUD_AI_WORDPRESS_UPDATE_CANDIDATE.zip
+            STOCKLAND_ERP_16.1.96_CLOUD_AI_WORDPRESS_UPDATE_CANDIDATE.zip.sha256
+            STOCKLAND_ERP_16.1.96_BUILD_RECEIPT.json
+            STOCKLAND_ERP_16.1.96_RELEASE_RECEIPT.json
+            STOCKLAND_ERP_16.1.96_CLOUD_AI_PACKAGE_QA_RECEIPT.json
+            STOCKLAND_ERP_16.1.96_CLOUD_AI_PACKAGE_QA.txt
+            STOCKLAND_ERP_16.1.96_CLOUD_AI_HEALTH_QA.txt
+            STOCKLAND_ERP_16.1.96_CLOUD_AI_SERVICE_QA.txt
+            STOCKLAND_ERP_16.1.96_CSS_QA.txt
+            STOCKLAND_ERP_16.1.96_PHP_LINT.txt
+            STOCKLAND_ERP_16.1.96_DESKTOP_BUTTON_QA.json
+            STOCKLAND_ERP_16.1.96_REPORT_LOADING_QA.json
+            STOCKLAND_ERP_16.1.96_REQUISITION_RESPONSIVE_QA.json
+            STOCKLAND_ERP_16.1.96_ALL_WORKAREAS_QA.json
+            STOCKLAND_ERP_16.1.96_PHPCS_WPCS.json
+            STOCKLAND_ERP_16.1.96_PHPCS_SECURITY_REVIEW.txt
+            STOCKLAND_ERP_16.1.96_PHPCS_SUMMARY.txt
+            STOCKLAND_ERP_16.1.96_SEMGREP.json
+            STOCKLAND_ERP_16.1.96_SEMGREP_SUMMARY.txt
+            STOCKLAND_ERP_16.1.96_DEPENDENCY_POLICY_TEST.txt
+            STOCKLAND_ERP_16.1.96_DEPENDENCY_LICENSE_INVENTORY.json
+            STOCKLAND_ERP_16.1.96_DEPENDENCY_INVENTORY_SUMMARY.txt
             STOCKLAND_ERP_16.1.95_CANONICAL_WORDPRESS_UPDATE.zip
             STOCKLAND_ERP_16.1.95_CANONICAL_WORDPRESS_UPDATE.zip.sha256
             STOCKLAND_ERP_16.1.95_BUILD_RECEIPT.json
