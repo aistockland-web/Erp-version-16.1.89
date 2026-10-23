@@ -16,7 +16,8 @@ from pathlib import Path
 
 ROOT = "stockland-erp-app/"
 EXPECTED_FILES = 75
-EXPECTED_RELEASE = "16.1.93"
+EXPECTED_RELEASE = "16.1.94"
+EXPECTED_BASELINE_RELEASE = "16.1.93"
 EXPECTED_SCHEMA = {
     "core_operations": 29,
     "accounting_procurement": 16,
@@ -145,9 +146,9 @@ def inspect_payload(files: dict[str, bytes]) -> dict:
     js = files[ROOT + "assets/app.js"].decode("utf-8", "replace")
     hr = files[ROOT + "includes/rest/class-rest-hr.php"].decode("utf-8", "replace")
 
-    if "Version:           16.1.93" not in entry or "define( 'STOCKLAND_VERSION', '16.1.93' );" not in entry:
+    if "Version:           16.1.94" not in entry or "define( 'STOCKLAND_VERSION', '16.1.94' );" not in entry:
         fail("plugin header and runtime release constant do not match")
-    if "* Requires PHP:      8.3" not in entry or "const ROUTE_VERSION      = '16.1.93';" not in front:
+    if "* Requires PHP:      8.3" not in entry or "const ROUTE_VERSION      = '16.1.94';" not in front:
         fail("PHP/route/cache release markers are inconsistent")
     if "WordPress hosting compatibility</h2>" not in admin:
         fail("hosting diagnostics heading was not normalized")
@@ -239,6 +240,7 @@ def main() -> None:
     parser.add_argument("--package", type=Path, required=True)
     parser.add_argument("--sha256", type=Path, required=True)
     parser.add_argument("--build-receipt", type=Path, required=True)
+    parser.add_argument("--release-receipt", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
 
@@ -257,20 +259,40 @@ def main() -> None:
     try:
         build = json.loads(args.build_receipt.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
-        fail(f"cannot read build receipt: {exc}")
-    final = build.get("final_package") if isinstance(build, dict) else None
-    if not isinstance(final, dict):
-        fail("build receipt has no final_package attestation; intermediate patch hashes are insufficient")
-    if final.get("sha256") != actual_hash or final.get("bytes") != actual_bytes:
-        fail("build receipt final_package hash/size does not match the final ZIP")
-    if final.get("files") != EXPECTED_FILES or final.get("release") != EXPECTED_RELEASE:
-        fail("build receipt inventory/version does not match the final ZIP")
+        fail(f"cannot read cumulative 16.1.93 build receipt: {exc}")
+    intermediate = build.get("final_package") if isinstance(build, dict) else None
+    if not isinstance(intermediate, dict):
+        fail("16.1.93 build receipt has no final_package attestation")
+    if intermediate.get("files") != EXPECTED_FILES or intermediate.get("release") != EXPECTED_BASELINE_RELEASE:
+        fail("intermediate cumulative build inventory/version does not match the expected 16.1.93 input")
+
+    try:
+        release = json.loads(args.release_receipt.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        fail(f"cannot read 16.1.94 release identity receipt: {exc}")
+    if release.get("release") != EXPECTED_RELEASE or release.get("baseline_release") != EXPECTED_BASELINE_RELEASE:
+        fail("release receipt does not identify the 16.1.93 → 16.1.94 cumulative update")
+    if release.get("output_sha256") != actual_hash or release.get("output_bytes") != actual_bytes:
+        fail("release receipt SHA-256/size does not match the final ZIP")
+    if release.get("plugin_file_count") != EXPECTED_FILES or release.get("plugin_root") != ROOT:
+        fail("release receipt package inventory/root does not match the final ZIP")
+    if release.get("schema_contract") != {"core": 29, "accounting_procurement": 16, "hr_payroll": 4, "total": 49}:
+        fail("release receipt schema contract does not match the 49-table contract")
+    if not release.get("schema_activator_unchanged") or release.get("live_business_data_changed") is not False:
+        fail("release receipt does not prove the no-schema/no-live-data mutation boundary")
 
     if baseline_names != package_names:
         fail("baseline/final package file order or inventory differs")
     changed = sorted(name for name in baseline_names if baseline_files[name] != package_files[name])
     if set(changed) != ALLOWED_CHANGED:
         fail("changed-file allowlist mismatch: " + repr(changed))
+    if sorted(intermediate.get("changed_files", [])) != changed:
+        fail("cumulative builder changed-file attestation differs from baseline-to-final source diff")
+    if sorted(release.get("changed_files", [])) != sorted([
+        ROOT + "README.md", ROOT + "RELEASE_MANIFEST.json", ROOT + "assets/css/modules.json",
+        ROOT + "includes/class-stockland-frontend.php", ROOT + "stockland-inventory.php"
+    ]):
+        fail("release finalizer changed-file allowlist is unexpected")
     if baseline_files[ROOT + "includes/class-stockland-activator.php"] != package_files[ROOT + "includes/class-stockland-activator.php"]:
         fail("schema activator changed from baseline")
 
