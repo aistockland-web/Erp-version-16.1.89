@@ -271,6 +271,11 @@ def patch_metadata(files: dict[str, bytes]) -> None:
     manifest["minimum_php"] = "8.3"
     manifest.setdefault("hosting_profile", {})["minimum_php"] = "8.3+"
     manifest.setdefault("hosting_profile", {})["separate_application_runtime_required"] = False
+    # Preserve the already-approved shared-host operating limits: foreground
+    # activity refresh and paced resumable import batches are runtime behavior,
+    # not transient CI metadata.
+    manifest.setdefault("hosting_profile", {})["activity_refresh_seconds"] = 60
+    manifest.setdefault("hosting_profile", {})["import_chunk_delay_milliseconds"] = 300
     manifest.setdefault("user_interface", {})["management_intelligence"] = {
         "enabled_for": ["owner", "management"],
         "data_source": "Existing server-authorized ERP insights",
