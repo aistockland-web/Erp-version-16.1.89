@@ -80,3 +80,21 @@ A first intermediate CSS attempt moved approval status content outside the row a
 ### Release status remains NO-GO
 
 These local results demonstrate the targeted front-end behavior in the historical candidate fixture. They do **not** close live CAP-25: the actual 16.1.94 source was not present. They also do not resolve the real report database/source-read failure, nine active employees without current compensation, full HR-to-final-settlement lifecycle, discrepancy between the separate PASS/supplemental health output and the earlier UNVERIFIED deep-audit panel, exact-head GitHub CI, independent stock/ETB reconciliation, or target-host backup/restore/rollback. Do not upload the review fixture as a production plugin.
+
+
+## Consolidated local UI recheck — repeat run on the review fixture
+
+The review fixture at `STOCKLAND_ERP_16.1.93_LOCAL_REVIEW_FIXTURE.zip` (SHA-256 `784bea5f7db6cee28c131d8ca4b9dea2edfea3d38115b4bead580e2344f614f5`, 1,119,373 bytes, release `16.1.93`) was rechecked locally. It remains a review fixture and must not be installed over live 16.1.94.
+
+- PHP syntax: 48/48 pass.
+- JS syntax: app.js and pwa.js pass.
+- ZIP CRC/root/inventory: pass, 75 unique files, one `stockland-erp-app/` root, no unsafe paths.
+- CSS/PostCSS: app.css/app.min.css/Bootstrap parse; six CSS modules and ordered source/build/minified parity pass; 61 responsive media-query occurrences in this fixture.
+- All work-area shell smoke: 175 view/viewport combinations (25 views × 7 widths), six role profiles; zero blank views, zero page overflow, zero JS/page errors or console errors in the recorded run.
+- Report recovery: initial success → user-triggered failure → inline error/no duplicate toast → successful retry; 3 API requests, 390px page width remained 390px, print/CSV disabled during failure and enabled after recovery, zero browser errors.
+- Requisition approval layout: seven widths 320, 360, 390, 430, 768, 1024 and 1440px; independent geometry checks found zero text/status-pill overlap, zero page overflow and no supply table wrapper outside the drawer; zero browser page errors.
+- All browser/REST outcomes above use synthetic intercepted API responses. They are local presentation/navigation regression evidence only; they do not verify actual DB queries, server-side authorization, payroll data, ledger transactions or exact live 16.1.94 markup.
+
+The repo's existing draft CI workflow now also includes `ci/qa/test_requisition_responsive.py`, `ci/qa/test_all_workareas_responsive.py`, and additional modal-specific CSS/PostCSS parity assertions. The exact-head GitHub Actions receipt is still pending. Full detail: [Local Acceptance Recheck](STOCKLAND_ERP_LOCAL_ACCEPTANCE_RECHECK_2026-10-23.md).
+
+**Release status remains NO-GO**: exact live 16.1.94 source/package parity remains missing; payroll still has nine live compensation exceptions; the deep audit needs one completed receipt; the live report source error needs diagnosis; full HR lifecycle and actual live Cart/POS end-to-end acceptance remain open.
