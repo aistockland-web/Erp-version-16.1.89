@@ -15,7 +15,11 @@ JS_PATH = "stockland-erp-app/assets/app.js"
 MANIFEST_PATH = "stockland-erp-app/RELEASE_MANIFEST.json"
 
 STOCK_SQL_PATTERN = re.compile(
-    r'\$stock_sql\s*=\s*"SELECT l\.location_name,p\.sku,p\.product_name,p\.brand,p\.size,p\.color,[\s\S]*?WHERE p\.is_active=1";'
+    # Reports Explorer already enriches this query with inbound-transfer fields
+    # and may add active-location predicates before the closing quote. Match the
+    # whole stock query assignment once, then replace it with the canonical
+    # legacy-SKU/variant/reservation/in-transit contract below.
+    r'\$stock_sql\s*=\s*"SELECT l\.location_name,p\.sku,p\.product_name,p\.brand,p\.size,p\.color,[\s\S]*?WHERE p\.is_active=1[^"]*";'
 )
 LOW_SQL_PATTERN = re.compile(
     r'\$low_sql\s*=\s*"SELECT l\.location_name,p\.sku,p\.product_name,[\s\S]*?ORDER BY current_stock,p\.sku";'
