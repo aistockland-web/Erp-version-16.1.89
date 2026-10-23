@@ -419,7 +419,7 @@ The integrated GitHub workflow has source steps for the new report-loading, requ
 The actual Actions artifact was downloaded and inspected instead of assuming that a package filename or green earlier workflow proved final-source parity.
 
 - Actions run: [39471331354 — Reports Explorer 16.1.93 exact-package gates](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/39471331354)
-- Run source SHA: `1f96da520602b992bec449ebf2ab45b9469f107e` (20 October); current branch source SHA after cumulative gate changes: `05518f584f2c2ee4a52792ad5403f1430a21089c`.
+- Run source SHA: `1f96da520602b992bec449ebf2ab45b9469f107e` (20 October); the cumulative builder, receipt-verification gate and regression updates were added after that run.
 - Locked canonical 16.1.92 installer: `adec43b84f2b9a62d8913f84bad20588166800b2b6571d22d75abb86fcfd3fcd`, 1,113,446 bytes. PHP 8.3 and PHP 8.4 action artifacts embed the same baseline bytes. Local validation passes ZIP CRC / 75-file one-root inventory, PHP syntax 48/48, JS syntax, JSON parsing and CSS six-module/app.css/app.min.css parity. The saved 16.1.92 PHPCS JSON reports 0 errors / 0 warnings and the saved Semgrep 1.139.0 JSON reports 0 results / 0 errors for that package/revision. Live deployment was not performed.
 - The 16.1.93 build and local QA receipts inside the downloaded artifact identify an intermediate package at SHA `1cfab0a8221802aa2a5633e92d65ff76f146ea6152aae7068e6d82b384f2dceb`, 1,117,980 bytes.
 - The actual embedded 16.1.93 ZIP and its sidecar identify SHA `a8cb3767f363740387731928211febc315876a7b8c146e65e594930940e64e3b`, 1,118,326 bytes; the stock reconciliation receipt agrees with this latter identity.
