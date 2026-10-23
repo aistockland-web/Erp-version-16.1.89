@@ -166,7 +166,7 @@ def main():
         need("pointer-events: auto !important" in source_after["stockland-erp-app/assets/css/06-operational-guards.css"].decode("utf-8"), "desktop action pointer events preserved")
         need("document.__slNewProductCaptureBound" in js, "desktop Product Master delegated click guard")
         need("sl-desktop-title-action-layer-fix" not in js, "desktop CSS is not injected through a runtime JavaScript style element")
-        need('style="margin-top:10px"' not in js, "report Retry spacing is not an inline CSS attribute")
+        need('class="sl-actions sl-report-retry-actions"' in js and 'class="sl-actions" style="margin-top:10px"' not in js, "report Retry markup uses the compiled CSS utility")
         need("link.style.display='none'" not in js, "temporary CSV links do not rely on inline display CSS")
         need("e.stopImmediatePropagation();openProductEditor(null);" in js, "capture-phase create action chain")
         for phrase, label in [
