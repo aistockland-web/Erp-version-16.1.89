@@ -220,8 +220,16 @@ def patch_runtime(files: dict[str, bytes]) -> None:
 
     admin = files[ADMIN].decode("utf-8")
     admin = admin.replace("plugin requires 8.4+", "plugin requires 8.3+")
+    admin = admin.replace(">Server environment</h2>", ">WordPress hosting compatibility</h2>")
     if "plugin requires 8.4+" in admin or "plugin requires 8.3+" not in admin:
         raise ValueError("WordPress admin PHP requirement text is inconsistent.")
+    if "Server environment</h2>" in admin or "WordPress hosting compatibility</h2>" not in admin:
+        raise ValueError("WordPress hosting compatibility diagnostics heading was not normalized.")
+    # Keep the live PHP, database, memory and execution-limit values visible; this is
+    # diagnostic data from the existing WordPress host, not a separate server dependency.
+    for diagnostic in ("PHP version", "MySQL/MariaDB version", "memory_limit", "max_execution_time"):
+        if diagnostic not in admin:
+            raise ValueError("Hosting diagnostic was removed: " + diagnostic)
     files[ADMIN] = admin.encode("utf-8")
 
     xlsx = files[XLSX].decode("utf-8")
@@ -234,17 +242,31 @@ def patch_runtime(files: dict[str, bytes]) -> None:
 
 
 def patch_metadata(files: dict[str, bytes]) -> None:
-    manifest = json.loads(files[MANIFEST].decode("utf-8"))
-    prior = list(manifest.pop("release_candidate_changes", []))
-    changes = list(manifest.get("release_changes", []))
-    changes.extend(prior)
-    changes.extend([
-        "WordPress update: required report-query failures return an explicit error, never a misleading zero total.",
-        "Management Intelligence: role-gated Owner/Management view backed by the existing server-authorized insights source.",
-        "InfinityFree-compatible runtime metadata: PHP requirement and System Health checks aligned to PHP 8.3+.",
-        "Payroll reference review: existing WordPress/MySQL statutory payroll authority retained; no demo people, TINs or salaries imported.",
-    ])
-    manifest["release_changes"] = list(dict.fromkeys(changes))
+    source_manifest = json.loads(files[MANIFEST].decode("utf-8"))
+
+    # The embedded JSON is production metadata, not a historical CI notebook. Keep
+    # documented product/operational contracts and the current release only; keep
+    # exact-head CI receipts, workflow URLs, candidate narratives and old toolchain
+    # labels in the repository audit/Actions artifacts, outside the installable ZIP.
+    production_keys = (
+        "release", "release_label", "classification", "schema_contract",
+        "runtime_rules", "frontend", "frontend_css_architecture", "import_gateway",
+        "security", "runtime_diagnostics", "inventory_report_controls",
+        "procurement_controls", "expense_authority", "payroll", "stock_reconciliation",
+    )
+    manifest = {key: source_manifest[key] for key in production_keys if key in source_manifest}
+    manifest["classification"] = (
+        "Cumulative Stockland WordPress plugin update. Includes selected Reports & Analytics, "
+        "report-source failure handling, hosting compatibility corrections and stock/reorder "
+        "consistency controls. The live site and business records are not modified by package build."
+    )
+    manifest["release_changes"] = [
+        "Reports & Analytics: selected-report filters, print/PDF and CSV use authorized locations and role checks.",
+        "Report integrity: database read failures produce explicit errors, not fabricated zero totals.",
+        "Inventory reporting: physical stock, active reservations, sellable availability and eligible inbound transfers remain distinct.",
+        "Hosting compatibility: WordPress/PHP runtime checks align to PHP 8.3+ without a separate application service.",
+        "Payroll data integrity: effective-dated compensation and current statutory posting workflows are retained; missing values are not invented.",
+    ]
     manifest["release_label"] = "Stockland Ethiopia ERP — WordPress update"
     manifest["minimum_php"] = "8.3"
     manifest.setdefault("hosting_profile", {})["minimum_php"] = "8.3+"
@@ -303,13 +325,13 @@ The ERP uses its shared decimal-safe money service and server-side posting workf
 
 ## HR and statutory payroll
 
-The existing WordPress/MySQL payroll service remains authoritative. It uses decimal-safe ETB calculations, effective-dated compensation, a versioned PAYE schedule, employee pension at 7%, employer pension at 11%, allowance-classification evidence, period locking, Owner approval and accounting posting. Missing compensation remains a visible readiness issue until authorized staff enter and approve the correct value; the system does not invent salaries or overwrite employee records.
+The existing WordPress/PHP/MySQL-or-MariaDB payroll service remains authoritative. It uses decimal-safe ETB calculations, effective-dated compensation, the versioned PAYE schedule, employee pension at 7%, employer pension at 11%, allowance-classification evidence, period locking, Owner approval and accounting posting. Missing compensation remains a visible readiness issue until authorized staff enter and approve the correct value; the system does not invent salaries or overwrite employee records.
 
-The attached standalone reference material is not installed as a second Node.js/Express service or PostgreSQL schema. Its example employees, tax numbers and salaries are not imported. Its daytime overtime and simplified separation calculations are not used as statutory rules without correction. Ethiopian Labour Proclamation No. 1156/2019 sets minimum overtime multipliers of 1.5 for daytime, 1.75 for night work, 2 for weekly rest days and 2.5 for public holidays. Statutory severance is eligibility-dependent and scales by service length; it must not be reduced to the reference payload's simplified one-year cap. The existing payroll engine is retained; new attendance/overtime/final-settlement automation is not claimed merely because reference formulas were supplied.
+The currently implemented employee/compensation/monthly-payroll flow is not proof of a complete HR lifecycle. Workforce planning, recruitment/onboarding, attendance/time, leave, employee development and termination/final-settlement workflows must not be represented as available until implemented and accepted against the approved Stockland SOP. Overtime and separation calculations must follow the applicable effective-date-specific legal requirements and an approved rule matrix; unverified examples must not be imported as employee data or used to override the statutory service.
 
 ## Runtime
 
-WordPress 6.8+; PHP 8.3+; MySQL 8.0+ or MariaDB 10.11+; HTTPS enabled. This is a native WordPress/PHP/MySQL plugin update for the configured host; it does not require an independent Node.js service or PostgreSQL instance. Use Stockland ERP's native sign-in, role-based access, profile preferences, internal notifications and existing work areas; no external identity or collaboration service is required for normal ERP operations.
+WordPress 6.8+; PHP 8.3+; MySQL 8.0+ or MariaDB 10.11+; HTTPS enabled. The plugin executes inside the existing WordPress/PHP environment on the configured host; it does not require a separate application service or worker for normal ERP operation. Use Stockland ERP's native sign-in, role-based access, profile preferences, internal notifications and existing work areas.
 """
     files[README] = readme.encode("utf-8")
 
