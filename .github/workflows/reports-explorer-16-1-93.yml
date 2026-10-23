@@ -1,23 +1,19 @@
 name: Cumulative Stockland ERP 16.1.94 exact-package gates
 
 on:
+  # Run the cumulative release gate on the exact branch head after every release-source
+  # or verifier change. Pull-request-only receipts are insufficient for artifact release.
+  push:
+    branches: [feat/reports-explorer-16-1-93]
+    paths:
+      - 'ci/**'
+      - '.github/workflows/reports-explorer-16-1-93.yml'
+      - 'STOCKLAND_ERP_16.1.92_CANONICAL_WORDPRESS_UPDATE.zip'
+      - 'STOCKLAND_ERP_16.1.92_CANONICAL_WORDPRESS_UPDATE.zip.sha256'
   pull_request:
     branches: [main]
     paths:
-      - 'ci/patch_reports_explorer.py'
-      - 'ci/finalize_release_16_1_94.py'
-      - 'ci/patch_stock_reconciliation.py'
-      - 'ci/patch_production_hardening.py'
-      - 'ci/management_intelligence_fragment.js'
-      - 'ci/qa/test_reports_explorer.py'
-      - 'ci/qa/verify_final_package.py'
-      - 'ci/qa/test_reports_loading.py'
-      - 'ci/qa/test_requisition_responsive.py'
-      - 'ci/qa/test_all_workareas_responsive.py'
-      - 'ci/qa/check-css-postcss.js'
-      - 'ci/cssqa/package.json'
-      - 'ci/cssqa/package-lock.json'
-      - 'ci/qa/test_desktop_product_create.py'
+      - 'ci/**'
       - '.github/workflows/reports-explorer-16-1-93.yml'
       - 'STOCKLAND_ERP_16.1.92_CANONICAL_WORDPRESS_UPDATE.zip'
       - 'STOCKLAND_ERP_16.1.92_CANONICAL_WORDPRESS_UPDATE.zip.sha256'
