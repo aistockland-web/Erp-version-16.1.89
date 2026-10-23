@@ -411,7 +411,13 @@ def patch_php(source: str) -> str:
              ) i ON i.variant_id=p.variant_id AND i.location_id=l.id
              WHERE p.is_active=1";"""
     source = replace_once(source, stock_query_old, stock_query_new, "reorder query uses current active locations and confirmed inbound transfers")
-    source = replace_once(source, "$stock_args = array( $prod, $loc, $tx, $res );", "$stock_args = array( $prod, $loc, $tx, $res, $tr, $prod );", "bind inbound transfer table arguments")
+    # The earlier inventory scope/SKU patch has already expanded $stock_args to
+    # [products, locations, transactions, reservations, transfers, products].
+    # Do not reapply the pre-patch anchor here: that exact mismatch caused the
+    # cumulative release gate to stop before package creation.
+    stock_args_anchor = "$stock_args = array( $prod, $loc, $tx, $res, $tr, $prod );"
+    if source.count(stock_args_anchor) != 1:
+        raise ValueError("bind inbound transfer table arguments: expanded stock_args must exist exactly once")
 
     method = replace_once(method,
         """\t\t\t\t\tarray( 'key' => 'available_stock', 'label' => 'Available', 'format' => 'number' ),
