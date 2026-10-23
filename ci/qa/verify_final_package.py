@@ -190,7 +190,7 @@ def inspect_payload(files: dict[str, bytes]) -> dict:
     if css.count(approval_marker) != 1:
         fail("responsive requisition approval CSS is missing or duplicated")
     pos_marker = "/* Retail POS mobile checkout — responsive atomic sale form."
-    if css.count(pos_marker) != 1 or "body[data-sl-view=\\"pos\\"] #stockland-app #posForm" not in css:
+    if css.count(pos_marker) != 1 or 'body[data-sl-view="pos"] #stockland-app #posForm' not in css:
         fail("responsive Retail POS checkout styles are missing or duplicated")
 
     modules = css_manifest.get("modules")
