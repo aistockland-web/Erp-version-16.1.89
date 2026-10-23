@@ -1,3 +1,7 @@
+> **Historical snapshot — superseded for release decisions as of 24 October 2026.** These documents record earlier 16.1.93/16.1.94 work and may contain old “pending” statuses or hashes. The current exact-package audit is [16.1.95 Full Audit and Release Decision](STOCKLAND_ERP_16.1.95_FULL_AUDIT_AND_RELEASE_DECISION_2026-10-24.md), with the current [16.1.95 CAP Register](STOCKLAND_ERP_16.1.95_CAP_REGISTER_AND_ACCEPTANCE_CHECKLIST.md) and [16.1.95 Release Provenance](STOCKLAND_ERP_16.1.95_RELEASE_PROVENANCE_AUDIT_2026-10-24.json). Exact-head CI run 40036018031 passed for installer SHA-256 494e777247508d009dfdb216c9607bb1bc96717197e94a0e8ad3459b7cc81625. This closes the 16.1.95 package/code/security audit only; payroll compensation, the dedicated deep-integrity receipt and other production/Owner gates remain as listed in the current CAP register.
+
+---
+
 # Stockland Ethiopia ERP — Master End-to-End Acceptance & Release Gate
 
 **Prepared:** 23 October 2026  
