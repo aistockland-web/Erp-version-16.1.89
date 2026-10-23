@@ -353,17 +353,33 @@ def patch_stock_api(source: str) -> str:
 
 def patch_php(source: str) -> str:
     source = replace_exactly_once(STOCK_SQL_PATTERN, STOCK_SQL, source, "report inventory SQL")
-    stock_args_intermediate = "$stock_args = array( $prod, $loc, $tx, $res, $tr, $prod );"
-    stock_args_canonical = "$stock_args = array( $prod, $loc, $tx, $prod, $res, $prod, $tr, $prod );"
-    if source.count(stock_args_intermediate) == 1 and stock_args_canonical not in source:
-        source = source.replace(stock_args_intermediate, stock_args_canonical, 1)
-    elif source.count(stock_args_canonical) == 1 and stock_args_intermediate not in source:
-        # The preceding Reports Explorer patch may already have added legacy
-        # Product Master lookup placeholders; do not expand this a second time.
-        pass
-    else:
-        raise ValueError("report inventory SQL parameter order: expected exactly one six- or eight-argument stock array")
-
+    # Rebuild the complete report-inventory parameter block so it stays in the same
+    # order as STOCK_SQL even if the earlier Reports Explorer patch has already
+    # expanded or reformatted the initial argument array.
+    stock_args_block = re.compile(
+        r"\\$stock_args\\s*=\\s*array\\([^;]*\\);\\s*"
+        r"\\$stock_sql\\s*\\.+=\\s*\\$this->append_scope_filter\\(\\s*'l\\.id',\\s*\\$stock_args,\\s*\\$scope\\s*\\);\\s*"
+        r"if\\s*\\(\\s*''\\s*!==\\s*\\$sku\\s*\\)\\s*\\{\\s*"
+        r"\\$stock_sql\\s*\\.+=\\s*' AND p\\.sku=%s';\\s*"
+        r"\\$stock_args\\s*\\[\\s*\\]\\s*=\\s*\\$sku;\\s*\\}\\s*"
+        r"\\$stock_sql\\s*\\.+=\\s*' ORDER BY l\\.location_name,p\\.sku';",
+        re.S,
+    )
+    stock_args_replacement = """$stock_args = array( $prod, $loc, $tx, $prod, $res, $prod, $tr, $prod );
+		$stock_sql .= $this->append_scope_filter( 'l.id', $stock_args, $scope );
+		if ( '' !== $sku ) {
+			$stock_sql   .= ' AND p.sku=%s';
+			$stock_args[] = $sku;
+		}
+		$stock_sql .= ' ORDER BY l.location_name,p.sku';"""
+    stock_args_matches = list(stock_args_block.finditer(source))
+    if len(stock_args_matches) != 1:
+        current_arrays = re.findall(r"\\$stock_args\\s*=\\s*array\\([^;]*;", source)
+        raise ValueError(
+            "report inventory parameter block: expected exactly one scoped inventory block, "
+            f"found {len(stock_args_matches)}; current stock_args assignments={current_arrays!r}"
+        )
+    source = stock_args_block.sub(lambda _match: stock_args_replacement, source, count=1)
     source = replace_exactly_once(LOW_SQL_PATTERN, LOW_SQL, source, "low-stock SQL")
     low_args_intermediate = "$low_args = array( Stockland_DB::table( 'products' ), Stockland_DB::table( 'locations' ), Stockland_DB::table( 'transactions' ) );"
     low_args_canonical = "$low_args = array( Stockland_DB::table( 'products' ), Stockland_DB::table( 'locations' ), Stockland_DB::table( 'transactions' ), Stockland_DB::table( 'products' ), Stockland_DB::table( 'reservations' ), Stockland_DB::table( 'products' ), Stockland_DB::table( 'transfers' ), Stockland_DB::table( 'products' ) );"
