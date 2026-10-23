@@ -1,0 +1,77 @@
+{
+  "date": "2026-10-23",
+  "live_version_reported_by_owner": {
+    "plugin": "16.1.94",
+    "db": "16.1.1"
+  },
+  "canonical_rebuild_baseline": {
+    "release": "16.1.92",
+    "sha256": "adec43b84f2b9a62d8913f84bad20588166800b2b6571d22d75abb86fcfd3fcd",
+    "bytes": 1113446,
+    "files": 75,
+    "php_files": 48,
+    "schema": {
+      "core_operations": 29,
+      "accounting_procurement": 16,
+      "hr_payroll": 4,
+      "total": 49
+    },
+    "direct_install_over_live_16_1_94": false
+  },
+  "actual_actions_artifact": {
+    "workflow_run_id": 39471331354,
+    "source_commit": "1f96da520602b992bec449ebf2ab45b9469f107e",
+    "run_date": "2026-10-20",
+    "outer_sha256": "42e638b77db9edc1b6179962051ff42b848c5f4d4ebd50d10087c8cd6fc37140",
+    "outer_bytes": 1115505,
+    "inner_installer_sha256": "a8cb3767f363740387731928211febc315876a7b8c146e65e594930940e64e3b",
+    "inner_installer_bytes": 1118326,
+    "sidecar_sha256": "a8cb3767f363740387731928211febc315876a7b8c146e65e594930940e64e3b",
+    "build_and_local_qa_receipt_sha256": "1cfab0a8221802aa2a5633e92d65ff76f146ea6152aae7068e6d82b384f2dceb",
+    "build_and_local_qa_receipt_bytes": 1117980,
+    "stock_reconciliation_receipt_sha256": "a8cb3767f363740387731928211febc315876a7b8c146e65e594930940e64e3b",
+    "sidecar_matches_inner_zip": true,
+    "build_receipt_matches_inner_zip": false,
+    "artifact_predates_latest_cumulative_patches": true
+  },
+  "current_branch": "feat/reports-explorer-16-1-93",
+  "current_head_actions_receipt_found": false,
+  "latest_available_action_source_commit": "1f96da520602b992bec449ebf2ab45b9469f107e",
+  "local_exact_archive_checks": {
+    "16.1.92_baseline": {
+      "zip_crc": "PASS",
+      "php_syntax": "48/48 PASS",
+      "javascript_syntax": "PASS",
+      "json": "PASS",
+      "css_source_build_parity": "PASS",
+      "historical_phpcs_errors": 0,
+      "historical_phpcs_warnings": 0,
+      "historical_semgrep_results": 0
+    },
+    "downloaded_16.1.93_action_zip": {
+      "zip_crc": "PASS",
+      "files": 75,
+      "php_syntax": "48/48 PASS",
+      "javascript_syntax": "PASS",
+      "css_source_build_parity": "PASS",
+      "stale_host_cleanup_markers": "FAIL",
+      "report_source_fail_closed_guards": "MISSING",
+      "management_intelligence_renderer": "MISSING",
+      "approval_responsive_css": "MISSING",
+      "duplicate_retry_toast_handler": "PRESENT"
+    }
+  },
+  "release_disposition": "NO_GO_FOR_LIVE_16_1_94",
+  "blockers": [
+    "CAP-01 final artifact receipt/hash provenance and exact-head package run",
+    "CAP-02 exact-head CI/security/package receipt",
+    "CAP-03 authenticated host, restorable backup and rollback",
+    "CAP-04 nine live employee compensation records require HR/Owner review",
+    "CAP-05/21 independently approved effective-dated Ethiopian payroll rules",
+    "CAP-07/08/09/10/12/13/14/19 end-to-end backend/data/role/finance/audit acceptance",
+    "CAP-16/26 full deep-integrity completion receipt",
+    "CAP-22 complete HR lifecycle to final settlement",
+    "CAP-24/27 actual live report source failure",
+    "CAP-28/29/30 exact live 16.1.94 source parity, signed end-to-end acceptance and Cart/POS"
+  ]
+}
