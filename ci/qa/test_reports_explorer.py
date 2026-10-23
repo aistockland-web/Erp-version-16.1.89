@@ -178,7 +178,7 @@ def main():
             ("'critical_reorder' === $type && ! Stockland_Authority::is_owner()", "owner-only handler restriction"),
             ("Stockland_Money::minor( $row['reorder_level'] ?? '0' )", "decimal-safe reorder threshold"),
             ("$position_minor <= $reorder_minor", "inbound-aware reorder threshold"),
-            ("Stockland_Money::decimal( max( 0, $reorder_minor - $position_minor ) )", "decimal-safe inbound-aware proposed replenishment"),
+            ("Stockland_Money::decimal( max( 100, $reorder_minor - $position_minor ) )", "minimum-one-unit inbound-aware proposed replenishment"),
             ("COALESCE(i.inbound_stock,0) inbound_stock", "report separates inbound from physical stock"),
             ("GREATEST(0,COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0))+COALESCE(i.inbound_stock,0) reorder_position", "reorder position combines floored sellable availability and eligible inbound"),
             ("t.status='In Transit'", "only explicitly in-transit transfers count"),
