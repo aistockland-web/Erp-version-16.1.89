@@ -38,7 +38,7 @@ BOOT = {
     "stock": [], "products": [], "dashboard": {}, "brand": {},
 }
 
-async def run_candidate(zip_path: Path) -> None:
+async def run_candidate(zip_path: Path) -> dict:
     with tempfile.TemporaryDirectory(prefix="stockland-desktop-product-") as td:
         root = Path(td)
         with zipfile.ZipFile(zip_path) as archive:
@@ -161,10 +161,24 @@ async def run_candidate(zip_path: Path) -> None:
                 checked.append({"viewport": f"{width}x{height}", "hitTest": "newProduct", "modal": "opened", "submit": "one mocked POST", "errors": 0})
                 await page.close()
             await browser.close()
-        print(json.dumps({"result": "PASS", "mode": "mocked in-memory REST; no live connection", "viewports": checked}, indent=2))
+        return {
+            "result": "PASS",
+            "mode": "mocked in-memory REST; no live connection",
+            "release": "16.1.94",
+            "candidate_zip": zip_path.name,
+            "viewports": checked,
+            "total_viewports": len(checked),
+            "failed_viewports": 0,
+            "live_database_or_business_records_touched": False,
+        }
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("candidate_zip", type=Path)
+    parser.add_argument("--receipt", type=Path, help="Write the same JSON receipt to this path.")
     args = parser.parse_args()
-    asyncio.run(run_candidate(args.candidate_zip))
+    result = asyncio.run(run_candidate(args.candidate_zip))
+    serialized = json.dumps(result, indent=2)
+    print(serialized, flush=True)
+    if args.receipt:
+        args.receipt.write_text(serialized + "\n", encoding="utf-8")
