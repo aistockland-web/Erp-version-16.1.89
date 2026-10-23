@@ -801,7 +801,6 @@ APPROVAL_LAYOUT_CSS = """/* Requisition approval routing — keep decisions read
   min-width: 0;
 }
 .sl-overlay .sl-req-drawer .sl-approval-person strong,
-.sl.overlay .sl-req-drawer .sl-approval-person small,
 .sl-overlay .sl-req-drawer .sl-approval-person small {
   display: block;
   width: 100%;
