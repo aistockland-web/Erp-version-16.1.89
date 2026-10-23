@@ -61,7 +61,7 @@
       "duplicate_retry_toast_handler": "PRESENT"
     }
   },
-  "release_disposition": "NO_GO_FOR_LIVE_16_1_94",
+  "release_disposition": "NO_GO_FOR_LIVE_16_1_94_UNTIL_DEPLOYED_SOURCE_PARITY_AND_LIVE_DATA/HOST_GATES_CLOSE",
   "blockers": [
     "CAP-01 final artifact receipt/hash provenance and exact-head package run",
     "CAP-02 exact-head CI/security/package receipt",
@@ -73,5 +73,52 @@
     "CAP-22 complete HR lifecycle to final settlement",
     "CAP-24/27 actual live report source failure",
     "CAP-28/29/30 exact live 16.1.94 source parity, signed end-to-end acceptance and Cart/POS"
+  ],
+  "last_completed_cumulative_ci_run": {
+    "workflow_run_id": 40015618628,
+    "url": "https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/40015618628",
+    "tested_runtime_source_commit": "34f56f11856ff2d1b0294e01e11b7eb50b83e72c",
+    "conclusion": "success",
+    "outer_artifact_id": 12527164862,
+    "outer_sha256": "f2400061eed2cf70fe6456e9ff6d1522c82f7fa9b3c03ddf4c6fc40f3c3c9465",
+    "inner_installer": "STOCKLAND_ERP_16.1.94_CANONICAL_WORDPRESS_UPDATE.zip",
+    "inner_installer_sha256": "1b1623a7f1a2db77143d6c6f8a8663bde7a74ef72f1a8bcddffd52d2c8e50e8d",
+    "inner_installer_bytes": 1100451,
+    "zip_crc": "PASS",
+    "inventory": "75 unique files; one stockland-erp-app/ root",
+    "schema_contract": {
+      "core_operations": 29,
+      "accounting_procurement": 16,
+      "hr_payroll": 4,
+      "total": 49
+    },
+    "checks": {
+      "cumulative_patch_chain": "PASS",
+      "finalizer": "PASS",
+      "final_package_receipt_and_sidecar": "PASS",
+      "product_master_desktop_click_step": "PASS; exported JSON receipt was 0 bytes and is being corrected",
+      "report_loading_failure_retry": "PASS",
+      "requisition_responsive": "PASS",
+      "all_workareas_role_viewport_smoke": "PASS",
+      "css_postcss": "PASS",
+      "php_lint": "48/48 PASS",
+      "javascript_json": "PASS",
+      "archive_version_schema": "PASS"
+    },
+    "evidence_quality_issue": "The desktop Product Master QA JSON in this outer artifact is zero bytes despite the test step result success; a follow-up commit adds explicit --receipt and test -s guard."
+  },
+  "current_source_receipt_correction": {
+    "runtime_source_commit": "93f88facf9028b77af57b1bebf44f445fd5153e5",
+    "workflow_run_id": 40015844983,
+    "url": "https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/40015844983",
+    "latest_observed_state": "IN_PROGRESS at Playwright/browser dependency setup",
+    "artifact_published": false,
+    "required_acceptance": "Run must finish successfully; download artifact; confirm desktop QA JSON is non-empty; verify final inner ZIP/sidecar/final receipt hashes."
+  },
+  "notes": [
+    "Successful cumulative CI run proves the reconstructed 16.1.92 baseline -> 16.1.93 patch chain -> finalized 16.1.94 package build on the tested commit; it does not prove identity with the exact plugin folder currently installed on the owner's site.",
+    "The follow-up code/workflow change after the successful run fixes the zero-byte desktop test receipt; its exact-head Actions run is still in progress in the latest queried status.",
+    "The candidate is not to be uploaded over the owner's live 16.1.94 until the deployed plugin ZIP/source checksum and file-level parity are recovered and checked.",
+    "Nine live compensation rows, independently approved effective-dated Ethiopian payroll rules, full HR-to-final-settlement SOP acceptance, full deep-integrity receipt, live report query diagnosis, backend financial/stock/authorization tests, and host backup/restore/rollback remain open."
   ]
 }
