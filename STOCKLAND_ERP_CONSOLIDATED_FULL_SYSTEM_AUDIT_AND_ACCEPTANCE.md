@@ -308,3 +308,39 @@ The package-build routine now removes:
 The package QA contract scans all packaged file bytes for web URLs. Only the required SVG namespace `http://www.w3.org/2000/svg`, the OpenXML relationships namespace `http://schemas.openxmlformats.org/officeDocument/2006/relationships`, and the exact official Stockland logo URL if one is intentionally used are allowlisted. Namespace URIs are technical identifiers, not browser requests. Bootstrap CSS changes are restricted to its header-comment URL text; its styling rules must remain identical. The archive file list/root and schema activator remain unchanged.
 
 This is a source/build contract in the existing PR, not proof that the host redirected or that the installed WordPress files have already been replaced. The generated ZIP's checksum and build receipt must be checked before describing it as the package for manual update. No remote files, credentials, database rows, stock or financial records are changed by the cleanup itself.
+
+## 13. Supplemental Owner findings — mandatory before installation
+
+These findings were raised after the earlier consolidated audit and supersede no existing acceptance gate. They are additional blockers and must be resolved in the same 16.1.93 workstream; documentation alone does not close them.
+
+### P0 — HR must be a complete Stockland SOP lifecycle, not a statutory calculator
+
+The prior payroll arithmetic fixtures only establish limited formula behavior. They do not certify that Stockland has a complete HR system. Before release acceptance, map the approved SOP through workforce/headcount planning and budget; requisition and approval; recruitment/offer where required; onboarding; employee master, contracts, positions, locations and probation; attendance, shifts, overtime, holidays and leave; performance/training/discipline where specified; compensation and changes with effective dates; allowances, deductions, loans/advances, benefits and reimbursements; payroll cut-off/input reconciliation/review/approval/payslip/remittance/accounting; correction/reversal; resignation/termination/retirement; clearance and asset return; leave/loan/advance reconciliation; final earnings/deductions and settlement calculation, approval, payment, certificates and archival.
+
+For every step, identify the canonical record, actual persisted request/response payload, required fields, permission, approver, state transition, date semantics, exception/failure behavior, accounting effect and audit event. Do not invent missing employee/compensation values. If the current four HR/Payroll tables or services cannot represent a required SOP step, record the exact gap and propose a reviewed, versioned migration with backup/rollback proof; do not claim the step exists or add shadow records. Closure requires signed HR/Owner SOP traceability and independent settlement/payroll expected-value reconciliation.
+
+### P0 — Hosting/source cleanup must be precise and non-destructive
+
+The installable product remains one Stockland WordPress plugin running on the existing PHP/WordPress and MySQL/MariaDB hosting model. It must not gain a separate Node.js/Express/PostgreSQL service, daemon, unsupported required worker, hard-coded host/redirect, or test/staging application tree. Do not embed test staff/pay, fixtures, mock APIs, staging configuration, CI helpers or demonstration business data in the ZIP.
+
+Audit the actual final archive and build source for the reported “FL/AR/AP/server environment” wording one occurrence at a time. Classify each item before changing it. Remove stale hostnames, misleading environment claims, hard-coded external workflow/legal URLs, unsupported runtime dependencies and developer-only wording only where confirmed. Preserve real Stockland ERP processes and all legitimate AP (Accounts Payable), AR (Accounts Receivable), GL, REST route, permission, ledger, audit, import, resume, transaction/row-lock and schema/version identifiers. Required PHP handlers invoked by WordPress REST remain part of the hosted application; removing them or moving privileged writes into browser code would weaken authorization and record integrity. Required JavaScript/PWA assets and JSON manifests are not test copies and must not be stripped indiscriminately. Preserve existing business dates/history, all approved SOP transitions and immutable posted records.
+
+Closure requires an archive-wide inventory/phrase/URL/dependency scan, exact changed-file allowlist, PHP/route/capability checks, schema/version/date invariants, CSS source/compiled parity, and proof that the build produces the same inspected ZIP with one `stockland-erp-app/` root and the approved runtime inventory.
+
+### P0 — Re-establish the previously corrected Reports loading behavior
+
+The Owner reports that a later downloaded version reintroduced a report-loading error after multiple prior correction iterations. The precise previously-good implementation and its regression proof must be traced through the repository/package history before changing the code. Do not hide the error, fake zero totals, force an empty-state result on a failed query, change report scope, or remove report handlers as a shortcut.
+
+The final exact-head package must exercise the previously affected report as well as every report type: initial load, filter/date/location changes, navigation away/back, switching report types, no results, API/query failure, retry, and repeated selection. A real successful response renders persisted-source data; a genuine empty result renders the designated empty state; a failure displays a clear error and retry path without an infinite spinner or fabricated zero. Capture the historical fixing commit/version when identifiable, the reproducing case and expected behavior, exact package hash and passing regression receipt. Until that evidence exists, the report-loading CAP remains OPEN.
+
+### Packaging and release non-negotiables
+
+- One cumulative plugin update, same established release branch and plugin root; no parallel “test” or “staging” plugin.
+- QA scripts/fixtures stay outside the installable ZIP, in the review/CI area only; no demo employee identity/TIN/salary or mock transaction data enters the package or live database.
+- No new runtime service or hosting dependency. CI may use test tooling externally, but Node.js or similar developer tooling must not be required to operate the installed ERP.
+- Preserve approved source fixes and the entire prior change history. Every patch must have a file allowlist and regression contract so it cannot reintroduce a previously closed loading/UI/payroll/stock bug.
+- No source-wide blanket replacements for terms such as “server,” “AP,” or “AR.” Review each occurrence and prove its role before editing.
+- Do not call any audit finding closed solely because a document was added. The package must be rebuilt, tested at the exact final source head, reviewed, then accepted on the authenticated target host with a verified backup/restore and rollback plan.
+
+**Updated disposition: NOT APPROVED FOR WORDPRESS INSTALLATION until the exact current artifact has been built and verified, the HR-to-final-settlement SOP lifecycle is evidenced, host/source cleanup is complete without deleting legitimate ERP services, the earlier report-loading fix is proven retained, all existing CAP blockers are closed, and the Owner approves the evidence.**
+
