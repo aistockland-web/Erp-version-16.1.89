@@ -547,7 +547,7 @@ async function loadReport(){
     const params=new URLSearchParams({type,from,to,location_id:String(form.elements.location_id.value||'all')});const sku=reportUsesSku(type)?String(form.elements.sku?.value||'').trim():'';if(sku)params.set('sku',sku);
     const report=await api('/app/reports/explorer?'+params.toString());state.report=report||{};renderSelectedReport(state.report);
     if(printButton)printButton.disabled=!(report&&Array.isArray(report.columns));if(csvButton)csvButton.disabled=!(report&&Array.isArray(report.columns));
-  }catch(e){state.report=null;el.innerHTML='<div class="sl-notice sl-danger-block"><b>Report could not load.</b> '+esc(e.message)+'<div class="sl-actions" style="margin-top:10px"><button type="button" class="sl-btn" id="retryOpsReport">RETRY REPORT</button></div></div>';document.getElementById('retryOpsReport')?.addEventListener('click',()=>loadReport().catch(err=>toast(err.message,true)));throw e;
+  }catch(e){state.report=null;el.innerHTML='<div class="sl-notice sl-danger-block"><b>Report could not load.</b> '+esc(e.message)+'<div class="sl-actions" style="margin-top:10px"><button type="button" class="sl-btn" id="retryOpsReport">RETRY REPORT</button></div></div>';document.getElementById('retryOpsReport')?.addEventListener('click',()=>loadReport());return null;
   }finally{if(run){run.disabled=false;run.removeAttribute('aria-busy');run.textContent='RUN REPORT';}}
 }
 function bindReportExplorer(){
