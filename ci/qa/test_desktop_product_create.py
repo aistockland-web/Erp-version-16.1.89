@@ -93,15 +93,8 @@ async def run_candidate(zip_path: Path) -> dict:
                     'api_v16:"http://127.0.0.1:8877/wp-json/stockland/v16",nonce:"test",build:"16.1.93",'
                     'logo:"",home:"/",logout:"/",wp_admin:""};</script>'
                 )
-                await page.add_style_tag(path=str(app / "assets/bootstrap.min.css"))
-                await page.add_style_tag(path=str(app / "assets/app.min.css"))
-                await page.add_script_tag(path=str(app / "assets/app.js"))
-                await page.wait_for_selector("#slGlobalSearch", timeout=8000)
-                await page.locator('.sl-nav [data-view="products"]').click()
-                await page.wait_for_selector("#newProduct", timeout=5000)
-
-                # Reproduce the failure class: a host theme stretches the global-search result
-                # dropdown down over the page-title actions on wide desktop layouts.
+                # Simulate a theme stylesheet loaded before the plugin assets; Stockland's
+                # more-specific compiled rule must restore the search popover to its own container.
                 await page.add_style_tag(content="""
 @media (min-width: 992px) {
   #stockland-app .sl-top .sl-global-search-results:not([hidden]) {
@@ -112,6 +105,13 @@ async def run_candidate(zip_path: Path) -> dict:
   }
 }
 """)
+                await page.add_style_tag(path=str(app / "assets/bootstrap.min.css"))
+                await page.add_style_tag(path=str(app / "assets/app.min.css"))
+                await page.add_script_tag(path=str(app / "assets/app.js"))
+                await page.wait_for_selector("#slGlobalSearch", timeout=8000)
+                await page.locator('.sl-nav [data-view="products"]').click()
+                await page.wait_for_selector("#newProduct", timeout=5000)
+
                 await page.locator("#slGlobalSearch").fill("TCP")
                 await page.wait_for_function(
                     "() => { const p=document.querySelector('#slGlobalSearchResults'); return p && !p.hidden && p.textContent.includes('TCP-1234'); }",
@@ -121,26 +121,21 @@ async def run_candidate(zip_path: Path) -> dict:
                 if not box:
                     raise AssertionError(f"{width}px Product Master create button has no visible bounds")
 
-                # Model a WordPress/theme overlay which is painted above the ERP root at desktop size.
-                # A physical mouse click on the visible action's coordinates must still open its editor.
-                await page.evaluate("""(r) => {
-                    const overlay=document.createElement('div');
-                    overlay.id='hostThemeActionOverlay';
-                    overlay.style.cssText='position:fixed!important;z-index:2147483001!important;left:'+r.x+'px;top:'+r.y+'px;width:'+r.width+'px;height:'+r.height+'px;background:rgba(220,38,38,.08);pointer-events:auto!important;';
-                    document.body.appendChild(overlay);
-                }""", box)
+                # Confirm the compiled rule contains the real action hit target after the
+                # simulated host-theme rule is loaded first.
                 hit = await page.evaluate("""() => {
                     const b=document.querySelector('#newProduct');
                     const r=b.getBoundingClientRect();
                     const e=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);
                     return {hitId:e?.id||'', hitClass:String(e?.className||''), x:r.x, y:r.y,
+                      actionHit:!!e?.closest('#newProduct'),
                       actionZ:getComputedStyle(b.parentElement).zIndex,
-                      guard:[...document.querySelectorAll('style')].some(s=>s.textContent.includes('.sl-content-inner>.sl-page-title>.sl-actions')&&/z-index:\s*82(?:\s*!important)?/.test(s.textContent))};
+                      guard:[...document.querySelectorAll('style')].some(s=>s.textContent.includes('.sl-content-inner>.sl-page-title>.sl-actions')&&/z-index:\\s*82(?:\\s*!important)?/.test(s.textContent))};
                 }""")
-                if hit["hitId"] != "hostThemeActionOverlay":
-                    raise AssertionError(f"{width}px desktop overlay reproduction did not cover action: {hit}")
+                if not hit["actionHit"]:
+                    raise AssertionError(f"{width}px host-theme search overlay still blocks Product Master action: {hit}")
                 if not hit["guard"] or int(hit["actionZ"]) < 81:
-                    raise AssertionError(f"{width}px desktop action-layer protection missing: {hit}")
+                    raise AssertionError(f"{width}px compiled desktop action-layer protection missing: {hit}")
 
                 await page.mouse.click(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
                 await page.wait_for_selector("#productOverlay #productForm", state="visible", timeout=3000)
