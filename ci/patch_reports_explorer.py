@@ -858,9 +858,9 @@ def patch_requisition_mobile_approval_layout(archive_path: Path) -> dict:
         for name in modules["modules"]
     ]
     app_css = "\n\n".join(chunks) + "\n"
-    normalized = re.sub(r"/\\*[\\s\\S]*?\\*/", " ", app_css)
-    normalized = re.sub(r"\\s+", " ", normalized).strip()
-    normalized = re.sub(r"\\s*([{}:;,])\\s*", r"\\1", normalized).replace(";}", "}")
+    normalized = re.sub(r"/\*[\s\S]*?\*/", " ", app_css)
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+    normalized = re.sub(r"\s*([{}:;,])\s*", r"\1", normalized).replace(";}", "}")
     files[app_css_path] = app_css.encode("utf-8")
     files[app_min_path] = normalized.encode("utf-8")
 
