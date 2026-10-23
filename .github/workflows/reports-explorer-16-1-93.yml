@@ -130,6 +130,12 @@ jobs:
               assert "Version:           16.1.94" in entry and "define( 'STOCKLAND_VERSION', '16.1.94' );" in entry
               assert "const ROUTE_VERSION      = '16.1.94';" in front
               assert manifest['schema_contract']['total']==49
+              import hashlib, re
+              assert manifest.get('frontend',{}).get('bootstrap_version') == '5.3.8', 'Bootstrap version absent or incorrect in release manifest'
+              bootstrap=z.read('stockland-erp-app/assets/bootstrap.min.css')
+              assert re.search(rb'Bootstrap\s+v5\.3\.8', bootstrap[:8192]), 'Bootstrap CSS header version mismatch'
+              assert b'Licensed under MIT' in bootstrap[:8192], 'Bootstrap MIT license notice missing'
+              assert manifest['frontend'].get('bootstrap_asset_sha256') == hashlib.sha256(bootstrap).hexdigest(), 'Bootstrap asset hash does not match manifest'
           print('PASS cumulative 16.1.94 WordPress update archive, 75 plugin files and version/schema markers')
           PY
       - name: Lint every packaged PHP file
@@ -175,14 +181,24 @@ jobs:
               f.write(f"errors={totals.get('errors',0)}; warnings={totals.get('warnings',0)}; fixable={totals.get('fixable',0)}\n")
           PY
           python ci/qa/test-phpcs-security-review.py "$APP" STOCKLAND_ERP_16.1.94_PHPCS_WPCS.json | tee STOCKLAND_ERP_16.1.94_PHPCS_SECURITY_REVIEW.txt
-      - name: Run Semgrep PHP/security-audit scan on the final ZIP
+      - name: Run Semgrep PHP/security-audit scan on the exact ZIP source (ignore-safe)
         shell: bash
         run: |
           set -euo pipefail
-          python3 -m pip install --disable-pip-version-check --upgrade semgrep
+          python3 -m pip install --disable-pip-version-check 'semgrep==1.182.1'
           semgrep --version
-          semgrep scan --metrics=off --config p/php --config p/security-audit --include '*.php' --json --output STOCKLAND_ERP_16.1.94_SEMGREP.json build/wordpress-update/stockland-erp-app
-          python ci/qa/summarize-semgrep.py STOCKLAND_ERP_16.1.94_SEMGREP.json | tee STOCKLAND_ERP_16.1.94_SEMGREP_SUMMARY.txt
+          # Scan the exact install ZIP after extraction outside the repository's ignored build/ path.
+          SCAN_ROOT="${RUNNER_TEMP}/stockland-erp-semgrep-source"
+          rm -rf "$SCAN_ROOT"
+          mkdir -p "$SCAN_ROOT"
+          unzip -q STOCKLAND_ERP_16.1.94_CANONICAL_WORDPRESS_UPDATE.zip -d "$SCAN_ROOT"
+          APP_SCAN="$SCAN_ROOT/stockland-erp-app"
+          test -d "$APP_SCAN"
+          PHP_COUNT="$(find "$APP_SCAN" -type f -name '*.php' | wc -l | tr -d ' ')"
+          test "$PHP_COUNT" -gt 0
+          echo "Packaged PHP source files to scan: $PHP_COUNT"
+          semgrep scan --metrics=off --no-git-ignore --config p/php --config p/security-audit --include '*.php' --json --output STOCKLAND_ERP_16.1.94_SEMGREP.json "$APP_SCAN"
+          python ci/qa/summarize-semgrep.py STOCKLAND_ERP_16.1.94_SEMGREP.json --expected-targets "$PHP_COUNT" | tee STOCKLAND_ERP_16.1.94_SEMGREP_SUMMARY.txt
       - name: Verify runtime dependency and license inventory for the final ZIP
         shell: bash
         run: |

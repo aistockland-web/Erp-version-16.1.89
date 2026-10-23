@@ -103,6 +103,30 @@ def finalize(input_zip: Path, output_zip: Path) -> dict:
 
     manifest = json.loads(files[MANIFEST].decode("utf-8"))
     css_manifest = json.loads(files[CSS_MODULES].decode("utf-8"))
+
+    # Record bundled Bootstrap provenance from the exact CSS shipped in this ZIP.
+    # Do not guess a version or rely on CI machine/global tooling metadata.
+    bootstrap_asset_path = ROOT + "assets/bootstrap.min.css"
+    bootstrap_payload = files.get(bootstrap_asset_path, b"")
+    bootstrap_header = bootstrap_payload[:8192].decode("utf-8", errors="replace")
+    bootstrap_match = re.search(r"Bootstrap\s+v(\d+\.\d+\.\d+)", bootstrap_header, re.IGNORECASE)
+    if not bootstrap_match:
+        raise ValueError("Cannot identify bundled Bootstrap version from its packaged CSS header")
+    if not re.search(r"Licensed under MIT", bootstrap_header, re.IGNORECASE):
+        raise ValueError("Bundled Bootstrap CSS does not expose the expected MIT license notice")
+    frontend_metadata = manifest.get("frontend", {})
+    if not isinstance(frontend_metadata, dict):
+        frontend_metadata = {}
+    declared_bootstrap = frontend_metadata.get("bootstrap_version")
+    if declared_bootstrap and declared_bootstrap != bootstrap_match.group(1):
+        raise ValueError("Existing manifest Bootstrap version does not match the packaged stylesheet")
+    frontend_metadata.update({
+        "bootstrap_version": bootstrap_match.group(1),
+        "bootstrap_license": "MIT",
+        "bootstrap_asset_sha256": hashlib.sha256(bootstrap_payload).hexdigest(),
+        "bootstrap_version_evidence": "assets/bootstrap.min.css upstream header",
+    })
+    manifest["frontend"] = frontend_metadata
     entry = files[ENTRY].decode("utf-8")
     frontend = files[FRONTEND].decode("utf-8")
     readme = files[README].decode("utf-8")
