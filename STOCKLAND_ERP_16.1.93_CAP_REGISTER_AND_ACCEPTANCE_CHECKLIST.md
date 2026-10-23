@@ -119,7 +119,7 @@ Local Playwright/Chromium using synthetic REST fixtures: 175 view/viewport combi
 
 ## Verified Actions-artifact provenance audit — 23 October 2026
 
-This comparison uses the downloadable artifact from [Reports Explorer 16.1.93 exact-package gates](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/39471331354), run ID 39471331354, commit 1f96da520602b992bec449ebf2ab45b9469f107e (20 October 2026). It is **not** the current branch head 7d99ff8dba2f1fe0eea3eb572872a55576af1589.
+This comparison uses the downloadable artifact from [Reports Explorer 16.1.93 exact-package gates](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/39471331354), run ID 39471331354, commit 1f96da520602b992bec449ebf2ab45b9469f107e (20 October 2026). It is **not** the current branch head 05518f584f2c2ee4a52792ad5403f1430a21089c.
 
 | Evidence | SHA-256 | Bytes | What it represents |
 |---|---|---:|---|
@@ -144,7 +144,7 @@ The current branch now:
 - Extends .github/workflows/reports-explorer-16-1-93.yml to run the verifier and publish the final-package receipt.
 - Extends ci/qa/test_reports_explorer.py to verify the final receipt round-trip and prove a deliberately stale intermediate SHA is rejected.
 
-**Closure boundary:** this correction is in the GitHub source, but no Action run exists for current head 7d99ff8dba2f1fe0eea3eb572872a55576af1589. Therefore CAP-01/02 remain open until that exact head generates a passing artifact/receipt. The downloaded 16.1.93 ZIP must not be treated as the cumulative canonical package or installed over live 16.1.94.
+**Closure boundary:** this correction is in the GitHub source, but no Action run exists for current head 05518f584f2c2ee4a52792ad5403f1430a21089c. Therefore CAP-01/02 remain open until that exact head generates a passing artifact/receipt. The downloaded 16.1.93 ZIP must not be treated as the cumulative canonical package or installed over live 16.1.94.
 
 ## Payroll-law source and sign-off checklist
 
