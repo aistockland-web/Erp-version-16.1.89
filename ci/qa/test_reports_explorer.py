@@ -29,6 +29,48 @@ def main():
         need(replay_receipt["applied"] is False, "replaying the exact responsive patch is idempotent")
         need(hashlib.sha256(output.read_bytes()).hexdigest() == after_first_layout_sha, "replaying the responsive patch does not alter the candidate hash")
         need(replay_receipt["css_source_build_parity"] is True, "responsive patch replay keeps CSS source/build parity")
+        final_package = patcher.final_package_attestation(output, baseline)
+        need(final_package["sha256"] == hashlib.sha256(output.read_bytes()).hexdigest(), "final package receipt SHA reflects bytes after all patches")
+        need(final_package["bytes"] == output.stat().st_size and final_package["files"] == 75, "final package receipt size and inventory match final archive")
+        receipt_path = Path(td) / "final-build-receipt.json"
+        sidecar_path = Path(td) / "candidate.zip.sha256"
+        verified_path = Path(td) / "verified-final-package.json"
+        sidecar_path.write_text(final_package["sha256"] + "  " + output.name + "\\n", encoding="utf-8")
+        receipt_path.write_text(json.dumps({
+            "reports_explorer": receipt,
+            "stock_reconciliation": stock_receipt,
+            "production_hardening": production_receipt,
+            "domain_cleanup": domain_receipt,
+            "responsive_approval_layout": layout_receipt,
+            "final_package": final_package,
+        }, indent=2) + "\\n", encoding="utf-8")
+        verifier = ROOT / "ci" / "qa" / "verify_final_package.py"
+        gate = subprocess.run([
+            sys.executable, str(verifier),
+            "--baseline", str(baseline),
+            "--package", str(output),
+            "--sha256", str(sidecar_path),
+            "--build-receipt", str(receipt_path),
+            "--output", str(verified_path),
+        ], text=True, capture_output=True)
+        need(gate.returncode == 0, "final package/sidecar/receipt gate passes: " + gate.stderr[-1200:])
+        gate_receipt = json.loads(verified_path.read_text(encoding="utf-8"))
+        need(gate_receipt.get("result") == "PASS", "final package verifier emits PASS receipt")
+        need(gate_receipt["final_package"]["sha256"] == final_package["sha256"], "verified receipt identifies final archive hash")
+        # Prove that an intermediate/stale build receipt is rejected rather than silently accepted.
+        stale_receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+        stale_receipt["final_package"]["sha256"] = "1cfab0a8221802aa2a5633e92d65ff76f146ea6152aae7068e6d82b384f2dceb"
+        receipt_path.write_text(json.dumps(stale_receipt), encoding="utf-8")
+        stale_gate = subprocess.run([
+            sys.executable, str(verifier),
+            "--baseline", str(baseline),
+            "--package", str(output),
+            "--sha256", str(sidecar_path),
+            "--build-receipt", str(receipt_path),
+            "--output", str(verified_path),
+        ], text=True, capture_output=True)
+        need(stale_gate.returncode != 0, "stale/intermediate build receipt is rejected")
+        need("does not match the final ZIP" in stale_gate.stderr, "stale-receipt failure explains the mismatch")
         with zipfile.ZipFile(baseline) as old, zipfile.ZipFile(output) as new:
             need(old.testzip() is None and new.testzip() is None, "ZIP CRC")
             old_names = [x.filename for x in old.infolist() if not x.is_dir()]
