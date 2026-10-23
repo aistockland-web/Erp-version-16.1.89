@@ -120,5 +120,96 @@
     "The follow-up code/workflow change after the successful run fixes the zero-byte desktop test receipt; its exact-head Actions run is still in progress in the latest queried status.",
     "The candidate is not to be uploaded over the owner's live 16.1.94 until the deployed plugin ZIP/source checksum and file-level parity are recovered and checked.",
     "Nine live compensation rows, independently approved effective-dated Ethiopian payroll rules, full HR-to-final-settlement SOP acceptance, full deep-integrity receipt, live report query diagnosis, backend financial/stock/authorization tests, and host backup/restore/rollback remain open."
-  ]
+  ],
+  "latest_exact_candidate_ci": {
+    "workflow_run_id": 40020305786,
+    "url": "https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/40020305786",
+    "result": "SUCCESS",
+    "runtime_source_commit": "883167a39726e8815dbf787df7291b0ede9742ef",
+    "outer_artifact_id": 12529439284,
+    "outer_artifact_name": "STOCKLAND-ERP-16.1.94-Cumulative-WordPress-Update",
+    "outer_artifact_sha256": "7e108e206b695082c321f7ff1aab78616d5fc3a581c541d2190ae849c75097d2",
+    "inner_zip": "STOCKLAND_ERP_16.1.94_CANONICAL_WORDPRESS_UPDATE.zip",
+    "inner_zip_sha256": "00700372c4755bb758eba017642966a259bd7c37b55862622774274a0600bbb6",
+    "inner_zip_bytes": 1100950,
+    "sidecar_matches_inner_zip": true,
+    "final_package_receipt_matches_inner_zip": true,
+    "zip_crc": "PASS",
+    "runtime_files": 75,
+    "unique_file_paths": 75,
+    "single_plugin_root": "stockland-erp-app/",
+    "schema_contract": {
+      "core_operations": 29,
+      "accounting_procurement": 16,
+      "hr_payroll": 4,
+      "total": 49
+    },
+    "db_schema_marker": "16.1.1",
+    "checks": {
+      "cumulative_patch_chain": "PASS",
+      "finalizer_and_exact_receipt": "PASS",
+      "desktop_product_create": "PASS — non-empty JSON receipt, 7 wide viewports",
+      "report_loading_failure_retry": "PASS — no duplicate toast",
+      "requisition_approval_layout": "PASS — 7 viewports",
+      "all_workareas_roles": "PASS — 175 view/viewport pairs, 6 synthetic roles, 0 overflow/browser/console failures",
+      "css_postcss_module_parity": "PASS",
+      "archive_inventory_version_schema": "PASS",
+      "php_lint": "48/48 PASS",
+      "javascript_syntax": "PASS",
+      "release_json": "PASS"
+    },
+    "no_live_data_mutated": true
+  },
+  "latest_security_enriched_workflow": {
+    "workflow_run_id": 40021038142,
+    "url": "https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/40021038142",
+    "branch_workflow_commit": "397bfc0fcf0c659c38fc25f5d52a95bc30d608fa",
+    "last_observed_state": "IN_PROGRESS",
+    "last_observed_step": "Install pinned Playwright browser test dependency",
+    "new_gates": [
+      "PHPCS/WPCS with source-aware security/database review",
+      "Semgrep PHP/security-audit on final ZIP",
+      "Runtime dependency/license inventory on final ZIP"
+    ],
+    "disposition": "CAP-02 remains open until this run completes and all three new gate reports are inspected."
+  },
+  "latest_cap_disposition": {
+    "closed_package_scope": [
+      "CAP-01 package build/archive/hash/sidecar/receipt provenance",
+      "CAP-17 package-level stale host/domain/runtime-text cleanup"
+    ],
+    "partial_package_or_fixture_scope": [
+      "CAP-06",
+      "CAP-10",
+      "CAP-11",
+      "CAP-15",
+      "CAP-18",
+      "CAP-23",
+      "CAP-24",
+      "CAP-25",
+      "CAP-27"
+    ],
+    "open_production_or_owner_gates": [
+      "CAP-02",
+      "CAP-03",
+      "CAP-04",
+      "CAP-05",
+      "CAP-07",
+      "CAP-08",
+      "CAP-09",
+      "CAP-12",
+      "CAP-13",
+      "CAP-14",
+      "CAP-16",
+      "CAP-19",
+      "CAP-21",
+      "CAP-22",
+      "CAP-26",
+      "CAP-28",
+      "CAP-29",
+      "CAP-30"
+    ],
+    "critical_blocker": "The exact deployed 16.1.94 ZIP/source checksum is not available; candidate source lineage is locked 16.1.92 baseline -> cumulative 16.1.93 patch chain -> finalized 16.1.94. Do not overwrite the live install before exact-source parity, authenticated backup/restore/rollback and live/data gates are verified.",
+    "no_production_install_or_database_mutation": true
+  }
 }
