@@ -73,7 +73,11 @@ The Health text was provided by the owner and is not a direct live database quer
 | Owner SOP acceptance | Exact release SHA, business workflow, roles, exceptions and rollback accepted by Owner | **OPEN** | Signed/evidenced owner acceptance tied to installer SHA |
 
 ## 5. Cloud AI classification
-There is no configured external generative Cloud AI provider in this installer. “Management Intelligence” is deterministic analytics sourced from authorized ERP data, not proof of an external model connection. No external model should receive employee, financial, customer or stock data unless Stockland has approved the service, data policy, credentials and controls. AI must never write stock, payroll or ledger records directly.
+There is no configured external generative Cloud AI provider in this installer. “Management Intelligence” is deterministic analytics sourced from authorized ERP data, not proof of an external model connection.
+
+The prior Management Intelligence add-on QA record (0.1.2) reports 11/11 focused assertions but explicitly omits activation, real provider credentials/payload, live role E2E and restoration tests. Its QA-reported SHA `9914fbd06c03a7caf207de87d4643ff786072515b742ca171a2ca746a865e272` conflicts with the available checksum sidecar value `8c24751b105407d5125db175f8fffc29f81c51270c7e042bc8612d226bad1e4d`. A 0.1.4 sidecar is present in the library but its matching ZIP/source was not found in the current workspace. Neither add-on archive is part of the exact 16.1.95 core package. Therefore the core release audit passes, but the separate Cloud AI/add-on inclusion requirement remains open until the intended exact artifact is recovered, verified and integrated/tested. The `no_external_provider_runtime` PASS is a security boundary check, not evidence that AI is connected.
+
+No external model should receive employee, financial, customer or stock data unless Stockland has approved the service, data policy, credentials and controls. AI must never write stock, payroll or ledger records directly.
 
 ## 6. Final acceptance rule
 The 16.1.95 **package/code/security** audit is closed by exact-head CI run 40036018031. A full production certification is **not** closed: the nine missing compensation rows, independent statutory sign-off, deep-integrity receipt, exact installed-source hash, verified backup/restore/rollback and owner/live workflow acceptance remain evidence-gated. Version markers, source-level predicates and mocked UI calls cannot substitute for those controls.
