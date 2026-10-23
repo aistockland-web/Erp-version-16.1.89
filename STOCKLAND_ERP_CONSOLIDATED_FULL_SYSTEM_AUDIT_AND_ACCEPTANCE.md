@@ -448,3 +448,27 @@ A final package receipt gate is now in the source pipeline: builder emits final_
 
 **Updated disposition: NOT APPROVED FOR WORDPRESS INSTALLATION until the exact current artifact has been built and verified, the HR-to-final-settlement SOP lifecycle is evidenced, host/source cleanup is complete without deleting legitimate ERP services, the earlier report-loading fix is proven retained, all existing CAP blockers are closed, and the Owner approves the evidence.**
 
+
+## Latest consolidated CI and local package evidence — 23 October 2026
+
+### Successful cumulative package run
+
+[GitHub Actions run 40015618628](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/40015618628) finished SUCCESS for the cumulative WordPress workflow on runtime source commit `34f56f11856ff2d1b0294e01e11b7eb50b83e72c`. It passed the locked-baseline verification; Reports Explorer/stock source regression; cumulative stock/reorder, host-hygiene and report-source patch chain; 16.1.94 finalizer; sidecar/build/release receipt verification; Product Master desktop click chain; report failure/retry recovery; requisition approval responsive geometry; all-work-area/role viewport smoke; CSS/PostCSS parity; ZIP package/version/schema checks; 48-file PHP lint; JS syntax; and release JSON validation.
+
+The Actions artifact `STOCKLAND-ERP-16.1.94-Cumulative-WordPress-Update` (artifact ID `12527164862`) has outer SHA-256 `f2400061eed2cf70fe6456e9ff6d1522c82f7fa9b3c03ddf4c6fc40f3c3c9465`. The inner WordPress ZIP is `STOCKLAND_ERP_16.1.94_CANONICAL_WORDPRESS_UPDATE.zip`, SHA-256 `1b1623a7f1a2db77143d6c6f8a8663bde7a74ef72f1a8bcddffd52d2c8e50e8d`, 1,100,451 bytes; 75 unique files, one safe `stockland-erp-app/` root; release markers 16.1.94; 49-table contract (29 + 16 + 4); DB marker 16.1.1. The ZIP sidecar and finalizer receipt agree with the inner ZIP bytes.
+
+### Desktop receipt correction pending
+
+Independent inspection of artifact 12527164862 found `STOCKLAND_ERP_16.1.94_DESKTOP_BUTTON_QA.json` had zero bytes even though the test step returned success. The desktop test source was updated to return structured JSON, accept `--receipt`, write that exact file, and the workflow now checks `test -s` to fail if it is empty.
+
+Run [40015844983](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/40015844983) on runtime-source head `93f88facf9028b77af57b1bebf44f445fd5153e5` was still marked IN_PROGRESS at Playwright browser setup in the latest available GitHub status. No artifact with the corrected desktop receipt was returned yet. Therefore the prior package's build/UI outcomes are real, but the desktop receipt correction is not called passed until that run completes and the resulting JSON is inspected.
+
+### Local final ZIP recheck
+
+The inner ZIP was also rechecked locally after downloading the successful Actions artifact: CRC valid; 75 unique safe paths under one plugin root; 16.1.94 entry/constant/route/manifest markers; 49-table contract; six ordered CSS modules rebuild `app.css`; deterministic normalized source matches `app.min.css`; report inline retry/duplicate-toast guard present; ten report-source fail-closed guards and five dashboard query failure guards present; Management Intelligence renderer, scoped responsive approval styles, and explicit `In Transit` filter present. Local check does not contact WordPress or a database and did not mutate business data.
+
+### Final deployment boundary
+
+The build lineage is still the audited 16.1.92 baseline → cumulative 16.1.93 patch chain → finalized 16.1.94 package. It is not proven identical to the exact live 16.1.94 plugin folder. CAP-28 remains OPEN pending the actual installed source/ZIP and checksum comparison; otherwise a same-version replacement could overwrite unobserved fixes. Do not label the package safe for in-place installation on the live 16.1.94 site solely because the reconstructed package run passed.
+
+Separate P0/P1 gates remain open: live nine-employee compensation remediation; current Ethiopian payroll rule/legal approval; complete HR planning-to-final-settlement acceptance; a single deep-integrity run ID/timestamp with every check completed; live report source-read failure diagnosis; transaction-level stock, ETB, VAT, COGS, AP/AR/PLEDGER/GL reconciliation; server-side branch/role denial and rollback evidence; authenticated host backup/restore/rollback; and signed Owner acceptance. See the CAP register and master acceptance matrix for status by gate.
