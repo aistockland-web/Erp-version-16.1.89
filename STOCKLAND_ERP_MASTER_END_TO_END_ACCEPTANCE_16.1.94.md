@@ -154,29 +154,21 @@ The historical candidate scan also confirms that the reviewed source exposes an 
 
 ## 10. Latest local recheck evidence (23 October 2026)
 
-The [Local Recheck Receipt](STOCKLAND_ERP_LOCAL_RECHECK_2026-10-23.md) and [local acceptance decision](STOCKLAND_ERP_LOCAL_ACCEPTANCE_RECHECK_2026-10-23.md) record the available candidate-level results.
+The [Final Local Acceptance Recheck](STOCKLAND_ERP_LOCAL_ACCEPTANCE_RECHECK_2026-10-23.md) is the latest local result record.
 
-**Review fixture identity:** `STOCKLAND_ERP_16.1.93_LOCAL_REVIEW_FIXTURE.zip`; SHA-256 `784bea5f7db6cee28c131d8ca4b9dea2edfea3d38115b4bead580e2344f614f5`; 1,119,373 bytes; release `16.1.93`. The archive has 75 unique plugin files, one `stockland-erp-app/` root and valid ZIP CRC. It is a review fixture—not a WordPress update approved for live 16.1.94.
+**Review fixture only:** `STOCKLAND_ERP_16.1.93_LOCAL_CUMULATIVE_REVIEW_FIXTURE_ONLY.zip`; SHA-256 `0d2632ad75d6df81c5047b0937b9b551d7b9ee7d03104c8c91458682116e5883`; 1,101,969 bytes; manifest release 16.1.93. ZIP contains 75 unique files under one safe `stockland-erp-app/` root and passes CRC. It is not a production installer for live 16.1.94.
 
-Local checks pass: PHP lint **48/48**; app.js/pwa.js syntax; release/PWA/CSS JSON parsing; PostCSS parse for app.css/app.min.css/Bootstrap; deterministic CSS source-module/build/minified parity; six CSS modules and 61 responsive media-query occurrences.
+Local static/package checks passed: PHP lint **48/48**; app.js/pwa.js syntax; release/PWA/CSS JSON parse; PostCSS parses app.css/app.min.css/Bootstrap; six ordered CSS modules rebuild app.css and normalized source matches app.min.css; ten report fail-closed query guards plus location lookup guard; five dashboard source failure guards; Management Intelligence UI and Owner/Management gate; PHP 8.3 runtime wording/diagnostics; archive-wide unapproved URL scan zero; Bootstrap 5.3.8 MIT notice preserved. No business data/schema was touched.
 
-Playwright/Chromium browser checks pass on the temporary fixture:
-- **175 view/viewport combinations** (25 work areas × 7 CSS widths: 320, 360, 390, 430, 768, 1024, 1440) across **6 role profiles**; zero blank views, horizontal page overflow, browser exceptions or console errors in the captured run.
-- Report flow: initial success → induced source failure → inline recovery with no duplicate toast → successful retry (3 mocked requests); report print/CSV actions disabled on failure and enabled after recovery; 390px viewport has no page-level overflow.
-- Requisition approval history/supply-table geometry: 7 widths; no text/status-pill overlap, page overflow or table wrapper outside its drawer; zero page errors.
+Local Playwright/Chromium with synthetic REST fixtures:
+- **175 view/viewport combinations** across 25 existing views × 7 widths (320, 360, 390, 430, 768, 1024, 1440 CSS px), and 6 role navigation profiles. Zero blank views, page overflow, browser exceptions or console errors.
+- Management Intelligence checked separately for Management, Owner and Sales Employee; displayed only to Owner/Management, with the restriction message for Sales Employee.
+- Requisition approval/supply table checked at 7 widths; no approver/decision/status overlap, page-wide overflow or table wrapper outside drawer.
+- Reports success → induced source failure → single inline error/no duplicate toast → retry success; 3 synthetic requests in that focused sequence; print/CSV disabled during failure, enabled after success; 390px page width stays within viewport.
 
-These are **local frontend regression results against synthetic API responses**. They do not test live database source queries, stock/finance transaction posting, exact server permissions, real employee records, complete HR lifecycle, deep integrity, restore or rollback.
+**These tests do not call the live WP REST API or database.** They do not prove actual SQL/source query success, live role permissions, ledger/stock/ETB reconciliation, legal payroll correctness, complete HR lifecycle, deep-integrity completion, restore/rollback, or exact live Cart/POS behavior.
 
-The draft CI workflow now includes dedicated test steps for report recovery, desktop Product Master create, requisition responsiveness, all 25 work areas/6 role profiles, and modal-specific CSS/PostCSS parity. The latest GitHub source commit is not accompanied by a new exact-head workflow/artifact receipt yet; older green runs do not certify the newest commits.
-
-The blockers remain:
-1. Exact installed 16.1.94 package/source and checksum are unavailable in the accessible repo; the reviewed source lineage is 16.1.92 → 16.1.93. Do not upload it over live 16.1.94.
-2. The true live Cart/POS source and its multi-line behaviors are still unverified; the older candidate renderer is not proof of a live fix.
-3. Live payroll readiness fails for **nine active employee records** with no current compensation; HR/Owner must verify true data and classification.
-4. The full workforce-to-final-settlement HR lifecycle needs approved-SOP traceability and operational acceptance.
-5. The deep-integrity panel's UNVERIFIED state and separate PASS/supplemental results need a single run ID/timestamp and per-check completion receipt.
-6. The live report source-read/database failure remains undiagnosed even though the UI error recovery is improved in the review candidate.
-7. Exact-head CI, end-to-end stock/ETB reconciliation, server-side role/location denial tests, import replay/idempotency, backup/restore/rollback and Owner sign-off remain open.
+The exact installed **16.1.94** package/source/checksum is still not present in the repository or available library search; accessible source lineage remains 16.1.92 → review candidate 16.1.93. The newest source commits still lack an exact-head GitHub Actions receipt; prior green runs reference older commits. The live payroll check still reports nine missing current compensation records, the report-source error remains undiagnosed, and the full HR-to-final-settlement SOP remains unaccepted.
 
 ## 11. Release decision
 
