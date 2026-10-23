@@ -280,8 +280,23 @@ async def run_candidate(archive_path: Path) -> dict:
                     "finance_nav_matches_capability": ("finance" in nav) == bool(user["capabilities"].get("finance_view")),
                     "hr_nav_matches_capability": ("hr" in nav) == bool(user["capabilities"].get("hr_view")),
                     "settings_nav_matches_capability": ("settings" in nav) == bool(user["capabilities"].get("settings")),
+                    "intelligence_nav_matches_capability": ("intelligence" in nav) == bool(
+                        user["capabilities"].get("finance_view") and role in ("owner", "management")
+                    ),
                 }
                 role_results.append({"role": role, "visible_nav": nav, "checks": checks})
+
+                # Refresh Management Intelligence once per eligible profile outside the
+                # width/view matrix; repeated refreshes can swamp constrained QA runners.
+                await page.evaluate("window.__STOCKLAND_TEST__.setView('intelligence')")
+                await page.wait_for_timeout(80)
+                intelligence_text = await page.locator("#sl-content").inner_text()
+                intelligence_workspace = await page.locator(".sl-management-intelligence").count() > 0
+                expected_intelligence = role in ("owner", "management") and bool(user["capabilities"].get("finance_view"))
+                if expected_intelligence and not intelligence_workspace:
+                    failures.append({"type": "intelligence_view_missing", "role": role, "text": intelligence_text[:200]})
+                if not expected_intelligence and "Management Intelligence is restricted" not in intelligence_text:
+                    failures.append({"type": "intelligence_access_gate_missing", "role": role, "text": intelligence_text[:200]})
                 for check, passed in checks.items():
                     if not passed:
                         failures.append({"type": "role_nav_mismatch", "role": role, "check": check, "nav": nav})
