@@ -135,7 +135,7 @@ async def run_candidate(zip_path: Path) -> dict:
                     const e=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);
                     return {hitId:e?.id||'', hitClass:String(e?.className||''), x:r.x, y:r.y,
                       actionZ:getComputedStyle(b.parentElement).zIndex,
-                      guard:!!document.getElementById('sl-desktop-title-action-layer-fix')};
+                      guard:[...document.querySelectorAll('style')].some(s=>s.textContent.includes('.sl-content-inner>.sl-page-title>.sl-actions')&&/z-index:\s*82(?:\s*!important)?/.test(s.textContent))};
                 }""")
                 if hit["hitId"] != "hostThemeActionOverlay":
                     raise AssertionError(f"{width}px desktop overlay reproduction did not cover action: {hit}")
