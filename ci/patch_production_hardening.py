@@ -270,7 +270,7 @@ def patch_metadata(files: dict[str, bytes]) -> None:
     manifest["release_label"] = "Stockland Ethiopia ERP — WordPress update"
     manifest["minimum_php"] = "8.3"
     manifest.setdefault("hosting_profile", {})["minimum_php"] = "8.3+"
-    manifest.setdefault("hosting_profile", {})["separate_node_or_postgresql_runtime_required"] = False
+    manifest.setdefault("hosting_profile", {})["separate_application_runtime_required"] = False
     manifest.setdefault("user_interface", {})["management_intelligence"] = {
         "enabled_for": ["owner", "management"],
         "data_source": "Existing server-authorized ERP insights",
@@ -289,7 +289,6 @@ def patch_metadata(files: dict[str, bytes]) -> None:
         "missing_compensation_autofilled": False,
         "sample_personal_records_imported": False,
         "allowance_exemption_requires_owner_evidence": True,
-        "standalone_node_postgresql_payload_installed": False,
     })
     # Remove intermediate builder/provider declarations from the installed-plugin metadata.
     # The actual plugin retains native Stockland identity, permissions, notifications and work areas.
