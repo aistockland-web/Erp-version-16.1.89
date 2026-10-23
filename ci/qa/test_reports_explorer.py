@@ -162,7 +162,7 @@ def main():
         need("InfinityFree currently provides" not in xlsx_reader_source, "XLSX runtime documentation does not assume one fixed PHP version/host")
         need("t.status='In Transit'" in php and "t.status='In Transit'" in stock_api, "only in-transit transfers count toward inbound")
         need("report_location_label_failed" in php, "selected report location-label lookup fails closed")
-        need("z-index: 80 !important" in source_after["stockland-erp-app/assets/css/06-operational-guards.css"].decode("utf-8"), "desktop actions raised above header/search stacking context")
+        need("z-index: 82 !important" in source_after["stockland-erp-app/assets/css/06-operational-guards.css"].decode("utf-8"), "desktop actions raised above header/search stacking context")
         need("pointer-events: auto !important" in source_after["stockland-erp-app/assets/css/06-operational-guards.css"].decode("utf-8"), "desktop action pointer events preserved")
         need("document.__slNewProductCaptureBound" in js, "desktop Product Master delegated click guard")
         need("sl-desktop-title-action-layer-fix" not in js, "desktop CSS is not injected through a runtime JavaScript style element")
