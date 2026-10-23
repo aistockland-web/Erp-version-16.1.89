@@ -414,6 +414,22 @@ The integrated GitHub workflow has source steps for the new report-loading, requ
 
 **Release boundary:** live System Health reports plugin **16.1.94 / DB 16.1.1**, whereas this source lineage is 16.1.92 → review candidate 16.1.93. Exact installed 16.1.94 installer/source/checksum remains unavailable. Nine live employee compensation exceptions remain an Owner/HR data gate; no fake salary values can be inserted. The live report-source error and full HR-to-final-settlement workflow remain unresolved. Local fixture PASS therefore does not certify the WordPress update.
 
+### Verified release-artifact provenance and CAP-01 closure gate — 23 October 2026
+
+The actual Actions artifact was downloaded and inspected instead of assuming that a package filename or green earlier workflow proved final-source parity.
+
+- Actions run: [39471331354 — Reports Explorer 16.1.93 exact-package gates](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/39471331354)
+- Run source SHA: `1f96da520602b992bec449ebf2ab45b9469f107e` (20 October); current branch source SHA after cumulative gate changes: `7d99ff8dba2f1fe0eea3eb572872a55576af1589`.
+- Locked canonical 16.1.92 installer: `adec43b84f2b9a62d8913f84bad20588166800b2b6571d22d75abb86fcfd3fcd`, 1,113,446 bytes. PHP 8.3 and PHP 8.4 action artifacts embed the same baseline bytes. Local validation passes ZIP CRC / 75-file one-root inventory, PHP syntax 48/48, JS syntax, JSON parsing and CSS six-module/app.css/app.min.css parity. The saved 16.1.92 PHPCS JSON reports 0 errors / 0 warnings and the saved Semgrep 1.139.0 JSON reports 0 results / 0 errors for that package/revision. Live deployment was not performed.
+- The 16.1.93 build and local QA receipts inside the downloaded artifact identify an intermediate package at SHA `1cfab0a8221802aa2a5633e92d65ff76f146ea6152aae7068e6d82b384f2dceb`, 1,117,980 bytes.
+- The actual embedded 16.1.93 ZIP and its sidecar identify SHA `a8cb3767f363740387731928211febc315876a7b8c146e65e594930940e64e3b`, 1,118,326 bytes; the stock reconciliation receipt agrees with this latter identity.
+
+The downloadable candidate's SHA sidecar matches its own bytes, but its top-level build/QA receipt is not an attestation of those final bytes. The artifact also predates the latest source cleanup and UI/backend hardening now present in the branch: it retains the 8.4+/server-environment wording and fixed legal-domain links, and lacks the report-source query-failure guards, Management Intelligence renderer, responsive approval-history CSS, and single-inline-error retry correction. So the older Actions “success” is not proof that the current cumulative release package exists.
+
+A final package receipt gate is now in the source pipeline: builder emits final_package SHA/size/inventory/changed-file evidence after all patches; `ci/qa/verify_final_package.py` checks sidecar, build receipt, 75 files/one plugin root, release/schema markers, changed-file allowlist, PHP 8.3/domain/report/management/approval markers, and CSS source/compiled parity. The reports regression test deliberately tampers with the receipt to prove a stale/intermediate SHA fails. The workflow publishes the final receipt alongside the ZIP and checksum.
+
+**Status remains OPEN / BLOCKER for CAP-01/02:** the latest GitHub head currently has no matching Actions run/status. The source-side guard is implemented but has not been executed on that head, and no new final artifact with a matching receipt has been produced. **Do not upload the historical 16.1.93 artifact over live 16.1.94.** Other live-data and operational blockers (nine missing compensation rows, full HR lifecycle, full deep-audit receipt, report SQL failure, and Cart/POS version parity) remain separate and open.
+
 ### Updated disposition
 
 **NO-GO for installation/update.** Current evidence contains a real payroll gate failure, a failed live report source read and mobile UI defects, and the review package is older than the installed release. The master acceptance plan is linked in `STOCKLAND_ERP_MASTER_END_TO_END_ACCEPTANCE_16.1.94.md`. Corrective documentation does not close the code, data or host acceptance gates. No deployment or live data mutation was performed by this review.
