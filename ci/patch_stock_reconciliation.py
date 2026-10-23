@@ -438,25 +438,44 @@ def patch_php(source: str) -> str:
     available_assignment_pattern = re.compile(
         r"\$available_minor\s*=\s*Stockland_Money::minor\(\s*\$row\['available_stock'\]\s*\?\?\s*'0'\s*\);"
     )
-    position_assignment = "$position_minor = Stockland_Money::minor( $row['reorder_position'] ?? $row['available_stock'] ?? '0' );"
-    critical, assignment_count = available_assignment_pattern.subn(position_assignment, critical)
-    if assignment_count != 2:
+    position_assignment_pattern = re.compile(
+        r"\$position_minor\s*=\s*Stockland_Money::minor\(\s*\$row\['reorder_position'\]\s*\?\?\s*\$row\['available_stock'\]\s*\?\?\s*'0'\s*\);"
+    )
+    critical, available_count = available_assignment_pattern.subn(
+        "$position_minor = Stockland_Money::minor( $row['reorder_position'] ?? $row['available_stock'] ?? '0' );",
+        critical,
+    )
+    position_count = len(position_assignment_pattern.findall(critical))
+    if available_count == 2 and position_count == 2:
+        # Both assignments have now been normalized to reorder_position.
+        pass
+    elif available_count == 0 and position_count == 2:
+        # The upstream Reports Explorer patch already uses reorder_position.
+        # Keep this valid state and normalize the advisory amount below.
+        pass
+    else:
         raise ValueError(
-            "critical reorder calculation: expected exactly two available_stock assignments, "
-            f"updated {assignment_count}; critical block was {critical!r}"
+            "critical reorder calculation: expected two old or two already-normalized stock assignments; "
+            f"old={available_count}, position={position_count}; critical block={critical!r}"
         )
-    critical = replace_literal_once(
-        critical,
-        "return $reorder_minor > 0 && $available_minor <= $reorder_minor;",
-        "return $reorder_minor > 0 && $position_minor <= $reorder_minor;",
-        "critical report threshold uses inbound-aware reorder position",
+
+    threshold_old = "return $reorder_minor > 0 && $available_minor <= $reorder_minor;"
+    threshold_new = "return $reorder_minor > 0 && $position_minor <= $reorder_minor;"
+    if threshold_old in critical and threshold_new not in critical:
+        critical = replace_literal_once(critical, threshold_old, threshold_new, "critical report threshold uses inbound-aware reorder position")
+    elif threshold_new in critical and threshold_old not in critical:
+        pass
+    else:
+        raise ValueError("critical report threshold must use exactly one reorder_position comparison")
+
+    suggestion_pattern = re.compile(
+        r"\$row\['suggested_replenishment'\]\s*=\s*Stockland_Money::decimal\(\s*max\(\s*(?:0|100)\s*,\s*\$reorder_minor\s*-\s*\$(?:available_minor|position_minor)\s*\)\s*\);"
     )
-    critical = replace_literal_once(
-        critical,
-        "$row['suggested_replenishment'] = Stockland_Money::decimal( max( 0, $reorder_minor - $available_minor ) );",
-        "$row['suggested_replenishment'] = Stockland_Money::decimal( max( 0, $reorder_minor - $position_minor ) );",
-        "critical report suggestion uses inbound-aware reorder position",
-    )
+    suggestion_matches = list(suggestion_pattern.finditer(critical))
+    if len(suggestion_matches) != 1:
+        raise ValueError("critical report suggestion: expected exactly one bounded reorder-minus-position expression")
+    canonical_suggestion = "$row['suggested_replenishment'] = Stockland_Money::decimal( max( 0, $reorder_minor - $position_minor ) );"
+    critical = suggestion_pattern.sub(lambda _match: canonical_suggestion, critical, count=1)
     source = source[:critical_blocks[0].start(2)] + critical + source[critical_blocks[0].end(2):]
 
     critical_description_pattern = re.compile(
