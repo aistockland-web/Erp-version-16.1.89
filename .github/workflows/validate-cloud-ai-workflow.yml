@@ -1,0 +1,38 @@
+name: Validate cumulative Stockland release workflow YAML
+
+on:
+  push:
+    branches:
+      - feat/reports-explorer-16-1-93
+    paths:
+      - '.github/workflows/reports-explorer-16-1-93.yml'
+      - '.github/workflows/validate-cloud-ai-workflow.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate-workflow:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout release branch
+        uses: actions/checkout@v4
+      - name: Parse and validate target workflow YAML
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check 'PyYAML==6.0.2'
+          python3 - <<'PY'
+          from pathlib import Path
+          import yaml
+          path = Path('.github/workflows/reports-explorer-16-1-93.yml')
+          raw = path.read_text(encoding='utf-8')
+          try:
+              doc = yaml.safe_load(raw)
+          except yaml.YAMLError as exc:
+              print(f'FAIL YAML syntax: {exc}')
+              raise
+          if not isinstance(doc, dict) or not isinstance(doc.get('jobs'), dict) or 'wordpress-update' not in doc['jobs']:
+              raise SystemExit('FAIL: expected wordpress-update job is missing')
+          print(f'PASS YAML parser; workflow has {len(doc["jobs"])} job(s) and {len(doc["jobs"]["wordpress-update"].get("steps", []))} release steps')
+          PY
