@@ -405,9 +405,9 @@ def patch_php(source: str) -> str:
     )
 
 
-    # Keep the existing report's approved availability label while adding the
-    # integrity exception column. Earlier report-source variants use either
-    # "Available" or "Available now", so match the field contract, not wording.
+    # Keep physical stock, reserved quantity, sellable available, inbound and
+    # reorder position distinct in Reports Explorer. The display label may differ
+    # between approved report-source revisions, so key on the canonical field.
     available_column_pattern = re.compile(
         r"array\( 'key' => 'available_stock', 'label' => '[^']+', 'format' => 'number' \),"
     )
@@ -415,10 +415,45 @@ def patch_php(source: str) -> str:
     if len(available_column_matches) != 1:
         raise ValueError("show reservation integrity beside availability: expected exactly one available_stock column")
     source = available_column_pattern.sub(
-        lambda match: match.group(0) + "\n\t\t\t\t\tarray( 'key' => 'availability_exception', 'label' => 'Reservation integrity' ),",
+        lambda match: match.group(0)
+        + "\n\t\t\t\t\tarray( 'key' => 'availability_exception', 'label' => 'Reservation integrity' ),"
+        + "\n\t\t\t\t\tarray( 'key' => 'inbound_stock', 'label' => 'Inbound transfer', 'format' => 'number' ),"
+        + "\n\t\t\t\t\tarray( 'key' => 'reorder_position', 'label' => 'Reorder position', 'format' => 'number' ),",
         source,
         count=1,
     )
+
+    # Reports Explorer's query already provides reorder_position = sellable
+    # available + eligible dispatched-but-unreceived transfers. The Owner-only
+    # critical report must use that same field for both threshold filtering and
+    # the advisory suggestion; comparing only physical/available stock would
+    # double-count demand already covered by inbound stock.
+    critical_block_pattern = re.compile(
+        r"(if\s*\(\s*'critical_reorder'\s*===\s*\$type\s*\)\s*\{)([\s\S]*?)(\n\s*\}\s*\n\s*break;)"
+    )
+    critical_blocks = list(critical_block_pattern.finditer(source))
+    if len(critical_blocks) != 1:
+        raise ValueError("critical reorder calculation: expected exactly one Owner-only critical report block")
+    critical = critical_blocks[0].group(2)
+    available_assignment = "$available_minor = Stockland_Money::minor( $row['available_stock'] ?? '0' );"
+    position_assignment = "$position_minor = Stockland_Money::minor( $row['reorder_position'] ?? $row['available_stock'] ?? '0' );"
+    if critical.count(available_assignment) != 2:
+        raise ValueError("critical reorder calculation: expected both available_stock assignments exactly once")
+    critical = critical.replace(available_assignment, position_assignment)
+    critical = replace_literal_once(
+        critical,
+        "return $reorder_minor > 0 && $available_minor <= $reorder_minor;",
+        "return $reorder_minor > 0 && $position_minor <= $reorder_minor;",
+        "critical report threshold uses inbound-aware reorder position",
+    )
+    critical = replace_literal_once(
+        critical,
+        "$row['suggested_replenishment'] = Stockland_Money::decimal( max( 0, $reorder_minor - $available_minor ) );",
+        "$row['suggested_replenishment'] = Stockland_Money::decimal( max( 0, $reorder_minor - $position_minor ) );",
+        "critical report suggestion uses inbound-aware reorder position",
+    )
+    source = source[:critical_blocks[0].start(2)] + critical + source[critical_blocks[0].end(2):]
+
     critical_description_pattern = re.compile(
         r"(if\s*\(\s*'critical_reorder'\s*===\s*\$type\s*\)\s*\{[\s\S]*?\$description\s*=\s*)'[^']*';"
     )
@@ -426,7 +461,7 @@ def patch_php(source: str) -> str:
     if len(critical_description_matches) != 1:
         raise ValueError("critical reorder description: expected exactly one description inside the Owner-only critical_reorder branch")
     source = critical_description_pattern.sub(
-        r"\1'Owner-only read-only list. Sellable availability is max(0, physical stock less active reservations). OVER-RESERVED flags reservations exceeding physical stock; suggested replenishment is based on sellable availability.';",
+        r"\1'Owner-only read-only list. Reorder position equals sellable availability plus eligible dispatched-but-unreceived inbound transfers. Inbound does not change physical stock; OVER-RESERVED remains an integrity exception. Suggested replenishment is the non-negative quantity needed to reach the configured location threshold. No stock or purchase order is created.';",
         source,
         count=1,
     )
