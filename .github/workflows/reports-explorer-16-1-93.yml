@@ -153,6 +153,42 @@ jobs:
           assert manifest['release']=='16.1.94'
           print('PASS JSON syntax and release identity')
           PY
+      - name: Install locked WordPress Coding Standards tooling (CI only)
+        run: composer install --working-dir=ci/phpcs --no-interaction --prefer-dist --no-progress
+      - name: Run PHPCS/WPCS and reviewed security/database invariants on the final ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="build/wordpress-update/stockland-erp-app"
+          set +e
+          ci/phpcs/vendor/bin/phpcs --standard=WordPress --extensions=php --report=json --report-file=STOCKLAND_ERP_16.1.94_PHPCS_WPCS.json "$APP"
+          PHPCS_EXIT=$?
+          set -e
+          test -s STOCKLAND_ERP_16.1.94_PHPCS_WPCS.json
+          echo "Raw PHPCS exit code: $PHPCS_EXIT" > STOCKLAND_ERP_16.1.94_PHPCS_SUMMARY.txt
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path('STOCKLAND_ERP_16.1.94_PHPCS_WPCS.json').read_text(encoding='utf-8'))
+          totals=data.get('totals', {})
+          with Path('STOCKLAND_ERP_16.1.94_PHPCS_SUMMARY.txt').open('a', encoding='utf-8') as f:
+              f.write(f"errors={totals.get('errors',0)}; warnings={totals.get('warnings',0)}; fixable={totals.get('fixable',0)}\n")
+          PY
+          python ci/qa/test-phpcs-security-review.py "$APP" STOCKLAND_ERP_16.1.94_PHPCS_WPCS.json | tee STOCKLAND_ERP_16.1.94_PHPCS_SECURITY_REVIEW.txt
+      - name: Run Semgrep PHP/security-audit scan on the final ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check --upgrade semgrep
+          semgrep --version
+          semgrep scan --metrics=off --config p/php --config p/security-audit --include '*.php' --json --output STOCKLAND_ERP_16.1.94_SEMGREP.json build/wordpress-update/stockland-erp-app
+          python ci/qa/summarize-semgrep.py STOCKLAND_ERP_16.1.94_SEMGREP.json | tee STOCKLAND_ERP_16.1.94_SEMGREP_SUMMARY.txt
+      - name: Verify runtime dependency and license inventory for the final ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          python ci/qa/test-dependency-inventory.py | tee STOCKLAND_ERP_16.1.94_DEPENDENCY_POLICY_TEST.txt
+          python ci/qa/dependency-inventory.py build/wordpress-update/stockland-erp-app STOCKLAND_ERP_16.1.94_DEPENDENCY_LICENSE_INVENTORY.json | tee STOCKLAND_ERP_16.1.94_DEPENDENCY_INVENTORY_SUMMARY.txt
       - name: Publish the installable WordPress update and QA receipts
         uses: actions/upload-artifact@v4
         with:
@@ -170,5 +206,13 @@ jobs:
             STOCKLAND_ERP_16.1.94_REPORT_LOADING_QA.json
             STOCKLAND_ERP_16.1.94_REQUISITION_RESPONSIVE_QA.json
             STOCKLAND_ERP_16.1.94_ALL_WORKAREAS_QA.json
+            STOCKLAND_ERP_16.1.94_PHPCS_WPCS.json
+            STOCKLAND_ERP_16.1.94_PHPCS_SECURITY_REVIEW.txt
+            STOCKLAND_ERP_16.1.94_PHPCS_SUMMARY.txt
+            STOCKLAND_ERP_16.1.94_SEMGREP.json
+            STOCKLAND_ERP_16.1.94_SEMGREP_SUMMARY.txt
+            STOCKLAND_ERP_16.1.94_DEPENDENCY_POLICY_TEST.txt
+            STOCKLAND_ERP_16.1.94_DEPENDENCY_LICENSE_INVENTORY.json
+            STOCKLAND_ERP_16.1.94_DEPENDENCY_INVENTORY_SUMMARY.txt
           if-no-files-found: error
           retention-days: 14
