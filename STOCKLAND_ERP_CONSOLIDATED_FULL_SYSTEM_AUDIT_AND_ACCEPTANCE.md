@@ -394,17 +394,19 @@ The same local source audit found that the historical 16.1.93 package still show
 
 ### Final local visual regression rerun — 23 October 2026
 
-A presentation-only approval-history fix has now been refined to preserve the modern desktop/tablet grid while stacking approval cards on phone widths. The modal sits under `document.body`, outside `#stockland-app`; selectors are scoped to `.sl-overlay .sl-req-drawer` so the fix applies to the actual body-level drawer. Text and notes use bounded/wrapping containers and mobile flex sizing avoids an overflowing status row.
+A presentation-only approval-history patch now keeps two cards per row on desktop/tablet and stacks them on phone widths. The modal is appended under `document.body`, outside `#stockland-app`; the selectors are scoped to `.sl-overlay .sl-req-drawer`. The builder regenerates the existing ordered CSS source, `app.css` and `app.min.css` deterministically and refuses an already-present approval block that differs from the tested revision.
 
-On the historical 16.1.93 review fixture (SHA-256 `767fb1f3703c179f5cce0bfc0391c69220963723c4290b807032e30ed57c08ed`):
-- Approval history / supply-table layout: 7 viewport widths (320, 360, 390, 430, 768, 1024, 1440); 14 approval rows; no row-child overflow, no approver/status overlap, no page overflow and no browser exceptions.
-- Whole workspace: 25 views × 7 widths = 175 view/viewport combinations and six synthetic role profiles; zero blank-view failures, overflow failures, browser errors or console errors.
-- Reports: initial success → user-triggered source-read failure → explicit inline retry → success; three in-memory API responses; no duplicate toast, correct print/CSV disabled/enabled states, no 390px page overflow, no browser errors.
-- ZIP integrity/root/inventory passed (75 unique files under one plugin root); PHP lint 48/48; JS syntax; JSON parse; CSS source modules reproduce `app.css`, normalized source matches `app.min.css`, and PostCSS parses the three CSS bundles.
+**Current local review fixture:** `STOCKLAND_ERP_16.1.93_LOCAL_REVIEW_FIXTURE.zip`, SHA-256 `784bea5f7db6cee28c131d8ca4b9dea2edfea3d38115b4bead580e2344f614f5`, 1,119,373 bytes. The 75-file archive is CRC-valid, has unique filenames and one plugin root, but is not the live 16.1.94 package.
 
-An intermediate variant briefly failed the 320px child-containment assertion after changing mobile flex basis; that variant was not accepted. The final CSS was refined to `flex: 0 1 auto` for the phone approval person and the final retest passed.
+- Approval history / supply table: 7 widths (320, 360, 390, 430, 768, 1024, 1440); 14 approval rows; no row-child overflow, no approver/status overlap, no page overflow and no browser exceptions.
+- Whole workspace: 25 views × 7 widths = **175 view/viewport combinations**, and six synthetic role profiles; zero blank-view failures, overflow failures, browser errors or console errors.
+- Reports: initial success → user-triggered source-read failure → explicit inline retry → success; three in-memory API responses; no duplicate toast, print/CSV disabled/enabled appropriately, no 390px page overflow, no browser errors.
+- Package/source checks: ZIP CRC/root/inventory pass (75 files); PHP lint **48/48**; app.js/pwa.js syntax pass; release/PWA/CSS JSON parse; CSS source modules reproduce `app.css`, deterministic normalized source matches `app.min.css`, and PostCSS parses the three CSS bundles; six CSS modules and 61 media-query occurrences.
+- The draft GitHub workflow has now been extended with report recovery, desktop Product Master create, requisition/approval responsiveness, all-workarea/role smoke and modal-specific CSS/PostCSS parity checks.
 
-**Scope boundary:** this is local candidate-level UI testing with synthetic in-memory responses from historical 16.1.93. It has not been run against live 16.1.94 source or WordPress/MariaDB. It does not close backend report query failure, HR/payroll data issues, deep integrity, end-to-end transaction/accounting reconciliations, or target-host acceptance. See the updated Local Recheck Receipt and Master Acceptance document.
+**Evidence scope:** all browser tests above use synthetic in-memory REST responses and a temporary local copy. They do not prove the live database report query works, compensation data is lawfully complete, deep integrity has finished, the current 16.1.94 Cart/POS renderer is fixed, server-side role/location permissions or stock/money postings are correct, or backup/restore and rollback pass.
+
+The exact live 16.1.94 installer/source and checksum were not found in the accessible repository. The available release lineage remains 16.1.92 baseline → 16.1.93 candidate. The latest branch changes have no exact-head Actions receipt; previously green runs are from 20 October. The live screen still reports nine missing compensation records. Those issues keep the release NO-GO even though local UI checks pass.
 
 ### Updated disposition
 
