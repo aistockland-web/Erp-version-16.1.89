@@ -9,6 +9,7 @@ on:
       - 'ci/patch_production_hardening.py'
       - 'ci/management_intelligence_fragment.js'
       - 'ci/qa/test_reports_explorer.py'
+      - 'ci/qa/verify_final_package.py'
       - 'ci/qa/test_reports_loading.py'
       - 'ci/qa/test_requisition_responsive.py'
       - 'ci/qa/test_all_workareas_responsive.py'
@@ -70,6 +71,12 @@ jobs:
           set -euo pipefail
           python3 ci/patch_reports_explorer.py | tee STOCKLAND_ERP_16.1.93_BUILD_RECEIPT.json
           sha256sum STOCKLAND_ERP_16.1.93_WORDPRESS_UPDATE.zip > STOCKLAND_ERP_16.1.93_WORDPRESS_UPDATE.zip.sha256
+          python3 ci/qa/verify_final_package.py \
+            --baseline STOCKLAND_ERP_16.1.92_CANONICAL_WORDPRESS_UPDATE.zip \
+            --package STOCKLAND_ERP_16.1.93_WORDPRESS_UPDATE.zip \
+            --sha256 STOCKLAND_ERP_16.1.93_WORDPRESS_UPDATE.zip.sha256 \
+            --build-receipt STOCKLAND_ERP_16.1.93_BUILD_RECEIPT.json \
+            --output STOCKLAND_ERP_16.1.93_FINAL_PACKAGE_RECEIPT.json | tee STOCKLAND_ERP_16.1.93_FINAL_PACKAGE_GATE.txt
           mkdir -p build/wordpress-update
           unzip -q STOCKLAND_ERP_16.1.93_WORDPRESS_UPDATE.zip -d build/wordpress-update
       - name: Install pinned Playwright browser test dependency
@@ -141,6 +148,8 @@ jobs:
             STOCKLAND_ERP_16.1.93_WORDPRESS_UPDATE.zip.sha256
             STOCKLAND_ERP_16.1.93_LOCAL_QA_RESULTS.txt
             STOCKLAND_ERP_16.1.93_BUILD_RECEIPT.json
+            STOCKLAND_ERP_16.1.93_FINAL_PACKAGE_RECEIPT.json
+            STOCKLAND_ERP_16.1.93_FINAL_PACKAGE_GATE.txt
             STOCKLAND_ERP_16.1.93_PHP_LINT.txt
             STOCKLAND_ERP_16.1.93_DESKTOP_BUTTON_QA.json
             STOCKLAND_ERP_16.1.93_REPORT_LOADING_QA.json
