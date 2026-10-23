@@ -24,14 +24,23 @@ for (const file of ['app.css', 'app.min.css', 'bootstrap.min.css']) {
 const source = chunks.join('\n');
 for (const [selector, label] of [
   ['.sl-payroll-readiness-reasons', 'payroll diagnostics styling'],
-  ['.sl-mobile-menu', 'mobile navigation styling']
+  ['.sl-mobile-menu', 'mobile navigation styling'],
+  ['.sl-overlay .sl-req-drawer .sl-approval-grid', 'body-level requisition approval drawer layout'],
+  ['.sl-overlay .sl-req-drawer .sl-approval-person small', 'approval name and timestamp wrapping']
 ]) {
   if (!source.includes(selector)) throw new Error('Missing ' + label);
   console.log('PASS ' + label);
+}
+if (!/@media\s*\(max-width\s*:\s*767px\)/.test(source)) {
+  throw new Error('Phone approval drawer breakpoint (767px) is missing');
+}
+if (!/flex:\s*0 1 auto/.test(source) || !/overflow-wrap:\s*anywhere/.test(source)) {
+  throw new Error('Approval label/status wrapping and flex sizing protection is missing');
 }
 const mediaRules = (source.match(/@media\b/g) || []).length;
 if (mediaRules < 5 || !/max-width\s*:/.test(source)) {
   throw new Error('Responsive breakpoint coverage missing: expected at least five @media blocks and a max-width breakpoint');
 }
+console.log('PASS requisition approval phone/tablet/desktop CSS guards');
 console.log('PASS responsive media-query coverage (' + mediaRules + ' @media rules)');
 console.log('PASS ordered CSS source/build/minified equivalence');
