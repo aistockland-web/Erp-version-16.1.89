@@ -356,5 +356,35 @@ The final exact-head package must exercise the previously affected report as wel
 - No source-wide blanket replacements for terms such as “server,” “AP,” or “AR.” Review each occurrence and prove its role before editing.
 - Do not call any audit finding closed solely because a document was added. The package must be rebuilt, tested at the exact final source head, reviewed, then accepted on the authenticated target host with a verified backup/restore and rollback plan.
 
+
+## Latest Owner-provided live 16.1.94 Health and mobile UI evidence — 23 October 2026
+
+The Owner supplied a current System Health text dump and phone screenshots from `stocklanderp.ct.ws`. This is reported live evidence, not an authenticated session performed by the audit runner.
+
+### Runtime identity / source mismatch
+
+- Live screen reports Plugin **16.1.94**, DB **16.1.1**, PHP **8.4.27**, WordPress **7.1.3**, MariaDB **11.4.13**, memory limit **512M**, upload/POST limits **20M/30M**.
+- It reports Core **29/29**, Full ERP **49/49**, REST v16 **104 routes**. These are useful schema/route-presence checks; they do not independently prove full business transaction coverage.
+- The connected review branch being audited remains a 16.1.93 candidate built from a 16.1.92 package. No 16.1.94 plugin ZIP/source is present in this branch. Therefore, do not upload this branch's ZIP as an update over live 16.1.94 and do not modify its older POS/cart markup as though it were the exact installed page. Obtain and checksum the actual deployed 16.1.94 package first.
+
+### Payroll data gate
+
+The latest copied Health text reports **9 active employee records** with the reason “Current compensation record is missing”; `payroll_compensation_classification` is the failed production gate. The check expressly states it does not change salaries/classifications. This count supersedes older reports of seven affected employees. HR/Owner must review actual contracts and effective compensation through authorized workflows. No values can be synthesized or auto-filled to obtain PASS.
+
+### Deep-integrity state must be tied to one completed run
+
+The latest pasted text reports PASS labels for audit-chain, ledger references, no-negative-stock, balance reconciliation, reservation integrity, AP/AR, GL balance, procurement references and identifier integrity, and says the supplemental bounded scan is clean. It also reports that database foreign-key metadata is **NOT_ENFORCED**. In a separate supplied screenshot, the red panel explicitly labels the broader deep audit **UNVERIFIED** and lists audit-chain hash, ledger/PLEDGER/AP/AR/GL/orphan, reservation, duplicate identifier, payroll and import/workflow checks as pending. Without a shared run ID, timestamps and per-check completion receipt, these panels cannot prove that the complete deep scan finished. Treat the full deep result as UNKNOWN/UNVERIFIED until a completed read-only receipt demonstrates every required check; keep supplemental bounded results separate. Never infer SQL foreign keys from application orphan checks.
+
+### Reporting failure and mobile layout
+
+- Reports screenshot: the live report call returns “The report could not read every required source. No partial totals were returned.” This fail-closed behavior is safer than fabricated totals, but the source/database read failure is still an operational blocker. Diagnose the failing report source using sanitized diagnostics and preserve the explicit error/retry behavior; do not widen access or coerce the response to zero.
+- The same screen shows an inline error plus a second large red toast obscuring the report. Remove duplicate/intrusive presentation only after exact 16.1.94 source is recovered; keep one accessible message and working retry/Health path.
+- Requisition/warehouse screenshot shows the approver/decision/status/timestamp text colliding and the supply-line table occupying a horizontally clipped area. The Owner separately reports the Cart page is visually unusable. Fix the actual 16.1.94 renderer and its CSS without altering protected handlers, approval states, stock/GL/audit effects or idempotency.
+- CAP register has been extended with CAP-25 (mobile Cart/requisition/approval layout), CAP-26 (deep Health completion semantics), CAP-27 (report error presentation/source failure), CAP-28 (16.1.94 source parity), CAP-29 (single master end-to-end acceptance) and CAP-30 (Cart/POS correction on exact current source).
+
+### Updated disposition
+
+**NO-GO for installation/update.** Current evidence contains a real payroll gate failure, a failed live report source read and mobile UI defects, and the review package is older than the installed release. The master acceptance plan is linked in `STOCKLAND_ERP_MASTER_END_TO_END_ACCEPTANCE_16.1.94.md`. Corrective documentation does not close the code, data or host acceptance gates. No deployment or live data mutation was performed by this review.
+
 **Updated disposition: NOT APPROVED FOR WORDPRESS INSTALLATION until the exact current artifact has been built and verified, the HR-to-final-settlement SOP lifecycle is evidenced, host/source cleanup is complete without deleting legitimate ERP services, the earlier report-loading fix is proven retained, all existing CAP blockers are closed, and the Owner approves the evidence.**
 
