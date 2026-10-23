@@ -1,10 +1,11 @@
-name: Reports Explorer 16.1.93 exact-package gates
+name: Cumulative Stockland ERP 16.1.94 exact-package gates
 
 on:
   pull_request:
     branches: [main]
     paths:
       - 'ci/patch_reports_explorer.py'
+      - 'ci/finalize_release_16_1_94.py'
       - 'ci/patch_stock_reconciliation.py'
       - 'ci/patch_production_hardening.py'
       - 'ci/management_intelligence_fragment.js'
@@ -17,7 +18,7 @@ on:
       - 'ci/cssqa/package.json'
       - 'ci/cssqa/package-lock.json'
       - 'ci/qa/test_desktop_product_create.py'
-      - 'STOCKLAND_ERP_16.1.93_DESKTOP_PRODUCT_CREATE_AUDIT.md'
+      - 'STOCKLAND_ERP_16.1.94_DESKTOP_PRODUCT_CREATE_AUDIT.md'
       - '.github/workflows/reports-explorer-16-1-93.yml'
       - 'STOCKLAND_ERP_16.1.92_CANONICAL_WORDPRESS_UPDATE.zip'
       - 'STOCKLAND_ERP_16.1.92_CANONICAL_WORDPRESS_UPDATE.zip.sha256'
@@ -64,37 +65,44 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 ci/qa/test_reports_explorer.py | tee STOCKLAND_ERP_16.1.93_LOCAL_QA_RESULTS.txt
+          python3 ci/qa/test_reports_explorer.py | tee STOCKLAND_ERP_16.1.94_LOCAL_QA_RESULTS.txt
       - name: Build the consolidated WordPress update package
         shell: bash
         run: |
           set -euo pipefail
           python3 ci/patch_reports_explorer.py | tee STOCKLAND_ERP_16.1.93_BUILD_RECEIPT.json
-          sha256sum STOCKLAND_ERP_16.1.93_WORDPRESS_UPDATE.zip > STOCKLAND_ERP_16.1.93_WORDPRESS_UPDATE.zip.sha256
+          sha256sum STOCKLAND_ERP_16.1.94_CANONICAL_WORDPRESS_UPDATE.zip > STOCKLAND_ERP_16.1.94_CANONICAL_WORDPRESS_UPDATE.zip.sha256
           python3 ci/qa/verify_final_package.py \
             --baseline STOCKLAND_ERP_16.1.92_CANONICAL_WORDPRESS_UPDATE.zip \
-            --package STOCKLAND_ERP_16.1.93_WORDPRESS_UPDATE.zip \
-            --sha256 STOCKLAND_ERP_16.1.93_WORDPRESS_UPDATE.zip.sha256 \
+            --package STOCKLAND_ERP_16.1.94_CANONICAL_WORDPRESS_UPDATE.zip \
+            --sha256 STOCKLAND_ERP_16.1.94_CANONICAL_WORDPRESS_UPDATE.zip.sha256 \
             --build-receipt STOCKLAND_ERP_16.1.93_BUILD_RECEIPT.json \
-            --output STOCKLAND_ERP_16.1.93_FINAL_PACKAGE_RECEIPT.json | tee STOCKLAND_ERP_16.1.93_FINAL_PACKAGE_GATE.txt
+            --output STOCKLAND_ERP_16.1.94_CANONICAL_WORDPRESS_UPDATE.receipt.json | tee STOCKLAND_ERP_16.1.94_FINAL_PACKAGE_GATE.txt
           mkdir -p build/wordpress-update
-          unzip -q STOCKLAND_ERP_16.1.93_WORDPRESS_UPDATE.zip -d build/wordpress-update
+          unzip -q STOCKLAND_ERP_16.1.94_CANONICAL_WORDPRESS_UPDATE.zip -d build/wordpress-update
+      - name: Finalize cumulative WordPress update 16.1.94
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 ci/finalize_release_16_1_94.py STOCKLAND_ERP_16.1.94_CANONICAL_WORDPRESS_UPDATE.zip --output STOCKLAND_ERP_16.1.94_CANONICAL_WORDPRESS_UPDATE.zip
+          sha256sum --check STOCKLAND_ERP_16.1.94_CANONICAL_WORDPRESS_UPDATE.zip.sha256
+          unzip -oq STOCKLAND_ERP_16.1.94_CANONICAL_WORDPRESS_UPDATE.zip -d build/wordpress-update
       - name: Install pinned Playwright browser test dependency
         run: |
           python3 -m pip install --disable-pip-version-check 'playwright==1.57.0'
           python3 -m playwright install --with-deps chromium
       - name: Test desktop Product Master click-to-create chain across wide viewports
         run: |
-          python3 ci/qa/test_desktop_product_create.py STOCKLAND_ERP_16.1.93_WORDPRESS_UPDATE.zip | tee STOCKLAND_ERP_16.1.93_DESKTOP_BUTTON_QA.json
+          python3 ci/qa/test_desktop_product_create.py STOCKLAND_ERP_16.1.94_CANONICAL_WORDPRESS_UPDATE.zip | tee STOCKLAND_ERP_16.1.94_DESKTOP_BUTTON_QA.json
       - name: Test Reports loading failure, retry, and success recovery
         run: |
-          python3 ci/qa/test_reports_loading.py STOCKLAND_ERP_16.1.93_WORDPRESS_UPDATE.zip | tee STOCKLAND_ERP_16.1.93_REPORT_LOADING_QA.json
+          python3 ci/qa/test_reports_loading.py STOCKLAND_ERP_16.1.94_CANONICAL_WORDPRESS_UPDATE.zip | tee STOCKLAND_ERP_16.1.94_REPORT_LOADING_QA.json
       - name: Test requisition approval history and supply tables at mobile/desktop widths
         run: |
-          python3 ci/qa/test_requisition_responsive.py STOCKLAND_ERP_16.1.93_WORDPRESS_UPDATE.zip | tee STOCKLAND_ERP_16.1.93_REQUISITION_RESPONSIVE_QA.json
+          python3 ci/qa/test_requisition_responsive.py STOCKLAND_ERP_16.1.94_CANONICAL_WORDPRESS_UPDATE.zip | tee STOCKLAND_ERP_16.1.94_REQUISITION_RESPONSIVE_QA.json
       - name: Smoke-test all ERP work areas and role navigation at phone/desktop widths
         run: |
-          python3 ci/qa/test_all_workareas_responsive.py STOCKLAND_ERP_16.1.93_WORDPRESS_UPDATE.zip | tee STOCKLAND_ERP_16.1.93_ALL_WORKAREAS_QA.json
+          python3 ci/qa/test_all_workareas_responsive.py STOCKLAND_ERP_16.1.94_CANONICAL_WORDPRESS_UPDATE.zip | tee STOCKLAND_ERP_16.1.94_ALL_WORKAREAS_QA.json
       - name: Verify compiled CSS, source-module parity, and PostCSS parse
         shell: bash
         run: |
@@ -105,24 +113,34 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          sha256sum --check STOCKLAND_ERP_16.1.93_WORDPRESS_UPDATE.zip.sha256
+          sha256sum --check STOCKLAND_ERP_16.1.94_CANONICAL_WORDPRESS_UPDATE.zip.sha256
           python3 - <<'PY'
           import zipfile
           from pathlib import Path
-          p = Path('STOCKLAND_ERP_16.1.93_WORDPRESS_UPDATE.zip')
+          p = Path('STOCKLAND_ERP_16.1.94_CANONICAL_WORDPRESS_UPDATE.zip')
           with zipfile.ZipFile(p) as z:
               assert z.testzip() is None, 'WordPress ZIP CRC failure'
               names = [i.filename for i in z.infolist() if not i.is_dir()]
               assert len(names) == 75 and len(names) == len(set(names)), 'WordPress package inventory changed'
               assert all(n.startswith('stockland-erp-app/') and '..' not in n.split('/') for n in names), 'Unsafe ZIP path'
               assert 'stockland-erp-app/includes/rest/class-rest-inventory-report-v16.php' in names
-          print('PASS installable WordPress update archive, 75 plugin files')
+              assert z.read('stockland-erp-app/RELEASE_MANIFEST.json')
+              import json
+              manifest=json.loads(z.read('stockland-erp-app/RELEASE_MANIFEST.json').decode('utf-8'))
+              modules=json.loads(z.read('stockland-erp-app/assets/css/modules.json').decode('utf-8'))
+              entry=z.read('stockland-erp-app/stockland-inventory.php').decode('utf-8')
+              front=z.read('stockland-erp-app/includes/class-stockland-frontend.php').decode('utf-8')
+              assert manifest['release']=='16.1.94' and modules['release']=='16.1.94'
+              assert "Version:           16.1.94" in entry and "define( 'STOCKLAND_VERSION', '16.1.94' );" in entry
+              assert "const ROUTE_VERSION      = '16.1.94';" in front
+              assert manifest['schema_contract']['total']==49
+          print('PASS cumulative 16.1.94 WordPress update archive, 75 plugin files and version/schema markers')
           PY
       - name: Lint every packaged PHP file
         shell: bash
         run: |
           set -euo pipefail
-          find build/wordpress-update/stockland-erp-app -type f -name '*.php' -print0 | xargs -0 -n1 php -l | tee STOCKLAND_ERP_16.1.93_PHP_LINT.txt
+          find build/wordpress-update/stockland-erp-app -type f -name '*.php' -print0 | xargs -0 -n1 php -l | tee STOCKLAND_ERP_16.1.94_PHP_LINT.txt
       - name: Check JavaScript syntax
         run: |
           node --check build/wordpress-update/stockland-erp-app/assets/app.js
@@ -136,25 +154,25 @@ jobs:
           for name in ('RELEASE_MANIFEST.json','assets/manifest.json','assets/css/modules.json'):
               json.loads((root/name).read_text(encoding='utf-8'))
           manifest=json.loads((root/'RELEASE_MANIFEST.json').read_text())
-          assert manifest['release']=='16.1.93'
+          assert manifest['release']=='16.1.94'
           print('PASS JSON syntax and release identity')
           PY
       - name: Publish the installable WordPress update and QA receipts
         uses: actions/upload-artifact@v4
         with:
-          name: STOCKLAND-ERP-16.1.93-WordPress-Update
+          name: STOCKLAND-ERP-16.1.94-Cumulative-WordPress-Update
           path: |
-            STOCKLAND_ERP_16.1.93_WORDPRESS_UPDATE.zip
-            STOCKLAND_ERP_16.1.93_WORDPRESS_UPDATE.zip.sha256
-            STOCKLAND_ERP_16.1.93_LOCAL_QA_RESULTS.txt
+            STOCKLAND_ERP_16.1.94_CANONICAL_WORDPRESS_UPDATE.zip
+            STOCKLAND_ERP_16.1.94_CANONICAL_WORDPRESS_UPDATE.zip.sha256
+            STOCKLAND_ERP_16.1.94_LOCAL_QA_RESULTS.txt
             STOCKLAND_ERP_16.1.93_BUILD_RECEIPT.json
-            STOCKLAND_ERP_16.1.93_FINAL_PACKAGE_RECEIPT.json
-            STOCKLAND_ERP_16.1.93_FINAL_PACKAGE_GATE.txt
-            STOCKLAND_ERP_16.1.93_PHP_LINT.txt
-            STOCKLAND_ERP_16.1.93_DESKTOP_BUTTON_QA.json
-            STOCKLAND_ERP_16.1.93_REPORT_LOADING_QA.json
-            STOCKLAND_ERP_16.1.93_REQUISITION_RESPONSIVE_QA.json
-            STOCKLAND_ERP_16.1.93_ALL_WORKAREAS_QA.json
-            STOCKLAND_ERP_16.1.93_DESKTOP_PRODUCT_CREATE_AUDIT.md
+            STOCKLAND_ERP_16.1.94_CANONICAL_WORDPRESS_UPDATE.receipt.json
+            STOCKLAND_ERP_16.1.94_FINAL_PACKAGE_GATE.txt
+            STOCKLAND_ERP_16.1.94_PHP_LINT.txt
+            STOCKLAND_ERP_16.1.94_DESKTOP_BUTTON_QA.json
+            STOCKLAND_ERP_16.1.94_REPORT_LOADING_QA.json
+            STOCKLAND_ERP_16.1.94_REQUISITION_RESPONSIVE_QA.json
+            STOCKLAND_ERP_16.1.94_ALL_WORKAREAS_QA.json
+            STOCKLAND_ERP_16.1.94_DESKTOP_PRODUCT_CREATE_AUDIT.md
           if-no-files-found: error
           retention-days: 14
