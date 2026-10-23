@@ -4,6 +4,18 @@
 **Baseline:** audited canonical 16.1.92 installer  
 **Disposition:** consolidated review plan; no live deployment, live-data mutation, schema migration, or release certification.
 
+## Latest release correction — 23 October 2026
+
+The Owner clarified that WordPress was restored to **16.1.93**. Therefore the current release target is **16.1.94 from 16.1.93**. References to a currently installed 16.1.94 in earlier screenshot evidence are historical and are superseded by this correction.
+
+**Local package candidate:** `STOCKLAND_ERP_16.1.94_CANONICAL_WORDPRESS_UPDATE.zip`  
+**SHA-256:** `28eb4414bf975058288c353783b82e091c61132a2eb1e9f02b70675d331e96c6`  
+**Size:** 1,103,911 bytes · **75 unique plugin files** · one `stockland-erp-app/` root.
+
+The local cumulative package passed ZIP CRC/root/inventory, 48/48 PHP lint, JavaScript and JSON syntax, CSS/PostCSS source/build parity, PHP 8.3+ diagnostics/domain markers, POS layout geometry across 14 widths, and synthetic-browser checks across 338 view/viewport combinations on 26 views and six role profiles. Reports failure/retry and requisition approval layout also passed local mocked-API checks. The generated local receipt is `STOCKLAND_ERP_16.1.94_LOCAL_RELEASE_RECEIPT.md`.
+
+These tests did not access or modify live WordPress/MariaDB records. **Exact-head GitHub Actions is still pending**; the older green run receipts target earlier commits. The nine employee compensation exceptions, independent statutory payroll signoff, full HR-to-final-settlement coverage, complete deep-audit receipt, live report SQL/source diagnosis, stock/ETB/AP/AR/PLEDGER/GL posting reconciliation, REST role/location security, import replay/idempotency, backup/restore/rollback and owner approval remain open. Thus the candidate has a **local package pass only**, not production certification.
+
 ## 1. Source identity and checks already observed
 
 - Baseline ZIP: `STOCKLAND_ERP_16.1.92_CANONICAL_WORDPRESS_UPDATE.zip`
@@ -12,7 +24,7 @@
 - Required database contract: 29 Core + 16 Accounting/Procurement + 4 HR/Payroll = 49 tables.
 - 16.1.93 candidate remains on the existing draft PR; do not create a separate release for each defect.
 - Local inspection of the downloaded candidate: 75 files, 48 PHP files; PHP syntax pass 48/48; `assets/app.js` and `assets/pwa.js` parse with Node; release manifest, PWA manifest, and CSS module manifest parse as JSON.
-- Existing GitHub candidate CI, desktop click regression, deep-source/security and enterprise-security gates reported success for the PR head. These are source/package gates, not authenticated live ERP acceptance.
+- Existing successful GitHub Actions receipts target older commits from 20 October; the current cumulative 16.1.94 source head has no exact-head Actions receipt observed. Do not treat earlier green workflow runs as certification of the current candidate.
 
 ## 2. Binding business specification
 
