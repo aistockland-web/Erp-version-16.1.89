@@ -8,6 +8,24 @@
 **Related CAP:** [STOCKLAND_ERP_16.1.93_CAP_REGISTER_AND_ACCEPTANCE_CHECKLIST.md](STOCKLAND_ERP_16.1.93_CAP_REGISTER_AND_ACCEPTANCE_CHECKLIST.md)  
 **Related full audit:** [STOCKLAND_ERP_CONSOLIDATED_FULL_SYSTEM_AUDIT_AND_ACCEPTANCE.md](STOCKLAND_ERP_CONSOLIDATED_FULL_SYSTEM_AUDIT_AND_ACCEPTANCE.md)
 
+## Current release boundary — Owner correction, 23 October 2026
+
+**Supersedes earlier assumptions about the currently installed version.** The Owner has clarified that WordPress was restored to **16.1.93**. The target is now a cumulative **16.1.94 update from 16.1.93**; the earlier screenshots showing 16.1.94 were captured before the restore.
+
+A local cumulative candidate has been created and checked:
+
+- Package: `STOCKLAND_ERP_16.1.94_CANONICAL_WORDPRESS_UPDATE.zip`
+- SHA-256: `28eb4414bf975058288c353783b82e091c61132a2eb1e9f02b70675d331e96c6`
+- Size: 1,103,911 bytes; 75 unique plugin files; one `stockland-erp-app/` root.
+- Local PASS: ZIP CRC/inventory; 48/48 PHP syntax; JS and JSON; CSS/PostCSS source/build parity; PHP 8.3+ diagnostic cleanup; archive marker scan; POS responsive geometry at 14 widths; 338 view/viewport frontend combinations over 26 views and six synthetic role profiles; report failure → one inline error/Retry → successful retry.
+- Test APIs were synthetic/intercepted; production WordPress and MariaDB were not touched. Local package PASS is not proof of live SQL/authorization/transaction correctness.
+
+**Still open before production certification:** exact-head GitHub Actions build/QA receipt; target-host backup/restore/rollback; the nine reported missing compensation records and independent statutory payroll approval; full HR life-cycle acceptance through final settlement; complete deep-integrity receipt; live report-source/database error diagnosis; end-to-end stock/ETB/AP/AR/PLEDGER/GL reconciliation; server-side role/location-denial tests; import exact-once/replay and audit rollback. No salaries or historical business records were changed or seeded.
+
+The 16.1.93 → 16.1.94 package lineage is now explicit. References elsewhere in this document to “current live 16.1.94” describe the earlier Health screenshot and are historical evidence, not a statement of the currently restored version.
+
+[Local release receipt](STOCKLAND_ERP_16.1.94_LOCAL_RELEASE_RECEIPT.md) · [CAP register](STOCKLAND_ERP_16.1.93_CAP_REGISTER_AND_ACCEPTANCE_CHECKLIST.md) · [Consolidated audit](STOCKLAND_ERP_CONSOLIDATED_FULL_SYSTEM_AUDIT_AND_ACCEPTANCE.md)
+
 ## 1. The single project target
 
 Deliver one complete, operational Stockland Ethiopia ERP for the existing business—not another sample app, alternative architecture, or documentation-only pass. Match the *control outcomes* expected from mature ERP/SaaS systems (role separation, end-to-end workflows, approvals, traceability, exact-once posting, inventory/accounting reconciliation, safe imports, reliable reporting and responsive work areas) while implementing Stockland's own SOPs and staying compatible with its hosting environment. “100% identical to Odoo/SAP” is not a verifiable or suitable engineering requirement; **100% of Stockland's approved operational requirements and release acceptance controls must pass** before making a production-ready claim.
