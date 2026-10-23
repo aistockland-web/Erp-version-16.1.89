@@ -419,11 +419,16 @@ def patch_php(source: str) -> str:
         source,
         count=1,
     )
-    source = replace_literal_once(
+    critical_description_pattern = re.compile(
+        r"(if\s*\(\s*'critical_reorder'\s*===\s*\$type\s*\)\s*\{[\s\S]*?\$description\s*=\s*)'[^']*';"
+    )
+    critical_description_matches = list(critical_description_pattern.finditer(source))
+    if len(critical_description_matches) != 1:
+        raise ValueError("critical reorder description: expected exactly one description inside the Owner-only critical_reorder branch")
+    source = critical_description_pattern.sub(
+        r"\1'Owner-only read-only list. Sellable availability is max(0, physical stock less active reservations). OVER-RESERVED flags reservations exceeding physical stock; suggested replenishment is based on sellable availability.';",
         source,
-        "Available stock equals physical stock less active reservations; suggested replenishment is the minimum quantity needed to reach the configured reorder level.",
-        "Sellable availability is max(0, physical stock less active reservations). OVER-RESERVED flags reservations exceeding physical stock; suggested replenishment is based on sellable availability.",
-        "critical reorder description",
+        count=1,
     )
 
     source = replace_literal_once(
