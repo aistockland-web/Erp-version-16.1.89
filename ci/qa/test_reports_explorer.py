@@ -180,7 +180,7 @@ def main():
             ("$position_minor <= $reorder_minor", "inbound-aware reorder threshold"),
             ("Stockland_Money::decimal( max( 0, $reorder_minor - $position_minor ) )", "decimal-safe inbound-aware proposed replenishment"),
             ("COALESCE(i.inbound_stock,0) inbound_stock", "report separates inbound from physical stock"),
-            ("COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0)+COALESCE(i.inbound_stock,0) reorder_position", "reorder position combines available stock and dispatched inbound"),
+            ("GREATEST(0,COALESCE(b.physical_stock,0)-COALESCE(a.reserved_stock,0))+COALESCE(i.inbound_stock,0) reorder_position", "reorder position combines floored sellable availability and eligible inbound"),
             ("t.status='In Transit'", "only explicitly in-transit transfers count"),
             ("AND l.is_active=1", "inactive locations excluded from reorder report"),
             ("'key' => 'reorder_position', 'label' => 'Reorder position'", "inbound-aware position displayed"),
