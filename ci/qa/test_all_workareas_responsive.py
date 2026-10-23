@@ -203,6 +203,12 @@ async def run_candidate(archive_path: Path) -> dict:
                     snap = await page.evaluate("""() => {
                       const content = document.querySelector('#sl-content .sl-content-inner');
                       const title = content?.querySelector('.sl-page-title h2')?.textContent?.trim() || '';
+                      const posForm = document.getElementById('posForm');
+                      const posSubmit = posForm?.querySelector('button[type="submit"]');
+                      const rect = node => {
+                        const r = node.getBoundingClientRect();
+                        return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height};
+                      };
                       return {
                         viewport: innerWidth,
                         documentWidth: document.documentElement.scrollWidth,
@@ -210,7 +216,13 @@ async def run_candidate(archive_path: Path) -> dict:
                         title,
                         hasContent: !!content && content.innerHTML.trim().length > 0,
                         scrollContentWidth: content?.scrollWidth || 0,
-                        clientContentWidth: content?.clientWidth || 0
+                        clientContentWidth: content?.clientWidth || 0,
+                        pos: posForm ? {
+                          form: rect(posForm),
+                          submit: posSubmit ? rect(posSubmit) : null,
+                          grid: getComputedStyle(posForm).gridTemplateColumns,
+                          controls: [...posForm.querySelectorAll('input,select,textarea')].map(rect)
+                        } : null
                       };
                     }""")
                     if not snap["hasContent"]:
@@ -221,6 +233,20 @@ async def run_candidate(archive_path: Path) -> dict:
                             "documentWidth": snap["documentWidth"], "bodyWidth": snap["bodyWidth"],
                             "title": snap["title"],
                         })
+                    if view == "pos":
+                        if not snap["pos"]:
+                            failures.append({"type": "pos_form_missing", "width": width})
+                        else:
+                            for label, node in (("form", snap["pos"]["form"]), ("submit", snap["pos"]["submit"])):
+                                if not node or node["left"] < -1 or node["right"] > width + 1:
+                                    failures.append({"type": "pos_control_outside_viewport", "width": width, "node": label, "pos": snap["pos"]})
+                            for control in snap["pos"]["controls"]:
+                                if control["left"] < -1 or control["right"] > width + 1:
+                                    failures.append({"type": "pos_field_outside_viewport", "width": width, "control": control})
+                            if width <= 767 and len(snap["pos"]["grid"].split()) > 1:
+                                failures.append({"type": "pos_mobile_form_not_single_column", "width": width, "grid": snap["pos"]["grid"]})
+                            if width <= 767 and snap["pos"]["submit"] and snap["pos"]["submit"]["height"] < 48:
+                                failures.append({"type": "pos_mobile_submit_target_too_small", "width": width, "submit": snap["pos"]["submit"]})
                     view_results.append({
                         "width": width, "view": view, "title": snap["title"],
                         "overflow": snap["documentWidth"] > width + 1 or snap["bodyWidth"] > width + 1,
