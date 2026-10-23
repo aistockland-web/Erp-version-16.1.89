@@ -207,3 +207,26 @@ The current branch has now added a final-package attestation to the builder, a n
 ## 12. Release decision
 
 **Current decision: NO-GO.** This is not a statement that the live ERP is wholly down; it is a statement that the evidence supplied contains a failing payroll readiness gate, a report source-read error and serious mobile UI defects, while the branch package under review is older than the installed plugin. The next approved installer must correct these issues on the true 16.1.94 baseline and prove the complete Stockland SOP end-to-end. Do not claim “100% operational” until every critical row in the master matrix has current evidence and Owner sign-off.
+
+
+## 13. Latest cumulative build evidence and exact current release boundary — 23 October 2026
+
+### Complete successful Actions run for the current runtime patch chain
+
+[Run 40015618628](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/40015618628) completed **SUCCESS** on commit `34f56f11856ff2d1b0294e01e11b7eb50b83e72c`. It passed the baseline archive identity check, Reports Explorer/stock regression test, cumulative patch chain, 16.1.94 finalizer and receipt verifier, desktop Product Master click-to-create, report failure/retry, requisition approval responsiveness, whole-work-area/role smoke, CSS/PostCSS parity, package ZIP/version/schema checks, 48 PHP lint files, JavaScript syntax and release JSON.
+
+Published artifact: `STOCKLAND-ERP-16.1.94-Cumulative-WordPress-Update`, Actions artifact ID `12527164862`, outer archive SHA-256 `f2400061eed2cf70fe6456e9ff6d1522c82f7fa9b3c03ddf4c6fc40f3c3c9465`. The inner `STOCKLAND_ERP_16.1.94_CANONICAL_WORDPRESS_UPDATE.zip` has SHA-256 `1b1623a7f1a2db77143d6c6f8a8663bde7a74ef72f1a8bcddffd52d2c8e50e8d`, size 1,100,451 bytes, 75 unique files/one plugin root, version markers 16.1.94, DB marker 16.1.1, and a 49-table contract. The ZIP sidecar and final receipt match the inner ZIP bytes.
+
+### Receipt correction and latest exact-head status
+
+Inspection of artifact 12527164862 found one evidence quality issue: `STOCKLAND_ERP_16.1.94_DESKTOP_BUTTON_QA.json` was 0 bytes, despite the desktop test step returning success. The test now returns structured JSON and accepts an explicit `--receipt` destination; the workflow invokes that option and fails on an empty receipt.
+
+The latest runtime-source head is `93f88facf9028b77af57b1bebf44f445fd5153e5`; run [40015844983](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/40015844983) remains marked **IN_PROGRESS** at pinned Playwright browser setup in the latest available status. It has not yet published an artifact containing the corrected non-empty desktop receipt. The earlier run remains a successful package/runtime result, while the newer receipt correction is pending its own completed proof. Documentation-only commits do not change the plugin ZIP, but release sign-off must cite the final completed run and its actual artifact.
+
+### What the candidate does and does not establish
+
+The 16.1.94 candidate is generated from the audited 16.1.92 baseline through the consolidated 16.1.93 patch chain and then finalized to the 16.1.94 target. It is not a restored or checksum-verified copy of the current deployed 16.1.94 plugin. The Owner's live Health screen identifies 16.1.94 / DB 16.1.1, so CAP-28 remains OPEN until the actual deployed folder/ZIP source and checksum can be compared and protected live behavior—including its multi-line Cart/POS renderer—is proved preserved.
+
+Local/CI fixture checks do not close these external gates: nine real active employee compensation rows require authorized HR/Owner resolution; the full HR lifecycle through final settlement needs an approved SOP-to-workflow matrix and expected-value acceptance; Ethiopian payroll rule/legal review requires responsible local sign-off; the full deep read-only integrity audit needs one completed run ID/timestamp/per-check receipt; the live report source-read failure needs actual database/query diagnosis; AP/AR/COGS/VAT/PLEDGER/GL and stock transactions need independently expected ETB/quantity reconciliation; server-side role/location denial, import idempotency, audit rollback and host backup/restore/rollback must be verified; and authenticated target-host acceptance plus Owner approval are still missing.
+
+**Release disposition: package-build PASS on run 40015618628; final receipt correction pending on run 40015844983; NOT CERTIFIED for installation over the current live 16.1.94 until source parity and live/data gates close.** See the [CAP register](STOCKLAND_ERP_16.1.93_CAP_REGISTER_AND_ACCEPTANCE_CHECKLIST.md) for individual statuses.
