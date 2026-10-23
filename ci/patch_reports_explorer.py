@@ -778,21 +778,20 @@ Microsoft Entra sign-in, Teams and Slack require owner-provided provider applica
 APPROVAL_LAYOUT_MARKER = "/* Requisition approval routing — keep decisions readable on phones and desktop."
 APPROVAL_LAYOUT_CSS = """/* Requisition approval routing — keep decisions readable on phones and desktop.
  * Modal markup is appended to document.body, outside #stockland-app; scope to its overlay.
- * Each decision receives a full-width row so long labels/notes cannot push status pills
- * across adjacent cards or beyond the drawer. Presentation only; no workflow changes.
+ * Keep two approval cards per row on tablets/desktops, with one full-width card per row on phones.
+ * Allow long names, notes and status pills to wrap inside each card. Presentation only; no workflow changes.
  */
 .sl-overlay .sl-req-drawer .sl-approval-grid {
-  grid-template-columns: minmax(0, 1fr) !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
 }
 .sl-overlay .sl-req-drawer .sl-approval-line {
-  display: grid !important;
-  grid-template-columns: minmax(0, 1fr);
-  align-items: stretch;
-  justify-content: initial;
-  gap: 8px;
   min-width: 0;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 .sl-overlay .sl-req-drawer .sl-approval-person {
+  flex: 1 1 12rem;
   min-width: 0;
   grid-template-columns: 28px minmax(0, 1fr);
   align-items: start;
@@ -802,6 +801,7 @@ APPROVAL_LAYOUT_CSS = """/* Requisition approval routing — keep decisions read
   min-width: 0;
 }
 .sl-overlay .sl-req-drawer .sl-approval-person strong,
+.sl.overlay .sl-req-drawer .sl-approval-person small,
 .sl-overlay .sl-req-drawer .sl-approval-person small {
   display: block;
   width: 100%;
@@ -811,12 +811,30 @@ APPROVAL_LAYOUT_CSS = """/* Requisition approval routing — keep decisions read
   line-height: 1.4;
 }
 .sl-overlay .sl-req-drawer .sl-approval-line > div:last-child {
+  flex: 0 1 auto;
   min-width: 0;
+  max-width: 100%;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-start;
   gap: 6px;
+}
+@media (max-width: 767px) {
+  .sl-overlay .sl-req-drawer .sl-approval-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  .sl-overlay .sl-req-drawer .sl-approval-line {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .sl-overlay .sl-req-drawer .sl-approval-person {
+    flex: 1 1 100%;
+  }
+  .sl-overlay .sl-req-drawer .sl-approval-line > div:last-child {
+    padding-left: 38px;
+  }
 }
 """
 
@@ -907,7 +925,7 @@ def patch_requisition_mobile_approval_layout(archive_path: Path) -> dict:
         "compiled_css_rebuilt": [app_css_path, app_min_path],
         "css_source_build_parity": True,
         "schema_or_business_data_changed": False,
-        "mobile_approval_rows": "single-column; wrapped labels/notes/status pills",
+        "mobile_approval_rows": "two-column tablet/desktop grid and single-column phone grid; wrapped labels/notes/status pills",
     }
 
 def main():
