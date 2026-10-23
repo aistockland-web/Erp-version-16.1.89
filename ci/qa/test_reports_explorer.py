@@ -23,6 +23,7 @@ def main():
         stock_receipt = stock_patcher.rebuild_zip(output)
         production_receipt = production_patcher.patch_archive(output)
         domain_receipt = domain_patcher.clean_archive(output)
+        layout_receipt = patcher.patch_requisition_mobile_approval_layout(output)
         with zipfile.ZipFile(baseline) as old, zipfile.ZipFile(output) as new:
             need(old.testzip() is None and new.testzip() is None, "ZIP CRC")
             old_names = [x.filename for x in old.infolist() if not x.is_dir()]
@@ -147,9 +148,17 @@ def main():
             "stockland-erp-app/includes/class-stockland-xlsx.php",
             "stockland-erp-app/includes/rest/class-rest-hr.php",
             "stockland-erp-app/assets/bootstrap.min.css",
+            "stockland-erp-app/assets/css/06-operational-guards.css",
+            "stockland-erp-app/assets/app.css",
+            "stockland-erp-app/assets/app.min.css",
             "stockland-erp-app/stockland-inventory.php",
         }
         need(changed == allowed, "changed file allowlist: " + repr(sorted(changed)))
+        need(layout_receipt["css_source_build_parity"] is True, "responsive approval layout rebuilds CSS source/build parity")
+        need(layout_receipt["schema_or_business_data_changed"] is False, "approval presentation patch leaves schema and business data untouched")
+        need("single-column" in layout_receipt["mobile_approval_rows"], "responsive approval history uses contained single-column rows")
+        approval_css = source_after["stockland-erp-app/assets/css/06-operational-guards.css"].decode("utf-8")
+        need("/* Requisition approval routing — keep decisions readable on phones and desktop." in approval_css, "scoped responsive approval-history CSS is included")
         need(domain_receipt["external_payroll_links_removed"] and domain_receipt["build_workflow_urls_removed"], "domain cleanup receipt")
         need("justice.gov.et" not in js, "no fixed legal-source website in installed payroll UI")
         need("justice.gov.et" not in source_after["stockland-erp-app/includes/rest/class-rest-hr.php"].decode(), "no fixed legal-source website in installed HR API")
@@ -185,14 +194,34 @@ def main():
         need("const ROUTE_VERSION      = '16.1.93';" in front, "route/cache identity")
         need("16.1.1" in entry, "DB schema version marker preserved")
         need(source_before["stockland-erp-app/includes/class-stockland-activator.php"] == source_after["stockland-erp-app/includes/class-stockland-activator.php"], "schema DDL preserved")
+        responsive_css_paths = {
+            "stockland-erp-app/assets/css/06-operational-guards.css",
+            "stockland-erp-app/assets/app.css",
+            "stockland-erp-app/assets/app.min.css",
+        }
+        css_manifest = json.loads(source_after["stockland-erp-app/assets/css/modules.json"])
+        css_source_paths = [
+            "stockland-erp-app/assets/css/" + name
+            for name in css_manifest["modules"]
+        ]
+        expected_app_css = "\n\n".join(
+            source_after[name].decode("utf-8").strip() for name in css_source_paths
+        ) + "\n"
+        need(source_after["stockland-erp-app/assets/app.css"].decode("utf-8") == expected_app_css, "app.css equals ordered CSS source modules")
+        expected_minified = re.sub(r"/\*[\s\S]*?\*/", " ", expected_app_css)
+        expected_minified = re.sub(r"\s+", " ", expected_minified).strip()
+        expected_minified = re.sub(r"\s*([{}:;,])\s*", r"\1", expected_minified).replace(";}", "}")
+        need(source_after["stockland-erp-app/assets/app.min.css"].decode("utf-8") == expected_minified, "app.min.css matches deterministic normalized source")
         for p in source_before:
             if p.endswith(".css"):
                 if p == "stockland-erp-app/assets/bootstrap.min.css":
                     original = source_before[p].decode("utf-8")
                     original = original.replace(" (https://getbootstrap.com/)", "").replace(" (https://github.com/twbs/bootstrap/blob/main/LICENSE)", "")
                     need(original.encode("utf-8") == source_after[p], "Bootstrap CSS rules unchanged; only URL text in header comment removed")
+                elif p in responsive_css_paths:
+                    need(source_before[p] != source_after[p], "the intended responsive approval layout is present in " + p)
                 else:
-                    need(source_before[p] == source_after[p], "CSS byte parity: " + p)
+                    need(source_before[p] == source_after[p], "CSS byte parity preserved outside approved responsive layout: " + p)
 
         m = re.search(r"function reportDateRange\(period\)\{.*?\n\}", js, re.S)
         need(m is not None, "site-local date-range helper")
@@ -300,7 +329,7 @@ echo json_encode(array('bands'=>$bands,'line'=>$line,'rule'=>Stockland_Payroll_S
         print("PASS exact 16.1.92 checksum/size; ZIP CRC, inventory and root")
         print("PASS selector defaults, report-type selection, SKU autocomplete, selected-only print/PDF and CSV contracts")
         print("PASS server permission/location/SKU/cost scope assertions; Owner-only critical reorder")
-        print("PASS exact changed-file allowlist; CSS source/compiled bytes and schema DDL untouched")
+        print("PASS exact changed-file allowlist; responsive approval CSS source/build/minified parity verified; schema DDL untouched")
         print("PASS Management Intelligence, report fail-closed guards and PHP 8.3 compatibility")
         print("PASS deterministic PHP payroll tax boundaries, 7% employee / 11% employer pension and net-pay reconciliation")
         print("PASS release/route metadata alignment; 49-table contract unchanged")
