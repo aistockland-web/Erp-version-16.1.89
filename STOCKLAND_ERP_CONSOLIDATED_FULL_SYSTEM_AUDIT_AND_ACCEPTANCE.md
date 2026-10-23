@@ -472,3 +472,30 @@ The inner ZIP was also rechecked locally after downloading the successful Action
 The build lineage is still the audited 16.1.92 baseline → cumulative 16.1.93 patch chain → finalized 16.1.94 package. It is not proven identical to the exact live 16.1.94 plugin folder. CAP-28 remains OPEN pending the actual installed source/ZIP and checksum comparison; otherwise a same-version replacement could overwrite unobserved fixes. Do not label the package safe for in-place installation on the live 16.1.94 site solely because the reconstructed package run passed.
 
 Separate P0/P1 gates remain open: live nine-employee compensation remediation; current Ethiopian payroll rule/legal approval; complete HR planning-to-final-settlement acceptance; a single deep-integrity run ID/timestamp with every check completed; live report source-read failure diagnosis; transaction-level stock, ETB, VAT, COGS, AP/AR/PLEDGER/GL reconciliation; server-side branch/role denial and rollback evidence; authenticated host backup/restore/rollback; and signed Owner acceptance. See the CAP register and master acceptance matrix for status by gate.
+
+
+## Latest exact 16.1.94 candidate verification and CAP closure boundary — 23 October 2026
+
+### Completed package/build/browser run
+
+- Actions run: [40020305786](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/40020305786), conclusion **SUCCESS**, runtime-source head `883167a39726e8815dbf787df7291b0ede9742ef`.
+- Artifact: `STOCKLAND-ERP-16.1.94-Cumulative-WordPress-Update`, ID `12529439284`, outer archive SHA-256 `7e108e206b695082c321f7ff1aab78616d5fc3a581c541d2190ae849c75097d2`.
+- Inner installer: `STOCKLAND_ERP_16.1.94_CANONICAL_WORDPRESS_UPDATE.zip`, SHA-256 `00700372c4755bb758eba017642966a259bd7c37b55862622774274a0600bbb6`, 1,100,950 bytes.
+- Verified inner package: ZIP CRC PASS; 75 unique safe paths; one `stockland-erp-app/` root; release/route/CSS manifest markers 16.1.94; DB marker 16.1.1; 49-table contract (29 Core/Operations + 16 Accounting/Procurement + 4 HR/Payroll); schema activator unchanged. The inner hash is identical in the sidecar and final package receipt.
+- Browser/package gates passed: desktop Product Master click/create (7 wide viewports, non-empty receipt), report failure/retry (one inline error, retry success, no duplicate toast), requisition approval/supply-table layout (7 widths), 175 view/viewport combinations across 25 work areas and six synthetic roles with zero measured overflow/browser/console failures, CSS source/build/minified parity, PostCSS, archive/version/schema integrity, PHP lint 48/48, JavaScript syntax and JSON.
+
+### Security/dependency checks moved onto the exact final package
+
+The older security workflows select a legacy 16.1.89 ZIP pattern, so their historical success is not a current 16.1.94 security attestation. The cumulative workflow has now been extended to run the repository's existing WPCS/PHPCS source-aware security/database review, Semgrep PHP/security-audit scan, and runtime dependency/license inventory against the exact finalized ZIP and upload those receipts.
+
+Follow-up run [40021038142](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/40021038142), branch/workflow head `397bfc0fcf0c659c38fc25f5d52a95bc30d608fa`, was **IN PROGRESS** during pinned browser dependency setup at the last status query. Its security steps have not yet returned results. CAP-02 remains open pending their completed receipts. The successful 400203 run remains valid evidence for runtime/package/browser behaviour; the new workflow commit adds security gate execution, not plugin runtime changes.
+
+### CAP disposition from this audit
+
+**Closed at package level:** CAP-01 (exact candidate build/archive/sidecar/final receipt/inventory/schema provenance), and CAP-17 (obsolete host/domain/runtime-text cleanup of the package; MIT attribution retained). These closures do not certify production source identity.
+
+**Partial package/fixture completion:** CAP-06 stock/reorder logic; CAP-10/11 frontend coverage and desktop click; CAP-15 hosting floor/package compatibility; CAP-18 responsive views; CAP-23 source hygiene; CAP-24 report loading/retry presentation; CAP-25 requisition/approval layout; CAP-27 report error UI/source guards. Their remaining statements are the live/database/host/full-handler parts recorded in the CAP register.
+
+**Still open and not closable by static/mock browser receipts:** CAP-02 until new security gates finish; CAP-03 authenticated host acceptance plus restore/rollback; CAP-04 nine live employees missing compensation; CAP-05/21 current independently approved Ethiopian payroll rules; CAP-07/08/09 live transaction/report reconciliation; CAP-12 server authorization and concurrency negatives; CAP-13 full warehouse-to-sales close chain; CAP-14 import exactly-once/retry/resume; CAP-16/26 completed read-only deep integrity with run ID and each check; CAP-19 audit/ledger failure rollback; CAP-22 complete HR lifecycle through final settlement; CAP-28 exact installed 16.1.94 checksum/source parity; CAP-29 signed SOP end-to-end acceptance; CAP-30 actual deployed Cart/POS source and handler preservation.
+
+The latest package is reproducible from the locked 16.1.92 installer through the reviewed 16.1.93 patch chain and finalizer target 16.1.94. It is **not** verified to be byte-identical to the currently installed plugin folder, whose reported version is also 16.1.94. Do not install-overwrite it until that exact live-source/checksum mismatch is resolved. No live production database or employee record was accessed or changed.
