@@ -170,6 +170,22 @@ Local Playwright/Chromium with synthetic REST fixtures:
 
 The exact installed **16.1.94** package/source/checksum is still not present in the repository or available library search; accessible source lineage remains 16.1.92 → review candidate 16.1.93. The newest source commits still lack an exact-head GitHub Actions receipt; prior green runs reference older commits. The live payroll check still reports nine missing current compensation records, the report-source error remains undiagnosed, and the full HR-to-final-settlement SOP remains unaccepted.
 
-## 11. Release decision
+## 11. Verified Actions artifact provenance and CAP-01 root cause
+
+The downloaded ZIP from [Actions run 39471331354](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/39471331354) was inspected locally. That run built commit `1f96da520602b992bec449ebf2ab45b9469f107e` on 20 October and is not the current remediation head `7d99ff8dba2f1fe0eea3eb572872a55576af1589`.
+
+The underlying package identities are:
+
+- Locked 16.1.92 baseline: SHA-256 `adec43b84f2b9a62d8913f84bad20588166800b2b6571d22d75abb86fcfd3fcd`; 1,113,446 bytes; 75 files; PHP 8.3/8.4 CI artifacts contain the same installer bytes.
+- The older 16.1.93 BUILD_RECEIPT and LOCAL_QA_RESULTS name intermediate hash `1cfab0a8221802aa2a5633e92d65ff76f146ea6152aae7068e6d82b384f2dceb` / 1,117,980 bytes.
+- The ZIP actually embedded in the downloaded Action artifact and its SHA sidecar are `a8cb3767f363740387731928211febc315876a7b8c146e65e594930940e64e3b` / 1,118,326 bytes; STOCK_RECONCILIATION_RECEIPT matches this final stock-patched ZIP.
+
+Therefore the sidecar is valid for the embedded ZIP, but the top-level build/QA receipt does not attest the same final bytes. Additionally, source inspection of the downloaded ZIP shows that it lacks later production-hardening/domain-cleanup/approval-layout changes now represented in the current builder: PHP 8.4-only wording and the old hosting panel title remain; the XLSX reader still claims a fixed host provides PHP 8.4; the payroll UI/API retain fixed legal URLs; and the package has no report-source fail-closed guards, Management Intelligence renderer or responsive approval-history CSS. It retains the duplicate retry-toast path.
+
+The current branch has now added a final-package attestation to the builder, a new `ci/qa/verify_final_package.py` gate that cross-checks final ZIP SHA-256/size against the sidecar and top-level build receipt, validates the 75-file inventory/one plugin root/schema/version/CSS parity/host cleanup/required source guards, and rejects a stale intermediate receipt. `ci/qa/test_reports_explorer.py` also checks that a deliberately stale SHA is rejected, and the workflow runs the verifier after the final ZIP and sidecar are produced.
+
+**Current-head CI is still pending.** At inspection time the current head had no matching Actions run or status. Thus this builder-level correction is source work, not yet a certified final package. CAP-01/02 remain open until the current exact head has a successful run and the published final receipt, sidecar, and downloadable ZIP all agree.
+
+## 12. Release decision
 
 **Current decision: NO-GO.** This is not a statement that the live ERP is wholly down; it is a statement that the evidence supplied contains a failing payroll readiness gate, a report source-read error and serious mobile UI defects, while the branch package under review is older than the installed plugin. The next approved installer must correct these issues on the true 16.1.94 baseline and prove the complete Stockland SOP end-to-end. Do not claim “100% operational” until every critical row in the master matrix has current evidence and Owner sign-off.
