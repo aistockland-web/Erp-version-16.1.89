@@ -126,6 +126,7 @@ jobs:
             STOCKLAND_ERP_16.1.93_BUILD_RECEIPT.json
             STOCKLAND_ERP_16.1.93_PHP_LINT.txt
             STOCKLAND_ERP_16.1.93_DESKTOP_BUTTON_QA.json
+            STOCKLAND_ERP_16.1.93_REPORT_LOADING_QA.json
             STOCKLAND_ERP_16.1.93_DESKTOP_PRODUCT_CREATE_AUDIT.md
           if-no-files-found: error
           retention-days: 14
