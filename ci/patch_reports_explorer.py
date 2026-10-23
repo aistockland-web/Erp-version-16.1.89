@@ -856,8 +856,11 @@ def patch_requisition_mobile_approval_layout(archive_path: Path) -> dict:
     modules_path = "stockland-erp-app/assets/css/modules.json"
     module = files[module_path].decode("utf-8")
     if APPROVAL_LAYOUT_MARKER in module:
-        if module.count(APPROVAL_LAYOUT_MARKER) != 1 or ".sl-overlay .sl-req-drawer .sl-approval-grid" not in module:
-            raise ValueError("Existing approval-layout marker is partial or duplicated")
+        if module.count(APPROVAL_LAYOUT_MARKER) != 1:
+            raise ValueError("Existing approval-layout marker is duplicated")
+        existing_layout = module[module.index(APPROVAL_LAYOUT_MARKER):].strip()
+        if existing_layout != APPROVAL_LAYOUT_CSS.strip():
+            raise ValueError("Existing approval-layout CSS differs from the tested builder; rebuild from the canonical baseline")
         applied = False
     else:
         module = module.rstrip() + "\n\n" + APPROVAL_LAYOUT_CSS.strip() + "\n"
@@ -882,7 +885,7 @@ def patch_requisition_mobile_approval_layout(archive_path: Path) -> dict:
     if manifest.get("release") != "16.1.93":
         raise ValueError("Approval-layout release manifest mismatch")
     ui = manifest.setdefault("user_interface", {})
-    ui["requisition_approval_history"] = "Responsive single-column decision rows; long approver labels, notes and status pills wrap without overlapping."
+    ui["requisition_approval_history"] = "Two-column approval cards on tablet/desktop and single-column cards on phones; long labels, notes and status pills wrap without overlapping."
     preserved = manifest.setdefault("preserved", {})
     preserved["css_source_and_compiled_files_changed"] = True
     preserved["css_source_build_parity_verified"] = True
