@@ -474,7 +474,11 @@ def patch_php(source: str) -> str:
     suggestion_matches = list(suggestion_pattern.finditer(critical))
     if len(suggestion_matches) != 1:
         raise ValueError("critical report suggestion: expected exactly one bounded reorder-minus-position expression")
-    canonical_suggestion = "$row['suggested_replenishment'] = Stockland_Money::decimal( max( 0, $reorder_minor - $position_minor ) );"
+    # Match the existing operational Reorder Alerts policy: once an authorized
+    # replenishment action is offered at/below threshold, suggest at least one
+    # whole unit. The position used here includes eligible inbound, not physical
+    # stock alone.
+    canonical_suggestion = "$row['suggested_replenishment'] = Stockland_Money::decimal( max( 100, $reorder_minor - $position_minor ) );"
     critical = suggestion_pattern.sub(lambda _match: canonical_suggestion, critical, count=1)
     source = source[:critical_blocks[0].start(2)] + critical + source[critical_blocks[0].end(2):]
 
@@ -485,7 +489,7 @@ def patch_php(source: str) -> str:
     if len(critical_description_matches) != 1:
         raise ValueError("critical reorder description: expected exactly one description inside the Owner-only critical_reorder branch")
     source = critical_description_pattern.sub(
-        r"\1'Owner-only read-only list. Reorder position equals sellable availability plus eligible dispatched-but-unreceived inbound transfers. Inbound does not change physical stock; OVER-RESERVED remains an integrity exception. Suggested replenishment is the non-negative quantity needed to reach the configured location threshold. No stock or purchase order is created.';",
+        r"\1'Owner-only read-only list. Reorder position equals sellable availability plus eligible dispatched-but-unreceived inbound transfers. Inbound does not change physical stock; OVER-RESERVED remains an integrity exception. Suggested replenishment follows the existing minimum-one-unit policy and uses the configured location threshold and inbound-aware position. No stock or purchase order is created.';",
         source,
         count=1,
     )
