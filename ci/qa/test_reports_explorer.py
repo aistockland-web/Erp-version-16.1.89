@@ -24,6 +24,11 @@ def main():
         production_receipt = production_patcher.patch_archive(output)
         domain_receipt = domain_patcher.clean_archive(output)
         layout_receipt = patcher.patch_requisition_mobile_approval_layout(output)
+        after_first_layout_sha = hashlib.sha256(output.read_bytes()).hexdigest()
+        replay_receipt = patcher.patch_requisition_mobile_approval_layout(output)
+        need(replay_receipt["applied"] is False, "replaying the exact responsive patch is idempotent")
+        need(hashlib.sha256(output.read_bytes()).hexdigest() == after_first_layout_sha, "replaying the responsive patch does not alter the candidate hash")
+        need(replay_receipt["css_source_build_parity"] is True, "responsive patch replay keeps CSS source/build parity")
         with zipfile.ZipFile(baseline) as old, zipfile.ZipFile(output) as new:
             need(old.testzip() is None and new.testzip() is None, "ZIP CRC")
             old_names = [x.filename for x in old.infolist() if not x.is_dir()]
