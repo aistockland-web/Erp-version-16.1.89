@@ -69,6 +69,16 @@ def main():
             ("data-report-details", "reorder drilldown"),
         ]:
             need(phrase in js, "UI contract: " + label)
+        for marker, label in [
+            ("Loading the selected authorized report…", "report loading state"),
+            ("Report could not load.", "explicit report failure state"),
+            ('id="retryOpsReport"', "report retry control"),
+            ("state.report=null", "failed request clears stale report state"),
+            ("run.removeAttribute('aria-busy')", "loading state clears after failure"),
+            ("run.textContent='RUN REPORT'", "report action label is restored after failure"),
+            ("loadReport().catch(()=>{})", "initial-load failure is handled without an uncaught startup exception"),
+        ]:
+            need(marker in js, "report loading/recovery regression: " + label)
         need("sl-desktop-title-action-layer-fix" in js, "desktop title-action layering guard injected")
         need("function managementIntelligence()" in js, "dedicated management intelligence workspace")
         need("case'intelligence':b=managementIntelligence();break;" in js, "management intelligence route")
