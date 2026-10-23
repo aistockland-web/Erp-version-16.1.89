@@ -17,6 +17,13 @@ jobs:
     steps:
       - name: Checkout release branch
         uses: actions/checkout@v4
+      - name: Validate GitHub Actions workflow schema with actionlint
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/actionlint"
+          GOBIN="$RUNNER_TEMP/actionlint" go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+          "$RUNNER_TEMP/actionlint/actionlint" -color .github/workflows/reports-explorer-16-1-93.yml
       - name: Parse and validate target workflow YAML
         shell: bash
         run: |
