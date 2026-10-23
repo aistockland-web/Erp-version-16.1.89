@@ -185,13 +185,17 @@ def main():
             ("AND l.is_active=1", "inactive locations excluded from reorder report"),
             ("'key' => 'reorder_position', 'label' => 'Reorder position'", "inbound-aware position displayed"),
             ("'key' => 'inbound_stock', 'label' => 'Inbound transfer'", "inbound quantities displayed"),
-            ("COALESCE(bl.physical_stock,0)", "legacy SKU-only stock included"),
-            ("COALESCE(al.reserved_stock,0)", "legacy SKU-only active reservations included"),
-            ("WHERE variant_id IS NULL GROUP BY location_id,sku", "legacy SKU-only rows aggregated separately"),
             ("p.product_type<>'STYLE'", "style parent rows excluded from variant availability"),
             ("$stock_args = array( $prod, $loc, $tx, $prod, $res, $prod, $tr, $prod )", "stock SQL placeholder order matches ledger, SKU mapping, reservations and transfer references"),
         ]:
             need(phrase in php, "server contract: " + label)
+
+        for phrase, label in [
+            ("COALESCE(bl.physical_stock,0)", "legacy SKU-only stock included"),
+            ("COALESCE(al.reserved_stock,0)", "legacy SKU-only active reservations included"),
+            ("WHERE variant_id IS NULL GROUP BY location_id,sku", "legacy SKU-only rows aggregated separately"),
+        ]:
+            need(phrase in stock_api, "stock API contract: " + label)
 
         changed = {p for p in source_before if source_before[p] != source_after[p]}
         allowed = {
