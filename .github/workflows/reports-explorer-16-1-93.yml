@@ -176,7 +176,7 @@ jobs:
           assert manifest['release']=='16.1.95'
           print('PASS JSON syntax and release identity')
           PY
-- name: Build optional Cloud AI release 16.1.96 from the exact verified 16.1.95 installer
+      - name: Build optional Cloud AI release 16.1.96 from the exact verified 16.1.95 installer
         shell: bash
         run: |
           set -euo pipefail
