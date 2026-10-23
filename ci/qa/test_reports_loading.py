@@ -94,6 +94,7 @@ async def run_candidate(zip_path: Path) -> None:
             page = await browser.new_page(viewport={"width": 1440, "height": 1000})
             page_errors: list[str] = []
             report_requests: list[str] = []
+            fail_next_report = {"value": False}
             page.on("pageerror", lambda error: page_errors.append(str(error)))
 
             async def mock_api(route):
@@ -111,7 +112,8 @@ async def run_candidate(zip_path: Path) -> None:
                     status = 200
                 elif path_only == "v1/app/reports/explorer":
                     report_requests.append(request.url)
-                    if len(report_requests) == 1:
+                    if fail_next_report["value"]:
+                        fail_next_report["value"] = False
                         status = 500
                         payload = {
                             "code": "regression_report_source_unavailable",
@@ -163,12 +165,21 @@ async def run_candidate(zip_path: Path) -> None:
             await page.locator('.sl-nav [data-view="reports"]').click()
             await page.wait_for_selector("#reportForm", timeout=5000)
 
-            # Initial load returns a real HTTP error; the UI must stop loading and offer retry.
+            # Initial page load succeeds. A user-triggered run then returns a source error;
+            # the UI must show one inline error, not a second toast that obscures the report.
+            await page.wait_for_selector("#selectedOpsReport", timeout=5000)
+            run_button = page.locator("#runOpsReport")
+            fail_next_report["value"] = True
+            await run_button.click()
             await page.wait_for_selector("#reportResult #retryOpsReport", timeout=5000)
             error_text = await page.locator("#reportResult").inner_text()
             if "Report could not load." not in error_text or "RETRY REPORT" not in error_text:
                 raise AssertionError(f"Failed report did not show its recoverable error state: {error_text}")
-            run_button = page.locator("#runOpsReport")
+            if await page.locator("#printOpsReport").is_enabled() or await page.locator("#downloadOpsReportCsv").is_enabled():
+                raise AssertionError("Report actions stayed enabled after its source failed")
+            toast = page.locator("#toast.bad")
+            if await toast.count() and await toast.is_visible():
+                raise AssertionError("Report API failure produced a duplicate toast over the inline recovery panel")
             if await run_button.is_disabled():
                 raise AssertionError("Run Report stayed disabled after the failed request")
             if await run_button.get_attribute("aria-busy"):
@@ -176,14 +187,38 @@ async def run_candidate(zip_path: Path) -> None:
             if (await run_button.inner_text()).strip() != "RUN REPORT":
                 raise AssertionError("Run Report label was not restored after the failed request")
 
+            # The inline error and retry action remain within a mobile viewport.
+            await page.set_viewport_size({"width": 390, "height": 844})
+            await page.wait_for_timeout(100)
+            mobile_state = await page.evaluate("""() => {
+              const retry = document.getElementById('retryOpsReport');
+              const error = document.querySelector('#reportResult .sl-danger-block');
+              const rect = node => {
+                const r = node.getBoundingClientRect();
+                return {left:r.left,right:r.right,width:r.width,top:r.top,bottom:r.bottom};
+              };
+              return {
+                viewport:window.innerWidth,
+                scrollWidth:document.documentElement.scrollWidth,
+                retry:retry ? rect(retry) : null,
+                error:error ? rect(error) : null
+              };
+            }""")
+            if mobile_state["scrollWidth"] > mobile_state["viewport"] + 1:
+                raise AssertionError(f"Report error view causes horizontal page overflow on mobile: {mobile_state}")
+            for selector, key in (("#retryOpsReport", "retry"), ("#reportResult .sl-danger-block", "error")):
+                box = mobile_state[key]
+                if not box or box["left"] < -1 or box["right"] > mobile_state["viewport"] + 1:
+                    raise AssertionError(f"Mobile {selector} is outside its viewport: {mobile_state}")
+
             # Retry returns a valid report; the UI must render data and enable report actions.
             await page.locator("#retryOpsReport").click()
             await page.wait_for_selector("#selectedOpsReport", timeout=5000)
             report_text = await page.locator("#selectedOpsReport").inner_text()
             if "Branch performance" not in report_text or "Rows: 1" not in report_text:
                 raise AssertionError(f"Retry did not render the returned report: {report_text}")
-            if len(report_requests) != 2:
-                raise AssertionError(f"Expected one failed request and one retry, got {len(report_requests)}")
+            if len(report_requests) != 3:
+                raise AssertionError(f"Expected initial success, one failed run and one retry, got {len(report_requests)}")
             if await page.locator("#printOpsReport").is_disabled():
                 raise AssertionError("Print/Save PDF did not enable after a valid report")
             if await page.locator("#downloadOpsReportCsv").is_disabled():
@@ -196,6 +231,8 @@ async def run_candidate(zip_path: Path) -> None:
                 "case": "report request failure -> explicit recoverable error -> retry -> valid report",
                 "report_requests": len(report_requests),
                 "run_report_restored": True,
+                "duplicate_error_toast": False,
+                "mobile_error_panel_within_viewport": True,
                 "print_enabled_after_success": True,
                 "csv_enabled_after_success": True,
                 "uncaught_browser_errors": page_errors,
