@@ -204,7 +204,7 @@ jobs:
           python3 ci/qa/test_reports_loading.py STOCKLAND_ERP_16.1.96_CLOUD_AI_WORDPRESS_UPDATE_CANDIDATE.zip | tee STOCKLAND_ERP_16.1.96_REPORT_LOADING_QA.json
           python3 ci/qa/test_requisition_responsive.py STOCKLAND_ERP_16.1.96_CLOUD_AI_WORDPRESS_UPDATE_CANDIDATE.zip | tee STOCKLAND_ERP_16.1.96_REQUISITION_RESPONSIVE_QA.json
           python3 ci/qa/test_all_workareas_responsive.py STOCKLAND_ERP_16.1.96_CLOUD_AI_WORDPRESS_UPDATE_CANDIDATE.zip | tee STOCKLAND_ERP_16.1.96_ALL_WORKAREAS_QA.json
-            - name: Install locked WordPress Coding Standards tooling (CI only)
+      - name: Install locked WordPress Coding Standards tooling (CI only)
         run: composer install --working-dir=ci/phpcs --no-interaction --prefer-dist --no-progress
       - name: Run PHPCS/WPCS and reviewed security/database invariants on the final ZIP
         shell: bash
