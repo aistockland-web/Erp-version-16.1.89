@@ -927,6 +927,72 @@ def patch_requisition_mobile_approval_layout(archive_path: Path) -> dict:
         "mobile_approval_rows": "two-column tablet/desktop grid and single-column phone grid; wrapped labels/notes/status pills",
     }
 
+
+def final_package_attestation(archive_path: Path, baseline_path: Path) -> dict:
+    """Attest the bytes produced after every cumulative source patch—not an intermediate patch receipt."""
+    digest = hashlib.sha256(archive_path.read_bytes()).hexdigest()
+    byte_count = archive_path.stat().st_size
+    with zipfile.ZipFile(archive_path) as final_zip, zipfile.ZipFile(baseline_path) as base_zip:
+        if final_zip.testzip() is not None:
+            raise ValueError("Final package ZIP CRC failure")
+        final_infos = [info for info in final_zip.infolist() if not info.is_dir()]
+        base_infos = [info for info in base_zip.infolist() if not info.is_dir()]
+        names = [info.filename for info in final_infos]
+        base_names = [info.filename for info in base_infos]
+        if len(names) != 75 or len(set(names)) != 75:
+            raise ValueError("Final package must have exactly 75 unique files")
+        if names != base_names:
+            raise ValueError("Final package inventory/order differs from locked baseline")
+        if not all(name.startswith("stockland-erp-app/") and ".." not in name.split("/") for name in names):
+            raise ValueError("Final package has an unsafe or unexpected ZIP root")
+        final_files = {name: final_zip.read(name) for name in names}
+        base_files = {name: base_zip.read(name) for name in base_names}
+    manifest = json.loads(final_files["stockland-erp-app/RELEASE_MANIFEST.json"].decode("utf-8"))
+    css_manifest = json.loads(final_files["stockland-erp-app/assets/css/modules.json"].decode("utf-8"))
+    entry = final_files["stockland-erp-app/stockland-inventory.php"].decode("utf-8")
+    front = final_files["stockland-erp-app/includes/class-stockland-frontend.php"].decode("utf-8")
+    if manifest.get("release") != "16.1.93" or css_manifest.get("release") != "16.1.93":
+        raise ValueError("Final plugin/manifest/CSS release identity mismatch")
+    if "Version:           16.1.93" not in entry or "define( 'STOCKLAND_VERSION', '16.1.93' );" not in entry:
+        raise ValueError("Final plugin header/constant do not match the release identity")
+    if "const ROUTE_VERSION      = '16.1.93';" not in front:
+        raise ValueError("Final route/cache identity mismatch")
+    if manifest.get("minimum_php") != "8.3" or manifest.get("schema_contract", {}).get("total") != 49:
+        raise ValueError("Final PHP/schema contract mismatch")
+    if final_files["stockland-erp-app/includes/class-stockland-activator.php"] != base_files["stockland-erp-app/includes/class-stockland-activator.php"]:
+        raise ValueError("Schema activator must remain byte-identical to baseline")
+    changed = sorted(name for name in names if base_files[name] != final_files[name])
+    allowed = {
+        "stockland-erp-app/README.md", "stockland-erp-app/RELEASE_MANIFEST.json",
+        "stockland-erp-app/assets/app.js", "stockland-erp-app/assets/css/modules.json",
+        "stockland-erp-app/includes/class-stockland-frontend.php",
+        "stockland-erp-app/includes/rest/class-rest-app.php",
+        "stockland-erp-app/includes/rest/class-rest-stock.php",
+        "stockland-erp-app/includes/rest/class-rest-inventory-report-v16.php",
+        "stockland-erp-app/includes/class-stockland-admin.php",
+        "stockland-erp-app/includes/class-stockland-xlsx.php",
+        "stockland-erp-app/includes/rest/class-rest-hr.php",
+        "stockland-erp-app/assets/bootstrap.min.css",
+        "stockland-erp-app/assets/css/06-operational-guards.css",
+        "stockland-erp-app/assets/app.css", "stockland-erp-app/assets/app.min.css",
+        "stockland-erp-app/stockland-inventory.php",
+    }
+    if set(changed) != allowed:
+        raise ValueError("Final changed-file allowlist mismatch: " + repr(changed))
+    return {
+        "path": archive_path.name,
+        "sha256": digest,
+        "bytes": byte_count,
+        "files": len(names),
+        "root": "stockland-erp-app/",
+        "release": manifest["release"],
+        "schema_contract": manifest["schema_contract"],
+        "changed_files": changed,
+        "schema_activator_unchanged": True,
+        "schema_or_business_data_changed": False,
+    }
+
+
 def main():
     inp = TARGET / "STOCKLAND_ERP_16.1.92_CANONICAL_WORDPRESS_UPDATE.zip"
     out = TARGET / "STOCKLAND_ERP_16.1.93_WORDPRESS_UPDATE.zip"
@@ -938,13 +1004,15 @@ def main():
     production = patch_archive(out)
     domain = clean_archive(out)
     approval_layout = patch_requisition_mobile_approval_layout(out)
+    final_package = final_package_attestation(out, inp)
     print(json.dumps({
         "installer": out.name,
         "reports_explorer": reports,
         "stock_reconciliation": stock,
         "production_hardening": production,
         "domain_cleanup": domain,
-        "responsive_approval_layout": approval_layout
+        "responsive_approval_layout": approval_layout,
+        "final_package": final_package
     }, indent=2))
 
 if __name__ == "__main__":
