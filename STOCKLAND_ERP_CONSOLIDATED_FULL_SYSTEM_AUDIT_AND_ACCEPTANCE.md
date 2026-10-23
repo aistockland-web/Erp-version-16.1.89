@@ -319,6 +319,12 @@ The prior payroll arithmetic fixtures only establish limited formula behavior. T
 
 For every step, identify the canonical record, actual persisted request/response payload, required fields, permission, approver, state transition, date semantics, exception/failure behavior, accounting effect and audit event. Do not invent missing employee/compensation values. If the current four HR/Payroll tables or services cannot represent a required SOP step, record the exact gap and propose a reviewed, versioned migration with backup/rollback proof; do not claim the step exists or add shadow records. Closure requires signed HR/Owner SOP traceability and independent settlement/payroll expected-value reconciliation.
 
+### HR/Payroll scope finding — source evidence, not just a statutory formula gap
+
+The inspected historical 16.1.93 candidate exposed employee list/create/decision/update, compensation create, payroll list/detail/create/generate, line update/classification, submit, Owner approval and payment. Its UI described a four-step monthly payroll run and employee rows included hire/termination dates. The inspected archive did **not** evidence a complete workforce plan → requisition/recruitment/onboarding → time/attendance/leave → employee development/performance (where the SOP requires it) → termination clearance → final settlement workflow. This is a historical candidate inspection only; the current exact-head ZIP still must be built and inspected.
+
+The release must not equate a functioning PAYE/pension calculator or approved monthly payroll with a full HR ERP. CAP-22 requires a Stockland SOP-to-feature matrix, complete persisted payload/field review, effective-date and historical-record protection, independent final-settlement math, authorization, and audit evidence. Any new schema requirement must be separately justified with migration/backup/rollback proof; do not fabricate employee or compensation values.
+
 ### P0 — Hosting/source cleanup must be precise and non-destructive
 
 The installable product remains one Stockland WordPress plugin running on the existing PHP/WordPress and MySQL/MariaDB hosting model. It must not gain a separate Node.js/Express/PostgreSQL service, daemon, unsupported required worker, hard-coded host/redirect, or test/staging application tree. Do not embed test staff/pay, fixtures, mock APIs, staging configuration, CI helpers or demonstration business data in the ZIP.
