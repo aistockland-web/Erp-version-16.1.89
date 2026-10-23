@@ -36,6 +36,7 @@ def main():
         daily_inventory = source_after["stockland-erp-app/includes/rest/class-rest-inventory-report-v16.php"].decode()
         entry = source_after["stockland-erp-app/stockland-inventory.php"].decode()
         front = source_after["stockland-erp-app/includes/class-stockland-frontend.php"].decode()
+        admin = source_after["stockland-erp-app/includes/class-stockland-admin.php"].decode()
         manifest = json.loads(source_after["stockland-erp-app/RELEASE_MANIFEST.json"])
         css = json.loads(source_after["stockland-erp-app/assets/css/modules.json"])
 
@@ -46,10 +47,16 @@ def main():
         need(manifest.get("release") == "16.1.93", "installed WordPress update release identity")
         need("release_candidate_changes" not in manifest, "candidate-only manifest fields removed")
         need("external_connections" not in manifest, "third-party provider integration metadata excluded")
+        manifest_lower = json.dumps(manifest, ensure_ascii=False).lower()
+        for marker in ("node.js", "postgresql", "workflow_run_url", "source_gate_evidence", "historical_release", "test on staging", "mock endpoint"):
+            need(marker not in manifest_lower, "production manifest contains historical CI/runtime material: " + marker)
+        need("Server environment</h2>" not in admin and "WordPress hosting compatibility</h2>" in admin, "hosting diagnostic heading normalized without removing the panel")
+        for marker in ("PHP version", "MySQL/MariaDB version", "memory_limit", "max_execution_time"):
+            need(marker in admin, "hosting diagnostic value preserved: " + marker)
         need("reports_explorer_16_1_93" not in manifest, "intermediate reports candidate metadata removed")
         quality = manifest.get("quality", {})
         need("target_host_acceptance" not in quality and "production_certification" not in quality and "local_validation_status" not in quality, "intermediate acceptance-status fields removed from installed manifest")
-        for phrase in ("microsoft teams", "slack oauth", "oauth buttons", "placeholder chat panels", "test-only package", "test on staging", "trial installation"):
+        for phrase in ("microsoft teams", "slack oauth", "oauth buttons", "placeholder chat panels", "test-only package", "test on staging", "trial installation", "node.js", "postgresql", "attached standalone reference material", "server environment"):
             need(phrase not in readme_lower, "installed guide excludes provider/demo/staging branding: " + phrase)
         need("native sign-in" in readme_lower and "role-based access" in readme_lower and "internal notifications" in readme_lower, "native ERP identity, role access and notifications remain described")
         need("third-party chat" not in readme_lower and "external single-sign-on" not in readme_lower, "provider chat/external SSO excluded from installed guide")
