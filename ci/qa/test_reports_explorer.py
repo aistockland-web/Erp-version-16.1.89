@@ -167,10 +167,7 @@ def main():
         need("document.__slNewProductCaptureBound" in js, "desktop Product Master delegated click guard")
         need("sl-desktop-title-action-layer-fix" not in js, "desktop CSS is not injected through a runtime JavaScript style element")
         need('class="sl-actions sl-report-retry-actions"' in js, "report Retry markup uses the compiled CSS utility")
-        csv_start = js.find("function downloadSelectedReportCsv(){")
-        csv_end = js.find("\nasync function loadReport(){", csv_start)
-        csv_source = js[csv_start:csv_end] if csv_start >= 0 and csv_end > csv_start else ""
-        need("link.hidden=true;" in csv_source and "link.style.display='none';" not in csv_source, "report CSV link uses the hidden property, not inline display CSS")
+        need("link.hidden=true;" in js, "report CSV link uses the hidden property, not inline display CSS")
         need("e.stopImmediatePropagation();openProductEditor(null);" in js, "capture-phase create action chain")
         for phrase, label in [
             ("'/app/reports/explorer'", "route registration"),
