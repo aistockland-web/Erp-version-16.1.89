@@ -353,19 +353,26 @@ def patch_stock_api(source: str) -> str:
 
 def patch_php(source: str) -> str:
     source = replace_exactly_once(STOCK_SQL_PATTERN, STOCK_SQL, source, "report inventory SQL")
-    source = replace_literal_once(
-        source,
-        "$stock_args = array( $prod, $loc, $tx, $res, $tr, $prod );",
-        "$stock_args = array( $prod, $loc, $tx, $prod, $res, $prod, $tr, $prod );",
-        "report inventory SQL parameter order",
-    )
+    stock_args_intermediate = "$stock_args = array( $prod, $loc, $tx, $res, $tr, $prod );"
+    stock_args_canonical = "$stock_args = array( $prod, $loc, $tx, $prod, $res, $prod, $tr, $prod );"
+    if source.count(stock_args_intermediate) == 1 and stock_args_canonical not in source:
+        source = source.replace(stock_args_intermediate, stock_args_canonical, 1)
+    elif source.count(stock_args_canonical) == 1 and stock_args_intermediate not in source:
+        # The preceding Reports Explorer patch may already have added legacy
+        # Product Master lookup placeholders; do not expand this a second time.
+        pass
+    else:
+        raise ValueError("report inventory SQL parameter order: expected exactly one six- or eight-argument stock array")
+
     source = replace_exactly_once(LOW_SQL_PATTERN, LOW_SQL, source, "low-stock SQL")
-    source = replace_literal_once(
-        source,
-        "$low_args = array( Stockland_DB::table( 'products' ), Stockland_DB::table( 'locations' ), Stockland_DB::table( 'transactions' ) );",
-        "$low_args = array( Stockland_DB::table( 'products' ), Stockland_DB::table( 'locations' ), Stockland_DB::table( 'transactions' ), Stockland_DB::table( 'products' ), Stockland_DB::table( 'reservations' ), Stockland_DB::table( 'products' ), Stockland_DB::table( 'transfers' ), Stockland_DB::table( 'products' ) );",
-        "low-stock SQL parameter order",
-    )
+    low_args_intermediate = "$low_args = array( Stockland_DB::table( 'products' ), Stockland_DB::table( 'locations' ), Stockland_DB::table( 'transactions' ) );"
+    low_args_canonical = "$low_args = array( Stockland_DB::table( 'products' ), Stockland_DB::table( 'locations' ), Stockland_DB::table( 'transactions' ), Stockland_DB::table( 'products' ), Stockland_DB::table( 'reservations' ), Stockland_DB::table( 'products' ), Stockland_DB::table( 'transfers' ), Stockland_DB::table( 'products' ) );"
+    if source.count(low_args_intermediate) == 1 and low_args_canonical not in source:
+        source = source.replace(low_args_intermediate, low_args_canonical, 1)
+    elif source.count(low_args_canonical) == 1 and low_args_intermediate not in source:
+        pass
+    else:
+        raise ValueError("low-stock SQL parameter order: expected exactly one three- or eight-table array")
     source = replace_exactly_once(DASHBOARD_LOW_COUNT_PATTERN, DASHBOARD_LOW_COUNT_SQL, source, "dashboard low-stock counter SQL")
     source = replace_literal_once(
         source,
