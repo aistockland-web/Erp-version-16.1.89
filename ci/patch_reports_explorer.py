@@ -577,30 +577,6 @@ if($('#downloadOpsReportCsv'))$('#downloadOpsReportCsv').onclick=downloadPeriodS
 if($('#openDailyPosImportFromReport'))$('#openDailyPosImportFromReport').onclick=()=>{state.view='daily';render()};""", "bindReportExplorer();", "report form binding")
     source = replace_once(source, "if($('#printOpsReport'))$('#printOpsReport').onclick=()=>{if(!document.getElementById('reportResult')?.querySelector('.sl-panel')){toast('Generate a report first',true);return}window.print()};", "", "old print binding")
 
-    # Install the desktop search/action stacking protection at script load, before
-    # route rendering and event-binding order can vary by host theme. The previous
-    # guard lived inside bind(), which allowed the 1024px Product Master action to
-    # remain at z-index 80 (or have no guard element at all) in some render paths.
-    desktop_guard_bootstrap = r"""
-// Desktop action-layer guard: install before initial shell/route rendering.
-if(!document.getElementById('sl-desktop-title-action-layer-fix')){
-  const style=document.createElement('style');
-  style.id='sl-desktop-title-action-layer-fix';
-  style.textContent='@media (min-width:992px){#stockland-app .sl-global-search{position:relative!important;min-width:0!important;width:100%!important;max-width:440px!important;box-sizing:border-box!important}#stockland-app #slGlobalSearchResults{position:absolute!important;top:calc(100% + 8px)!important;left:0!important;right:0!important;inset-inline-start:0!important;inset-inline-end:0!important;width:auto!important;min-width:0!important;max-width:min(440px,calc(100vw - 24px))!important;box-sizing:border-box!important;max-height:min(62vh,520px)!important;overflow:auto!important;z-index:2147483647!important}#stockland-app .sl-content-inner>.sl-page-title>.sl-actions{position:relative!important;z-index:82!important;isolation:isolate;pointer-events:auto!important}#stockland-app .sl-content-inner>.sl-page-title>.sl-actions>*{pointer-events:auto!important}}';
-  (document.head||document.documentElement).appendChild(style);
-}
-if(!document.__slNewProductCaptureBound){
-  document.__slNewProductCaptureBound=true;
-  document.addEventListener('click',function(e){
-    const target=e.target instanceof Element?e.target.closest('#newProduct'):null;
-    const appRoot=document.getElementById('stockland-app');
-    if(!target||!appRoot||!appRoot.contains(target)||target.disabled)return;
-    e.preventDefault();e.stopImmediatePropagation();openProductEditor(null);
-  },true);
-}
-"""
-    source = replace_once(source, "function bind(){", desktop_guard_bootstrap + "\nfunction bind(){", "desktop action guard loads before route binding")
-
     # Defensive capture-phase delegation keeps the primary Product Master create
     # action working if desktop host scripts replace a node-level onclick handler
     # after rendering. The listener is registered once and calls the same editor
@@ -835,7 +811,7 @@ DESKTOP_PRODUCT_CREATE_CSS = """/* Stockland desktop layering and report UI util
   }
   #stockland-app .sl-content-inner>.sl-page-title>.sl-actions {
     position: relative !important;
-    z-index: 80 !important;
+    z-index: 82 !important;
     isolation: isolate;
     pointer-events: auto !important;
   }
