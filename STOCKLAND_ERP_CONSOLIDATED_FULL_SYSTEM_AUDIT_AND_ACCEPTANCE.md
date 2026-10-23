@@ -325,6 +325,14 @@ The inspected historical 16.1.93 candidate exposed employee list/create/decision
 
 The release must not equate a functioning PAYE/pension calculator or approved monthly payroll with a full HR ERP. CAP-22 requires a Stockland SOP-to-feature matrix, complete persisted payload/field review, effective-date and historical-record protection, independent final-settlement math, authorization, and audit evidence. Any new schema requirement must be separately justified with migration/backup/rollback proof; do not fabricate employee or compensation values.
 
+### Specific source issue found and narrow build correction
+
+In the inspected historical candidate ZIP, the WordPress admin diagnostics panel in `includes/class-stockland-admin.php` displayed a “Server environment” heading and the text “plugin requires 8.4+”. This was inconsistent with the intended PHP 8.3+ hosting floor. The consolidated build patch corrects the PHP floor and now renames that heading to “WordPress hosting compatibility”, while tests require the live PHP version, MySQL/MariaDB version, memory limit and execution-time diagnostics to remain present. No diagnostic data is removed.
+
+The historical bundled README included old test/staging/mock-CI commentary, and the release JSON carried a large accumulated candidate-history list and old CI/toolchain metadata. The build patch now replaces the README with a current host/operator guide and whitelists production operational contracts plus current release notes in `RELEASE_MANIFEST.json`. A static gate checks that old workflow/source-gate history and known test/runtime wording are not copied into those installed documentation/metadata files. The external audit and Actions history remain in GitHub. Exact-head build and regression execution are still required before closure.
+
+The inspected historical ZIP contains legitimate import-staging/temporary-table workflows (e.g., import preview/stage/approve/commit and safe temporary-table rebuilds). These are business/data-integrity controls, not a “staging copy” of the application. They must remain. The inspection found no standalone uppercase whole-word `FL` token in that historical artifact; AP/AR/PLEDGER/GL references correspond to existing Finance/Procurement operations and must be preserved. This classification must be repeated against the exact final built archive, with every matched occurrence logged and dispositioned before approval.
+
 ### P0 — Hosting/source cleanup must be precise and non-destructive
 
 The installable product remains one Stockland WordPress plugin running on the existing PHP/WordPress and MySQL/MariaDB hosting model. It must not gain a separate Node.js/Express/PostgreSQL service, daemon, unsupported required worker, hard-coded host/redirect, or test/staging application tree. Do not embed test staff/pay, fixtures, mock APIs, staging configuration, CI helpers or demonstration business data in the ZIP.
