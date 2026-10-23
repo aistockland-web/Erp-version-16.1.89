@@ -86,6 +86,8 @@ def main():
             ("loadReport().catch(()=>{})", "initial-load failure is handled without an uncaught startup exception"),
         ]:
             need(marker in js, "report loading/recovery regression: " + label)
+        need("document.getElementById('retryOpsReport')?.addEventListener('click',()=>loadReport());return null;" in js, "report source failures remain inline and retryable without a duplicate toast")
+        need("loadReport().catch(err=>toast(err.message,true))" not in js, "no duplicate toast for report API failures")
         need("sl-desktop-title-action-layer-fix" in js, "desktop title-action layering guard injected")
         need("function managementIntelligence()" in js, "dedicated management intelligence workspace")
         need("case'intelligence':b=managementIntelligence();break;" in js, "management intelligence route")
