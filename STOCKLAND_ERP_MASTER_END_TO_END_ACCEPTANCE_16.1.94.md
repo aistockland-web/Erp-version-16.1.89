@@ -152,6 +152,14 @@ The [Local Recheck Receipt](STOCKLAND_ERP_LOCAL_RECHECK_2026-10-23.md) records w
 
 The historical candidate scan also confirms that the reviewed source exposes an atomic single-SKU POS form rather than the live multi-line Cart implementation shown in the Owner's screenshots; it still has stale host diagnostics / PHP 8.4+ wording and older manifest test-tool metadata before the current source-cleanup builder is applied. Those are reasons to require exact-head packaging and current-source parity, not to upload the old archive.
 
-## 10. Release decision
+## 10. Latest local recheck evidence (23 October 2026)
+
+The detailed [Local Recheck Receipt](STOCKLAND_ERP_LOCAL_RECHECK_2026-10-23.md) now has a second section for the completed local visual run. A review-only fixture from historical 16.1.93, SHA-256 `767fb1f3703c179f5cce0bfc0391c69220963723c4290b807032e30ed57c08ed`, passed 75-file single-root ZIP/CRC checks, PHP syntax 48/48, JS syntax, JSON parse, six-module CSS source/build parity and PostCSS parse.
+
+New local browser results: 14 approval rows tested at 320/360/390/430/768/1024/1440 CSS px; no row-child escapes, no person/status overlap and no browser exceptions; 175 combinations (25 views × 7 widths) and 6 synthetic roles passed with zero reported page overflow, blank views, browser errors or console errors; report success → user-triggered source failure → Retry → success passed with no duplicate toast.
+
+**Evidence boundary:** the fixture is reconstructed from the historical 16.1.93 candidate, not the exact 16.1.94 plugin reported installed on the site. The browser test used synthetic in-memory endpoint responses. These results provide candidate-level front-end evidence only; they do not prove live data correctness, backend query success, payroll classification, legal HR completeness, live role authorization, deep database integrity, target-host upgrade or rollback.
+
+## 11. Release decision
 
 **Current decision: NO-GO.** This is not a statement that the live ERP is wholly down; it is a statement that the evidence supplied contains a failing payroll readiness gate, a report source-read error and serious mobile UI defects, while the branch package under review is older than the installed plugin. The next approved installer must correct these issues on the true 16.1.94 baseline and prove the complete Stockland SOP end-to-end. Do not claim “100% operational” until every critical row in the master matrix has current evidence and Owner sign-off.
