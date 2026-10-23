@@ -829,7 +829,7 @@ APPROVAL_LAYOUT_CSS = """/* Requisition approval routing — keep decisions read
     align-items: stretch;
   }
   .sl-overlay .sl-req-drawer .sl-approval-person {
-    flex: 1 1 100%;
+    flex: 0 1 auto;
   }
 }
 """
