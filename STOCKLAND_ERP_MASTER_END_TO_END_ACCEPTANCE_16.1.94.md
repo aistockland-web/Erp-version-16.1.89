@@ -172,7 +172,7 @@ The exact installed **16.1.94** package/source/checksum is still not present in 
 
 ## 11. Verified Actions artifact provenance and CAP-01 root cause
 
-The downloaded ZIP from [Actions run 39471331354](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/39471331354) was inspected locally. That run built commit `1f96da520602b992bec449ebf2ab45b9469f107e` on 20 October and is not the current remediation head `7d99ff8dba2f1fe0eea3eb572872a55576af1589`.
+The downloaded ZIP from [Actions run 39471331354](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/39471331354) was inspected locally. That run built commit `1f96da520602b992bec449ebf2ab45b9469f107e` on 20 October and is not the current remediation head `05518f584f2c2ee4a52792ad5403f1430a21089c`.
 
 The underlying package identities are:
 
