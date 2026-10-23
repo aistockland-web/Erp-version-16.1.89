@@ -230,3 +230,28 @@ The 16.1.94 candidate is generated from the audited 16.1.92 baseline through the
 Local/CI fixture checks do not close these external gates: nine real active employee compensation rows require authorized HR/Owner resolution; the full HR lifecycle through final settlement needs an approved SOP-to-workflow matrix and expected-value acceptance; Ethiopian payroll rule/legal review requires responsible local sign-off; the full deep read-only integrity audit needs one completed run ID/timestamp/per-check receipt; the live report source-read failure needs actual database/query diagnosis; AP/AR/COGS/VAT/PLEDGER/GL and stock transactions need independently expected ETB/quantity reconciliation; server-side role/location denial, import idempotency, audit rollback and host backup/restore/rollback must be verified; and authenticated target-host acceptance plus Owner approval are still missing.
 
 **Release disposition: package-build PASS on run 40015618628; final receipt correction pending on run 40015844983; NOT CERTIFIED for installation over the current live 16.1.94 until source parity and live/data gates close.** See the [CAP register](STOCKLAND_ERP_16.1.93_CAP_REGISTER_AND_ACCEPTANCE_CHECKLIST.md) for individual statuses.
+
+
+## 14. Latest exact package evidence and 16.1.93 CAP disposition — 23 October 2026
+
+### Last completed exact-package workflow
+
+[Run 40020305786](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/40020305786) completed **SUCCESS** on runtime source head `883167a39726e8815dbf787df7291b0ede9742ef`. It passed the canonical 16.1.92 baseline lock, cumulative 16.1.93 patch contracts, finalizer and final-package receipt verifier, desktop Product Master click/save, report failure/retry, requisition approval responsiveness, all-work-area/role browser matrix, CSS source/app.css/app.min.css/PostCSS, package archive/version/schema validation, PHP lint (48/48), JS syntax and release JSON.
+
+The published artifact is `STOCKLAND-ERP-16.1.94-Cumulative-WordPress-Update`, artifact ID `12529439284`, outer SHA-256 `7e108e206b695082c321f7ff1aab78616d5fc3a581c541d2190ae849c75097d2`. The inner ZIP `STOCKLAND_ERP_16.1.94_CANONICAL_WORDPRESS_UPDATE.zip` is SHA-256 `00700372c4755bb758eba017642966a259bd7c37b55862622774274a0600bbb6`, 1,100,950 bytes, CRC PASS, 75 unique files, one `stockland-erp-app/` root, release markers 16.1.94, DB marker 16.1.1, schema contract 49 tables. The inner ZIP hash matches the bundled `.sha256` sidecar and `FINAL_PACKAGE_RECEIPT.json`.
+
+The desktop Product Master QA JSON is now present and non-empty: 7 wide viewports passed with a real button hit-test in the local mock browser, modal opened, one mocked POST and zero errors. Report loading/retry, requisition responsiveness, and the 175 view/viewport all-workarea matrix (6 synthetic roles; zero measured overflow/browser/console failures) also passed. This is package/mock evidence, not live transactions.
+
+### Security scan completion is being added to the same workflow
+
+The current cumulative workflow previously did not run WPCS/PHPCS, Semgrep, and the runtime dependency/license inventory against the newly built 16.1.94 ZIP; the older independent security jobs select older release files. The release workflow now includes the existing repository checks for those areas after package finalization and retains the reports in the same artifact.
+
+Run [40021038142](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/40021038142) on workflow head `397bfc0fcf0c659c38fc25f5d52a95bc30d608fa` was in progress at the latest status query. Therefore CAP-02 remains open until PHPCS/source-aware security review, Semgrep and dependency/license steps all pass on the exact package and their reports are inspected.
+
+### CAP decisions
+
+CAP-01 is **closed for candidate archive identity/build provenance**: the exact inner ZIP hash, sidecar, final receipt, inventory, schema and package check evidence agree. CAP-17 is **closed for obsolete host/domain/runtime-text cleanup in the package**: the cumulative archive cleanup and marker checks passed and Bootstrap MIT attribution remains. These two closures do not certify the installed production directory.
+
+The remaining CAPs are not being closed by assertion. The actual site still has reported nine employee compensation exceptions, the report-source SQL/database read failure, a prior deep-health UNVERIFIED result, and a known mismatch between the installed 16.1.94 identity and the only checksum-locked rebuild baseline (16.1.92). The exact deployed ZIP/source checksum must be recovered before overwriting a same-version installation (CAP-28). Authenticated host backup/restore/rollback; live stock and money-ledger reconciliation; server-side role/location denials and forced-failure rollback; report totals; current local payroll/legal signoff; HR planning-through-final-settlement SOP coverage; and Owner-approved end-to-end acceptance remain open.
+
+**Current release decision: final package PASS; no production install/rollout is certified from this review.** The generated package does not alter live records; it must not replace the current installed 16.1.94 until exact-source parity and production acceptance gates are addressed.
