@@ -1,7 +1,7 @@
 # Stockland Ethiopia ERP — Final Local Recheck and Artifact Provenance
 
 **Date:** 23 October 2026 (Africa/Addis_Ababa)  
-**Current source branch:** feat/reports-explorer-16-1-93, head `06511a1e28380d13c6fc3b096ab171bbac511f18`  
+**Current source branch:** feat/reports-explorer-16-1-93, head `05518f584f2c2ee4a52792ad5403f1430a21089c`  
 **Live version reported by Owner:** Plugin 16.1.94 / DB 16.1.1  
 **Decision:** **NO-GO for installation/certification until the exact current head produces a coherent final package and the live backend/data gates pass.**
 
@@ -38,13 +38,13 @@ Local inspection of the actual inner ZIP also confirms it predates the latest cu
 
 ## 3. Current source changes added after discovering the stale artifact
 
-Current GitHub head is `06511a1e28380d13c6fc3b096ab171bbac511f18`. The source branch now includes:
+Current GitHub head is `05518f584f2c2ee4a52792ad5403f1430a21089c`. The source branch now includes:
 - a final-package attestation generated after all source patches;
 - `ci/qa/verify_final_package.py`, which requires final ZIP SHA/size to equal both sidecar and build receipt, validates the same 75-file inventory and allowed changed-file set, verifies schema activator preservation, version/schema markers, report/dashboard error guards, Management Intelligence gating, CSS module/build/minified parity and hosting/domain cleanup;
 - regression tests that run the final-package verifier and prove that an intentionally stale intermediate hash is rejected;
 - a workflow step to publish the final package receipt with the ZIP and checksum.
 
-This is a source-side corrective control. **It has not yet been run by GitHub Actions on the current head.** The most recent matching Actions runs are still from 20 October at commit `1f96da520602b992bec449ebf2ab45b9469f107e`; I found no run/status for current head `06511a1e28380d13c6fc3b096ab171bbac511f18`.
+This is a source-side corrective control. **It has not yet been run by GitHub Actions on the current head.** The most recent matching Actions runs are still from 20 October at commit `1f96da520602b992bec449ebf2ab45b9469f107e`; I found no run/status for current head `05518f584f2c2ee4a52792ad5403f1430a21089c`.
 
 ## 4. Reconstructed local UI fixture — separate from the actual Actions ZIP
 
