@@ -78,8 +78,10 @@ async def run_candidate(zip_path: Path) -> None:
             if bad_member:
                 raise AssertionError(f"Candidate ZIP failed CRC: {bad_member}")
             names = [item.filename for item in archive.infolist() if not item.is_dir()]
-            if len(names) != 75 or len(names) != len(set(names)):
-                raise AssertionError(f"Unexpected runtime ZIP inventory: {len(names)} files")
+            manifest = json.loads(archive.read("stockland-erp-app/RELEASE_MANIFEST.json").decode("utf-8"))
+            expected_files = {"16.1.95": 75, "16.1.96": 76}.get(manifest.get("release"))
+            if expected_files is None or len(names) != expected_files or len(names) != len(set(names)):
+                raise AssertionError(f"Unexpected runtime ZIP inventory for {manifest.get('release')!r}: {len(names)} files; expected {expected_files}")
             if any(not name.startswith("stockland-erp-app/") for name in names):
                 raise AssertionError("Candidate contains a path outside the single production plugin root")
             archive.extractall(root)

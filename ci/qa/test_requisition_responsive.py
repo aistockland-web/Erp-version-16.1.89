@@ -119,8 +119,10 @@ def inspect_archive(archive_path: Path) -> tuple[str, str, int]:
         if bad:
             raise AssertionError(f"ZIP CRC failure at {bad}")
         files = [item.filename for item in archive.infolist() if not item.is_dir()]
-        if len(files) != 75 or len(files) != len(set(files)):
-            raise AssertionError(f"Expected exactly 75 unique plugin files, found {len(files)}")
+        manifest = json.loads(archive.read("stockland-erp-app/RELEASE_MANIFEST.json"))
+        expected_files = {"16.1.95": 75, "16.1.96": 76}.get(manifest.get("release"))
+        if expected_files is None or len(files) != expected_files or len(files) != len(set(files)):
+            raise AssertionError(f"Expected the audited file count for release {manifest.get('release')!r}; found {len(files)}, expected {expected_files}")
         if not all(name.startswith("stockland-erp-app/") and ".." not in name.split("/") for name in files):
             raise AssertionError("ZIP must contain one safe stockland-erp-app/ root")
         plugin_js = archive.read("stockland-erp-app/assets/app.js").decode("utf-8")
@@ -128,7 +130,6 @@ def inspect_archive(archive_path: Path) -> tuple[str, str, int]:
         app_css = archive.read("stockland-erp-app/assets/app.css").decode("utf-8")
         app_min = archive.read("stockland-erp-app/assets/app.min.css").decode("utf-8")
         modules = json.loads(archive.read("stockland-erp-app/assets/css/modules.json"))
-        manifest = json.loads(archive.read("stockland-erp-app/RELEASE_MANIFEST.json"))
         if manifest.get("release") != modules.get("release"):
             raise AssertionError("Release manifest and CSS module release markers differ")
         if "APPROVAL_HISTORY_SENTINEL_FOR_TEST" in plugin_js:

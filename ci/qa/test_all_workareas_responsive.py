@@ -73,8 +73,10 @@ def validate_archive(path: Path) -> tuple[list[str], str]:
         if bad:
             raise AssertionError(f"Candidate ZIP CRC failure at {bad}")
         names = [item.filename for item in archive.infolist() if not item.is_dir()]
-        if len(names) != 75 or len(names) != len(set(names)):
-            raise AssertionError(f"Expected 75 unique plugin files, got {len(names)}")
+        manifest = json.loads(archive.read("stockland-erp-app/RELEASE_MANIFEST.json"))
+        expected_files = {"16.1.95": 75, "16.1.96": 76}.get(manifest.get("release"))
+        if expected_files is None or len(names) != expected_files or len(names) != len(set(names)):
+            raise AssertionError(f"Expected the audited file count for release {manifest.get('release')!r}; got {len(names)}, expected {expected_files}")
         if not all(name.startswith("stockland-erp-app/") and ".." not in name.split("/") for name in names):
             raise AssertionError("Candidate has an unsafe path or more than one plugin root")
         js = archive.read("stockland-erp-app/assets/app.js").decode("utf-8")
