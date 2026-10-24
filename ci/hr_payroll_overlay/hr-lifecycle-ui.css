@@ -1,0 +1,27 @@
+
+/* HRIS lifecycle workspace: conservative SAP/Odoo-style data density with mobile-first cards. */
+#hrPage .sl-hrlc-flow{display:grid;grid-template-columns:repeat(7,minmax(110px,1fr));gap:8px;margin:16px 0 22px}
+#hrPage .sl-hrlc-flow span{display:flex;align-items:center;justify-content:center;min-height:54px;border:1px solid var(--sl-border,#d9e1e8);border-radius:10px;background:var(--sl-surface,#fff);padding:8px;text-align:center;font-size:12px;font-weight:700;color:var(--sl-ink,#243346)}
+#hrPage .sl-hrlc-panel{margin:16px 0;overflow:hidden}
+#hrPage .sl-hrlc-form{border:1px solid var(--sl-border,#d9e1e8);border-radius:10px;margin:10px 0;background:var(--sl-surface,#fff)}
+#hrPage .sl-hrlc-form>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;padding:13px 16px;list-style:none}
+#hrPage .sl-hrlc-form>summary::-webkit-details-marker{display:none}
+#hrPage .sl-hrlc-form>summary:after{content:"+";font-size:20px;font-weight:600;color:var(--sl-muted,#607286)}
+#hrPage .sl-hrlc-form[open]>summary:after{content:"−"}
+#hrPage .sl-hrlc-form>summary b{font-size:13px;letter-spacing:.01em}
+#hrPage .sl-hrlc-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:14px 16px 18px;border-top:1px solid var(--sl-border,#d9e1e8)}
+#hrPage .sl-hrlc-grid .full{grid-column:1/-1}
+#hrPage .sl-hrlc-grid input,#hrPage .sl-hrlc-grid select,#hrPage .sl-hrlc-grid textarea{width:100%;max-width:100%;box-sizing:border-box}
+#hrPage .sl-hrlc-grid textarea{font:12px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace}
+#hrPage .sl-hrlc-panel .sl-table-wrap{margin-top:12px}
+#hrPage .sl-hrlc-panel .sl-block-head h3{font-size:15px}
+#hrPage .sl-hrlc-panel .sl-sub{margin:8px 0 0}
+#hrPage .sl-hrlc-panel .sl-btn-sm{margin:3px 3px 3px 0;white-space:nowrap}
+#hrPage .sl-hrlc-panel .sl-table-wrap{overflow-x:auto}
+#hrPage .sl-hrlc-panel .sl-table{min-width:680px}
+#hrPage .sl-hrlc-panel .sl-table td{vertical-align:top}
+#hrPage .sl-hrlc-panel .sl-table td:last-child{min-width:190px}
+#hrPage .sl-hrlc-rules-note{border-left:3px solid var(--sl-warning,#d29b26);padding:10px 12px;background:var(--sl-warning-bg,#fff9e9)}
+@media(max-width:1180px){#hrPage .sl-hrlc-flow{grid-template-columns:repeat(4,minmax(0,1fr))}#hrPage .sl-hrlc-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){#hrPage .sl-hrlc-flow{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}#hrPage .sl-hrlc-flow span{min-height:42px;font-size:11px}#hrPage .sl-hrlc-grid{grid-template-columns:minmax(0,1fr);padding:12px;gap:10px}#hrPage .sl-hrlc-grid .full{grid-column:auto}#hrPage .sl-hrlc-form>summary{padding:12px}#hrPage .sl-hrlc-panel .sl-table{min-width:0}#hrPage .sl-hrlc-panel .sl-table td:last-child{min-width:0}#hrPage .sl-hrlc-panel .sl-table td{overflow-wrap:anywhere}#hrPage .sl-hrlc-panel .sl-btn-sm{white-space:normal}}
+@media print{#hrPage .sl-hrlc-flow,#hrPage .sl-hrlc-form,#hrPage [data-hrlc-decision],#hrPage [data-hrlc-rule-approve],#hrPage [data-hrlc-comp-approve],#hrPage [data-hrlc-exit-pay]{display:none!important}}
