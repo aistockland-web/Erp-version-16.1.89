@@ -105,6 +105,7 @@ final class Stockland_HR_Lifecycle {
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			requisition_id BIGINT UNSIGNED NOT NULL,
 			candidate_id BIGINT UNSIGNED NOT NULL,
+			selected_employee_id BIGINT UNSIGNED NULL,
 			applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			stage VARCHAR(24) NOT NULL DEFAULT 'APPLIED',
 			screening_score DECIMAL(7,2) NULL,
