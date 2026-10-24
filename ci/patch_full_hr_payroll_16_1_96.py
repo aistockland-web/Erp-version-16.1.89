@@ -73,7 +73,7 @@ def patch_hr_schema(files):
         "payroll-line rule columns")
     p = once(p,
         "allowance_breakdown_json LONGTEXT NULL,\n            created_by BIGINT UNSIGNED NOT NULL,",
-        "allowance_breakdown_json LONGTEXT NULL,\n            approval_status VARCHAR(24) NOT NULL DEFAULT 'APPROVED',\n            approved_by BIGINT UNSIGNED NULL,\n            approved_at DATETIME NULL,\n            statutory_rule_set_id BIGINT UNSIGNED NULL,\n            statutory_rule_version VARCHAR(80) NULL,\n            allowance_rule_set_id BIGINT UNSIGNED NULL,\n            allowance_rule_version VARCHAR(80) NULL,\n            created_by BIGINT UNSIGNED NOT NULL,",
+        "allowance_breakdown_json LONGTEXT NULL,\n            approval_status VARCHAR(24) NOT NULL DEFAULT 'DRAFT',\n            approved_by BIGINT UNSIGNED NULL,\n            approved_at DATETIME NULL,\n            statutory_rule_set_id BIGINT UNSIGNED NULL,\n            statutory_rule_version VARCHAR(80) NULL,\n            allowance_rule_set_id BIGINT UNSIGNED NULL,\n            allowance_rule_version VARCHAR(80) NULL,\n            created_by BIGINT UNSIGNED NOT NULL,",
         "fresh compensation schema")
     p = once(p,
         "payment_method VARCHAR(20) NULL,\n            notes VARCHAR(500) NULL,\n            created_by BIGINT UNSIGNED NOT NULL,",
