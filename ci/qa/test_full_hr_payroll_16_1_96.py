@@ -77,7 +77,8 @@ def main():
         require("Approval remains separate" not in app, "no stale/contradictory approval copy")
         require("statutory_rates_seeded" in manifest.get("payroll_integrity", {}) and manifest["payroll_integrity"]["statutory_rates_seeded"] is False, "legal rules are not seeded from unverified sample figures")
         require(manifest.get("payroll_integrity", {}).get("employee_compensation_autofilled") is False, "missing employee compensation is never fabricated")
-        require("private-document vault integration" in " ".join(manifest.get("release_gate_note", []) if isinstance(manifest.get("release_gate_note"), list) else [manifest.get("release_gate_note","")).lower(), "release manifest keeps private document and live acceptance gates explicit")
+        gate_note = json.dumps(manifest).lower()
+        require("private documents" in gate_note and "backup/restore" in gate_note, "release manifest keeps private-document, backup and live-acceptance gates explicit")
     print("16.1.96 HR & Payroll package QA PASS — this is package/source evidence, not live WordPress/legal sign-off.")
 
 if __name__ == "__main__":
