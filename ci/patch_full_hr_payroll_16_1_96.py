@@ -171,6 +171,14 @@ def patch_statutory(files):
 def patch_hr_rest(files):
     p = text(files, "includes/rest/class-rest-hr.php")
     p = once(p,
+        "'allowance_breakdown_json'        => wp_json_encode( $normalized_allowances ),",
+        "'allowance_breakdown_json'        => wp_json_encode( $normalized_allowances ),\n\t\t\t'approval_status'                 => 'DRAFT',\n\t\t\t'approved_by'                     => null,\n\t\t\t'approved_at'                     => null,\n\t\t\t'statutory_rule_set_id'            => null,\n\t\t\t'statutory_rule_version'           => null,\n\t\t\t'allowance_rule_set_id'            => null,\n\t\t\t'allowance_rule_version'           => null,",
+        "legacy compensation endpoint creates reviewable drafts")
+    p = once(p,
+        "if ( 'PENDING' !== strtoupper( (string) $employee['status'] ) ) {\n\t\t\t\tthrow new Exception( 'Only a pending employee file can be approved. Current status: ' . $employee['status'] . '.' );\n\t\t\t}",
+        "if ( 'PENDING' !== strtoupper( (string) $employee['status'] ) ) {\n\t\t\t\tthrow new Exception( 'Only a pending employee file can be approved. Current status: ' . $employee['status'] . '.' );\n\t\t\t}\n\t\t\tthrow new Exception( 'Use the controlled full-lifecycle activation handler after signed contract, verified documents, onboarding, approved compensation and audit prerequisites.' );",
+        "block legacy hire activation bypass")
+    p = once(p,
         "SELECT * FROM %i WHERE employee_id=%d AND effective_from<=%s ORDER BY effective_from ASC,id ASC",
         "SELECT * FROM %i WHERE employee_id=%d AND effective_from<=%s AND COALESCE(approval_status,'APPROVED')='APPROVED' ORDER BY effective_from ASC,id ASC",
         "only owner-approved compensation is paid")
