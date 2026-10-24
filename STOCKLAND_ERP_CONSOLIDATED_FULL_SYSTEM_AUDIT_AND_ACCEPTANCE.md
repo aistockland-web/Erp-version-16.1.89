@@ -1,8 +1,24 @@
+> **Historical snapshot — superseded for release decisions as of 24 October 2026.** These documents record earlier 16.1.93/16.1.94 work and may contain old “pending” statuses or hashes. The current exact-package audit is [16.1.95 Full Audit and Release Decision](STOCKLAND_ERP_16.1.95_FULL_AUDIT_AND_RELEASE_DECISION_2026-10-24.md), with the current [16.1.95 CAP Register](STOCKLAND_ERP_16.1.95_CAP_REGISTER_AND_ACCEPTANCE_CHECKLIST.md) and [16.1.95 Release Provenance](STOCKLAND_ERP_16.1.95_RELEASE_PROVENANCE_AUDIT_2026-10-24.json). Exact-head CI run 40036018031 passed for installer SHA-256 494e777247508d009dfdb216c9607bb1bc96717197e94a0e8ad3459b7cc81625. This closes the 16.1.95 package/code/security audit only; payroll compensation, the dedicated deep-integrity receipt and other production/Owner gates remain as listed in the current CAP register.
+
+---
+
 # Stockland ERP — Consolidated Full-System Audit & Acceptance Plan
 **Target branch:** `feat/reports-explorer-16-1-93`  
 **Release candidate under review:** 16.1.93  
 **Baseline:** audited canonical 16.1.92 installer  
 **Disposition:** consolidated review plan; no live deployment, live-data mutation, schema migration, or release certification.
+
+## Latest release correction — 23 October 2026
+
+The Owner clarified that WordPress was restored to **16.1.93**. Therefore the current release target is **16.1.94 from 16.1.93**. References to a currently installed 16.1.94 in earlier screenshot evidence are historical and are superseded by this correction.
+
+**Local package candidate:** `STOCKLAND_ERP_16.1.94_CANONICAL_WORDPRESS_UPDATE.zip`  
+**SHA-256:** `28eb4414bf975058288c353783b82e091c61132a2eb1e9f02b70675d331e96c6`  
+**Size:** 1,103,911 bytes · **75 unique plugin files** · one `stockland-erp-app/` root.
+
+The local cumulative package passed ZIP CRC/root/inventory, 48/48 PHP lint, JavaScript and JSON syntax, CSS/PostCSS source/build parity, PHP 8.3+ diagnostics/domain markers, POS layout geometry across 14 widths, and synthetic-browser checks across 338 view/viewport combinations on 26 views and six role profiles. Reports failure/retry and requisition approval layout also passed local mocked-API checks. The generated local receipt is `STOCKLAND_ERP_16.1.94_LOCAL_RELEASE_RECEIPT.md`.
+
+These tests did not access or modify live WordPress/MariaDB records. **Exact-head GitHub Actions is still pending**; the older green run receipts target earlier commits. The nine employee compensation exceptions, independent statutory payroll signoff, full HR-to-final-settlement coverage, complete deep-audit receipt, live report SQL/source diagnosis, stock/ETB/AP/AR/PLEDGER/GL posting reconciliation, REST role/location security, import replay/idempotency, backup/restore/rollback and owner approval remain open. Thus the candidate has a **local package pass only**, not production certification.
 
 ## 1. Source identity and checks already observed
 
@@ -12,7 +28,7 @@
 - Required database contract: 29 Core + 16 Accounting/Procurement + 4 HR/Payroll = 49 tables.
 - 16.1.93 candidate remains on the existing draft PR; do not create a separate release for each defect.
 - Local inspection of the downloaded candidate: 75 files, 48 PHP files; PHP syntax pass 48/48; `assets/app.js` and `assets/pwa.js` parse with Node; release manifest, PWA manifest, and CSS module manifest parse as JSON.
-- Existing GitHub candidate CI, desktop click regression, deep-source/security and enterprise-security gates reported success for the PR head. These are source/package gates, not authenticated live ERP acceptance.
+- Existing successful GitHub Actions receipts target older commits from 20 October; the current cumulative 16.1.94 source head has no exact-head Actions receipt observed. Do not treat earlier green workflow runs as certification of the current candidate.
 
 ## 2. Binding business specification
 
@@ -171,11 +187,319 @@ Release gate: **zero unexplained reconciliation differences, zero unhandled crit
 
 ## 8. Consolidated stock / reorder correctness correction
 
-The package builder now includes a focused correction to keep report numbers aligned with the operational stock service:
+The installable WordPress update archive is corrected across the Reports Explorer, dashboard stock summary, live stock list and live reorder-status endpoint so these views use consistent operational stock definitions:
 
-- Physical stock reporting resolves both variant-linked ledger movements and legacy SKU-only movements to the Product Master variant when the SKU mapping exists.
-- Active reservation reporting includes both variant-linked reservations and legacy SKU-only reservations.
-- Inventory/low-stock views expose physical, reserved, and sellable available quantities distinctly. Sellable availability is floored at zero; `OVER-RESERVED` separately flags excess reservation quantities. The reorder threshold is evaluated against sellable availability rather than physical stock alone; zero thresholds do not create configured reorder alerts.
-- Inactive locations are excluded from the corrected report query.
-- The change is confined to the existing application report queries and release manifest; it adds no new database table, migration, live data mutation, or new product mode.
-- This source/package correction is not by itself proof of the live account's balances. The installed WordPress runtime must be confirmed against the same canonical ledger and reservation records before final release certification.
+- Physical stock sums posted ledger movements linked directly to a variant and legacy SKU-only movements that can be resolved to the canonical Product Master variant.
+- Active reservation totals include both variant-linked and legacy SKU-only reservation rows. Released/cancelled reservations are excluded.
+- Physical, reserved and sellable available quantities remain distinct. Sellable availability is `max(0, physical - active reservations)`; when reservations exceed physical stock, the result also emits `OVER-RESERVED` so the integrity exception is visible instead of silently displaying a negative available figure.
+- Critical reorder applies the branch/warehouse-specific reorder level to sellable available stock, not merely physical stock. A zero or missing threshold is shown as `NOT CONFIGURED` and does not generate a false reorder alert.
+- Inactive locations and inactive/non-stockable Product Master records are excluded from relevant stock/reorder summaries.
+- Dashboard inventory valuation maps resolvable legacy SKU-only ledger entries to their Product Master variant while using the current Product Master cost basis supported by the existing schema. This is not a substitute for historic transaction-staged COGS.
+- The package correction changes existing query logic and release metadata only. It adds no table, schema migration, live-data mutation or new product mode.
+
+## 9. Gap addressed in the delivered WordPress package
+
+The prior report/dashboard correction left the general stock-list and reorder-status REST handlers using only variant-linked records. Those endpoints could therefore disagree with reports when legacy SKU-only ledger movements or reservations existed, and could assess reorder using physical stock instead of sellable availability.
+
+The delivered `STOCKLAND_ERP_16.1.93_WORDPRESS_UPDATE.zip` includes the correction in `includes/rest/class-rest-stock.php`, `includes/rest/class-rest-reports.php` and `includes/rest/class-rest-app.php`. It keeps physical/reserved/available figures distinct, flags over-reservation, excludes disabled reorder thresholds, and uses sellable availability for critical-reorder calculations.
+
+**Repository parity is still open:** the supplemental source correction has been applied to the delivered ZIP, but the current GitHub build workflow and source-level assertions have not yet been updated to regenerate this exact artifact hash. This is explicitly tracked in Section 10; it must be reconciled within PR #12 before relying on a repository-generated package. Do not treat the current source/build pipeline as fully synchronized.
+
+This package-level correction is not evidence that the installed WordPress database or all finance, POS, identity and ledger workflows have been verified. It does not alter live data or the schema.
+
+
+
+## 10. Installable WordPress update artifact and current disposition
+
+The following WordPress plugin archive has been prepared from the existing 16.1.93 Reports Explorer candidate with the consolidated stock/reorder corrections incorporated; no separate release has been created for an individual defect.
+
+- Installer filename: `STOCKLAND_ERP_16.1.93_WORDPRESS_UPDATE.zip`
+- SHA-256: `414298ea395ad9aafaf1c973a93f7f9f2a4b0179e83df4ceca86ec5f5e1208b2`
+- Size: 1,119,689 bytes; 75 files; single `stockland-erp-app/` plugin root.
+- Source files changed by the supplemental correction: `includes/rest/class-rest-stock.php`, `includes/rest/class-rest-reports.php`, and `includes/rest/class-rest-app.php`, with the release manifest and README updated to describe the operational corrections.
+- Package verification results: ZIP CRC passed; 48/48 PHP files passed `php -l`; `assets/app.js` and `assets/pwa.js` passed Node syntax parsing; the release/PWA/CSS module JSON manifests parsed; all nine CSS files are byte-identical to the pre-correction 16.1.93 package; and `includes/class-stockland-activator.php` is unchanged. The database version marker remains `16.1.1`; no schema migration or new table was introduced.
+
+**Installed-site boundary:** this session does not have an authenticated control channel to the user's InfinityFree WordPress installation, so it did not upload, activate, or modify that live installation. The archive is a WordPress update package ready for an owner-controlled plugin update. The README was updated to present it as an installed-site update package rather than a separate trial package. Installed records, financial balances, branch permissions, every POS path and the complete ledger must not be represented as live-verified based only on package checks.
+
+**Repository reproducibility gap:** the supplemental correction was applied to the delivered archive; the current GitHub CI builder/QA allowlist has not yet been synchronized to reproduce this exact hash. Keep PR #12 open and do not merge/release through its current automated build until the stock correction is brought into the same builder and its existing regression gates. This remains part of the same consolidated release—not a request to create another version or one PR per issue.
+
+
+## 11. Owner-requested final consolidation — no per-defect releases
+
+**Policy:** continue in this existing PR/branch. Do not cut a new plugin version, duplicate PR, or install package for every individual defect. The next publishable package is created only once, after the consolidated change set and acceptance gates pass. Keep all interim work review-only.
+
+### 11.1 Current evidence versus not-yet-proven claims
+
+| Area | Evidence available now | Final disposition |
+|---|---|---|
+| Exact baseline and package integrity | 16.1.92 checksum lock, 75-file archive inventory, ZIP CRC, PHP/JS/JSON syntax checks | Verified at source/package level |
+| Desktop Product Master create action | Playwright reproduces overlapping search-popup click interception; fixed candidate passes 7 desktop widths using mocked REST | Regression fixed in harness; real host/theme still requires staging confirmation |
+| Reports & Analytics | Selector, default filters, selected-report print/PDF, CSV, server-side location and Owner-only reorder checks | Static/automated gates pass; all report totals still require independent fixture reconciliation |
+| Stock and reorder definitions | Candidate artifact has supplemental logic for legacy SKU-only movements/reservations, sellable availability and over-reservation flag | **Repository build parity is open**; builder must reproduce exact supplemental artifact before release |
+| Finance, AP/AR, tax, COGS and general ledger | Business contracts and required fixture suite are documented | **Not certified** until transaction-level reconciliation has expected/observed receipts |
+| Front-end final look | Design and viewport acceptance requirements are documented; desktop button has focused browser test | **Whole-app visual/button matrix is open**; do not claim every button/view is verified |
+| User profile dropdown | Requirement identified for profile, preferences, notification, session/security, help and sign-out | **Not yet proven** that every menu action is implemented and permission-safe |
+| Management intelligence page | Required as a separate management-only WordPress page with read-only decision intelligence and drill-down | **Not yet evidenced as implemented**; requires a dedicated acceptance test and role/access checks |
+| Microsoft sign-in / Teams | Entra OIDC is a separate authentication integration; Teams/Graph permissions are separate | **Configuration required / not connected** until owner-provided app registration and authenticated tests |
+| Slack | Slack OAuth v2 and minimal approved scopes are required | **Configuration required / not connected** until owner workspace/app approval and callback tests |
+| Native chat/collaboration | Needs user identity, room/message authorization, persistence/retention, notifications, audit, retry and revocation | **Not yet certified**; a decorative popup does not count as chat integration |
+| Production data and schema | No live deployment or live mutation was performed; schema activator/version marker unchanged in the reviewed package | Preserved by this work; actual installed-site state still requires owner-controlled staging/production verification |
+
+### 11.2 Required implementation sequence within this same PR
+
+1. **P0 — Build reproducibility:** bring the supplemental stock/reorder correction into `ci/patch_reports_explorer.py` and its assertions so the repository rebuild produces the exact approved artifact. Compare all changed file hashes, CSS byte parity, schema activator and database version; no manual post-build patching.
+2. **P0 — Accounting/stock correctness:** add deterministic fixtures with independently calculated expected values for receive/sale/return/transfer/reservation/reorder, tax, staged COGS, cash/tender, AP/AR and journal balancing. Test duplicate, retry, concurrent and failed-write behavior. A zero-difference target is mandatory; current status is not certified.
+3. **P1 — UI and button chain:** inventory every visible button/link/submit by route, role and viewport. Test hit target, handler, request, authorization, success read-back, validation error, server error, duplicate click and unauthorized attempt. Include dashboard, Product Master, POS, wholesale, receiving, warehouse, requisitions, transfers, returns, adjustments, finance, HR/payroll, reports, users, settings, audit and System Health.
+4. **P1 — Shared page/table design:** apply one Stockland-owned shell and page-holder contract; each data grid must have a page title, action toolbar, filter area, table/card holder, loading/empty/error states, totals/pagination where appropriate, focus/keyboard support, responsive overflow and scoped print/export. Do not copy proprietary SAP/Odoo/NetSuite screens or globally replace existing fonts.
+5. **P1 — Reports and management intelligence:** reconcile each report to source records; require a report definition, date/time basis, location scope, currency/tax/cost basis, access rule, drill-down and print/PDF check. Implement the separate management page as read-only by default, role-gated, traceable to source records, with explicit uncertainty/exception states and no automatic stock/finance posting.
+6. **P1 — Profile menu and integrations:** verify profile/preferences, notifications, session/security, help and sign-out. Add provider adapters only after credentials/configuration are supplied. Microsoft OIDC, Teams/Graph, Slack OAuth and internal chat must be separate capability-tested features; provider outages must not block ERP sales/stock/finance.
+7. **Release candidate:** generate one ZIP only after the above code changes and regression suites are in the same builder. Publish one checksum, full changed-file manifest, test receipts and rollback instructions on this PR. No merge/deployment until staging acceptance is signed off.
+
+### 11.3 Management intelligence and sensitive decision safety
+
+Management intelligence should provide explainable answers rather than an unconstrained chatbot that can post transactions. Every result should state:
+- the date range, authorized locations and canonical source records used;
+- calculation/metric definition, cost/tax basis and refresh timestamp;
+- whether the figure is posted, derived, estimated or incomplete;
+- exceptions such as missing compensation, over-reservation, unknown SKU, stale data or failed integrations;
+- a drill-down path and an audit entry for sensitive report access where appropriate.
+
+AI or narrative analysis may summarize and compare verified data but must not invent missing amounts, silently correct payroll, write ledger entries, approve adjustments, change reorder thresholds or post stock movements. Any action must go through the same authorized workflow, confirmation and server-side transaction services as a human operator.
+
+### 11.4 Final acceptance rule
+
+**Historical disposition for Sections 1–11:** the package build and live-environment gates described above were open at the time those sections were written. See Section 12 for the latest WordPress installer source and package receipts. A successful package check is not proof that the file has already been uploaded or activated on the authenticated InfinityFree site.
+
+
+## 12. Consolidated WordPress update — latest artifact and source alignment
+
+**Artifact:** `STOCKLAND_ERP_16.1.93_WORDPRESS_UPDATE.zip`  
+**SHA-256:** `0e1f21ec02d33710921249f06e61aba4d4cbc24dae26d50c2513f19fe72442ba`  
+**Size:** 1,096,594 bytes  
+**Package:** 75 uniquely named files, single `stockland-erp-app/` plugin root  
+**Disposition:** installable update for the existing WordPress plugin folder; no new database schema or live record changes are packaged.
+
+### 12.1 Locally verified package facts
+
+- ZIP CRC, unique archive inventory and safe single plugin root passed.
+- PHP syntax: 48/48 files passed the installed PHP linter.
+- JavaScript syntax: `assets/app.js` and `assets/pwa.js` passed.
+- JSON parse: release manifest, PWA manifest and CSS module manifest passed.
+- Nine CSS files are byte-identical to the checked-out source tree.
+- Table contract remains 49 tables: 29 Core/Operations, 16 Accounting/Procurement, 4 HR/Payroll. Database schema version stays at 16.1.1; the schema activator is unchanged.
+- Release metadata and README identify this as a Stockland WordPress update and do not label the plugin update as a trial installation.
+- The source contains the dedicated Owner/Management Management Intelligence workspace and report query failures return explicit errors instead of valid-looking zero totals.
+- WordPress/PHP runtime checks, plug-in header and hosting notes align to PHP 8.3+. XLSX streaming health accepts the disk-backed reader fallback when supported XMLReader and ZipArchive are available.
+
+### 12.2 Stock / reorder audit findings incorporated
+
+The Reports Explorer, dashboard low-stock calculation, inventory list, live reorder endpoint and Daily Inventory now use consistent definitions. Posted stock ledger movements remain the physical-stock authority. Active reservations are resolved both by canonical variant and by legacy SKU-only rows where a valid Product Master mapping exists. Physical on-hand, reserved, sellable available, inbound transfer, reorder position and reorder threshold are separate. Sellable availability is floored at zero while `OVER-RESERVED` remains visible as an integrity warning. Unconfigured reorder thresholds do not create a false replenishment alert. Inbound quantity includes only eligible transfers whose state is explicitly `In Transit`; `Picked` alone is not assumed to mean a transfer has been dispatched. The proposed quantity is advisory and does not mutate stock or auto-create a purchase order.
+
+### 12.3 Payroll reference and arithmetic disposition
+
+The supplied standalone example was not installed as a second Node.js/Express service or PostgreSQL schema, and its sample names, TINs and salary values were not imported. Payroll remains in the existing WordPress/PHP/MySQL service using the canonical decimal-safe money engine, versioned rule `ET-PAYE-1395-2025-v3-PENSION-BASE`, effective-dated compensation, Owner-approved classifications, period locking and accounting posting.
+
+The installed PHP statutory calculator was invoked with synthetic fixture values. Six PAYE bracket boundaries and a complete payroll line reconcile: taxable income ETB 10,300.00; income tax ETB 1,740.00; employee pension ETB 700.00 (7%); employer pension ETB 1,100.00 (11%); gross pay ETB 11,000.00; net pay ETB 8,560.00; employer cost ETB 12,100.00. Five independent reorder boundary cases also match the stated threshold and minimum-one-unit suggestion policy. These are formula-level receipts, not a claim that any employee’s actual pay was changed or independently audited.
+
+The reported seven active employees without current compensation remain visible for authorized HR review. No salary, employee identity or effective-dated compensation record was invented, auto-filled or rewritten.
+
+### 12.4 Repository generation and installed-site boundary
+
+The existing PR #12 build workflow now invokes the ordered Reports Explorer, stock/reorder reconciliation and shared-host/report-protection steps. The stock query parameter-order assertions were corrected to match the expanded canonical-variant/reservation/transfer joins, and the regression contract explicitly checks that only `In Transit` contributes inbound stock. The production hardening source includes fail-closed guards for both report-source queries and Command Center sales/inventory measures.
+
+At the time this update was written, the GitHub connector had not returned a workflow run for the newest branch head; therefore the repository-generated artifact hash and current workflow status are **not represented as CI-verified**. The manually prepared installer above has the local receipts listed in Section 12.1. A later green repository run should be compared against the same package hash before treating CI reproducibility as closed.
+
+No authenticated control channel to the owner’s InfinityFree WordPress installation was available in this session. The ZIP was not uploaded, activated, or run against live tables, and no production data was modified. That boundary is not an open code change inside the installer; it is an external access/action limit. Do not represent live-site activation, all-button coverage, every finance/POS transaction path, or complete AP/AR/GL reconciliation as performed from package-level receipts alone.
+
+
+## 11. Domain portability and removal of fixed external website links
+
+The installable plugin must not rely on the previous test/redirect host, an InfinityFree subdomain, an old GitHub project URL, or a hard-coded external website for ordinary ERP operation. The ERP page/REST/assets use WordPress URL functions and the running site's origin. The existing bundled Stockland logo asset remains local to the plugin; no additional remote logo/image request is required.
+
+The package-build routine now removes:
+- fixed Ethiopian legal-source hyperlinks and their hard-coded fallback domains from the payroll interface/API (the legal labels remain visible, without a remote click-through);
+- old GitHub Actions workflow URLs from the embedded release manifest;
+- website/license URL text from the bundled Bootstrap stylesheet's header comment only (the CSS rules and framework version/MIT attribution text remain intact).
+
+The package QA contract scans all packaged file bytes for web URLs. Only the required SVG namespace `http://www.w3.org/2000/svg`, the OpenXML relationships namespace `http://schemas.openxmlformats.org/officeDocument/2006/relationships`, and the exact official Stockland logo URL if one is intentionally used are allowlisted. Namespace URIs are technical identifiers, not browser requests. Bootstrap CSS changes are restricted to its header-comment URL text; its styling rules must remain identical. The archive file list/root and schema activator remain unchanged.
+
+This is a source/build contract in the existing PR, not proof that the host redirected or that the installed WordPress files have already been replaced. The generated ZIP's checksum and build receipt must be checked before describing it as the package for manual update. No remote files, credentials, database rows, stock or financial records are changed by the cleanup itself.
+
+## 13. Supplemental Owner findings — mandatory before installation
+
+These findings were raised after the earlier consolidated audit and supersede no existing acceptance gate. They are additional blockers and must be resolved in the same 16.1.93 workstream; documentation alone does not close them.
+
+### P0 — HR must be a complete Stockland SOP lifecycle, not a statutory calculator
+
+The prior payroll arithmetic fixtures only establish limited formula behavior. They do not certify that Stockland has a complete HR system. Before release acceptance, map the approved SOP through workforce/headcount planning and budget; requisition and approval; recruitment/offer where required; onboarding; employee master, contracts, positions, locations and probation; attendance, shifts, overtime, holidays and leave; performance/training/discipline where specified; compensation and changes with effective dates; allowances, deductions, loans/advances, benefits and reimbursements; payroll cut-off/input reconciliation/review/approval/payslip/remittance/accounting; correction/reversal; resignation/termination/retirement; clearance and asset return; leave/loan/advance reconciliation; final earnings/deductions and settlement calculation, approval, payment, certificates and archival.
+
+For every step, identify the canonical record, actual persisted request/response payload, required fields, permission, approver, state transition, date semantics, exception/failure behavior, accounting effect and audit event. Do not invent missing employee/compensation values. If the current four HR/Payroll tables or services cannot represent a required SOP step, record the exact gap and propose a reviewed, versioned migration with backup/rollback proof; do not claim the step exists or add shadow records. Closure requires signed HR/Owner SOP traceability and independent settlement/payroll expected-value reconciliation.
+
+### HR/Payroll scope finding — source evidence, not just a statutory formula gap
+
+The inspected historical 16.1.93 candidate exposed employee list/create/decision/update, compensation create, payroll list/detail/create/generate, line update/classification, submit, Owner approval and payment. Its UI described a four-step monthly payroll run and employee rows included hire/termination dates. The inspected archive did **not** evidence a complete workforce plan → requisition/recruitment/onboarding → time/attendance/leave → employee development/performance (where the SOP requires it) → termination clearance → final settlement workflow. This is a historical candidate inspection only; the current exact-head ZIP still must be built and inspected.
+
+The release must not equate a functioning PAYE/pension calculator or approved monthly payroll with a full HR ERP. CAP-22 requires a Stockland SOP-to-feature matrix, complete persisted payload/field review, effective-date and historical-record protection, independent final-settlement math, authorization, and audit evidence. Any new schema requirement must be separately justified with migration/backup/rollback proof; do not fabricate employee or compensation values.
+
+### Specific source issue found and narrow build correction
+
+In the inspected historical candidate ZIP, the WordPress admin diagnostics panel in `includes/class-stockland-admin.php` displayed a “Server environment” heading and the text “plugin requires 8.4+”. This was inconsistent with the intended PHP 8.3+ hosting floor. The consolidated build patch corrects the PHP floor and now renames that heading to “WordPress hosting compatibility”, while tests require the live PHP version, MySQL/MariaDB version, memory limit and execution-time diagnostics to remain present. No diagnostic data is removed.
+
+The historical bundled README included old test/staging/mock-CI commentary, and the release JSON carried a large accumulated candidate-history list and old CI/toolchain metadata. The build patch now replaces the README with a current host/operator guide and whitelists production operational contracts plus current release notes in `RELEASE_MANIFEST.json`. A static gate checks that old workflow/source-gate history and known test/runtime wording are not copied into those installed documentation/metadata files. The external audit and Actions history remain in GitHub. Exact-head build and regression execution are still required before closure.
+
+The inspected historical ZIP contains legitimate import-staging/temporary-table workflows (e.g., import preview/stage/approve/commit and safe temporary-table rebuilds). These are business/data-integrity controls, not a “staging copy” of the application. They must remain. The inspection found no standalone uppercase whole-word `FL` token in that historical artifact; AP/AR/PLEDGER/GL references correspond to existing Finance/Procurement operations and must be preserved. This classification must be repeated against the exact final built archive, with every matched occurrence logged and dispositioned before approval.
+
+### P0 — Hosting/source cleanup must be precise and non-destructive
+
+The installable product remains one Stockland WordPress plugin running on the existing PHP/WordPress and MySQL/MariaDB hosting model. It must not gain a separate Node.js/Express/PostgreSQL service, daemon, unsupported required worker, hard-coded host/redirect, or test/staging application tree. Do not embed test staff/pay, fixtures, mock APIs, staging configuration, CI helpers or demonstration business data in the ZIP.
+
+Audit the actual final archive and build source for the reported “FL/AR/AP/server environment” wording one occurrence at a time. Classify each item before changing it. Remove stale hostnames, misleading environment claims, hard-coded external workflow/legal URLs, unsupported runtime dependencies and developer-only wording only where confirmed. Preserve real Stockland ERP processes and all legitimate AP (Accounts Payable), AR (Accounts Receivable), GL, REST route, permission, ledger, audit, import, resume, transaction/row-lock and schema/version identifiers. Required PHP handlers invoked by WordPress REST remain part of the hosted application; removing them or moving privileged writes into browser code would weaken authorization and record integrity. Required JavaScript/PWA assets and JSON manifests are not test copies and must not be stripped indiscriminately. Preserve existing business dates/history, all approved SOP transitions and immutable posted records.
+
+Closure requires an archive-wide inventory/phrase/URL/dependency scan, exact changed-file allowlist, PHP/route/capability checks, schema/version/date invariants, CSS source/compiled parity, and proof that the build produces the same inspected ZIP with one `stockland-erp-app/` root and the approved runtime inventory.
+
+### P0 — Re-establish the previously corrected Reports loading behavior
+
+The Owner reports that a later downloaded version reintroduced a report-loading error after multiple prior correction iterations. The precise previously-good implementation and its regression proof must be traced through the repository/package history before changing the code. Do not hide the error, fake zero totals, force an empty-state result on a failed query, change report scope, or remove report handlers as a shortcut.
+
+The final exact-head package must exercise the previously affected report as well as every report type: initial load, filter/date/location changes, navigation away/back, switching report types, no results, API/query failure, retry, and repeated selection. A real successful response renders persisted-source data; a genuine empty result renders the designated empty state; a failure displays a clear error and retry path without an infinite spinner or fabricated zero. The external CI-only browser test `ci/qa/test_reports_loading.py` is now wired into the existing Reports Explorer workflow to check failure → retry → success recovery; the static regression test also guards the loading/error/retry markers. Neither test is considered passed until an exact-head workflow receipt is returned. Capture the historical fixing commit/version when identifiable, the reproducing case and expected behavior, exact package hash and passing regression receipt. Until that evidence exists, the report-loading CAP remains OPEN.
+
+### Packaging and release non-negotiables
+
+- One cumulative plugin update, same established release branch and plugin root; no parallel “test” or “staging” plugin.
+- QA scripts/fixtures stay outside the installable ZIP, in the review/CI area only; no demo employee identity/TIN/salary or mock transaction data enters the package or live database.
+- No new runtime service or hosting dependency. CI may use test tooling externally, but Node.js or similar developer tooling must not be required to operate the installed ERP.
+- Preserve approved source fixes and the entire prior change history. Every patch must have a file allowlist and regression contract so it cannot reintroduce a previously closed loading/UI/payroll/stock bug.
+- No source-wide blanket replacements for terms such as “server,” “AP,” or “AR.” Review each occurrence and prove its role before editing.
+- Do not call any audit finding closed solely because a document was added. The package must be rebuilt, tested at the exact final source head, reviewed, then accepted on the authenticated target host with a verified backup/restore and rollback plan.
+
+
+## Latest Owner-provided live 16.1.94 Health and mobile UI evidence — 23 October 2026
+
+The Owner supplied a current System Health text dump and phone screenshots from `stocklanderp.ct.ws`. This is reported live evidence, not an authenticated session performed by the audit runner.
+
+### Runtime identity / source mismatch
+
+- Live screen reports Plugin **16.1.94**, DB **16.1.1**, PHP **8.4.27**, WordPress **7.1.3**, MariaDB **11.4.13**, memory limit **512M**, upload/POST limits **20M/30M**.
+- It reports Core **29/29**, Full ERP **49/49**, REST v16 **104 routes**. These are useful schema/route-presence checks; they do not independently prove full business transaction coverage.
+- The connected review branch being audited remains a 16.1.93 candidate built from a 16.1.92 package. No 16.1.94 plugin ZIP/source is present in this branch. Therefore, do not upload this branch's ZIP as an update over live 16.1.94 and do not modify its older POS/cart markup as though it were the exact installed page. Obtain and checksum the actual deployed 16.1.94 package first.
+
+### Payroll data gate
+
+The latest copied Health text reports **9 active employee records** with the reason “Current compensation record is missing”; `payroll_compensation_classification` is the failed production gate. The check expressly states it does not change salaries/classifications. This count supersedes older reports of seven affected employees. HR/Owner must review actual contracts and effective compensation through authorized workflows. No values can be synthesized or auto-filled to obtain PASS.
+
+### Deep-integrity state must be tied to one completed run
+
+The latest pasted text reports PASS labels for audit-chain, ledger references, no-negative-stock, balance reconciliation, reservation integrity, AP/AR, GL balance, procurement references and identifier integrity, and says the supplemental bounded scan is clean. It also reports that database foreign-key metadata is **NOT_ENFORCED**. In a separate supplied screenshot, the red panel explicitly labels the broader deep audit **UNVERIFIED** and lists audit-chain hash, ledger/PLEDGER/AP/AR/GL/orphan, reservation, duplicate identifier, payroll and import/workflow checks as pending. Without a shared run ID, timestamps and per-check completion receipt, these panels cannot prove that the complete deep scan finished. Treat the full deep result as UNKNOWN/UNVERIFIED until a completed read-only receipt demonstrates every required check; keep supplemental bounded results separate. Never infer SQL foreign keys from application orphan checks.
+
+### Reporting failure and mobile layout
+
+- Reports screenshot: the live report call returns “The report could not read every required source. No partial totals were returned.” This fail-closed behavior is safer than fabricated totals, but the source/database read failure is still an operational blocker. Diagnose the failing report source using sanitized diagnostics and preserve the explicit error/retry behavior; do not widen access or coerce the response to zero.
+- The same screen shows an inline error plus a second large red toast obscuring the report. Remove duplicate/intrusive presentation only after exact 16.1.94 source is recovered; keep one accessible message and working retry/Health path.
+- Requisition/warehouse screenshot shows the approver/decision/status/timestamp text colliding and the supply-line table occupying a horizontally clipped area. The Owner separately reports the Cart page is visually unusable. Fix the actual 16.1.94 renderer and its CSS without altering protected handlers, approval states, stock/GL/audit effects or idempotency.
+- CAP register has been extended with CAP-25 (mobile Cart/requisition/approval layout), CAP-26 (deep Health completion semantics), CAP-27 (report error presentation/source failure), CAP-28 (16.1.94 source parity), CAP-29 (single master end-to-end acceptance) and CAP-30 (Cart/POS correction on exact current source).
+
+### Local recheck and code-level report recovery change — 23 October 2026
+
+A [Local Recheck Receipt](STOCKLAND_ERP_LOCAL_RECHECK_2026-10-23.md) was added with a reproducible local test record. The historical 16.1.93 artifact SHA-256 `a8cb3767f363740387731928211febc315876a7b8c146e65e594930940e64e3b` passed ZIP CRC/root/inventory (75 unique files, one plugin root), PHP lint 48/48, JavaScript syntax for app.js/pwa.js, JSON parsing, ordered CSS source/build/minified parity, PostCSS parsing and responsive media coverage (60 @media occurrences). Source scanning found 49 distinct literal stock-table declarations, preserved AP/AR/PLEDGER/GL terms and no case-sensitive standalone uppercase `FL` token in the historical PHP tree.
+
+A narrow report UI correction is committed in `ci/patch_reports_explorer.py`: when a report API call fails, the screen keeps the explicit inline error and Retry button, clears stale report state and returns rather than throwing into the same click handler and creating a second intrusive toast. The static regression contract was updated, and `ci/qa/test_reports_loading.py` now checks a user-triggered failure followed by retry, single-error presentation and 390px mobile bounds. A separately run local Playwright/Chromium test applied this exact replacement to a temporary copy of the historical candidate and passed: initial report success → user-triggered source failure → inline error/no duplicate toast → retry success; print/CSV disabled during error and re-enabled on success; no page-level horizontal overflow at 390px; no uncaught JS errors; no live data touched.
+
+This is a **partial code/QA improvement**, not closure of CAP-24/27. GitHub currently reports zero check runs directly attached to the latest source commit `5fa1bdc5bc3219e55c97b47774f6957dafacc417`. Available related Actions receipts were created on 20 October and reference older build state. The exact latest source/package has not been built and tested in Actions, and the live 16.1.94 database source error is not diagnosed by a mocked local test.
+
+The same local source audit found that the historical 16.1.93 package still shows “Server environment” and “plugin requires 8.4+” in the admin panel, and the release manifest includes older Node.js provenance. The current production-hardening build script contains corrections, but no exact-head built ZIP was available to prove their final output. It also exposes a single-SKU atomic POS form, not the precise live Cart source in the Owner's screenshots. This confirms the baseline mismatch blocker and must not be treated as a live Cart fix.
+
+### Final cumulative local regression recheck — 23 October 2026
+
+The final available **local review fixture** is `STOCKLAND_ERP_16.1.93_LOCAL_CUMULATIVE_REVIEW_FIXTURE_ONLY.zip`, SHA-256 `0d2632ad75d6df81c5047b0937b9b551d7b9ee7d03104c8c91458682116e5883`, 1,101,969 bytes, manifest version 16.1.93. This is not an approved production update and must not be uploaded over live 16.1.94.
+
+**Static/package PASS on the review fixture:** ZIP CRC/path/root/inventory (75 unique files / one plugin root); PHP syntax 48/48; app.js and pwa.js syntax; JSON parsing; PostCSS for app.css/app.min.css/Bootstrap; six-module source → app.css exact rebuild; normalized source → app.min.css parity; ten fail-closed report source query guards plus location lookup failure; five dashboard KPI query-failure guards; Management Intelligence view/capability gate; PHP 8.3+ diagnostic normalization; archive-wide unapproved outbound URL scan zero; Bootstrap MIT attribution preserved. Static guards establish code presence, not the live queries' successful operation.
+
+**Browser smoke PASS using synthetic intercepted API responses:**
+- 175 view/viewport pairs across 25 work areas × 7 CSS widths (320, 360, 390, 430, 768, 1024, 1440).
+- Six role profiles: Sales Employee, Branch Manager, Warehouse Manager, Management, Employee, Owner; all tested navigation-capability assertions passed.
+- Management Intelligence separately checked once for Management, Owner and Sales Employee; workspace visible for the two authorized profiles and restriction message shown for Sales Employee.
+- Requisition approval history/supply table: 7 widths; no approver/decision/status overlap or page overflow, no table wrapper outside the drawer.
+- Reports: initial success → induced API failure → single inline error/no duplicate toast → successful retry; 3 requests in the focused failure/retry sequence, no overflow at 390px, print/CSV appropriately disabled then enabled.
+- Zero blank views, measured overflow failures, page errors or console errors in the final recorded browser run.
+
+Detailed report: [STOCKLAND_ERP_LOCAL_ACCEPTANCE_RECHECK_2026-10-23.md](STOCKLAND_ERP_LOCAL_ACCEPTANCE_RECHECK_2026-10-23.md); machine receipt is available locally as `STOCKLAND_ERP_LOCAL_CUMULATIVE_BROWSER_RESULTS_2026-10-23.json`.
+
+**Not proved by these runs:** live DB/REST read success, actual SQL source of the report error, real server-side role/location permission denials, stock and ETB transactions/reconciliation, import idempotency, statutory-law signoff, real payroll corrections, the complete HR lifecycle, deep audit completion, backup/restore/rollback, or live 16.1.94 Cart/POS source parity. Tests ran against synthetic fixture responses in a temporary browser page and did not access or mutate production records.
+
+The integrated GitHub workflow has source steps for the new report-loading, requisition layout, all-work-area/role and CSS/PostCSS checks. **Exact-head CI remains pending**; the last visible green Actions receipts target previous commits from 20 October. A missing exact-head receipt is not inferred as PASS.
+
+**Release boundary:** live System Health reports plugin **16.1.94 / DB 16.1.1**, whereas this source lineage is 16.1.92 → review candidate 16.1.93. Exact installed 16.1.94 installer/source/checksum remains unavailable. Nine live employee compensation exceptions remain an Owner/HR data gate; no fake salary values can be inserted. The live report-source error and full HR-to-final-settlement workflow remain unresolved. Local fixture PASS therefore does not certify the WordPress update.
+
+### Verified release-artifact provenance and CAP-01 closure gate — 23 October 2026
+
+The actual Actions artifact was downloaded and inspected instead of assuming that a package filename or green earlier workflow proved final-source parity.
+
+- Actions run: [39471331354 — Reports Explorer 16.1.93 exact-package gates](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/39471331354)
+- Run source SHA: `1f96da520602b992bec449ebf2ab45b9469f107e` (20 October); the cumulative builder, receipt-verification gate and regression updates were added after that run.
+- Locked canonical 16.1.92 installer: `adec43b84f2b9a62d8913f84bad20588166800b2b6571d22d75abb86fcfd3fcd`, 1,113,446 bytes. PHP 8.3 and PHP 8.4 action artifacts embed the same baseline bytes. Local validation passes ZIP CRC / 75-file one-root inventory, PHP syntax 48/48, JS syntax, JSON parsing and CSS six-module/app.css/app.min.css parity. The saved 16.1.92 PHPCS JSON reports 0 errors / 0 warnings and the saved Semgrep 1.139.0 JSON reports 0 results / 0 errors for that package/revision. Live deployment was not performed.
+- The 16.1.93 build and local QA receipts inside the downloaded artifact identify an intermediate package at SHA `1cfab0a8221802aa2a5633e92d65ff76f146ea6152aae7068e6d82b384f2dceb`, 1,117,980 bytes.
+- The actual embedded 16.1.93 ZIP and its sidecar identify SHA `a8cb3767f363740387731928211febc315876a7b8c146e65e594930940e64e3b`, 1,118,326 bytes; the stock reconciliation receipt agrees with this latter identity.
+
+The downloadable candidate's SHA sidecar matches its own bytes, but its top-level build/QA receipt is not an attestation of those final bytes. The artifact also predates the latest source cleanup and UI/backend hardening now present in the branch: it retains the 8.4+/server-environment wording and fixed legal-domain links, and lacks the report-source query-failure guards, Management Intelligence renderer, responsive approval-history CSS, and single-inline-error retry correction. So the older Actions “success” is not proof that the current cumulative release package exists.
+
+A final package receipt gate is now in the source pipeline: builder emits final_package SHA/size/inventory/changed-file evidence after all patches; `ci/qa/verify_final_package.py` checks sidecar, build receipt, 75 files/one plugin root, release/schema markers, changed-file allowlist, PHP 8.3/domain/report/management/approval markers, and CSS source/compiled parity. The reports regression test deliberately tampers with the receipt to prove a stale/intermediate SHA fails. The workflow publishes the final receipt alongside the ZIP and checksum.
+
+**Status remains OPEN / BLOCKER for CAP-01/02:** the latest GitHub head currently has no matching Actions run/status. The source-side guard is implemented but has not been executed on that head, and no new final artifact with a matching receipt has been produced. **Do not upload the historical 16.1.93 artifact over live 16.1.94.** Other live-data and operational blockers (nine missing compensation rows, full HR lifecycle, full deep-audit receipt, report SQL failure, and Cart/POS version parity) remain separate and open.
+
+### Updated disposition
+
+**NO-GO for installation/update.** Current evidence contains a real payroll gate failure, a failed live report source read and mobile UI defects, and the review package is older than the installed release. The master acceptance plan is linked in `STOCKLAND_ERP_MASTER_END_TO_END_ACCEPTANCE_16.1.94.md`. Corrective documentation does not close the code, data or host acceptance gates. No deployment or live data mutation was performed by this review.
+
+**Updated disposition: NOT APPROVED FOR WORDPRESS INSTALLATION until the exact current artifact has been built and verified, the HR-to-final-settlement SOP lifecycle is evidenced, host/source cleanup is complete without deleting legitimate ERP services, the earlier report-loading fix is proven retained, all existing CAP blockers are closed, and the Owner approves the evidence.**
+
+
+## Latest consolidated CI and local package evidence — 23 October 2026
+
+### Successful cumulative package run
+
+[GitHub Actions run 40015618628](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/40015618628) finished SUCCESS for the cumulative WordPress workflow on runtime source commit `34f56f11856ff2d1b0294e01e11b7eb50b83e72c`. It passed the locked-baseline verification; Reports Explorer/stock source regression; cumulative stock/reorder, host-hygiene and report-source patch chain; 16.1.94 finalizer; sidecar/build/release receipt verification; Product Master desktop click chain; report failure/retry recovery; requisition approval responsive geometry; all-work-area/role viewport smoke; CSS/PostCSS parity; ZIP package/version/schema checks; 48-file PHP lint; JS syntax; and release JSON validation.
+
+The Actions artifact `STOCKLAND-ERP-16.1.94-Cumulative-WordPress-Update` (artifact ID `12527164862`) has outer SHA-256 `f2400061eed2cf70fe6456e9ff6d1522c82f7fa9b3c03ddf4c6fc40f3c3c9465`. The inner WordPress ZIP is `STOCKLAND_ERP_16.1.94_CANONICAL_WORDPRESS_UPDATE.zip`, SHA-256 `1b1623a7f1a2db77143d6c6f8a8663bde7a74ef72f1a8bcddffd52d2c8e50e8d`, 1,100,451 bytes; 75 unique files, one safe `stockland-erp-app/` root; release markers 16.1.94; 49-table contract (29 + 16 + 4); DB marker 16.1.1. The ZIP sidecar and finalizer receipt agree with the inner ZIP bytes.
+
+### Desktop receipt correction pending
+
+Independent inspection of artifact 12527164862 found `STOCKLAND_ERP_16.1.94_DESKTOP_BUTTON_QA.json` had zero bytes even though the test step returned success. The desktop test source was updated to return structured JSON, accept `--receipt`, write that exact file, and the workflow now checks `test -s` to fail if it is empty.
+
+Run [40015844983](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/40015844983) on runtime-source head `93f88facf9028b77af57b1bebf44f445fd5153e5` was still marked IN_PROGRESS at Playwright browser setup in the latest available GitHub status. No artifact with the corrected desktop receipt was returned yet. Therefore the prior package's build/UI outcomes are real, but the desktop receipt correction is not called passed until that run completes and the resulting JSON is inspected.
+
+### Local final ZIP recheck
+
+The inner ZIP was also rechecked locally after downloading the successful Actions artifact: CRC valid; 75 unique safe paths under one plugin root; 16.1.94 entry/constant/route/manifest markers; 49-table contract; six ordered CSS modules rebuild `app.css`; deterministic normalized source matches `app.min.css`; report inline retry/duplicate-toast guard present; ten report-source fail-closed guards and five dashboard query failure guards present; Management Intelligence renderer, scoped responsive approval styles, and explicit `In Transit` filter present. Local check does not contact WordPress or a database and did not mutate business data.
+
+### Final deployment boundary
+
+The build lineage is still the audited 16.1.92 baseline → cumulative 16.1.93 patch chain → finalized 16.1.94 package. It is not proven identical to the exact live 16.1.94 plugin folder. CAP-28 remains OPEN pending the actual installed source/ZIP and checksum comparison; otherwise a same-version replacement could overwrite unobserved fixes. Do not label the package safe for in-place installation on the live 16.1.94 site solely because the reconstructed package run passed.
+
+Separate P0/P1 gates remain open: live nine-employee compensation remediation; current Ethiopian payroll rule/legal approval; complete HR planning-to-final-settlement acceptance; a single deep-integrity run ID/timestamp with every check completed; live report source-read failure diagnosis; transaction-level stock, ETB, VAT, COGS, AP/AR/PLEDGER/GL reconciliation; server-side branch/role denial and rollback evidence; authenticated host backup/restore/rollback; and signed Owner acceptance. See the CAP register and master acceptance matrix for status by gate.
+
+
+## Latest exact 16.1.94 candidate verification and CAP closure boundary — 23 October 2026
+
+### Completed package/build/browser run
+
+- Actions run: [40020305786](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/40020305786), conclusion **SUCCESS**, runtime-source head `883167a39726e8815dbf787df7291b0ede9742ef`.
+- Artifact: `STOCKLAND-ERP-16.1.94-Cumulative-WordPress-Update`, ID `12529439284`, outer archive SHA-256 `7e108e206b695082c321f7ff1aab78616d5fc3a581c541d2190ae849c75097d2`.
+- Inner installer: `STOCKLAND_ERP_16.1.94_CANONICAL_WORDPRESS_UPDATE.zip`, SHA-256 `00700372c4755bb758eba017642966a259bd7c37b55862622774274a0600bbb6`, 1,100,950 bytes.
+- Verified inner package: ZIP CRC PASS; 75 unique safe paths; one `stockland-erp-app/` root; release/route/CSS manifest markers 16.1.94; DB marker 16.1.1; 49-table contract (29 Core/Operations + 16 Accounting/Procurement + 4 HR/Payroll); schema activator unchanged. The inner hash is identical in the sidecar and final package receipt.
+- Browser/package gates passed: desktop Product Master click/create (7 wide viewports, non-empty receipt), report failure/retry (one inline error, retry success, no duplicate toast), requisition approval/supply-table layout (7 widths), 175 view/viewport combinations across 25 work areas and six synthetic roles with zero measured overflow/browser/console failures, CSS source/build/minified parity, PostCSS, archive/version/schema integrity, PHP lint 48/48, JavaScript syntax and JSON.
+
+### Security/dependency checks moved onto the exact final package
+
+The older security workflows select a legacy 16.1.89 ZIP pattern, so their historical success is not a current 16.1.94 security attestation. The cumulative workflow has now been extended to run the repository's existing WPCS/PHPCS source-aware security/database review, Semgrep PHP/security-audit scan, and runtime dependency/license inventory against the exact finalized ZIP and upload those receipts.
+
+Follow-up run [40021038142](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/40021038142), branch/workflow head `397bfc0fcf0c659c38fc25f5d52a95bc30d608fa`, was **IN PROGRESS** during pinned browser dependency setup at the last status query. Its security steps have not yet returned results. CAP-02 remains open pending their completed receipts. The successful 400203 run remains valid evidence for runtime/package/browser behaviour; the new workflow commit adds security gate execution, not plugin runtime changes.
+
+### CAP disposition from this audit
+
+**Closed at package level:** CAP-01 (exact candidate build/archive/sidecar/final receipt/inventory/schema provenance), and CAP-17 (obsolete host/domain/runtime-text cleanup of the package; MIT attribution retained). These closures do not certify production source identity.
+
+**Partial package/fixture completion:** CAP-06 stock/reorder logic; CAP-10/11 frontend coverage and desktop click; CAP-15 hosting floor/package compatibility; CAP-18 responsive views; CAP-23 source hygiene; CAP-24 report loading/retry presentation; CAP-25 requisition/approval layout; CAP-27 report error UI/source guards. Their remaining statements are the live/database/host/full-handler parts recorded in the CAP register.
+
+**Still open and not closable by static/mock browser receipts:** CAP-02 until new security gates finish; CAP-03 authenticated host acceptance plus restore/rollback; CAP-04 nine live employees missing compensation; CAP-05/21 current independently approved Ethiopian payroll rules; CAP-07/08/09 live transaction/report reconciliation; CAP-12 server authorization and concurrency negatives; CAP-13 full warehouse-to-sales close chain; CAP-14 import exactly-once/retry/resume; CAP-16/26 completed read-only deep integrity with run ID and each check; CAP-19 audit/ledger failure rollback; CAP-22 complete HR lifecycle through final settlement; CAP-28 exact installed 16.1.94 checksum/source parity; CAP-29 signed SOP end-to-end acceptance; CAP-30 actual deployed Cart/POS source and handler preservation.
+
+The latest package is reproducible from the locked 16.1.92 installer through the reviewed 16.1.93 patch chain and finalizer target 16.1.94. It is **not** verified to be byte-identical to the currently installed plugin folder, whose reported version is also 16.1.94. Do not install-overwrite it until that exact live-source/checksum mismatch is resolved. No live production database or employee record was accessed or changed.
