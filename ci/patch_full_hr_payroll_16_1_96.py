@@ -83,10 +83,16 @@ def patch_hr_schema(files):
         "tax_rule_version VARCHAR(40) NULL,\n            statutory_status VARCHAR(20) NOT NULL DEFAULT 'LEGACY',",
         "tax_rule_version VARCHAR(40) NULL,\n            statutory_rule_set_id BIGINT UNSIGNED NULL,\n            statutory_rule_version VARCHAR(80) NULL,\n            allowance_rule_set_id BIGINT UNSIGNED NULL,\n            allowance_rule_version VARCHAR(80) NULL,\n            statutory_status VARCHAR(20) NOT NULL DEFAULT 'LEGACY',",
         "fresh payroll line schema")
-    p = once(p,
-        "PRIMARY KEY  (id), UNIQUE KEY period_employee (period_id,employee_id), KEY employee_id (employee_id), KEY branch_location_id (branch_location_id), KEY status (status)\n          ) ENGINE=InnoDB {$cc};\n\n\t\tif ( $batch_size > 0 ) {",
-        "PRIMARY KEY  (id), UNIQUE KEY period_employee (period_id,employee_id), KEY employee_id (employee_id), KEY branch_location_id (branch_location_id), KEY status (status)\n          ) ENGINE=InnoDB {$cc};\n\n\t\tforeach ( Stockland_HR_Lifecycle::table_ddl( $p, $cc ) as $lifecycle_ddl ) {\n\t\t\t$tables[] = $lifecycle_ddl;\n\t\t}\n\n\t\tif ( $batch_size > 0 ) {",
-        "add expanded lifecycle DDL after last core table")
+    # Inject lifecycle DDL after the legacy payroll_lines declaration and before batching begins.
+    # Use the declaration boundary rather than a multiline SQL substring because CRLF/newline
+    # normalization can differ between the locked release archive and this patcher source.
+    last_table = p.find("CREATE TABLE {$p}stock_payroll_lines")
+    batch_marker = "\\t\\tif ( $batch_size > 0 ) {"
+    batch_at = p.find(batch_marker, last_table)
+    if last_table < 0 or batch_at < 0:
+        raise ValueError("Could not locate the payroll_lines table/batch boundary for the HR lifecycle DDL.")
+    lifecycle_ddl = "\\t\\tforeach ( Stockland_HR_Lifecycle::table_ddl( $p, $cc ) as $lifecycle_ddl ) {\\n\\t\\t\\t$tables[] = $lifecycle_ddl;\\n\\t\\t}\\n\\n"
+    p = p[:batch_at] + lifecycle_ddl + p[batch_at:]
     put(files, "includes/class-stockland-hr.php", p)
 
 def patch_statutory(files):
