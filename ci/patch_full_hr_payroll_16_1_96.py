@@ -81,12 +81,12 @@ def patch_hr_schema(files):
         "fresh payroll period schema")
     p = once(p,
         "tax_rule_version VARCHAR(40) NULL,\n            statutory_status VARCHAR(20) NOT NULL DEFAULT 'LEGACY',",
-        "tax_rule_version VARCHAR(40) NULL,\n            statutory_rule_set_id BIGINT UNSIGNED NULL,\n            statutory_rule_version VARCHAR(80) NULL,\n            allowance_rule_set_id BIGINT UNSIGNED NULL,\n            allowance_rule_version VARCHAR(80) NULL,\n            statutory_status VARCHAR(20) NOT NULL DEFAULT 'LEGACY' AFTER tax_rule_version,",
+        "tax_rule_version VARCHAR(40) NULL,\n            statutory_rule_set_id BIGINT UNSIGNED NULL,\n            statutory_rule_version VARCHAR(80) NULL,\n            allowance_rule_set_id BIGINT UNSIGNED NULL,\n            allowance_rule_version VARCHAR(80) NULL,\n            statutory_status VARCHAR(20) NOT NULL DEFAULT 'LEGACY',",
         "fresh payroll line schema")
     p = once(p,
-        "\t\tif ( $batch_size > 0 ) {",
-        "\t\tforeach ( Stockland_HR_Lifecycle::table_ddl( $p, $cc ) as $lifecycle_ddl ) {\n\t\t\t$tables[] = $lifecycle_ddl;\n\t\t}\n\n\t\tif ( $batch_size > 0 ) {",
-        "add expanded lifecycle DDL")
+        "PRIMARY KEY  (id), UNIQUE KEY period_employee (period_id,employee_id), KEY employee_id (employee_id), KEY branch_location_id (branch_location_id), KEY status (status)\n          ) ENGINE=InnoDB {$cc};\n\n\t\tif ( $batch_size > 0 ) {",
+        "PRIMARY KEY  (id), UNIQUE KEY period_employee (period_id,employee_id), KEY employee_id (employee_id), KEY branch_location_id (branch_location_id), KEY status (status)\n          ) ENGINE=InnoDB {$cc};\n\n\t\tforeach ( Stockland_HR_Lifecycle::table_ddl( $p, $cc ) as $lifecycle_ddl ) {\n\t\t\t$tables[] = $lifecycle_ddl;\n\t\t}\n\n\t\tif ( $batch_size > 0 ) {",
+        "add expanded lifecycle DDL after last core table")
     put(files, "includes/class-stockland-hr.php", p)
 
 def patch_statutory(files):
