@@ -426,7 +426,7 @@ def build(input_zip: Path, output_zip: Path):
     # Exactly two new runtime PHP files are introduced. CI source/build scripts are not shipped in the installer.
     out_names = list(names)
     for addition in (ROOT+"includes/class-stockland-hr-lifecycle.php", ROOT+"includes/rest/class-rest-hr-lifecycle.php"):
-        if addition not in files:
+        if addition not in out_names:
             out_names.append(addition)
     if len(out_names) != 77 or len(set(out_names)) != 77:
         raise ValueError(f"Final runtime package inventory mismatch: {len(out_names)} files.")
