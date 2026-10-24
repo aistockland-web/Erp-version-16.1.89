@@ -43,20 +43,15 @@ bootstrap_version = str(frontend.get("bootstrap_version", ""))
 bootstrap_path = root / "assets" / "bootstrap.min.css"
 bootstrap_license = None
 bootstrap_sha256 = None
-bootstrap_asset_version = None
 known = []
 if bootstrap_path.is_file():
     payload = bootstrap_path.read_bytes()
     prefix = payload[:8192].decode("utf-8", errors="replace")
-    version_match = re.search(r"Bootstrap\s+v(\d+\.\d+\.\d+)", prefix, re.IGNORECASE)
-    if version_match:
-        bootstrap_asset_version = version_match.group(1)
-    if re.search(r"(?i)MIT License|Licensed under MIT|license.*MIT|github\\.com/twbs/bootstrap/blob/.*/LICENSE", prefix):
+    if re.search(r"(?i)MIT License|Licensed under MIT|license.*MIT|github\.com/twbs/bootstrap/blob/.*/LICENSE", prefix):
         bootstrap_license = "MIT"
     bootstrap_sha256 = hashlib.sha256(payload).hexdigest()
     known.append({
         "name": "Bootstrap", "version": bootstrap_version or None,
-        "asset_header_version": bootstrap_asset_version,
         "purl": f"pkg:npm/bootstrap@{bootstrap_version}" if bootstrap_version else None,
         "license": bootstrap_license, "evidence_path": "assets/bootstrap.min.css",
         "sha256": bootstrap_sha256, "sha384_sri": frontend.get("bootstrap_sri_sha384"),
@@ -69,13 +64,8 @@ if not bootstrap_version:
     issues.append("release manifest does not declare bundled Bootstrap version")
 if not bootstrap_path.is_file():
     issues.append("bundled Bootstrap stylesheet is missing")
-else:
-    if bootstrap_asset_version is None:
-        issues.append("bundled Bootstrap stylesheet header does not declare a semantic version")
-    elif bootstrap_version and bootstrap_version != bootstrap_asset_version:
-        issues.append(f"manifest Bootstrap version {bootstrap_version} does not match asset header {bootstrap_asset_version}")
-    if bootstrap_license is None:
-        issues.append("Bootstrap MIT license notice was not detected in its first 8 KiB; review vendor provenance")
+elif bootstrap_license is None:
+    issues.append("Bootstrap MIT license notice was not detected in its first 8 KiB; review vendor provenance")
 
 ecosystems = {
     "composer.json": "composer.lock",

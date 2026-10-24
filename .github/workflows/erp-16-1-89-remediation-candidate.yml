@@ -19,12 +19,8 @@ jobs:
       - name: Install ShellCheck
         run: |
           set -euo pipefail
-          if ! command -v shellcheck >/dev/null 2>&1; then
-            # Refresh only official Ubuntu indexes; third-party feeds may be unavailable in CI.
-            sudo apt-get update -o Dir::Etc::sourcelist="sources.list.d/ubuntu.sources" -o Dir::Etc::sourceparts="-" -o APT::Get::List-Cleanup="0"
-            sudo apt-get install --yes shellcheck
-          fi
-          shellcheck --version
+          sudo apt-get update
+          sudo apt-get install --yes shellcheck
       - name: Install actionlint
         env:
           ACTIONLINT_VERSION: "1.7.7"

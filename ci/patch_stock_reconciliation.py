@@ -15,11 +15,6 @@ JS_PATH = "stockland-erp-app/assets/app.js"
 MANIFEST_PATH = "stockland-erp-app/RELEASE_MANIFEST.json"
 
 STOCK_SQL_PATTERN = re.compile(
-    # Reports Explorer already enriches this query with inbound-transfer fields
-    # and may add active-location predicates before the closing quote. Match the
-    # whole stock query assignment once, then replace it with the canonical
-    # legacy-SKU/variant/reservation/in-transit contract below.
-    r'\$stock_sql\s*=\s*"SELECT l\.location_name,p\.sku,p\.product_name,p\.brand,p\.size,p\.color,[\s\S]*?WHERE p\.is_active=1[^"]*";'
     r'\$stock_sql\s*=\s*"SELECT l\.location_name,p\.sku,p\.product_name,p\.brand,p\.size,p\.color,[\s\S]*?WHERE p\.is_active=1";'
 )
 LOW_SQL_PATTERN = re.compile(
@@ -354,42 +349,6 @@ def patch_stock_api(source: str) -> str:
 
 def patch_php(source: str) -> str:
     source = replace_exactly_once(STOCK_SQL_PATTERN, STOCK_SQL, source, "report inventory SQL")
-    # Rebuild the complete report-inventory parameter block so it stays in the same
-    # order as STOCK_SQL even if the earlier Reports Explorer patch has already
-    # expanded or reformatted the initial argument array.
-    stock_args_block = re.compile(
-        r"\$stock_args\s*=\s*array\([^;]*\);\s*"
-        r"\$stock_sql\s*\.\s*=\s*\$this->append_scope_filter\(\s*'l\.id',\s*\$stock_args,\s*\$scope\s*\);\s*"
-        r"if\s*\(\s*''\s*!==\s*\$sku\s*\)\s*\{\s*"
-        r"\$stock_sql\s*\.\s*=\s*' AND p\.sku=%s';\s*"
-        r"\$stock_args\s*\[\s*\]\s*=\s*\$sku;\s*\}\s*"
-        r"\$stock_sql\s*\.\s*=\s*' ORDER BY l\.location_name,p\.sku';",
-        re.S,
-    )
-    stock_args_replacement = """$stock_args = array( $prod, $loc, $tx, $prod, $res, $prod, $tr, $prod );
-		$stock_sql .= $this->append_scope_filter( 'l.id', $stock_args, $scope );
-		if ( '' !== $sku ) {
-			$stock_sql   .= ' AND p.sku=%s';
-			$stock_args[] = $sku;
-		}
-		$stock_sql .= ' ORDER BY l.location_name,p.sku';"""
-    stock_args_matches = list(stock_args_block.finditer(source))
-    if len(stock_args_matches) != 1:
-        current_arrays = re.findall(r"\$stock_args\s*=\s*array\([^;]*;", source)
-        raise ValueError(
-            "report inventory parameter block: expected exactly one scoped inventory block, "
-            f"found {len(stock_args_matches)}; current stock_args assignments={current_arrays!r}"
-        )
-    source = stock_args_block.sub(lambda _match: stock_args_replacement, source, count=1)
-    source = replace_exactly_once(LOW_SQL_PATTERN, LOW_SQL, source, "low-stock SQL")
-    low_args_intermediate = "$low_args = array( Stockland_DB::table( 'products' ), Stockland_DB::table( 'locations' ), Stockland_DB::table( 'transactions' ) );"
-    low_args_canonical = "$low_args = array( Stockland_DB::table( 'products' ), Stockland_DB::table( 'locations' ), Stockland_DB::table( 'transactions' ), Stockland_DB::table( 'products' ), Stockland_DB::table( 'reservations' ), Stockland_DB::table( 'products' ), Stockland_DB::table( 'transfers' ), Stockland_DB::table( 'products' ) );"
-    if source.count(low_args_intermediate) == 1 and low_args_canonical not in source:
-        source = source.replace(low_args_intermediate, low_args_canonical, 1)
-    elif source.count(low_args_canonical) == 1 and low_args_intermediate not in source:
-        pass
-    else:
-        raise ValueError("low-stock SQL parameter order: expected exactly one three- or eight-table array")
     source = replace_literal_once(
         source,
         "$stock_args = array( $prod, $loc, $tx, $res );",
@@ -419,93 +378,6 @@ def patch_php(source: str) -> str:
     )
 
 
-    # Keep physical stock, reserved quantity, sellable available, inbound and
-    # reorder position distinct in Reports Explorer. The display label may differ
-    # between approved report-source revisions, so key on the canonical field.
-    available_column_pattern = re.compile(
-        r"array\( 'key' => 'available_stock', 'label' => '[^']+', 'format' => 'number' \),"
-    )
-    available_column_matches = list(available_column_pattern.finditer(source))
-    if len(available_column_matches) != 1:
-        raise ValueError("show reservation integrity beside availability: expected exactly one available_stock column")
-    source = available_column_pattern.sub(
-        lambda match: match.group(0)
-        + "\n\t\t\t\t\tarray( 'key' => 'availability_exception', 'label' => 'Reservation integrity' ),"
-        + "\n\t\t\t\t\tarray( 'key' => 'inbound_stock', 'label' => 'Inbound transfer', 'format' => 'number' ),"
-        + "\n\t\t\t\t\tarray( 'key' => 'reorder_position', 'label' => 'Reorder position', 'format' => 'number' ),",
-        source,
-        count=1,
-    )
-
-    # Reports Explorer's query already provides reorder_position = sellable
-    # available + eligible dispatched-but-unreceived transfers. The Owner-only
-    # critical report must use that same field for both threshold filtering and
-    # the advisory suggestion; comparing only physical/available stock would
-    # double-count demand already covered by inbound stock.
-    critical_block_pattern = re.compile(
-        r"(if\s*\(\s*'critical_reorder'\s*===\s*\$type\s*\)\s*\{)([\s\S]*?)(\n\s*\}\s*\n\s*break;)"
-    )
-    critical_blocks = list(critical_block_pattern.finditer(source))
-    if len(critical_blocks) != 1:
-        raise ValueError("critical reorder calculation: expected exactly one Owner-only critical report block")
-    critical = critical_blocks[0].group(2)
-    available_assignment_pattern = re.compile(
-        r"\$available_minor\s*=\s*Stockland_Money::minor\(\s*\$row\['available_stock'\]\s*\?\?\s*'0'\s*\);"
-    )
-    position_assignment_pattern = re.compile(
-        r"\$position_minor\s*=\s*Stockland_Money::minor\(\s*\$row\['reorder_position'\]\s*\?\?\s*\$row\['available_stock'\]\s*\?\?\s*'0'\s*\);"
-    )
-    critical, available_count = available_assignment_pattern.subn(
-        "$position_minor = Stockland_Money::minor( $row['reorder_position'] ?? $row['available_stock'] ?? '0' );",
-        critical,
-    )
-    position_count = len(position_assignment_pattern.findall(critical))
-    if available_count == 2 and position_count == 2:
-        # Both assignments have now been normalized to reorder_position.
-        pass
-    elif available_count == 0 and position_count == 2:
-        # The upstream Reports Explorer patch already uses reorder_position.
-        # Keep this valid state and normalize the advisory amount below.
-        pass
-    else:
-        raise ValueError(
-            "critical reorder calculation: expected two old or two already-normalized stock assignments; "
-            f"old={available_count}, position={position_count}; critical block={critical!r}"
-        )
-
-    threshold_old = "return $reorder_minor > 0 && $available_minor <= $reorder_minor;"
-    threshold_new = "return $reorder_minor > 0 && $position_minor <= $reorder_minor;"
-    if threshold_old in critical and threshold_new not in critical:
-        critical = replace_literal_once(critical, threshold_old, threshold_new, "critical report threshold uses inbound-aware reorder position")
-    elif threshold_new in critical and threshold_old not in critical:
-        pass
-    else:
-        raise ValueError("critical report threshold must use exactly one reorder_position comparison")
-
-    suggestion_pattern = re.compile(
-        r"\$row\['suggested_replenishment'\]\s*=\s*Stockland_Money::decimal\(\s*max\(\s*(?:0|100)\s*,\s*\$reorder_minor\s*-\s*\$(?:available_minor|position_minor)\s*\)\s*\);"
-    )
-    suggestion_matches = list(suggestion_pattern.finditer(critical))
-    if len(suggestion_matches) != 1:
-        raise ValueError("critical report suggestion: expected exactly one bounded reorder-minus-position expression")
-    # Match the existing operational Reorder Alerts policy: once an authorized
-    # replenishment action is offered at/below threshold, suggest at least one
-    # whole unit. The position used here includes eligible inbound, not physical
-    # stock alone.
-    canonical_suggestion = "$row['suggested_replenishment'] = Stockland_Money::decimal( max( 100, $reorder_minor - $position_minor ) );"
-    critical = suggestion_pattern.sub(lambda _match: canonical_suggestion, critical, count=1)
-    source = source[:critical_blocks[0].start(2)] + critical + source[critical_blocks[0].end(2):]
-
-    critical_description_pattern = re.compile(
-        r"(if\s*\(\s*'critical_reorder'\s*===\s*\$type\s*\)\s*\{[\s\S]*?\$description\s*=\s*)'[^']*';"
-    )
-    critical_description_matches = list(critical_description_pattern.finditer(source))
-    if len(critical_description_matches) != 1:
-        raise ValueError("critical reorder description: expected exactly one description inside the Owner-only critical_reorder branch")
-    source = critical_description_pattern.sub(
-        r"\1'Owner-only read-only list. Reorder position equals sellable availability plus eligible dispatched-but-unreceived inbound transfers. Inbound does not change physical stock; OVER-RESERVED remains an integrity exception. Suggested replenishment follows the existing minimum-one-unit policy and uses the configured location threshold and inbound-aware position. No stock or purchase order is created.';",
-        source,
-        count=1,
     source = replace_literal_once(
         source,
         "array( 'key' => 'available_stock', 'label' => 'Available', 'format' => 'number' ),",
@@ -647,7 +519,6 @@ def rebuild_zip(path: Path) -> dict:
                     raise ValueError("Live stock API reconciliation changes were not retained: " + required_marker)
             if "$stock_args = array( $prod, $loc, $tx, $prod, $res, $prod, $tr, $prod );" not in php_final:
                 raise ValueError("Report query parameter order not retained.")
-            if "$low_args = array( Stockland_DB::table( 'products' ), Stockland_DB::table( 'locations' ), Stockland_DB::table( 'transactions' ), Stockland_DB::table( 'products' ), Stockland_DB::table( 'reservations' ), Stockland_DB::table( 'products' ), Stockland_DB::table( 'transfers' ), Stockland_DB::table( 'products' ) );" not in php_final:
             if "$low_args = array( Stockland_DB::table( 'products' ), Stockland_DB::table( 'locations' ), Stockland_DB::table( 'transactions' ), Stockland_DB::table( 'products' ), Stockland_DB::table( 'reservations' ), Stockland_DB::table( 'products' ) );" not in php_final:
                 raise ValueError("Low-stock query parameter order not retained.")
         before = hashlib.sha256(path.read_bytes()).hexdigest()

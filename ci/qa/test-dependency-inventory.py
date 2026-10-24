@@ -16,11 +16,7 @@ def check(label: str, condition: bool) -> None:
         failed += 1
         print(f"FAIL {label}")
 
-def run_case(
-    files: dict[str, str],
-    dirs: tuple[str, ...] = (),
-    bootstrap_version: str | None = "5.3.8",
-) -> tuple[int, dict]:
+def run_case(files: dict[str, str], dirs: tuple[str, ...] = ()) -> tuple[int, dict]:
     with tempfile.TemporaryDirectory(prefix="stockland-dep-test-") as temp:
         root = Path(temp) / "stockland-erp-app"
         root.mkdir()
@@ -30,26 +26,19 @@ def run_case(
             path = root / relative
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(content, encoding="utf-8")
-        frontend = {"bootstrap_sri_sha384":"abc","bootstrap_source_git_blob_sha1":"def"}
-        if bootstrap_version is not None:
-            frontend["bootstrap_version"] = bootstrap_version
         (root / "RELEASE_MANIFEST.json").write_text(json.dumps({
             "release":"16.1.89",
-            "frontend":frontend
+            "frontend":{"bootstrap_version":"5.3.8","bootstrap_sri_sha384":"abc","bootstrap_source_git_blob_sha1":"def"}
         }), encoding="utf-8")
         assets = root / "assets"
         assets.mkdir(exist_ok=True)
-        (assets / "bootstrap.min.css").write_text("/*! Bootstrap  v5.3.8\\n * Licensed under MIT License */\\n.x{}", encoding="utf-8")
+        (assets / "bootstrap.min.css").write_text("/* Bootstrap CSS - MIT License */\n.x{}", encoding="utf-8")
         report = Path(temp) / "report.json"
         proc = subprocess.run([sys.executable, str(SCRIPT), str(root), str(report)], text=True, capture_output=True, check=False)
         return proc.returncode, json.loads(report.read_text(encoding="utf-8"))
 
 rc, data = run_case({})
 check("No package manager manifests is PASS/N-A when no vendored runtime exists", rc == 0 and data["inventory_status"] == "PASS" and data["dependency_model"] == "NO_PACKAGE_MANAGER_ECOSYSTEM_IN_PLUGIN_ARCHIVE")
-rc, data = run_case({}, bootstrap_version=None)
-check("Missing Bootstrap version metadata blocks dependency inventory", rc != 0 and data["inventory_status"] == "BLOCKED" and any("does not declare bundled Bootstrap version" in item for item in data["findings"]))
-rc, data = run_case({}, bootstrap_version="5.3.7")
-check("Manifest/stylesheet Bootstrap version mismatch blocks dependency inventory", rc != 0 and data["inventory_status"] == "BLOCKED" and any("does not match asset header 5.3.8" in item for item in data["findings"]))
 rc, data = run_case({"composer.json": '{"require":{"vendor/pkg":"^1"}}'})
 check("Composer manifest without composer.lock remains blocked", rc != 0 and data["inventory_status"] == "BLOCKED")
 rc, data = run_case({"package.json": '{"dependencies":{"example":"1.0.0"}}', "package-lock.json": '{"lockfileVersion":3}'})

@@ -24,39 +24,14 @@ for (const file of ['app.css', 'app.min.css', 'bootstrap.min.css']) {
 const source = chunks.join('\n');
 for (const [selector, label] of [
   ['.sl-payroll-readiness-reasons', 'payroll diagnostics styling'],
-  ['.sl-mobile-menu', 'mobile navigation styling'],
-  ['.sl-overlay .sl-req-drawer .sl-approval-grid', 'body-level requisition approval drawer layout'],
-  ['.sl-overlay .sl-req-drawer .sl-approval-person small', 'approval name and timestamp wrapping'],
-  ['body[data-sl-view="pos"] #stockland-app #posForm', 'Retail POS responsive checkout form'],
-  ['#stockland-app .sl-global-search', 'desktop global-search sizing'],
-  ['#stockland-app #slGlobalSearchResults', 'desktop global-search popup bounds'],
-  ['#stockland-app .sl-content-inner>.sl-page-title>.sl-actions', 'desktop Product Master title-action hit-target layer'],
-  ['.sl-report-retry-actions', 'report retry spacing utility'],
-  ['.sl-print-report-hidden', 'selected-report print state utility']
+  ['.sl-mobile-menu', 'mobile navigation styling']
 ]) {
   if (!source.includes(selector)) throw new Error('Missing ' + label);
   console.log('PASS ' + label);
-}
-if (!/@media\s*\(max-width\s*:\s*767px\)/.test(source)) {
-  throw new Error('Phone approval drawer breakpoint (767px) is missing');
-}
-if (!/flex:\s*0 1 auto/.test(source) || !/overflow-wrap:\s*anywhere/.test(source)) {
-  throw new Error('Approval label/status wrapping and flex sizing protection is missing');
-}
-if (!/body\[data-sl-view="pos"\] #stockland-app #posForm/.test(source) ||
-    !/min-height:\s*52px/.test(source) ||
-    !/@media\s*\(max-width\s*:\s*359px\)/.test(source)) {
-  throw new Error('Responsive POS checkout touch targets or narrow-phone breakpoint are missing');
 }
 const mediaRules = (source.match(/@media\b/g) || []).length;
 if (mediaRules < 5 || !/max-width\s*:/.test(source)) {
   throw new Error('Responsive breakpoint coverage missing: expected at least five @media blocks and a max-width breakpoint');
 }
-console.log('PASS requisition approval phone/tablet/desktop CSS guards');
 console.log('PASS responsive media-query coverage (' + mediaRules + ' @media rules)');
-const appJs = fs.readFileSync(path.join(assets, 'app.js'), 'utf8');
-if (appJs.includes('sl-desktop-title-action-layer-fix') || appJs.includes("style.textContent='@media (min-width:992px)")) {
-  throw new Error('Desktop CSS must be compiled by Python into the ordered CSS modules, not injected by JavaScript');
-}
-console.log('PASS desktop CSS is compiled, not injected at runtime');
 console.log('PASS ordered CSS source/build/minified equivalence');

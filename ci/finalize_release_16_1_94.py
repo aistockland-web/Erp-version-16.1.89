@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Finalize one cumulative Stockland ERP 16.1.94 update from the tested 16.1.93 build.
 
-This adds scoped responsive POS presentation, regenerates ordered CSS bundles, and advances release/cache identity after all existing patch stages. It does not change database schema, posting handlers or live data.
+This changes release/cache identity only after all 16.1.93 patch stages have run.
+It does not perform database migrations or change business logic/data.
 """
 from __future__ import annotations
 
@@ -9,7 +10,6 @@ import argparse
 import hashlib
 import json
 import os
-import re
 import tempfile
 import zipfile
 from pathlib import Path
@@ -23,56 +23,6 @@ CSS_MODULES = ROOT + "assets/css/modules.json"
 ACTIVATOR = ROOT + "includes/class-stockland-activator.php"
 SOURCE_RELEASE = "16.1.93"
 TARGET_RELEASE = "16.1.94"
-CSS_MODULE_PATH = ROOT + "assets/css/06-operational-guards.css"
-APP_CSS_PATH = ROOT + "assets/app.css"
-APP_MIN_PATH = ROOT + "assets/app.min.css"
-POS_LAYOUT_MARKER = "/* Retail POS mobile checkout — responsive atomic sale form."
-POS_LAYOUT_CSS = """/* Retail POS mobile checkout — responsive atomic sale form.
- * Preserves the server's existing one-sale atomic posting contract; presentation only.
- * Keep input groups, SKU hint and submit action inside the viewport at every breakpoint.
- */
-body[data-sl-view="pos"] #stockland-app #posForm {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px 18px;
-  padding: clamp(12px, 2vw, 22px);
-  border: 1px solid var(--sl-line);
-  border-radius: 14px;
-  background: linear-gradient(180deg, #fff, #f8fbff);
-}
-body[data-sl-view="pos"] #stockland-app #posForm .sl-field { min-width: 0; gap: 8px; }
-body[data-sl-view="pos"] #stockland-app #posForm .sl-field label {
-  font-size: 13px; line-height: 1.4; font-weight: 750; overflow-wrap: anywhere;
-}
-body[data-sl-view="pos"] #stockland-app #posForm input,
-body[data-sl-view="pos"] #stockland-app #posForm select,
-body[data-sl-view="pos"] #stockland-app #posForm textarea {
-  width: 100%; min-width: 0; min-height: 46px; box-sizing: border-box;
-}
-body[data-sl-view="pos"] #stockland-app #posForm .sl-field.full { grid-column: 1 / -1; }
-body[data-sl-view="pos"] #stockland-app #posSkuHint {
-  min-width: 0; padding: 12px; border-radius: 11px; line-height: 1.55; overflow-wrap: anywhere;
-}
-body[data-sl-view="pos"] #stockland-app #posForm button[type="submit"] {
-  display: flex; width: 100%; min-height: 50px; align-items: center;
-  justify-content: center; white-space: normal; text-align: center;
-}
-body[data-sl-view="pos"] #stockland-app #posResult { min-width: 0; overflow-wrap: anywhere; }
-@media (max-width: 767px) {
-  body[data-sl-view="pos"] #stockland-app #posForm {
-    grid-template-columns: minmax(0, 1fr); gap: 14px; padding: 12px;
-  }
-  body[data-sl-view="pos"] #stockland-app #posForm .sl-field.full { grid-column: auto; }
-  body[data-sl-view="pos"] #stockland-app #posForm input,
-  body[data-sl-view="pos"] #stockland-app #posForm select,
-  body[data-sl-view="pos"] #stockland-app #posForm textarea { min-height: 48px; font-size: 16px; }
-  body[data-sl-view="pos"] #stockland-app #posForm button[type="submit"] { min-height: 52px; }
-  body[data-sl-view="pos"] #stockland-app .sl-grid-compact { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@media (max-width: 359px) {
-  body[data-sl-view="pos"] #stockland-app .sl-grid-compact { grid-template-columns: minmax(0, 1fr); }
-}
-"""
 
 
 def replace_exact(source: str, old: str, new: str, label: str) -> str:
@@ -99,34 +49,6 @@ def finalize(input_zip: Path, output_zip: Path) -> dict:
         if not all(name.startswith(ROOT) and ".." not in Path(name).parts for name in names):
             raise ValueError("Input package has an unsafe path or unexpected plugin root")
         files = {name: zin.read(name) for name in names}
-        original_files = dict(files)
-
-    manifest = json.loads(files[MANIFEST].decode("utf-8"))
-    css_manifest = json.loads(files[CSS_MODULES].decode("utf-8"))
-
-    # Record bundled Bootstrap provenance from the exact CSS shipped in this ZIP.
-    # Do not guess a version or rely on CI machine/global tooling metadata.
-    bootstrap_asset_path = ROOT + "assets/bootstrap.min.css"
-    bootstrap_payload = files.get(bootstrap_asset_path, b"")
-    bootstrap_header = bootstrap_payload[:8192].decode("utf-8", errors="replace")
-    bootstrap_match = re.search(r"Bootstrap\s+v(\d+\.\d+\.\d+)", bootstrap_header, re.IGNORECASE)
-    if not bootstrap_match:
-        raise ValueError("Cannot identify bundled Bootstrap version from its packaged CSS header")
-    if not re.search(r"Licensed under MIT", bootstrap_header, re.IGNORECASE):
-        raise ValueError("Bundled Bootstrap CSS does not expose the expected MIT license notice")
-    frontend_metadata = manifest.get("frontend", {})
-    if not isinstance(frontend_metadata, dict):
-        frontend_metadata = {}
-    declared_bootstrap = frontend_metadata.get("bootstrap_version")
-    if declared_bootstrap and declared_bootstrap != bootstrap_match.group(1):
-        raise ValueError("Existing manifest Bootstrap version does not match the packaged stylesheet")
-    frontend_metadata.update({
-        "bootstrap_version": bootstrap_match.group(1),
-        "bootstrap_license": "MIT",
-        "bootstrap_asset_sha256": hashlib.sha256(bootstrap_payload).hexdigest(),
-        "bootstrap_version_evidence": "assets/bootstrap.min.css upstream header",
-    })
-    manifest["frontend"] = frontend_metadata
 
     manifest = json.loads(files[MANIFEST].decode("utf-8"))
     css_manifest = json.loads(files[CSS_MODULES].decode("utf-8"))
@@ -162,22 +84,6 @@ def finalize(input_zip: Path, output_zip: Path) -> dict:
             raise ValueError("Responsive approval layout marker missing: " + marker)
     if "WordPress hosting compatibility</h2>" not in files[ROOT + "includes/class-stockland-admin.php"].decode("utf-8"):
         raise ValueError("WordPress host compatibility diagnostic title is missing")
-    operational_css = files[CSS_MODULE_PATH].decode("utf-8")
-    if POS_LAYOUT_MARKER in operational_css:
-        if operational_css.count(POS_LAYOUT_MARKER) != 1 or "#posForm" not in operational_css or "@media (max-width: 767px)" not in operational_css:
-            raise ValueError("Existing POS responsive marker is partial or duplicated")
-    else:
-        operational_css = operational_css.rstrip() + "\n\n" + POS_LAYOUT_CSS.strip() + "\n"
-    files[CSS_MODULE_PATH] = operational_css.encode("utf-8")
-    modules = css_manifest.get("modules", [])
-    if len(modules) != 6 or len(set(modules)) != 6:
-        raise ValueError("CSS module contract must contain six unique ordered modules")
-    app_css = "\n\n".join(files[ROOT + "assets/css/" + name].decode("utf-8").strip() for name in modules) + "\n"
-    normalized = re.sub(r"/\*[\s\S]*?\*/", " ", app_css)
-    normalized = re.sub(r"\s+", " ", normalized).strip()
-    normalized = re.sub(r"\s*([{}:;,])\s*", r"\1", normalized).replace(";}", "}")
-    files[APP_CSS_PATH] = app_css.encode("utf-8")
-    files[APP_MIN_PATH] = normalized.encode("utf-8")
     if "plugin requires 8.3+" not in files[ROOT + "includes/class-stockland-admin.php"].decode("utf-8"):
         raise ValueError("PHP 8.3 minimum-host diagnostic is missing")
     if "function managementIntelligence()" not in files[ROOT + "assets/app.js"].decode("utf-8"):
@@ -214,7 +120,6 @@ def finalize(input_zip: Path, output_zip: Path) -> dict:
         "Reports: database read errors fail closed; the user sees one inline error with Retry instead of a duplicate blocking toast.",
         "Inventory reporting: physical stock, active reservations, sellable availability and eligible inbound transfers stay distinct.",
         "Requisition approval history: scoped responsive layout wraps approver labels, notes and status pills on phones without changing approval handlers.",
-        "Retail POS checkout: scoped desktop/touch-friendly field layout with single-column mobile form and full-width primary submit; atomic posting behavior is unchanged.",
         "Hosting: PHP 8.3+ WordPress compatibility diagnostics; no separate application service, database or scheduled-worker dependency.",
         "Release/cache identity advanced to 16.1.94 to refresh frontend route and PWA asset identity.",
         "Payroll values and employee classifications are not synthesized or auto-filled; real compensation exceptions remain subject to authorized HR/Owner review.",
@@ -228,9 +133,6 @@ def finalize(input_zip: Path, output_zip: Path) -> dict:
 
     css_manifest["release"] = TARGET_RELEASE
     css_manifest["description"] = (
-        "16.1.94 cumulative release/cache metadata. Six ordered CSS source modules include scoped "
-        "requisition approval-history and Retail POS responsive layouts; app.css and app.min.css "
-        "must match the deterministic module build."
         "16.1.94 cumulative release/cache metadata. Six ordered CSS source modules include the "
         "scoped requisition approval-history responsive layout; app.css and app.min.css must match "
         "the deterministic module build."
@@ -295,21 +197,6 @@ Before deployment, back up the WordPress files and MariaDB/MySQL database and ve
                 raise ValueError("Final route/cache identity mismatch")
             if final_manifest.get("schema_contract", {}).get("total") != 49:
                 raise ValueError("Final 49-table schema contract changed")
-            if final_files[ACTIVATOR] != original_files[ACTIVATOR]:
-                raise ValueError("Schema activator changed during version finalization")
-            rebuilt_css = "\n\n".join(
-                final_files[ROOT + "assets/css/" + name].decode("utf-8").strip()
-                for name in json.loads(final_files[CSS_MODULES].decode("utf-8"))["modules"]
-            ) + "\n"
-            if final_files[APP_CSS_PATH].decode("utf-8") != rebuilt_css:
-                raise ValueError("Final app.css does not equal ordered source modules")
-            normalized_css = re.sub(r"/\*[\s\S]*?\*/", " ", rebuilt_css)
-            normalized_css = re.sub(r"\s+", " ", normalized_css).strip()
-            normalized_css = re.sub(r"\s*([{}:;,])\s*", r"\1", normalized_css).replace(";}", "}")
-            if final_files[APP_MIN_PATH].decode("utf-8").strip() != normalized_css:
-                raise ValueError("Final app.min.css does not equal normalized source")
-            changed = sorted(name for name in names if original_files[name] != final_files[name])
-            allowed = sorted([README, MANIFEST, CSS_MODULES, FRONTEND, ENTRY, CSS_MODULE_PATH, APP_CSS_PATH, APP_MIN_PATH])
             if final_files[ACTIVATOR] != files[ACTIVATOR]:
                 raise ValueError("Schema activator changed during version finalization")
             changed = sorted(name for name in names if files[name] != final_files[name])
@@ -333,7 +220,6 @@ Before deployment, back up the WordPress files and MariaDB/MySQL database and ve
         "plugin_file_count": 75,
         "plugin_root": ROOT,
         "schema_contract": {"core": 29, "accounting_procurement": 16, "hr_payroll": 4, "total": 49},
-        "changed_files": sorted([README, MANIFEST, CSS_MODULES, FRONTEND, ENTRY, CSS_MODULE_PATH, APP_CSS_PATH, APP_MIN_PATH]),
         "changed_files": sorted([README, MANIFEST, CSS_MODULES, FRONTEND, ENTRY]),
         "schema_activator_unchanged": True,
         "live_business_data_changed": False,
