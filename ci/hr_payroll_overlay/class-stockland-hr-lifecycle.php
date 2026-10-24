@@ -25,7 +25,7 @@ final class Stockland_HR_Lifecycle {
 	/** DDL source for fresh installs. Existing installs create one missing table per protected setup batch. */
 	public static function table_ddl( $p, $cc ) {
 		$t = array();
-		$t[] = "CREATE TABLE {$p}stock_hr_workforce_plans (
+		$t[] = "CREATE TABLE {$p}hr_workforce_plans (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			plan_code VARCHAR(40) NOT NULL,
 			fiscal_year VARCHAR(20) NOT NULL,
@@ -47,7 +47,7 @@ final class Stockland_HR_Lifecycle {
 			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			PRIMARY KEY (id), UNIQUE KEY plan_version (plan_code,version_no), KEY status_year (status,fiscal_year), KEY location_department (location_id,department)
 		) ENGINE=InnoDB {$cc};";
-		$t[] = "CREATE TABLE {$p}stock_hr_positions (
+		$t[] = "CREATE TABLE {$p}hr_positions (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			position_code VARCHAR(40) NOT NULL,
 			title VARCHAR(160) NOT NULL,
@@ -66,7 +66,7 @@ final class Stockland_HR_Lifecycle {
 			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			PRIMARY KEY (id), UNIQUE KEY position_code (position_code), KEY location_status (location_id,status), KEY department_grade (department,grade_code)
 		) ENGINE=InnoDB {$cc};";
-		$t[] = "CREATE TABLE {$p}stock_hr_requisitions (
+		$t[] = "CREATE TABLE {$p}hr_requisitions (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			requisition_code VARCHAR(40) NOT NULL,
 			position_id BIGINT UNSIGNED NOT NULL,
@@ -86,7 +86,7 @@ final class Stockland_HR_Lifecycle {
 			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			PRIMARY KEY (id), UNIQUE KEY requisition_code (requisition_code), KEY position_status (position_id,status), KEY location_status (location_id,status)
 		) ENGINE=InnoDB {$cc};";
-		$t[] = "CREATE TABLE {$p}stock_hr_candidates (
+		$t[] = "CREATE TABLE {$p}hr_candidates (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			candidate_code VARCHAR(40) NOT NULL,
 			full_name VARCHAR(180) NOT NULL,
@@ -101,7 +101,7 @@ final class Stockland_HR_Lifecycle {
 			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			PRIMARY KEY (id), UNIQUE KEY candidate_code (candidate_code), KEY status_created (status,created_at), KEY email (email)
 		) ENGINE=InnoDB {$cc};";
-		$t[] = "CREATE TABLE {$p}stock_hr_applications (
+		$t[] = "CREATE TABLE {$p}hr_applications (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			requisition_id BIGINT UNSIGNED NOT NULL,
 			candidate_id BIGINT UNSIGNED NOT NULL,
@@ -117,7 +117,7 @@ final class Stockland_HR_Lifecycle {
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (id), UNIQUE KEY requisition_candidate (requisition_id,candidate_id), KEY requisition_stage (requisition_id,stage), KEY decision (decision)
 		) ENGINE=InnoDB {$cc};";
-		$t[] = "CREATE TABLE {$p}stock_hr_interviews (
+		$t[] = "CREATE TABLE {$p}hr_interviews (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			application_id BIGINT UNSIGNED NOT NULL,
 			interview_round VARCHAR(40) NOT NULL DEFAULT 'INITIAL',
@@ -133,7 +133,7 @@ final class Stockland_HR_Lifecycle {
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (id), KEY application_round (application_id,interview_round), KEY scheduled_at (scheduled_at)
 		) ENGINE=InnoDB {$cc};";
-		$t[] = "CREATE TABLE {$p}stock_hr_documents (
+		$t[] = "CREATE TABLE {$p}hr_documents (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			subject_type VARCHAR(20) NOT NULL,
 			subject_id BIGINT UNSIGNED NOT NULL,
@@ -150,7 +150,7 @@ final class Stockland_HR_Lifecycle {
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (id), KEY subject_type_id (subject_type,subject_id), KEY expiry (expires_on,status)
 		) ENGINE=InnoDB {$cc};";
-		$t[] = "CREATE TABLE {$p}stock_hr_contracts (
+		$t[] = "CREATE TABLE {$p}hr_contracts (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			employee_id BIGINT UNSIGNED NOT NULL,
 			contract_code VARCHAR(60) NOT NULL,
@@ -170,7 +170,7 @@ final class Stockland_HR_Lifecycle {
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (id), UNIQUE KEY contract_code (contract_code), KEY employee_dates (employee_id,start_date,end_date), KEY status_end (status,end_date)
 		) ENGINE=InnoDB {$cc};";
-		$t[] = "CREATE TABLE {$p}stock_hr_onboarding_tasks (
+		$t[] = "CREATE TABLE {$p}hr_onboarding_tasks (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			employee_id BIGINT UNSIGNED NOT NULL,
 			task_code VARCHAR(60) NOT NULL,
@@ -185,7 +185,7 @@ final class Stockland_HR_Lifecycle {
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (id), KEY employee_status (employee_id,status), KEY due_status (due_date,status)
 		) ENGINE=InnoDB {$cc};";
-		$t[] = "CREATE TABLE {$p}stock_hr_shifts (
+		$t[] = "CREATE TABLE {$p}hr_shifts (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			shift_code VARCHAR(40) NOT NULL,
 			shift_name VARCHAR(100) NOT NULL,
@@ -201,7 +201,7 @@ final class Stockland_HR_Lifecycle {
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (id), UNIQUE KEY shift_code (shift_code), KEY location_effective (location_id,effective_from,effective_to)
 		) ENGINE=InnoDB {$cc};";
-		$t[] = "CREATE TABLE {$p}stock_hr_attendance (
+		$t[] = "CREATE TABLE {$p}hr_attendance (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			employee_id BIGINT UNSIGNED NOT NULL,
 			location_id BIGINT UNSIGNED NULL,
@@ -223,7 +223,7 @@ final class Stockland_HR_Lifecycle {
 			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			PRIMARY KEY (id), UNIQUE KEY employee_work_date (employee_id,work_date), KEY location_date (location_id,work_date), KEY status_date (status,work_date)
 		) ENGINE=InnoDB {$cc};";
-		$t[] = "CREATE TABLE {$p}stock_hr_leave_policies (
+		$t[] = "CREATE TABLE {$p}hr_leave_policies (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			policy_code VARCHAR(50) NOT NULL,
 			leave_type VARCHAR(40) NOT NULL,
@@ -241,7 +241,7 @@ final class Stockland_HR_Lifecycle {
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (id), UNIQUE KEY policy_effective (policy_code,effective_from), KEY leave_type_dates (leave_type,effective_from,effective_to)
 		) ENGINE=InnoDB {$cc};";
-		$t[] = "CREATE TABLE {$p}stock_hr_leave_balances (
+		$t[] = "CREATE TABLE {$p}hr_leave_balances (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			employee_id BIGINT UNSIGNED NOT NULL,
 			leave_type VARCHAR(40) NOT NULL,
@@ -255,7 +255,7 @@ final class Stockland_HR_Lifecycle {
 			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			PRIMARY KEY (id), UNIQUE KEY employee_leave_year (employee_id,leave_type,leave_year), KEY leave_year (leave_year,leave_type)
 		) ENGINE=InnoDB {$cc};";
-		$t[] = "CREATE TABLE {$p}stock_hr_leave_requests (
+		$t[] = "CREATE TABLE {$p}hr_leave_requests (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			employee_id BIGINT UNSIGNED NOT NULL,
 			leave_type VARCHAR(40) NOT NULL,
@@ -274,7 +274,7 @@ final class Stockland_HR_Lifecycle {
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (id), KEY employee_dates (employee_id,start_date,end_date), KEY status_start (status,start_date)
 		) ENGINE=InnoDB {$cc};";
-		$t[] = "CREATE TABLE {$p}stock_hr_compensation_components (
+		$t[] = "CREATE TABLE {$p}hr_compensation_components (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			employee_id BIGINT UNSIGNED NOT NULL,
 			compensation_id BIGINT UNSIGNED NOT NULL,
@@ -297,7 +297,7 @@ final class Stockland_HR_Lifecycle {
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (id), KEY employee_effective (employee_id,effective_from,effective_to), KEY compensation_id (compensation_id), KEY rule_ref (rule_set_id,rule_set_version)
 		) ENGINE=InnoDB {$cc};";
-		$t[] = "CREATE TABLE {$p}stock_hr_rule_sets (
+		$t[] = "CREATE TABLE {$p}hr_rule_sets (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			rule_code VARCHAR(80) NOT NULL,
 			rule_type VARCHAR(24) NOT NULL,
@@ -321,7 +321,7 @@ final class Stockland_HR_Lifecycle {
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (id), UNIQUE KEY rule_version (rule_code,version_label), KEY type_effective (rule_type,review_status,effective_from,effective_to)
 		) ENGINE=InnoDB {$cc};";
-		$t[] = "CREATE TABLE {$p}stock_hr_rule_components (
+		$t[] = "CREATE TABLE {$p}hr_rule_components (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			rule_set_id BIGINT UNSIGNED NOT NULL,
 			category VARCHAR(40) NOT NULL,
@@ -335,7 +335,7 @@ final class Stockland_HR_Lifecycle {
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (id), UNIQUE KEY ruleset_category (rule_set_id,category), KEY category (category)
 		) ENGINE=InnoDB {$cc};";
-		$t[] = "CREATE TABLE {$p}stock_hr_employee_events (
+		$t[] = "CREATE TABLE {$p}hr_employee_events (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			employee_id BIGINT UNSIGNED NOT NULL,
 			event_type VARCHAR(40) NOT NULL,
@@ -349,7 +349,7 @@ final class Stockland_HR_Lifecycle {
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (id), KEY employee_effective (employee_id,effective_date), KEY event_type (event_type,created_at)
 		) ENGINE=InnoDB {$cc};";
-		$t[] = "CREATE TABLE {$p}stock_hr_payroll_events (
+		$t[] = "CREATE TABLE {$p}hr_payroll_events (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			entity_type VARCHAR(30) NOT NULL,
 			entity_id BIGINT UNSIGNED NOT NULL,
@@ -364,7 +364,7 @@ final class Stockland_HR_Lifecycle {
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (id), KEY entity_history (entity_type,entity_id,id), KEY event_type (event_type,created_at), KEY rule_version (rule_set_id,rule_version)
 		) ENGINE=InnoDB {$cc};";
-		$t[] = "CREATE TABLE {$p}stock_hr_payroll_payments (
+		$t[] = "CREATE TABLE {$p}hr_payroll_payments (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			payment_code VARCHAR(60) NOT NULL,
 			payroll_period_id BIGINT UNSIGNED NOT NULL,
@@ -379,7 +379,7 @@ final class Stockland_HR_Lifecycle {
 			recorded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (id), UNIQUE KEY payment_code (payment_code), UNIQUE KEY period_type_reference (payroll_period_id,payment_type,payment_reference), KEY payment_date (payment_date,status)
 		) ENGINE=InnoDB {$cc};";
-		$t[] = "CREATE TABLE {$p}stock_hr_payroll_adjustments (
+		$t[] = "CREATE TABLE {$p}hr_payroll_adjustments (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			employee_id BIGINT UNSIGNED NOT NULL,
 			source_period_id BIGINT UNSIGNED NULL,
@@ -397,7 +397,7 @@ final class Stockland_HR_Lifecycle {
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (id), KEY employee_period (employee_id,target_period_key), KEY status (status)
 		) ENGINE=InnoDB {$cc};";
-		$t[] = "CREATE TABLE {$p}stock_hr_exit_settlements (
+		$t[] = "CREATE TABLE {$p}hr_exit_settlements (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			settlement_code VARCHAR(60) NOT NULL,
 			employee_id BIGINT UNSIGNED NOT NULL,
@@ -429,7 +429,7 @@ final class Stockland_HR_Lifecycle {
 			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			PRIMARY KEY (id), UNIQUE KEY settlement_code (settlement_code), KEY employee_exit (employee_id,exit_date), KEY status (status)
 		) ENGINE=InnoDB {$cc};";
-		$t[] = "CREATE TABLE {$p}stock_hr_training_records (
+		$t[] = "CREATE TABLE {$p}hr_training_records (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			employee_id BIGINT UNSIGNED NOT NULL,
 			training_code VARCHAR(60) NOT NULL,
@@ -443,7 +443,7 @@ final class Stockland_HR_Lifecycle {
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (id), KEY employee_dates (employee_id,start_date,end_date), KEY status (status)
 		) ENGINE=InnoDB {$cc};";
-		$t[] = "CREATE TABLE {$p}stock_hr_performance_reviews (
+		$t[] = "CREATE TABLE {$p}hr_performance_reviews (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			employee_id BIGINT UNSIGNED NOT NULL,
 			review_period VARCHAR(40) NOT NULL,
