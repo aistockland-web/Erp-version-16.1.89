@@ -262,6 +262,11 @@ def patch_health(files):
         t = t.replace("49-table contract", "73-table contract")
         t = t.replace("49/49", "73/73")
         t = t.replace("total'] ?? 49", "total'] ?? 73")
+        t = t.replace("total:49", "total:73")
+        t = t.replace("total||49", "total||73")
+        t = t.replace("total||4", "total||28")
+        t = t.replace("49-table setup", "73-table setup")
+        t = t.replace("49/49", "73/73")
         if path == "includes/rest/class-rest-app.php":
             old = "$hr_expected         = array( 'employees', 'employee_compensation', 'payroll_periods', 'payroll_lines' );"
             new = "$hr_expected         = array_values( array_unique( array_merge( array( 'employees', 'employee_compensation', 'payroll_periods', 'payroll_lines' ), Stockland_HR_Lifecycle::table_keys() ) ) );"
