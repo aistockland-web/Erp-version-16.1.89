@@ -29,8 +29,8 @@ final class Stockland_REST_HR_Lifecycle extends Stockland_REST_Base {
 	public function register_routes(){
 		$ns=self::NAMESPACE_V1;
 		register_rest_route($ns,'/hr/lifecycle/bootstrap',array('methods'=>'GET','callback'=>array($this,'bootstrap'),'permission_callback'=>function(){return Stockland_Authority::can_view_hr();}));
-		register_rest_route($ns,'/hr/lifecycle/(?P<entity>[a-z-]+)',array('methods'=>'POST','callback'=>array($this,'create'),'permission_callback'=>function(){return Stockland_Authority::can_manage_hr();}));
-		register_rest_route($ns,'/hr/lifecycle/(?P<entity>[a-z-]+)/(?P<id>\d+)/decision',array('methods'=>'POST','callback'=>array($this,'decision'),'permission_callback'=>function(){return Stockland_Authority::can_manage_hr();}));
+		register_rest_route($ns,'/hr/lifecycle/(?P<entity>workforce-plans|positions|requisitions|candidates|applications|interviews|documents|contracts|onboarding|shifts|attendance|leave-policies|leave-balances|leave-requests|training|performance|adjustments)',array('methods'=>'POST','callback'=>array($this,'create'),'permission_callback'=>function(){return Stockland_Authority::can_manage_hr();}));
+		register_rest_route($ns,'/hr/lifecycle/(?P<entity>workforce-plans|positions|requisitions|candidates|applications|interviews|documents|contracts|onboarding|shifts|attendance|leave-policies|leave-balances|leave-requests|training|performance|adjustments)/(?P<id>\d+)/decision',array('methods'=>'POST','callback'=>array($this,'decision'),'permission_callback'=>function(){return Stockland_Authority::can_manage_hr();}));
 		register_rest_route($ns,'/hr/lifecycle/rules',array('methods'=>'POST','callback'=>array($this,'create_rule'),'permission_callback'=>function(){return Stockland_Authority::can_manage_hr();}));
 		register_rest_route($ns,'/hr/lifecycle/rules/(?P<id>\d+)/approve',array('methods'=>'POST','callback'=>array($this,'approve_rule'),'permission_callback'=>function(){return Stockland_Authority::can_approve_payroll();}));
 		register_rest_route($ns,'/hr/lifecycle/allowance-preview',array('methods'=>'POST','callback'=>array($this,'allowance_preview'),'permission_callback'=>function(){return Stockland_Authority::can_view_payroll();}));
@@ -87,7 +87,7 @@ final class Stockland_REST_HR_Lifecycle extends Stockland_REST_Base {
 		if($entity==='leave-requests'&&$row['end_date']<$row['start_date'])return $this->bad('Leave end date cannot be before start date.');
 		if($entity==='attendance'&&isset($row['check_in'],$row['check_out'])&&$row['check_in']&&$row['check_out']&&$row['check_out']<$row['check_in'])return $this->bad('Attendance check-out must follow check-in.');
 		if($entity==='candidates'&&empty($row['consent_at']))$row['consent_at']=current_time('mysql');
-		$status_field=array('workforce-plans'=>'status','positions'=>'status','requisitions'=>'status','candidates'=>'status','applications'=>'stage','interviews'=>'recommendation','documents'=>'status','contracts'=>'status','onboarding'=>'status','shifts'=>'status','attendance'=>'status','leave-policies'=>'status','leave-requests'=>'status','training'=>'status','performance'=>'outcome','adjustments'=>'status');
+		$status_field=array('workforce-plans'=>'status','positions'=>'status','requisitions'=>'status','candidates'=>'status','applications'=>'stage','interviews'=>'recommendation','documents'=>'status','contracts'=>'status','onboarding'=>'status','shifts'=>'status','attendance'=>'status','leave-policies'=>'status','leave-balances'=>'closing_days','leave-requests'=>'status','training'=>'status','performance'=>'outcome','adjustments'=>'status');
 		$sf=$status_field[$entity]??null;if($sf&&!array_key_exists($sf,$row))$row[$sf]=in_array($entity,array('applications'),true)?'APPLIED':'DRAFT';
 		$row['created_by']=get_current_user_id();if($entity==='attendance'){$row['submitted_by']=get_current_user_id();$row['status']='SUBMITTED';}
 		if(in_array($entity,array('workforce-plans','positions','requisitions','contracts','leave-policies','shifts','adjustments'),true))$row['status']='DRAFT';
@@ -102,15 +102,15 @@ final class Stockland_REST_HR_Lifecycle extends Stockland_REST_Base {
 	}
 	public function decision(WP_REST_Request $req){
 		$entity=(string)$req['entity'];$id=(int)$req['id'];$p=$req->get_json_params();$decision=strtoupper(sanitize_key((string)($p['decision']??'')));$note=sanitize_textarea_field((string)($p['note']??''));if(!isset($this->entities[$entity])&&$entity!=='exits')return $this->bad('Unknown lifecycle entity.');
-		if(!in_array($decision,array('SUBMIT','APPROVE','REJECT','COMPLETE','CONFIRM','PAY'),true))return $this->bad('Unsupported state transition.');
+		if(!in_array($decision,array('SUBMIT','APPROVE','REJECT','COMPLETE','CONFIRM'),true))return $this->bad('Unsupported state transition.');
 		if($decision==='APPROVE'&&!$this->owner()&&in_array($entity,array('workforce-plans','positions','requisitions','contracts','leave-policies','adjustments','exits'),true))return $this->bad('Owner approval is required for this financial/employment commitment.','forbidden',403);
 		if($entity==='exits'&&in_array($decision,array('APPROVE','PAY'),true))return $this->bad('Final settlement approval/payment uses the dedicated rule-backed settlement handler.','settlement_handler_required',409);
-		$cfg=$entity==='exits'?array('table'=>'hr_exit_settlements','status'=>'status'):$this->entities[$entity];$table=$this->table($cfg['table']);$statusCol=$entity==='performance'?'outcome':($entity==='applications'?'stage':'status');
+		$cfg=$this->entities[$entity];$table=$this->table($cfg['table']);$statusCol='performance'===$entity?'outcome':('applications'===$entity?'decision':('interviews'===$entity?'recommendation':'status'));
 		global $wpdb;if(Stockland_DB::execute_query('START TRANSACTION')===false)return $this->bad('Could not start workflow transaction.','hr_transaction_failed',500);
 		try{
 			$row=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',$table,$id),ARRAY_A);if(!$row)throw new RuntimeException('Record does not exist.');
 			$from=(string)($row[$statusCol]??'DRAFT');
-			$map=array('SUBMIT'=>array('DRAFT'=>'SUBMITTED','CALCULATED'=>'SUBMITTED'),'APPROVE'=>array('SUBMITTED'=>'APPROVED','PENDING_REVIEW'=>'APPROVED','CALCULATED'=>'APPROVED'),'REJECT'=>array('SUBMITTED'=>'REJECTED','DRAFT'=>'REJECTED','PENDING_REVIEW'=>'REJECTED'),'COMPLETE'=>array('OPEN'=>'COMPLETE','PLANNED'=>'COMPLETE','IN_PROGRESS'=>'COMPLETE'),'CONFIRM'=>array('OFFERED'=>'CONFIRMED','PROBATION'=>'CONFIRMED'),'PAY'=>array('APPROVED'=>'PAID'));
+			$map=array('SUBMIT'=>array('DRAFT'=>'SUBMITTED','CALCULATED'=>'SUBMITTED','PENDING'=>'SUBMITTED'),'APPROVE'=>array('SUBMITTED'=>'APPROVED','PENDING_REVIEW'=>'APPROVED','CALCULATED'=>'APPROVED','RECOMMENDED'=>'APPROVED'),'REJECT'=>array('SUBMITTED'=>'REJECTED','DRAFT'=>'REJECTED','PENDING_REVIEW'=>'REJECTED','RECOMMENDED'=>'REJECTED'),'COMPLETE'=>array('OPEN'=>'COMPLETE','PLANNED'=>'COMPLETE','IN_PROGRESS'=>'COMPLETE'),'CONFIRM'=>array('OFFERED'=>'CONFIRMED','PROBATION'=>'CONFIRMED'));
 			$to=$map[$decision][$from]??null;if(!$to)throw new RuntimeException('Invalid transition '.$from.' → '.$decision.'.');
 			if(in_array($decision,array('APPROVE','PAY','CONFIRM'),true)&&$note==='')$note='Approved by authorized reviewer.';
 			$data=array($statusCol=>$to);if(in_array($decision,array('APPROVE','REJECT'),true)){$data['approved_by']=get_current_user_id();$data['approved_at']=current_time('mysql');if(isset($row['decision_note']))$data['decision_note']=$note;}
@@ -122,6 +122,40 @@ final class Stockland_REST_HR_Lifecycle extends Stockland_REST_Base {
 			return rest_ensure_response(array('id'=>$id,'status'=>$to));
 		}catch(Throwable $e){Stockland_DB::execute_query('ROLLBACK');return $this->bad($e->getMessage(),'hr_workflow_transition_failed',409);}
 	}
+	public function select_candidate(WP_REST_Request $req){
+		$id=(int)$req['id'];$payload=$req->get_json_params();$note=sanitize_textarea_field((string)($payload['selection_rationale']??''));if(strlen(trim($note))<20)return $this->bad('Document the human selection rationale (at least 20 characters).');
+		global $wpdb;if(Stockland_DB::execute_query('START TRANSACTION')===false)return $this->bad('Could not start selection transaction.','hr_transaction_failed',500);
+		try{
+			$app=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',$this->table('hr_applications'),$id),ARRAY_A);
+			if(!$app||!in_array($app['decision'],array('PENDING','RECOMMENDED'),true))throw new RuntimeException('Application is not in a selectable state.');
+			$reqRow=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',$this->table('hr_requisitions'),(int)$app['requisition_id']),ARRAY_A);
+			if(!$reqRow||$reqRow['status']!=='APPROVED')throw new RuntimeException('A selected candidate needs an approved requisition.');
+			$candidate=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',$this->table('hr_candidates'),(int)$app['candidate_id']),ARRAY_A);
+			$position=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d',$this->table('hr_positions'),(int)$reqRow['position_id']),ARRAY_A);
+			if(!$candidate||!$position)throw new RuntimeException('Candidate or approved position is missing.');
+			$interviews=Stockland_DB::read_results($wpdb->prepare('SELECT * FROM %i WHERE application_id=%d ORDER BY id',$this->table('hr_interviews'),$id),ARRAY_A);
+			$recommended=false;foreach((array)$interviews as $it){if(in_array(strtoupper((string)$it['recommendation']),array('RECOMMEND','APPROVED'),true))$recommended=true;}
+			if(!$recommended)throw new RuntimeException('At least one completed interview panel recommendation is required before selection.');
+			$loc=(int)($reqRow['location_id']??0);if($loc>0&&!Stockland_Authority::can_access_location($loc))throw new RuntimeException('Vacancy is outside your allowed branch scope.');
+			$year=current_time('Y');$employeeCode='SL'.$year.'-'.str_pad((string)$id,6,'0',STR_PAD_LEFT);
+			$existing=Stockland_DB::read_row($wpdb->prepare('SELECT id FROM %i WHERE employee_id=%s',$this->table('employees'),$employeeCode),ARRAY_A);if($existing)throw new RuntimeException('This application already produced an employee record.');
+			$hireDate=$reqRow['target_start_date']?:current_time('Y-m-d');
+			$employee=array('employee_id'=>$employeeCode,'full_name'=>sanitize_text_field((string)$candidate['full_name']),'branch_location_id'=>$loc?:null,'position_title'=>sanitize_text_field((string)$position['title']),'employment_type'=>sanitize_key((string)$reqRow['employment_type']?:'FULL_TIME'),'hire_date'=>$hireDate,'termination_date'=>null,'status'=>'PENDING','phone'=>sanitize_text_field((string)$candidate['phone']),'email'=>sanitize_email((string)$candidate['email']),'notes'=>'Selected application '.$id.'; '.$note,'created_by'=>get_current_user_id(),'updated_by'=>get_current_user_id());
+			if(Stockland_DB::insert_record($this->table('employees'),$employee)===false)throw new RuntimeException('Could not create pending employee record.');
+			$employeeId=(int)$wpdb->insert_id;
+			$contractCode='CON-'.$employeeCode;
+			if(Stockland_DB::insert_record($this->table('hr_contracts'),array('employee_id'=>$employeeId,'contract_code'=>$contractCode,'contract_type'=>sanitize_key((string)$reqRow['employment_type']?:'FULL_TIME'),'start_date'=>$hireDate,'end_date'=>null,'probation_end'=>null,'position_id'=>(int)$position['id'],'location_id'=>$loc?:null,'terms_json'=>wp_json_encode(array('status'=>'DRAFT','selection_rationale'=>$note,'application_id'=>$id)),'document_id'=>null,'status'=>'DRAFT','created_by'=>get_current_user_id()))===false)throw new RuntimeException('Could not create contract draft.');
+			$contractId=(int)$wpdb->insert_id;
+			$tasks=array(array('CONTRACT_SIGN','Sign employment contract','OWNER'),array('PERSONNEL_DOCS','Verify required personnel documents','MANAGEMENT'),array('PAYROLL_SETUP','Set up approved compensation and statutory profile','OWNER'),array('INDUCTION','Complete orientation and induction','MANAGEMENT'));
+			foreach($tasks as $task){if(Stockland_DB::insert_record($this->table('hr_onboarding_tasks'),array('employee_id'=>$employeeId,'task_code'=>$task[0],'task_title'=>$task[1],'responsible_role'=>$task[2],'due_date'=>$hireDate,'status'=>'OPEN','evidence_reference'=>null,'created_by'=>get_current_user_id()))===false)throw new RuntimeException('Could not seed required onboarding checklist.');}
+			if(Stockland_DB::update_record($this->table('hr_applications'),array('decision'=>'SELECTED','stage'=>'OFFER','selected_employee_id'=>$employeeId,'decision_reason'=>$note,'decided_by'=>get_current_user_id(),'decided_at'=>current_time('mysql')),array('id'=>$id))===false)throw new RuntimeException('Could not save selection decision.');
+			if(!$this->event('application',$id,'CANDIDATE_SELECTED','RECOMMENDED','SELECTED',array('employee_id'=>$employeeId,'contract_id'=>$contractId,'rationale'=>$note)))throw new RuntimeException('Selection audit event failed.');
+			if(!$this->event('employee',$employeeId,'HIRE_DRAFT_CREATED',null,'PENDING',array('application_id'=>$id,'contract_id'=>$contractId)))throw new RuntimeException('Pending hire audit event failed.');
+			if(Stockland_DB::execute_query('COMMIT')===false)throw new RuntimeException('Selection commit failed.');
+			return rest_ensure_response(array('application_id'=>$id,'employee_id'=>$employeeId,'employee_code'=>$employeeCode,'status'=>'PENDING','contract_id'=>$contractId,'message'=>'Selected candidate created as pending hire. Signed contract, verified documents and completed onboarding/compensation prerequisites are required before activation.'));
+		}catch(Throwable $e){Stockland_DB::execute_query('ROLLBACK');return $this->bad($e->getMessage(),'candidate_selection_failed',409);}
+	}
+
 	public function create_rule(WP_REST_Request $req){
 		$p=$req->get_json_params();$type=strtoupper(sanitize_key((string)($p['rule_type']??'')));$allowed=array('PAYROLL','ALLOWANCE','LEAVE','OVERTIME','FINAL_SETTLEMENT');$version=sanitize_text_field((string)($p['version_label']??''));$from=$this->date($p['effective_from']??null,false);$to=$this->date($p['effective_to']??null,true);$title=sanitize_text_field((string)($p['source_title']??''));$url=esc_url_raw((string)($p['source_url']??''));$clause=sanitize_text_field((string)($p['source_clause']??''));$sha=strtolower(sanitize_text_field((string)($p['source_sha256']??'')));$rules=$this->json_value($p['rules_json']??array(),'rules_json');if(is_wp_error($rules))return $rules;
 		if(!in_array($type,$allowed,true)||$version===''||$from===false||$to===false||($to&&$to<$from)||$title===''||!preg_match('~^https://~i',$url)||$clause===''||!preg_match('/^[a-f0-9]{64}$/',$sha))return $this->bad('Rule type, version, effective dates, official HTTPS source, clause and source SHA-256 are mandatory.');
