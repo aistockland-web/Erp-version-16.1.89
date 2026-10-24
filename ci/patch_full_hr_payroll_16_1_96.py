@@ -171,6 +171,10 @@ def patch_statutory(files):
 def patch_hr_rest(files):
     p = text(files, "includes/rest/class-rest-hr.php")
     p = once(p,
+        "public function employee_create( WP_REST_Request $r ) {",
+        "public function employee_create( WP_REST_Request $r ) {\n\t\treturn new WP_Error( 'hr_recruitment_lifecycle_required', 'Direct employee creation is disabled. Use the approved recruitment-selection, contract-signing, document-verification and Owner-activation lifecycle.', array( 'status' => 409 ) );",
+        "prevent direct employee creation from bypassing the recruitment pipeline")
+    p = once(p,
         "'allowance_breakdown_json'        => wp_json_encode( $normalized_allowances ),",
         "'allowance_breakdown_json'        => wp_json_encode( $normalized_allowances ),\n\t\t\t'approval_status'                 => 'DRAFT',\n\t\t\t'approved_by'                     => null,\n\t\t\t'approved_at'                     => null,\n\t\t\t'statutory_rule_set_id'            => null,\n\t\t\t'statutory_rule_version'           => null,\n\t\t\t'allowance_rule_set_id'            => null,\n\t\t\t'allowance_rule_version'           => null,",
         "legacy compensation endpoint creates reviewable drafts")
