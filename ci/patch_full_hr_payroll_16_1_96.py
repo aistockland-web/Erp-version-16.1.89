@@ -87,8 +87,11 @@ def patch_hr_schema(files):
     # Use the declaration boundary rather than a multiline SQL substring because CRLF/newline
     # normalization can differ between the locked release archive and this patcher source.
     last_table = p.find("CREATE TABLE {$p}stock_payroll_lines")
-    batch_marker = "\\t\\tif ( $batch_size > 0 ) {"
-    batch_at = p.find(batch_marker, last_table)
+    # Locate the batch guard as a PHP source line, independent of literal tabs vs escaped tabs
+    # and LF vs CRLF normalization. Search only after the legacy payroll_lines declaration.
+    batch_guard = re.compile(r"(?m)^[ \\t]*if\\s*\\(\\s*\\$batch_size\\s*>\\s*0\\s*\\)\\s*\\{[ \\t]*$")
+    batch_match = batch_guard.search(p, max(0, last_table))
+    batch_at = batch_match.start() if batch_match else -1
     if last_table < 0 or batch_at < 0:
         raise ValueError("Could not locate the payroll_lines table/batch boundary for the HR lifecycle DDL.")
     lifecycle_ddl = "\\t\\tforeach ( Stockland_HR_Lifecycle::table_ddl( $p, $cc ) as $lifecycle_ddl ) {\\n\\t\\t\\t$tables[] = $lifecycle_ddl;\\n\\t\\t}\\n\\n"
