@@ -232,6 +232,18 @@ def patch_hr_rest(files):
         "( $line['statutory_status'] ?? '' ) !== 'CALCULATED' || (string) ( $line['tax_rule_version'] ?? '' ) !== (string) ( $p['statutory_rule_version'] ?? '' ) || (int) ( $line['statutory_rule_set_id'] ?? 0 ) !== (int) ( $p['statutory_rule_set_id'] ?? 0 )",
         "approval requires period-pinned rule")
     p = once(p,
+        "if ( 'CALCULATED' !== (string) ( $line['statutory_status'] ?? '' ) || Stockland_Payroll_Statutory::RULE_VERSION !== (string) ( $line['tax_rule_version'] ?? '' ) ) {",
+        "$line_rules = Stockland_HR_Lifecycle::payroll_rules_for_period( $period['start_date'], $period['end_date'] );\n\t\t\tif ( is_wp_error( $line_rules ) ) { throw new Exception( $line_rules->get_error_message() ); }\n\t\t\tif ( 'CALCULATED' !== (string) ( $line['statutory_status'] ?? '' ) || (string) ( $line['tax_rule_version'] ?? '' ) !== (string) ( $period['statutory_rule_version'] ?? '' ) || (int) ( $line['statutory_rule_set_id'] ?? 0 ) !== (int) ( $period['statutory_rule_set_id'] ?? 0 ) ) {",
+        "owner classification requires exact period rule")
+    p = once(p,
+        "Stockland_Payroll_Statutory::RULE_VERSION\n\t\t\t\t)\n\t\t\t);",
+        "(string) ( $p['statutory_rule_version'] ?? '' )\n\t\t\t\t)\n\t\t\t);",
+        "submission checks exact period-pinned rule")
+    p = once(p,
+        "'under ' . Stockland_Payroll_Statutory::RULE_VERSION",
+        "'under ' . (string) ( $p['statutory_rule_version'] ?? 'UNPINNED' )",
+        "submit audit uses exact rule version")
+    p = once(p,
         "'tax_rule_version'       => Stockland_Payroll_Statutory::RULE_VERSION,",
         "'tax_rule_version'       => (string) ( $p['statutory_rule_version'] ?? '' ),\n\t\t\t\t\t'statutory_rule_set_id' => (int) ( $p['statutory_rule_set_id'] ?? 0 ),",
         "audit uses pinned rule version")
