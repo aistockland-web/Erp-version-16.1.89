@@ -1,5 +1,4 @@
 'use strict';
-const fs = require('fs');
 const assert = require('assert');
 const cp = require('child_process');
 const path = process.argv[2];
