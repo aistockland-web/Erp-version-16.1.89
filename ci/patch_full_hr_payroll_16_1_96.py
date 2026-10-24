@@ -97,7 +97,7 @@ def patch_statutory(files):
         "dynamic statutory calculate signature")
     p = once(p,
         "$employee_pension = Stockland_Money::percentage( $pensionable, self::EMPLOYEE_PENSION_RATE );\n\t\t$employer_pension = Stockland_Money::percentage( $pensionable, self::EMPLOYER_PENSION_RATE );",
-        "$rules = is_array( $rules ) ? $rules : null;\n\t\t$employee_rate = $rules['employee_pension_rate'] ?? self::EMPLOYEE_PENSION_RATE;\n\t\t$employer_rate = $rules['employer_pension_rate'] ?? self::EMPLOYER_PENSION_RATE;\n\t\tforeach ( array( $employee_rate, $employer_rate ) as $rate ) {\n\t\t\tif ( ! is_numeric( $rate ) || (float) $rate < 0 || (float) $rate > 1 ) {\n\t\t\t\tthrow new InvalidArgumentException( 'Approved pension rule rate is invalid.' );\n\t\t\t}\n\t\t}\n\t\t$employee_pension = Stockland_Money::percentage( $pensionable, (string) $employee_rate );\n\t\t$employer_pension = Stockland_Money::percentage( $pensionable, (string) $employer_rate );",
+        "if ( ! is_array( $rules ) || ! isset( $rules['employee_pension_rate'], $rules['employer_pension_rate'], $rules['monthly_tax_bands'], $rules['tax_base_method'], $rules['rule_version'] ) ) {\n\t\t\tthrow new InvalidArgumentException( 'An approved effective-dated statutory rule set is required; no legacy payroll fallback is permitted.' );\n\t\t}\n\t\t$employee_rate = $rules['employee_pension_rate'];\n\t\t$employer_rate = $rules['employer_pension_rate'];\n\t\tforeach ( array( $employee_rate, $employer_rate ) as $rate ) {\n\t\t\tif ( ! is_numeric( $rate ) || (float) $rate < 0 || (float) $rate > 1 ) {\n\t\t\t\tthrow new InvalidArgumentException( 'Approved pension rule rate is invalid.' );\n\t\t\t}\n\t\t}\n\t\t$employee_pension = Stockland_Money::percentage( $pensionable, (string) $employee_rate );\n\t\t$employer_pension = Stockland_Money::percentage( $pensionable, (string) $employer_rate );",
         "dynamic pension rates")
     old_base = """$taxable_gross  = Stockland_Money::add( $base, $taxable_allow );
 		$taxable_income = Stockland_Money::subtract( $taxable_gross, $employee_pension );
@@ -106,7 +106,7 @@ def patch_statutory(files):
 		}
 		list( $income_tax, $income_tax_rate ) = self::income_tax( $taxable_income );"""
     new_base = """$taxable_gross = Stockland_Money::add( $base, $taxable_allow );
-		$tax_base_method = $rules['tax_base_method'] ?? 'TAXABLE_GROSS_LESS_EMPLOYEE_PENSION';
+		$tax_base_method = $rules['tax_base_method'] ?? null;
 		if ( 'TAXABLE_GROSS_LESS_EMPLOYEE_PENSION' === $tax_base_method ) {
 			$taxable_income = Stockland_Money::subtract( $taxable_gross, $employee_pension );
 		} elseif ( 'TAXABLE_GROSS' === $tax_base_method ) {
@@ -133,7 +133,7 @@ def patch_statutory(files):
         "statutory version pin")
     p = once(p,
         "public static function income_tax( $taxable_income ) {",
-        "public static function income_tax( $taxable_income, $bands = null ) {",
+        "public static function income_tax( $taxable_income, $bands = null ) {\n\t\tif ( ! is_array( $bands ) || ! $bands ) { throw new InvalidArgumentException( 'Approved effective-dated PAYE bands are required; no legacy fallback is permitted.' ); }",
         "dynamic tax-band method signature")
     anchor = "\t\t$minor  = Stockland_Money::minor( $income );"
     dynamic = """\t\t$minor  = Stockland_Money::minor( $income );
