@@ -127,6 +127,9 @@ def finalize(input_zip: Path, output_zip: Path) -> dict:
         "bootstrap_version_evidence": "assets/bootstrap.min.css upstream header",
     })
     manifest["frontend"] = frontend_metadata
+
+    manifest = json.loads(files[MANIFEST].decode("utf-8"))
+    css_manifest = json.loads(files[CSS_MODULES].decode("utf-8"))
     entry = files[ENTRY].decode("utf-8")
     frontend = files[FRONTEND].decode("utf-8")
     readme = files[README].decode("utf-8")
@@ -228,6 +231,9 @@ def finalize(input_zip: Path, output_zip: Path) -> dict:
         "16.1.94 cumulative release/cache metadata. Six ordered CSS source modules include scoped "
         "requisition approval-history and Retail POS responsive layouts; app.css and app.min.css "
         "must match the deterministic module build."
+        "16.1.94 cumulative release/cache metadata. Six ordered CSS source modules include the "
+        "scoped requisition approval-history responsive layout; app.css and app.min.css must match "
+        "the deterministic module build."
     )
 
     release_section = """## Release 16.1.94 — cumulative update from 16.1.93
@@ -304,6 +310,10 @@ Before deployment, back up the WordPress files and MariaDB/MySQL database and ve
                 raise ValueError("Final app.min.css does not equal normalized source")
             changed = sorted(name for name in names if original_files[name] != final_files[name])
             allowed = sorted([README, MANIFEST, CSS_MODULES, FRONTEND, ENTRY, CSS_MODULE_PATH, APP_CSS_PATH, APP_MIN_PATH])
+            if final_files[ACTIVATOR] != files[ACTIVATOR]:
+                raise ValueError("Schema activator changed during version finalization")
+            changed = sorted(name for name in names if files[name] != final_files[name])
+            allowed = sorted([README, MANIFEST, CSS_MODULES, FRONTEND, ENTRY])
             if changed != allowed:
                 raise ValueError(f"Unexpected finalizer changed-file allowlist: {changed}")
         tmp.replace(output_zip)
@@ -324,6 +334,7 @@ Before deployment, back up the WordPress files and MariaDB/MySQL database and ve
         "plugin_root": ROOT,
         "schema_contract": {"core": 29, "accounting_procurement": 16, "hr_payroll": 4, "total": 49},
         "changed_files": sorted([README, MANIFEST, CSS_MODULES, FRONTEND, ENTRY, CSS_MODULE_PATH, APP_CSS_PATH, APP_MIN_PATH]),
+        "changed_files": sorted([README, MANIFEST, CSS_MODULES, FRONTEND, ENTRY]),
         "schema_activator_unchanged": True,
         "live_business_data_changed": False,
         "report_error_retry_marker": True,
