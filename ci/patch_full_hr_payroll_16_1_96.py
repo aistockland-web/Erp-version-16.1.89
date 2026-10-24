@@ -89,7 +89,7 @@ def patch_hr_schema(files):
     last_table = p.find("CREATE TABLE {$p}stock_payroll_lines")
     # Locate the batch guard as a PHP source line, independent of literal tabs vs escaped tabs
     # and LF vs CRLF normalization. Search only after the legacy payroll_lines declaration.
-    batch_guard = re.compile(r"(?m)^[ \\t]*if\\s*\\(\\s*\\$batch_size\\s*>\\s*0\\s*\\)\\s*\\{[ \\t]*$")
+    batch_guard = re.compile(r"(?m)^[ \t]*if\s*\(\s*\$batch_size\s*>\s*0\s*\)\s*\{[ \t]*$")
     batch_match = batch_guard.search(p, max(0, last_table))
     batch_at = batch_match.start() if batch_match else -1
     if last_table < 0 or batch_at < 0:
