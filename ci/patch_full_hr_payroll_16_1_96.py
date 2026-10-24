@@ -80,7 +80,7 @@ def patch_hr_schema(files):
         "payment_method VARCHAR(20) NULL,\n            notes VARCHAR(500) NULL,\n            statutory_rule_set_id BIGINT UNSIGNED NULL,\n            statutory_rule_version VARCHAR(80) NULL,\n            created_by BIGINT UNSIGNED NOT NULL,",
         "fresh payroll period schema")
     p = once(p,
-        "tax_rule_version VARCHAR(40) NULL,\n            statutory_status VARCHAR(20) NOT NULL DEFAULT 'LEGACY' AFTER tax_rule_version,",
+        "tax_rule_version VARCHAR(40) NULL,\n            statutory_status VARCHAR(20) NOT NULL DEFAULT 'LEGACY',",
         "tax_rule_version VARCHAR(40) NULL,\n            statutory_rule_set_id BIGINT UNSIGNED NULL,\n            statutory_rule_version VARCHAR(80) NULL,\n            allowance_rule_set_id BIGINT UNSIGNED NULL,\n            allowance_rule_version VARCHAR(80) NULL,\n            statutory_status VARCHAR(20) NOT NULL DEFAULT 'LEGACY' AFTER tax_rule_version,",
         "fresh payroll line schema")
     p = once(p,
