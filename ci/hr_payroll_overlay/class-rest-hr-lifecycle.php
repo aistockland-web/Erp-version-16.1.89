@@ -268,9 +268,43 @@ final class Stockland_REST_HR_Lifecycle extends Stockland_REST_Base {
 		}catch(Throwable $e){Stockland_DB::execute_query('ROLLBACK');return $this->bad($e->getMessage(),'hr_compensation_save_failed',409);}
 	}
 	public function approve_compensation(WP_REST_Request $req){
-		$id=(int)$req['id'];global $wpdb;if(Stockland_DB::execute_query('START TRANSACTION')===false)return $this->bad('Could not start approval transaction.','hr_transaction_failed',500);
-		try{$r=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',$this->table('employee_compensation'),$id),ARRAY_A);if(!$r||($r['approval_status']??'APPROVED')!=='DRAFT')throw new RuntimeException('Only unapproved compensation drafts can be approved.');if((int)$r['created_by']===get_current_user_id())throw new RuntimeException('Maker-checker: the compensation preparer cannot approve their own change.');if(!empty($r['exempt_allowance_total'])&&Stockland_Money::minor($r['exempt_allowance_total'])>0&&!preg_match('/^[a-f0-9]{64}$/i',(string)($r['allowance_source_hash']??''))){$s=json_decode((string)$r['allowance_breakdown_json'],true);$has=false;foreach((array)$s as $c){if(Stockland_Money::minor($c['exempt_amount']??0)>0&&!preg_match('/^[a-f0-9]{64}$/i',(string)($c['source_hash']??'')))throw new RuntimeException('Exempt component source hash missing.');$has=$has||Stockland_Money::minor($c['exempt_amount']??0)>0;}if(!$has)throw new RuntimeException('Exemption snapshot invalid.');}
-			if(Stockland_DB::update_record($this->table('employee_compensation'),array('approval_status'=>'APPROVED','approved_by'=>get_current_user_id(),'approved_at'=>current_time('mysql')),array('id'=>$id))===false)throw new RuntimeException('Approval save failed.');Stockland_DB::update_record($this->table('hr_compensation_components'),array('status'=>'APPROVED'),array('compensation_id'=>$id));if(!$this->event('compensation',$id,'COMPENSATION_APPROVED','DRAFT','APPROVED',array('allowance_rule_version'=>$r['allowance_rule_version']??null)))throw new RuntimeException('Audit event failed.');if(Stockland_DB::execute_query('COMMIT')===false)throw new RuntimeException('Approval commit failed.');return rest_ensure_response(array('id'=>$id,'approval_status'=>'APPROVED'));
+		$id=(int)$req['id'];global $wpdb;if(!$this->owner())return $this->bad('Owner approval required.','forbidden',403);
+		if(Stockland_DB::execute_query('START TRANSACTION')===false)return $this->bad('Could not start approval transaction.','hr_transaction_failed',500);
+		try{
+			$r=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',$this->table('employee_compensation'),$id),ARRAY_A);
+			if(!$r||($r['approval_status']??'APPROVED')!=='DRAFT')throw new RuntimeException('Only unapproved compensation drafts can be approved.');
+			if((int)$r['created_by']===(int)get_current_user_id())throw new RuntimeException('Maker-checker: the compensation preparer cannot approve their own change.');
+			$snapshot=json_decode((string)($r['allowance_breakdown_json']??''),true);if(!is_array($snapshot))throw new RuntimeException('Compensation allowance snapshot is missing or malformed.');
+			$tax='0.00';$exempt='0.00';$verified=array();$needsOwner=false;
+			foreach($snapshot as $c){
+				if(!is_array($c))throw new RuntimeException('Compensation component row is malformed.');
+				$amount=Stockland_Money::decimal(Stockland_Money::minor($c['amount']??'0.00'));
+				if(strtoupper((string)($c['tax_treatment']??'TAXABLE'))==='EXEMPT'){
+					$needsOwner=true;
+					$ruleId=(int)($c['rule_set_id']??0);
+					$rule=Stockland_DB::read_row($wpdb->prepare("SELECT * FROM %i WHERE id=%d AND rule_type='ALLOWANCE' AND review_status='APPROVED' AND effective_from<=%s AND (effective_to IS NULL OR effective_to>=%s)",$this->table('hr_rule_sets'),$ruleId,$r['effective_from'],$r['effective_from']),ARRAY_A);
+					if(!$rule||!preg_match('/^[a-f0-9]{64}$/i',(string)($rule['source_sha256']??''))||!hash_equals(strtolower((string)$rule['source_sha256']),strtolower((string)($c['source_hash']??'')))||empty($c['legal_basis'])||empty($c['evidence_reference']))throw new RuntimeException('Every exempt component needs an effective approved rule, matching official-source SHA-256, clause and evidence reference.');
+					$c['owner_verified']=true;$c['verified_by']=(int)get_current_user_id();$c['verified_at']=current_time('mysql');
+					$exempt=Stockland_Money::add($exempt,$amount);
+				}else{
+					$c['tax_treatment']='TAXABLE';$c['owner_verified']=false;
+					$tax=Stockland_Money::add($tax,$amount);
+				}
+				$verified[]=$c;
+			}
+			if(Stockland_Money::minor($tax)!==Stockland_Money::minor($r['taxable_allowance_total']??'0.00')||Stockland_Money::minor($exempt)!==Stockland_Money::minor($r['exempt_allowance_total']??'0.00')||Stockland_Money::minor(Stockland_Money::add($tax,$exempt))!==Stockland_Money::minor($r['allowance_total']??'0.00'))throw new RuntimeException('Taxable + exempt component snapshots must reconcile exactly to the approved allowance total.');
+			$nonstandard=Stockland_Money::minor($r['pensionable_salary'])!==Stockland_Money::minor($r['base_salary']);
+			if($nonstandard&&strlen(trim((string)($r['notes']??'')))<20)throw new RuntimeException('Non-standard pensionability needs a documented legal/contract basis of at least 20 characters.');
+			if($needsOwner&&$nonstandard&&strlen(trim((string)($r['statutory_classification_note']??'')))<20)throw new RuntimeException('Exempt/non-standard compensation needs an explicit Owner legal-classification note.');
+			$status=($needsOwner||$nonstandard)?'OWNER_CLASSIFIED':'MANAGEMENT_PREPARED';
+			$versionIds=array_values(array_unique(array_filter(array_map(static function($c){return (int)($c['rule_set_id']??0);},$verified))));
+			$versions=array_values(array_unique(array_filter(array_map(static function($c){return (string)($c['rule_set_version']??'');},$verified))));
+			$update=array('approval_status'=>'APPROVED','approved_by'=>get_current_user_id(),'approved_at'=>current_time('mysql'),'statutory_classification_status'=>$status,'allowance_breakdown_json'=>wp_json_encode($verified),'allowance_rule_set_id'=>count($versionIds)===1?$versionIds[0]:null,'allowance_rule_version'=>count($versions)===1?$versions[0]:(count($versions)>1?'MULTI':null));
+			if(Stockland_DB::update_record($this->table('employee_compensation'),$update,array('id'=>$id))===false)throw new RuntimeException('Approval save failed.');
+			if(Stockland_DB::update_record($this->table('hr_compensation_components'),array('status'=>'APPROVED'),array('compensation_id'=>$id))===false)throw new RuntimeException('Allowance component approval failed.');
+			if(!$this->event('compensation',$id,'COMPENSATION_APPROVED','DRAFT','APPROVED',array('allowance_rule_version'=>$update['allowance_rule_version'],'classification'=>$status,'taxable_total'=>$tax,'exempt_total'=>$exempt)))throw new RuntimeException('Audit event failed.');
+			if(Stockland_DB::execute_query('COMMIT')===false)throw new RuntimeException('Approval commit failed.');
+			return rest_ensure_response(array('id'=>$id,'approval_status'=>'APPROVED','classification'=>$status,'taxable_allowance_total'=>$tax,'exempt_allowance_total'=>$exempt));
 		}catch(Throwable $e){Stockland_DB::execute_query('ROLLBACK');return $this->bad($e->getMessage(),'hr_compensation_approval_failed',409);}
 	}
 	public function calculate_exit(WP_REST_Request $req){
