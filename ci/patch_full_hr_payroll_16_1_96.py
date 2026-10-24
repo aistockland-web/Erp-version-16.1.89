@@ -195,6 +195,18 @@ def patch_hr_rest(files):
         "$calc = Stockland_Payroll_Statutory::calculate( $c['base_salary'], $c['taxable_allowance_total'], $c['exempt_allowance_total'], $c['pensionable_salary'], $c['other_deduction_total'], $payroll_rules );",
         "use approved rule object for generated payroll")
     p = once(p,
+        "$check = Stockland_Payroll_Statutory::calculate( $base, $taxable, $exempt, $pensionable, $other );",
+        "$check = array( 'allowance_total' => Stockland_Money::add( $taxable, $exempt ) );",
+        "compensation creation only reconciles amounts before an approved ruleset exists")
+    p = once(p,
+        "$calc        = Stockland_Payroll_Statutory::calculate( $line['base_salary'], $taxable, $exempt, $pensionable, $other );",
+        "$line_rules = Stockland_HR_Lifecycle::payroll_rules_for_period( $period['start_date'], $period['end_date'] );\n\t\t\tif ( is_wp_error( $line_rules ) ) { throw new RuntimeException( $line_rules->get_error_message() ); }\n\t\t\t$calc = Stockland_Payroll_Statutory::calculate( $line['base_salary'], $taxable, $exempt, $pensionable, $other, $line_rules );",
+        "draft line recalculation uses pinned period rules")
+    p = once(p,
+        "$calc = Stockland_Payroll_Statutory::calculate(\n\t\t\t\t$line['base_salary'],\n\t\t\t\t$taxable,\n\t\t\t\t$exempt,\n\t\t\t\t$line['pensionable_salary'] ?? $line['base_salary'],\n\t\t\t\t$line['other_deduction_total'] ?? '0.00'\n\t\t\t);",
+        "$line_rules = Stockland_HR_Lifecycle::payroll_rules_for_period( $period['start_date'], $period['end_date'] );\n\t\t\tif ( is_wp_error( $line_rules ) ) { throw new Exception( $line_rules->get_error_message() ); }\n\t\t\t$calc = Stockland_Payroll_Statutory::calculate( $line['base_salary'], $taxable, $exempt, $line['pensionable_salary'] ?? $line['base_salary'], $line['other_deduction_total'] ?? '0.00', $line_rules );",
+        "Owner allowance reclassification uses pinned period rules")
+    p = once(p,
         "'allowance_breakdown_json' => wp_json_encode( $schedule['allowance_breakdown'] ?? array() ),",
         "'allowance_breakdown_json' => wp_json_encode( $schedule['allowance_breakdown'] ?? array() ),\n\t\t\t\t\t\t'statutory_rule_set_id'    => (int) $payroll_rules['rule_set_id'],\n\t\t\t\t\t\t'statutory_rule_version'   => (string) $payroll_rules['rule_version'],\n\t\t\t\t\t\t'allowance_rule_set_id'    => $this->unique_allowance_rule_id( $schedule['allowance_breakdown'] ?? array() ),\n\t\t\t\t\t\t'allowance_rule_version'   => $this->unique_allowance_rule_version( $schedule['allowance_breakdown'] ?? array() ),",
         "pin rule provenance on generated line")
