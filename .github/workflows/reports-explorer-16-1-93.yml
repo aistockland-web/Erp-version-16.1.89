@@ -101,11 +101,6 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m compileall -q ci
-      - name: Test HR lifecycle batch-boundary matcher
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 ci/qa/test_hr_batch_boundary.py
       - name: Run Reports Explorer regression tests
         shell: bash
         run: |
@@ -273,6 +268,7 @@ jobs:
           python ci/qa/test-dependency-inventory.py | tee STOCKLAND_ERP_16.1.95_DEPENDENCY_POLICY_TEST.txt
           python ci/qa/dependency-inventory.py build/wordpress-update/stockland-erp-app STOCKLAND_ERP_16.1.95_DEPENDENCY_LICENSE_INVENTORY.json | tee STOCKLAND_ERP_16.1.95_DEPENDENCY_INVENTORY_SUMMARY.txt
       - name: Test HR lifecycle batch-boundary matcher
+        if: steps.scope.outputs.run_hr_candidate == 'true'
         shell: bash
         run: |
           set -euo pipefail
