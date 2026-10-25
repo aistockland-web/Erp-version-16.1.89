@@ -53,6 +53,14 @@ def patch_main(files, schema, rest):
     put(files, "includes/class-stockland-hr-lifecycle.php", schema)
     put(files, "includes/rest/class-rest-hr-lifecycle.php", rest)
 
+def find_batch_boundary(source: str, start: int) -> int:
+    """Return the PHP batch guard start after a table declaration, or -1."""
+    if start < 0:
+        return -1
+    match = re.search(r"(?m)^[ \t]*if\s*\(\s*\$batch_size\s*>\s*0\s*\)\s*\{[ \t]*$", source[start:])
+    return start + match.start() if match else -1
+
+
 def patch_hr_schema(files):
     p = text(files, "includes/class-stockland-hr.php")
     p = once(p,
@@ -87,8 +95,9 @@ def patch_hr_schema(files):
     # Use the declaration boundary rather than a multiline SQL substring because CRLF/newline
     # normalization can differ between the locked release archive and this patcher source.
     last_table = p.find("CREATE TABLE {$p}stock_payroll_lines")
-    batch_marker = "\\t\\tif ( $batch_size > 0 ) {"
-    batch_at = p.find(batch_marker, last_table)
+    # Locate the batch guard as a PHP source line, independent of literal tabs vs escaped tabs
+    # and LF vs CRLF normalization. Search only after the legacy payroll_lines declaration.
+    batch_at = find_batch_boundary(p, last_table)
     if last_table < 0 or batch_at < 0:
         raise ValueError("Could not locate the payroll_lines table/batch boundary for the HR lifecycle DDL.")
     lifecycle_ddl = "\\t\\tforeach ( Stockland_HR_Lifecycle::table_ddl( $p, $cc ) as $lifecycle_ddl ) {\\n\\t\\t\\t$tables[] = $lifecycle_ddl;\\n\\t\\t}\\n\\n"
