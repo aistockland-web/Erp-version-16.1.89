@@ -144,6 +144,8 @@ def main():
         need("sl-desktop-title-action-layer-fix" not in js and patcher.DESKTOP_PRODUCT_CREATE_MARKER in source_after["stockland-erp-app/assets/css/06-operational-guards.css"].decode("utf-8"), "desktop title-action CSS is compiled rather than injected")
         need("function managementIntelligence()" in js, "dedicated management intelligence workspace")
         need("case'intelligence':b=managementIntelligence();break;" in js, "management intelligence route")
+        need("openDailyPosImportFromReport" not in js, "Daily POS import is not mixed into Reports & Analytics")
+        need("Daily POS Import" in js and "case'daily':b=dailyImportPage();break;" in js, "Daily POS import remains available through its dedicated Sales & POS route")
         need("data-mi-kpi" in js and "refreshManagementIntelligence" in js, "management view uses authorized insight metrics and refresh action")
         need(php.count("report_source_query_failed") >= 10, "report query errors fail closed instead of returning zero totals")
         for marker, label in [
