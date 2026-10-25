@@ -259,8 +259,8 @@ def patch_hr_rest(files):
         "(string) ( $p['statutory_rule_version'] ?? '' )\n\t\t\t\t)\n\t\t\t);",
         "submission checks exact period-pinned rule")
     p = once(p,
-        "under ' . Stockland_Payroll_Statutory::RULE_VERSION",
-        "under ' . (string) ( $p['statutory_rule_version'] ?? 'UNPINNED' )",
+        "Payroll submitted for independent Owner approval under ' . Stockland_Payroll_Statutory::RULE_VERSION",
+        "Payroll submitted for independent Owner approval under ' . (string) ( $p['statutory_rule_version'] ?? 'UNPINNED' )",
         "submit audit uses exact rule version")
     p = once(p,
         "'tax_rule_version'       => Stockland_Payroll_Statutory::RULE_VERSION,",
