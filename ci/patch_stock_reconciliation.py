@@ -493,20 +493,6 @@ def patch_php(source: str) -> str:
         source,
         count=1,
     )
-    source = replace_literal_once(
-        source,
-        "array( 'key' => 'available_stock', 'label' => 'Available', 'format' => 'number' ),",
-        "array( 'key' => 'available_stock', 'label' => 'Available', 'format' => 'number' ),\n\t\t\t\t\tarray( 'key' => 'availability_exception', 'label' => 'Reservation integrity' ),",
-        "show reservation integrity beside availability",
-    )
-    source = replace_literal_once(
-        source,
-        "Available stock equals physical stock less active reservations; suggested replenishment is the minimum quantity needed to reach the configured reorder level.",
-        "Sellable availability is max(0, physical stock less active reservations). OVER-RESERVED flags reservations exceeding physical stock; suggested replenishment is based on sellable availability.",
-        "critical reorder description",
-    )
-
-    source = replace_literal_once(
         source,
         "$inv_sql  = 'SELECT COALESCE(SUM(b.physical_stock*p.purchase_cost),0) FROM (SELECT location_id,variant_id,SUM(quantity_signed) physical_stock FROM %i WHERE variant_id IS NOT NULL GROUP BY location_id,variant_id) b JOIN %i p ON p.variant_id=b.variant_id';",
         "$inv_sql  = 'SELECT COALESCE(SUM(b.physical_stock*p.purchase_cost),0) FROM (SELECT t.location_id,COALESCE(t.variant_id,legacy_p.variant_id) variant_id,SUM(t.quantity_signed) physical_stock FROM %i t LEFT JOIN %i legacy_p ON t.variant_id IS NULL AND legacy_p.sku=t.sku WHERE COALESCE(t.variant_id,legacy_p.variant_id) IS NOT NULL GROUP BY t.location_id,COALESCE(t.variant_id,legacy_p.variant_id)) b JOIN %i p ON p.variant_id=b.variant_id';",
