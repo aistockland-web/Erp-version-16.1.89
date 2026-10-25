@@ -7,6 +7,18 @@ on:
   pull_request:
     branches:
       - main
+    paths:
+      - 'STOCKLAND_ERP_16.1.91_CANONICAL_WORDPRESS_UPDATE.zip'
+      - 'STOCKLAND_ERP_16.1.91_CANONICAL_WORDPRESS_UPDATE.zip.sha256'
+      - 'STOCKLAND_ERP_16.1.92_CANONICAL_WORDPRESS_UPDATE.zip'
+      - 'STOCKLAND_ERP_16.1.92_CANONICAL_WORDPRESS_UPDATE.zip.sha256'
+      - 'ci/build_release_16_1_92.py'
+      - 'ci/patch_period_summary.py'
+      - 'ci/runtime/class-stockland-csv.php'
+      - 'ci/qa/test-period-summary-csv.js'
+      - 'ci/qa/test-stockland-csv-reader.php'
+      - 'ci/qa/test-release-16.1.92.py'
+      - 'ci/release-inputs-16.1.92.lock.json'
   workflow_dispatch:
 
 permissions:
