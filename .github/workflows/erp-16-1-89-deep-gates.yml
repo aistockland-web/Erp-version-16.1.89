@@ -5,9 +5,29 @@ on:
     branches:
       - main
       - "audit/**"
+    paths:
+      - 'STOCKLAND_ERP_16.1.89_CANONICAL_WORDPRESS_UPDATE*.zip'
+      - 'ci/validate_release_16_1_89.py'
+      - 'ci/qa/test-payroll-health-policy.php'
+      - 'ci/qa/test-notification-drawer.js'
+      - 'ci/qa/test-payroll-preview.js'
+      - 'ci/qa/test-release-invariants.py'
+      - 'ci/qa/test-phpcs-security-review.py'
+      - 'ci/qa/summarize-semgrep.py'
+      - 'ci/qa/stockland-phpcs.xml'
   pull_request:
     branches:
       - main
+    paths:
+      - 'STOCKLAND_ERP_16.1.89_CANONICAL_WORDPRESS_UPDATE*.zip'
+      - 'ci/validate_release_16_1_89.py'
+      - 'ci/qa/test-payroll-health-policy.php'
+      - 'ci/qa/test-notification-drawer.js'
+      - 'ci/qa/test-payroll-preview.js'
+      - 'ci/qa/test-release-invariants.py'
+      - 'ci/qa/test-phpcs-security-review.py'
+      - 'ci/qa/summarize-semgrep.py'
+      - 'ci/qa/stockland-phpcs.xml'
   workflow_dispatch:
 
 permissions:
