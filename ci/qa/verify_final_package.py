@@ -183,6 +183,10 @@ def inspect_payload(files: dict[str, bytes]) -> dict:
         fail("Management Intelligence renderer/route is missing")
     if "loadReport().catch(err=>toast(err.message,true))" in js:
         fail("duplicate report failure toast handler remains")
+    if "openDailyPosImportFromReport" in js:
+        fail("Daily POS import is misplaced in Reports & Analytics")
+    if "Daily POS Import" not in js or "case'daily':b=dailyImportPage();break;" not in js:
+        fail("dedicated Daily POS Import navigation/route is missing")
     if "document.getElementById('retryOpsReport')?.addEventListener('click',()=>loadReport());return null;" not in js:
         fail("single inline report error/retry handler is missing")
     css = files[ROOT + "assets/css/06-operational-guards.css"].decode("utf-8", "replace")
