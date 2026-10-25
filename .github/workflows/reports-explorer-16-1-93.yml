@@ -1,10 +1,12 @@
-name: Cumulative Stockland ERP 16.1.96 HR & Payroll candidate gates
+name: Cumulative Stockland ERP 16.1.95 baseline gates (16.1.96 HR candidate retired)
 
 on:
-  # Run the cumulative release gate on the exact branch head after every release-source
-  # or verifier change. Pull-request-only receipts are insufficient for artifact release.
+  # Retired 16.1.96 HR lifecycle candidate CI on 2026-10-26. Keep the verified
+  # 16.1.93-16.1.95 baseline chain; the replacement HR design is specified in Notion
+  # as 27 new additive tables and must get its own reviewed branch/workflow after design gates.
+  # This workflow must not build or publish the retired 16.1.96 / 73-table candidate.
   push:
-    branches: [feat/reports-explorer-16-1-93, feature/full-hr-payroll-lifecycle-16-1-96]
+    branches: [feat/reports-explorer-16-1-93]
     paths:
       - 'ci/**'
       - '.github/workflows/reports-explorer-16-1-93.yml'
@@ -61,11 +63,6 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m compileall -q ci
-      - name: Test HR lifecycle batch-boundary matcher
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 ci/qa/test_hr_batch_boundary.py
       - name: Run Reports Explorer regression tests
         shell: bash
         run: |
@@ -232,91 +229,10 @@ jobs:
           set -euo pipefail
           python ci/qa/test-dependency-inventory.py | tee STOCKLAND_ERP_16.1.95_DEPENDENCY_POLICY_TEST.txt
           python ci/qa/dependency-inventory.py build/wordpress-update/stockland-erp-app STOCKLAND_ERP_16.1.95_DEPENDENCY_LICENSE_INVENTORY.json | tee STOCKLAND_ERP_16.1.95_DEPENDENCY_INVENTORY_SUMMARY.txt
-      - name: Build full HR & Payroll lifecycle candidate 16.1.96
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 ci/patch_full_hr_payroll_16_1_96.py \
-            --input STOCKLAND_ERP_16.1.95_CANONICAL_WORDPRESS_UPDATE.zip \
-            --output STOCKLAND_ERP_16.1.96_FULL_HR_PAYROLL_LIFECYCLE_CANDIDATE_WORDPRESS_UPDATE.zip \
-            | tee STOCKLAND_ERP_16.1.96_BUILD_RECEIPT.json
-          sha256sum --check STOCKLAND_ERP_16.1.96_FULL_HR_PAYROLL_LIFECYCLE_CANDIDATE_WORDPRESS_UPDATE.zip.sha256
-          mkdir -p build/wordpress-update-16.1.96
-          unzip -q STOCKLAND_ERP_16.1.96_FULL_HR_PAYROLL_LIFECYCLE_CANDIDATE_WORDPRESS_UPDATE.zip -d build/wordpress-update-16.1.96
-          python3 ci/qa/test_full_hr_payroll_16_1_96.py STOCKLAND_ERP_16.1.96_FULL_HR_PAYROLL_LIFECYCLE_CANDIDATE_WORDPRESS_UPDATE.zip | tee STOCKLAND_ERP_16.1.96_HR_PAYROLL_PACKAGE_QA.txt
-      - name: Lint all PHP and JavaScript in 16.1.96 candidate
-        shell: bash
-        run: |
-          set -euo pipefail
-          APP="build/wordpress-update-16.1.96/stockland-erp-app"
-          test -d "$APP"
-          find "$APP" -type f -name '*.php' -print0 | xargs -0 -n1 php -l | tee STOCKLAND_ERP_16.1.96_PHP_LINT.txt
-          node --check "$APP/assets/app.js"
-          node --check "$APP/assets/pwa.js"
-          python3 - <<'PY'
-          import json, zipfile
-          from pathlib import Path
-          zpath=Path('STOCKLAND_ERP_16.1.96_FULL_HR_PAYROLL_LIFECYCLE_CANDIDATE_WORDPRESS_UPDATE.zip')
-          with zipfile.ZipFile(zpath) as z:
-              root='stockland-erp-app/'
-              entry=z.read(root+'stockland-inventory.php').decode()
-              front=z.read(root+'includes/class-stockland-frontend.php').decode()
-              manifest=json.loads(z.read(root+'RELEASE_MANIFEST.json').decode())
-              assert "Version:           16.1.96" in entry
-              assert "define( 'STOCKLAND_VERSION', '16.1.96' );" in entry
-              assert "const ROUTE_VERSION      = '16.1.96';" in front
-              assert manifest['schema_contract']['total']==73
-          print('PASS 16.1.96 release identity and 73-table contract')
-          PY
-      - name: Verify 16.1.96 CSS module parity and responsive UI with PostCSS
-        shell: bash
-        run: |
-          set -euo pipefail
-          NODE_PATH="${GITHUB_WORKSPACE}/ci/cssqa/node_modules" node ci/qa/check-css-postcss.js build/wordpress-update-16.1.96/stockland-erp-app
-          python3 ci/qa/test_all_workareas_responsive.py STOCKLAND_ERP_16.1.96_FULL_HR_PAYROLL_LIFECYCLE_CANDIDATE_WORDPRESS_UPDATE.zip | tee STOCKLAND_ERP_16.1.96_ALL_WORKAREAS_QA.json
-      - name: Run WPCS and reviewed security/database checks on the 16.1.96 ZIP
-        shell: bash
-        run: |
-          set -euo pipefail
-          APP="build/wordpress-update-16.1.96/stockland-erp-app"
-          set +e
-          ci/phpcs/vendor/bin/phpcs --standard=WordPress --extensions=php --report=json --report-file=STOCKLAND_ERP_16.1.96_PHPCS_WPCS.json "$APP"
-          PHPCS_EXIT=$?
-          set -e
-          test -s STOCKLAND_ERP_16.1.96_PHPCS_WPCS.json
-          python3 ci/qa/test-phpcs-security-review.py "$APP" STOCKLAND_ERP_16.1.96_PHPCS_WPCS.json | tee STOCKLAND_ERP_16.1.96_PHPCS_SECURITY_REVIEW.txt
-          echo "PHPCS diagnostic exit: $PHPCS_EXIT" > STOCKLAND_ERP_16.1.96_PHPCS_SUMMARY.txt
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
-          data=json.loads(Path('STOCKLAND_ERP_16.1.96_PHPCS_WPCS.json').read_text())
-          t=data.get('totals',{})
-          with Path('STOCKLAND_ERP_16.1.96_PHPCS_SUMMARY.txt').open('a') as f:
-              f.write(f"errors={t.get('errors',0)}; warnings={t.get('warnings',0)}; fixable={t.get('fixable',0)}\n")
-          PY
-      - name: Semgrep and dependency inventory for the 16.1.96 candidate
-        shell: bash
-        run: |
-          set -euo pipefail
-          SCAN_ROOT="${RUNNER_TEMP}/stockland-erp-16.1.96-semgrep-source"
-          rm -rf "$SCAN_ROOT" && mkdir -p "$SCAN_ROOT"
-          unzip -q STOCKLAND_ERP_16.1.96_FULL_HR_PAYROLL_LIFECYCLE_CANDIDATE_WORDPRESS_UPDATE.zip -d "$SCAN_ROOT"
-          APP_SCAN="$SCAN_ROOT/stockland-erp-app"
-          PHP_COUNT="$(find "$APP_SCAN" -type f -name '*.php' | wc -l | tr -d ' ')"
-          semgrep scan --metrics=off --no-git-ignore --config p/php --config p/security-audit --include '*.php' --json --output STOCKLAND_ERP_16.1.96_SEMGREP.json "$APP_SCAN"
-          python3 ci/qa/summarize-semgrep.py STOCKLAND_ERP_16.1.96_SEMGREP.json --expected-targets "$PHP_COUNT" | tee STOCKLAND_ERP_16.1.96_SEMGREP_SUMMARY.txt
-          python3 ci/qa/dependency-inventory.py build/wordpress-update-16.1.96/stockland-erp-app STOCKLAND_ERP_16.1.96_DEPENDENCY_LICENSE_INVENTORY.json | tee STOCKLAND_ERP_16.1.96_DEPENDENCY_INVENTORY_SUMMARY.txt
-      - name: Enforce additive-only HR schema freeze before artifact publication
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 ci/qa/test_hr_schema_additive.py \
-            --baseline STOCKLAND_ERP_16.1.95_CANONICAL_WORDPRESS_UPDATE.zip \
-            --candidate STOCKLAND_ERP_16.1.96_FULL_HR_PAYROLL_LIFECYCLE_CANDIDATE_WORDPRESS_UPDATE.zip
-      - name: Publish the verified 16.1.96 WordPress update and audit receipts
+      - name: Publish cumulative 16.1.95 baseline package and audit receipts
         uses: actions/upload-artifact@v4
         with:
-          name: STOCKLAND-ERP-16.1.96-Full-HR-Payroll-Lifecycle-Candidate
+          name: STOCKLAND-ERP-16.1.95-Cumulative-WordPress-Update-Review-Candidate
           path: |
             STOCKLAND_ERP_16.1.95_CANONICAL_WORDPRESS_UPDATE.zip
             STOCKLAND_ERP_16.1.95_CANONICAL_WORDPRESS_UPDATE.zip.sha256
@@ -341,18 +257,5 @@ jobs:
             STOCKLAND_ERP_16.1.95_DEPENDENCY_POLICY_TEST.txt
             STOCKLAND_ERP_16.1.95_DEPENDENCY_LICENSE_INVENTORY.json
             STOCKLAND_ERP_16.1.95_DEPENDENCY_INVENTORY_SUMMARY.txt
-            STOCKLAND_ERP_16.1.96_FULL_HR_PAYROLL_LIFECYCLE_CANDIDATE_WORDPRESS_UPDATE.zip
-            STOCKLAND_ERP_16.1.96_FULL_HR_PAYROLL_LIFECYCLE_CANDIDATE_WORDPRESS_UPDATE.zip.sha256
-            STOCKLAND_ERP_16.1.96_BUILD_RECEIPT.json
-            STOCKLAND_ERP_16.1.96_HR_PAYROLL_PACKAGE_QA.txt
-            STOCKLAND_ERP_16.1.96_PHP_LINT.txt
-            STOCKLAND_ERP_16.1.96_ALL_WORKAREAS_QA.json
-            STOCKLAND_ERP_16.1.96_PHPCS_WPCS.json
-            STOCKLAND_ERP_16.1.96_PHPCS_SECURITY_REVIEW.txt
-            STOCKLAND_ERP_16.1.96_PHPCS_SUMMARY.txt
-            STOCKLAND_ERP_16.1.96_SEMGREP.json
-            STOCKLAND_ERP_16.1.96_SEMGREP_SUMMARY.txt
-            STOCKLAND_ERP_16.1.96_DEPENDENCY_LICENSE_INVENTORY.json
-            STOCKLAND_ERP_16.1.96_DEPENDENCY_INVENTORY_SUMMARY.txt
           if-no-files-found: error
           retention-days: 30
