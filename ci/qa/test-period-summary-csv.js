@@ -57,5 +57,7 @@ assert.match(source, /data-report-preset="daily"/);
 assert.match(source, /data-report-preset="weekly"/);
 assert.match(source, /data-report-preset="monthly"/);
 assert.match(source, /state\.report=null;const csvButton=/, 'stale reports must not remain exportable while refreshing');
-assert.match(source, /openDailyPosImportFromReport/, 'the existing gated raw POS import remains discoverable');
+assert.doesNotMatch(source, /openDailyPosImportFromReport/, 'period summary reports must not host a POS import action');
+assert.match(source, /Daily POS Import/, 'dedicated POS import navigation remains available');
+assert.match(source, /case'daily':b=dailyImportPage\(\);break;/, 'POS import still routes to its dedicated daily workflow');
 console.log('Period summary CSV QA: PASS (CSV escaping/injection, period presets, financial-field gate, PII exclusion, read-only report scope)');
