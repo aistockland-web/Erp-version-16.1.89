@@ -648,8 +648,10 @@ def rebuild_zip(path: Path) -> dict:
                     raise ValueError("Live stock API reconciliation changes were not retained: " + required_marker)
             if "$stock_args = array( $prod, $loc, $tx, $prod, $res, $prod, $tr, $prod );" not in php_final:
                 raise ValueError("Report query parameter order not retained.")
-            if "$low_args = array( Stockland_DB::table( 'products' ), Stockland_DB::table( 'locations' ), Stockland_DB::table( 'transactions' ), Stockland_DB::table( 'products' ), Stockland_DB::table( 'reservations' ), Stockland_DB::table( 'products' ), Stockland_DB::table( 'transfers' ), Stockland_DB::table( 'products' ) );" not in php_final:
-            if "$low_args = array( Stockland_DB::table( 'products' ), Stockland_DB::table( 'locations' ), Stockland_DB::table( 'transactions' ), Stockland_DB::table( 'products' ), Stockland_DB::table( 'reservations' ), Stockland_DB::table( 'products' ) );" not in php_final:
+            if (
+                "$low_args = array( Stockland_DB::table( 'products' ), Stockland_DB::table( 'locations' ), Stockland_DB::table( 'transactions' ), Stockland_DB::table( 'products' ), Stockland_DB::table( 'reservations' ), Stockland_DB::table( 'products' ), Stockland_DB::table( 'transfers' ), Stockland_DB::table( 'products' ) );" not in php_final
+                and "$low_args = array( Stockland_DB::table( 'products' ), Stockland_DB::table( 'locations' ), Stockland_DB::table( 'transactions' ), Stockland_DB::table( 'products' ), Stockland_DB::table( 'reservations' ), Stockland_DB::table( 'products' ) );" not in php_final
+            ):
                 raise ValueError("Low-stock query parameter order not retained.")
         before = hashlib.sha256(path.read_bytes()).hexdigest()
         os.replace(tmp, path)
