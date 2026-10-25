@@ -18,6 +18,12 @@ on:
       - 'STOCKLAND_ERP_16.1.92_CANONICAL_WORDPRESS_UPDATE.zip'
       - 'STOCKLAND_ERP_16.1.92_CANONICAL_WORDPRESS_UPDATE.zip.sha256'
   workflow_dispatch:
+    inputs:
+      run_hr_candidate:
+        description: 'Run the HR candidate build only for explicit review after schema design is approved'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -29,6 +35,8 @@ jobs:
     steps:
       - name: Checkout isolated pull request
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -56,6 +64,43 @@ jobs:
           assert hashlib.sha256(p.read_bytes()).hexdigest() == expected, 'baseline checksum mismatch'
           print('PASS exact audited 16.1.92 baseline')
           PY
+      - name: Detect whether this change is an HR candidate change
+        id: scope
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          DISPATCH_RUN_HR: ${{ inputs.run_hr_candidate }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            if [ "$DISPATCH_RUN_HR" = "true" ]; then
+              echo "run_hr_candidate=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "run_hr_candidate=false" >> "$GITHUB_OUTPUT"
+            fi
+            exit 0
+          fi
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            git diff --name-only "origin/$BASE_REF...HEAD" > "$RUNNER_TEMP/changed-files.txt"
+          elif [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            git diff --name-only "${{ github.event.before }}" "$GITHUB_SHA" > "$RUNNER_TEMP/changed-files.txt"
+          else
+            git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA" > "$RUNNER_TEMP/changed-files.txt"
+          fi
+          cat "$RUNNER_TEMP/changed-files.txt"
+          if grep -Eq '^(ci/patch_full_hr_payroll_16_1_96\.py|ci/hr_payroll_overlay/|ci/qa/test_full_hr_payroll_16_1_96\.py|STOCKLAND_ERP_16\.1\.96_)' "$RUNNER_TEMP/changed-files.txt"; then
+            echo "run_hr_candidate=true" >> "$GITHUB_OUTPUT"
+            echo "HR-specific source changed; candidate gates will run and the additive-only schema gate will block legacy table changes."
+          else
+            echo "run_hr_candidate=false" >> "$GITHUB_OUTPUT"
+            echo "No HR candidate source changed; baseline/reporting release gates only. HR release evidence is not asserted by this run."
+          fi
+      - name: Compile all CI Python scripts and tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m compileall -q ci
       - name: Run Reports Explorer regression tests
         shell: bash
         run: |
@@ -223,11 +268,13 @@ jobs:
           python ci/qa/test-dependency-inventory.py | tee STOCKLAND_ERP_16.1.95_DEPENDENCY_POLICY_TEST.txt
           python ci/qa/dependency-inventory.py build/wordpress-update/stockland-erp-app STOCKLAND_ERP_16.1.95_DEPENDENCY_LICENSE_INVENTORY.json | tee STOCKLAND_ERP_16.1.95_DEPENDENCY_INVENTORY_SUMMARY.txt
       - name: Test HR lifecycle batch-boundary matcher
+        if: steps.scope.outputs.run_hr_candidate == 'true'
         shell: bash
         run: |
           set -euo pipefail
           python3 ci/qa/test_hr_batch_boundary.py
       - name: Build full HR & Payroll lifecycle candidate 16.1.96
+        if: steps.scope.outputs.run_hr_candidate == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -240,6 +287,7 @@ jobs:
           unzip -q STOCKLAND_ERP_16.1.96_FULL_HR_PAYROLL_LIFECYCLE_CANDIDATE_WORDPRESS_UPDATE.zip -d build/wordpress-update-16.1.96
           python3 ci/qa/test_full_hr_payroll_16_1_96.py STOCKLAND_ERP_16.1.96_FULL_HR_PAYROLL_LIFECYCLE_CANDIDATE_WORDPRESS_UPDATE.zip | tee STOCKLAND_ERP_16.1.96_HR_PAYROLL_PACKAGE_QA.txt
       - name: Lint all PHP and JavaScript in 16.1.96 candidate
+        if: steps.scope.outputs.run_hr_candidate == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -264,12 +312,14 @@ jobs:
           print('PASS 16.1.96 release identity and 73-table contract')
           PY
       - name: Verify 16.1.96 CSS module parity and responsive UI with PostCSS
+        if: steps.scope.outputs.run_hr_candidate == 'true'
         shell: bash
         run: |
           set -euo pipefail
           NODE_PATH="${GITHUB_WORKSPACE}/ci/cssqa/node_modules" node ci/qa/check-css-postcss.js build/wordpress-update-16.1.96/stockland-erp-app
           python3 ci/qa/test_all_workareas_responsive.py STOCKLAND_ERP_16.1.96_FULL_HR_PAYROLL_LIFECYCLE_CANDIDATE_WORDPRESS_UPDATE.zip | tee STOCKLAND_ERP_16.1.96_ALL_WORKAREAS_QA.json
       - name: Run WPCS and reviewed security/database checks on the 16.1.96 ZIP
+        if: steps.scope.outputs.run_hr_candidate == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -290,6 +340,7 @@ jobs:
               f.write(f"errors={t.get('errors',0)}; warnings={t.get('warnings',0)}; fixable={t.get('fixable',0)}\n")
           PY
       - name: Semgrep and dependency inventory for the 16.1.96 candidate
+        if: steps.scope.outputs.run_hr_candidate == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -301,7 +352,16 @@ jobs:
           semgrep scan --metrics=off --no-git-ignore --config p/php --config p/security-audit --include '*.php' --json --output STOCKLAND_ERP_16.1.96_SEMGREP.json "$APP_SCAN"
           python3 ci/qa/summarize-semgrep.py STOCKLAND_ERP_16.1.96_SEMGREP.json --expected-targets "$PHP_COUNT" | tee STOCKLAND_ERP_16.1.96_SEMGREP_SUMMARY.txt
           python3 ci/qa/dependency-inventory.py build/wordpress-update-16.1.96/stockland-erp-app STOCKLAND_ERP_16.1.96_DEPENDENCY_LICENSE_INVENTORY.json | tee STOCKLAND_ERP_16.1.96_DEPENDENCY_INVENTORY_SUMMARY.txt
+      - name: Enforce additive-only HR schema freeze before artifact publication
+        if: steps.scope.outputs.run_hr_candidate == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 ci/qa/test_hr_schema_additive.py \\
+            --baseline STOCKLAND_ERP_16.1.95_CANONICAL_WORDPRESS_UPDATE.zip \\
+            --candidate STOCKLAND_ERP_16.1.96_FULL_HR_PAYROLL_LIFECYCLE_CANDIDATE_WORDPRESS_UPDATE.zip
       - name: Publish the verified 16.1.96 WordPress update and audit receipts
+        if: steps.scope.outputs.run_hr_candidate == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: STOCKLAND-ERP-16.1.96-Full-HR-Payroll-Lifecycle-Candidate
