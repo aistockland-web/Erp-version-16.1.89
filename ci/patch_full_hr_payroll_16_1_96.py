@@ -57,7 +57,7 @@ def find_batch_boundary(source: str, start: int) -> int:
     """Return the PHP batch guard start after a table declaration, or -1."""
     if start < 0:
         return -1
-    match = re.search(r"(?m)^[ \t]*if\s*\(\s*\$batch_size\s*>\s*0\s*\)\s*\{[ \t]*$", source[start:])
+    match = re.search(r"(?m)^[ \\t]*if\\s*\\(\\s*\\$batch_size\\s*>\\s*0\\s*\\)\\s*\\{[ \\t\\r]*$", source[start:])
     return start + match.start() if match else -1
 
 
