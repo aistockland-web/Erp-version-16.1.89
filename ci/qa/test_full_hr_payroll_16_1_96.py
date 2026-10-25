@@ -60,7 +60,7 @@ def main():
         require("function payroll_rules_for_period" in schema and "review_status='APPROVED'" in schema, "payroll only accepts approved effective-dated rules")
         require("EXEMPT_CAP" in schema and "Stockland_Money::minor( $amount ), Stockland_Money::minor( $rule['exemption_cap'] )" in schema, "allowance exemption uses the approved category cap")
         require("Stockland_Money::subtract( $amount, $exempt )" in schema, "taxable remainder is derived from original allowance minus exemption")
-        require("Stockland_Money::add( $taxable_total" in schema and "result['exempt_total']" in schema, "taxable/exempt aggregate calculation is present")
+        require("Stockland_Money::add( $result['taxable_total']" in schema and "Stockland_Money::add( $result['exempt_total']" in schema, "taxable/exempt aggregate calculation is present")
         require("exemption_cap" in schema and not re.search(r"exemption_cap.{0,24}(?:1000(?:\.00)?|'1000(?:\.00)?')", schema, re.I), "no ETB 1,000 exemption cap is hard-coded")
         require("allowance-preview" in rest and "allowance_rule_version" in rest, "allowance preview records rule provenance")
         require("rules/(?P<id>\\d+)/approve" in rest and "Maker-checker" in rest, "rules have separate approval and maker-checker guard")

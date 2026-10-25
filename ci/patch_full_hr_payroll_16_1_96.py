@@ -57,7 +57,7 @@ def find_batch_boundary(source: str, start: int) -> int:
     """Return the PHP batch guard start after a table declaration, or -1."""
     if start < 0:
         return -1
-    match = re.search(r"(?m)^[ \t]*if\s*\(\s*\$batch_size\s*>\s*0\s*\)\s*\{[ \t]*$", source[start:])
+    match = re.search(r"(?m)^[ \t]*if\s*\(\s*\$batch_size\s*>\s*0\s*\)\s*\{[ \t\r]*$", source[start:])
     return start + match.start() if match else -1
 
 
@@ -100,7 +100,7 @@ def patch_hr_schema(files):
     batch_at = find_batch_boundary(p, last_table)
     if last_table < 0 or batch_at < 0:
         raise ValueError("Could not locate the payroll_lines table/batch boundary for the HR lifecycle DDL.")
-    lifecycle_ddl = "\\t\\tforeach ( Stockland_HR_Lifecycle::table_ddl( $p, $cc ) as $lifecycle_ddl ) {\\n\\t\\t\\t$tables[] = $lifecycle_ddl;\\n\\t\\t}\\n\\n"
+    lifecycle_ddl = "\t\tforeach ( Stockland_HR_Lifecycle::table_ddl( $p, $cc ) as $lifecycle_ddl ) {\n\t\t\t$tables[] = $lifecycle_ddl;\n\t\t}\n\n"
     p = p[:batch_at] + lifecycle_ddl + p[batch_at:]
     put(files, "includes/class-stockland-hr.php", p)
 
@@ -199,7 +199,7 @@ def patch_hr_rest(files):
         "block legacy hire activation bypass")
     p = once(p,
         "SELECT * FROM %i WHERE employee_id=%d AND effective_from<=%s ORDER BY effective_from ASC,id ASC",
-        "SELECT * FROM %i WHERE employee_id=%d AND effective_from<=%s AND COALESCE(approval_status,'APPROVED')='APPROVED' ORDER BY effective_from ASC,id ASC",
+        "SELECT * FROM %i WHERE employee_id=%d AND effective_from<=%s AND COALESCE(approval_status,\\'APPROVED\\')=\\'APPROVED\\' ORDER BY effective_from ASC,id ASC",
         "only owner-approved compensation is paid")
     old_effective = """if ( $period['start_date'] < Stockland_Payroll_Statutory::EFFECTIVE_DATE ) {
 				throw new Exception( 'This monthly statutory calculator starts on ' . Stockland_Payroll_Statutory::EFFECTIVE_DATE . '. The law applies from ' . Stockland_Payroll_Statutory::LAW_EFFECTIVE_DATE . '; July 2025 requires separately approved split-period treatment. Existing posted payroll must remain unchanged.' );
@@ -259,8 +259,8 @@ def patch_hr_rest(files):
         "(string) ( $p['statutory_rule_version'] ?? '' )\n\t\t\t\t)\n\t\t\t);",
         "submission checks exact period-pinned rule")
     p = once(p,
-        "'under ' . Stockland_Payroll_Statutory::RULE_VERSION",
-        "'under ' . (string) ( $p['statutory_rule_version'] ?? 'UNPINNED' )",
+        "Payroll submitted for independent Owner approval under ' . Stockland_Payroll_Statutory::RULE_VERSION",
+        "Payroll submitted for independent Owner approval under ' . (string) ( $p['statutory_rule_version'] ?? 'UNPINNED' )",
         "submit audit uses exact rule version")
     p = once(p,
         "'tax_rule_version'       => Stockland_Payroll_Statutory::RULE_VERSION,",
