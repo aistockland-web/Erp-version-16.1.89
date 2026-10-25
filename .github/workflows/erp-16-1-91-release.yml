@@ -7,6 +7,13 @@ on:
   pull_request:
     branches:
       - main
+    paths:
+      - 'STOCKLAND_ERP_16.1.90_CANONICAL_WORDPRESS_UPDATE.zip'
+      - 'STOCKLAND_ERP_16.1.90_CANONICAL_WORDPRESS_UPDATE.zip.sha256'
+      - 'STOCKLAND_ERP_16.1.91_CANONICAL_WORDPRESS_UPDATE.zip'
+      - 'STOCKLAND_ERP_16.1.91_CANONICAL_WORDPRESS_UPDATE.zip.sha256'
+      - 'ci/build_release_16_1_91.py'
+      - 'ci/qa/test-release-16.1.91.py'
   workflow_dispatch:
 
 permissions:
