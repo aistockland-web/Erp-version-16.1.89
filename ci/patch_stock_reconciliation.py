@@ -389,19 +389,6 @@ def patch_php(source: str) -> str:
         pass
     else:
         raise ValueError("low-stock SQL parameter order: expected exactly one three- or eight-table array")
-    source = replace_literal_once(
-        source,
-        "$stock_args = array( $prod, $loc, $tx, $res );",
-        "$stock_args = array( $prod, $loc, $tx, $prod, $res, $prod, $tr, $prod );",
-        "report inventory SQL parameter order",
-    )
-    source = replace_exactly_once(LOW_SQL_PATTERN, LOW_SQL, source, "low-stock SQL")
-    source = replace_literal_once(
-        source,
-        "$low_args = array( Stockland_DB::table( 'products' ), Stockland_DB::table( 'locations' ), Stockland_DB::table( 'transactions' ) );",
-        "$low_args = array( Stockland_DB::table( 'products' ), Stockland_DB::table( 'locations' ), Stockland_DB::table( 'transactions' ), Stockland_DB::table( 'products' ), Stockland_DB::table( 'reservations' ), Stockland_DB::table( 'products' ), Stockland_DB::table( 'transfers' ), Stockland_DB::table( 'products' ) );",
-        "low-stock SQL parameter order",
-    )
     source = replace_exactly_once(DASHBOARD_LOW_COUNT_PATTERN, DASHBOARD_LOW_COUNT_SQL, source, "dashboard low-stock counter SQL")
     source = replace_literal_once(
         source,
