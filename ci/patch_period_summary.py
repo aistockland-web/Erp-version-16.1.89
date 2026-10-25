@@ -16,8 +16,8 @@ function downloadPeriodSummaryCsv(){const d=state.report;if(!d||!d.totals){toast
     start = source.index('function reports(){')
     end = source.index('\nasync function loadReport(', start)
     replacement = r'''function reports(){
-
-  const reportActions='<button type="button" class="sl-btn" id="printOpsReport">Print</button><button type="button" class="sl-btn primary" id="downloadOpsReportCsv" disabled>DOWNLOAD CSV</button>';
+  const c=state.boot?.user?.capabilities||{};const canDailyImport=!!c.daily_import;
+  const reportActions='<button type="button" class="sl-btn" id="printOpsReport">Print</button><button type="button" class="sl-btn primary" id="downloadOpsReportCsv" disabled>DOWNLOAD CSV</button>'+(canDailyImport?'<button type="button" class="sl-btn" id="openDailyPosImportFromReport">DAILY POS CSV IMPORT</button>':'');
   const presets='<div class="sl-actions sl-report-period-actions" aria-label="Summary period presets"><button type="button" class="sl-btn" data-report-preset="daily">DAILY SUMMARY</button><button type="button" class="sl-btn" data-report-preset="weekly">WEEKLY SUMMARY</button><button type="button" class="sl-btn" data-report-preset="monthly">MONTHLY SUMMARY</button></div><div class="sl-sub">CSV summaries are read-only exports of posted ERP records. Daily POS CSV imports keep their existing preview, approval, duplicate checks and day lock; weekly/monthly summary totals are never posted as sales.</div>';
   return title('Reports & Analytics','Date-scoped operational reports from the authorized live ERP data. Financial figures and profit remain governed by server-side permissions.',reportActions)+
     '<div class="sl-panel sl-report-panel"><div class="sl-block-head"><div><div class="sl-eyebrow">REPORT FILTER</div><h3>Choose reporting period</h3></div><small>Authorized location scope is applied by the server</small></div><form id="reportForm" class="sl-form sl-report-filter"><div class="sl-field"><label for="reportFrom">From</label><input id="reportFrom" name="from" type="date" value="'+esc(localMonthStart())+'" required></div><div class="sl-field"><label for="reportTo">To</label><input id="reportTo" name="to" type="date" value="'+esc(localDate())+'" required></div><div class="sl-field full"><button type="submit" class="sl-btn primary" id="runOpsReport">RUN REPORT</button></div></form>'+presets+'</div><div id="reportResult"><div class="sl-empty">Loading report data…</div></div>';
@@ -50,7 +50,7 @@ function downloadPeriodSummaryCsv(){const d=state.report;if(!d||!d.totals){toast
     new = """if($('#reportForm')){const rf=$('#reportForm');rf.onsubmit=async e=>{e.preventDefault();const d=Object.fromEntries(new FormData(e.currentTarget));try{await loadReport(d.from,d.to)}catch(err){toast(err.message,true)}};loadReport(rf.elements.from.value,rf.elements.to.value).catch(()=>{});}
 document.querySelectorAll('[data-report-preset]').forEach(b=>{b.onclick=()=>{const range=reportPresetRange(b.dataset.reportPreset);const f=$('#reportForm');if(f){f.elements.from.value=range.from;f.elements.to.value=range.to;}loadReport(range.from,range.to).catch(err=>toast(err.message,true));}});
 if($('#downloadOpsReportCsv'))$('#downloadOpsReportCsv').onclick=downloadPeriodSummaryCsv;
-
+if($('#openDailyPosImportFromReport'))$('#openDailyPosImportFromReport').onclick=()=>{state.view='daily';render()};
 """
     if source.count(old) != 1:
         raise ValueError('Could not locate unique report-form binding anchor.')
