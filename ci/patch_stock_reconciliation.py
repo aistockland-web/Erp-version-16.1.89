@@ -493,6 +493,7 @@ def patch_php(source: str) -> str:
         source,
         count=1,
     )
+    source = replace_literal_once(
         source,
         "$inv_sql  = 'SELECT COALESCE(SUM(b.physical_stock*p.purchase_cost),0) FROM (SELECT location_id,variant_id,SUM(quantity_signed) physical_stock FROM %i WHERE variant_id IS NOT NULL GROUP BY location_id,variant_id) b JOIN %i p ON p.variant_id=b.variant_id';",
         "$inv_sql  = 'SELECT COALESCE(SUM(b.physical_stock*p.purchase_cost),0) FROM (SELECT t.location_id,COALESCE(t.variant_id,legacy_p.variant_id) variant_id,SUM(t.quantity_signed) physical_stock FROM %i t LEFT JOIN %i legacy_p ON t.variant_id IS NULL AND legacy_p.sku=t.sku WHERE COALESCE(t.variant_id,legacy_p.variant_id) IS NOT NULL GROUP BY t.location_id,COALESCE(t.variant_id,legacy_p.variant_id)) b JOIN %i p ON p.variant_id=b.variant_id';",
