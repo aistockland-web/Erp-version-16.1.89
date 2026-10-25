@@ -506,6 +506,7 @@ def patch_php(source: str) -> str:
         r"\1'Owner-only read-only list. Reorder position equals sellable availability plus eligible dispatched-but-unreceived inbound transfers. Inbound does not change physical stock; OVER-RESERVED remains an integrity exception. Suggested replenishment follows the existing minimum-one-unit policy and uses the configured location threshold and inbound-aware position. No stock or purchase order is created.';",
         source,
         count=1,
+    )
     source = replace_literal_once(
         source,
         "array( 'key' => 'available_stock', 'label' => 'Available', 'format' => 'number' ),",
