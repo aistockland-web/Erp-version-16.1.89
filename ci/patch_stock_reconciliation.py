@@ -20,7 +20,6 @@ STOCK_SQL_PATTERN = re.compile(
     # whole stock query assignment once, then replace it with the canonical
     # legacy-SKU/variant/reservation/in-transit contract below.
     r'\$stock_sql\s*=\s*"SELECT l\.location_name,p\.sku,p\.product_name,p\.brand,p\.size,p\.color,[\s\S]*?WHERE p\.is_active=1[^"]*";'
-    r'\$stock_sql\s*=\s*"SELECT l\.location_name,p\.sku,p\.product_name,p\.brand,p\.size,p\.color,[\s\S]*?WHERE p\.is_active=1";'
 )
 LOW_SQL_PATTERN = re.compile(
     r'\$low_sql\s*=\s*"SELECT l\.location_name,p\.sku,p\.product_name,[\s\S]*?ORDER BY current_stock,p\.sku";'
@@ -390,19 +389,6 @@ def patch_php(source: str) -> str:
         pass
     else:
         raise ValueError("low-stock SQL parameter order: expected exactly one three- or eight-table array")
-    source = replace_literal_once(
-        source,
-        "$stock_args = array( $prod, $loc, $tx, $res );",
-        "$stock_args = array( $prod, $loc, $tx, $prod, $res, $prod, $tr, $prod );",
-        "report inventory SQL parameter order",
-    )
-    source = replace_exactly_once(LOW_SQL_PATTERN, LOW_SQL, source, "low-stock SQL")
-    source = replace_literal_once(
-        source,
-        "$low_args = array( Stockland_DB::table( 'products' ), Stockland_DB::table( 'locations' ), Stockland_DB::table( 'transactions' ) );",
-        "$low_args = array( Stockland_DB::table( 'products' ), Stockland_DB::table( 'locations' ), Stockland_DB::table( 'transactions' ), Stockland_DB::table( 'products' ), Stockland_DB::table( 'reservations' ), Stockland_DB::table( 'products' ), Stockland_DB::table( 'transfers' ), Stockland_DB::table( 'products' ) );",
-        "low-stock SQL parameter order",
-    )
     source = replace_exactly_once(DASHBOARD_LOW_COUNT_PATTERN, DASHBOARD_LOW_COUNT_SQL, source, "dashboard low-stock counter SQL")
     source = replace_literal_once(
         source,
@@ -506,19 +492,7 @@ def patch_php(source: str) -> str:
         r"\1'Owner-only read-only list. Reorder position equals sellable availability plus eligible dispatched-but-unreceived inbound transfers. Inbound does not change physical stock; OVER-RESERVED remains an integrity exception. Suggested replenishment follows the existing minimum-one-unit policy and uses the configured location threshold and inbound-aware position. No stock or purchase order is created.';",
         source,
         count=1,
-    source = replace_literal_once(
-        source,
-        "array( 'key' => 'available_stock', 'label' => 'Available', 'format' => 'number' ),",
-        "array( 'key' => 'available_stock', 'label' => 'Available', 'format' => 'number' ),\n\t\t\t\t\tarray( 'key' => 'availability_exception', 'label' => 'Reservation integrity' ),",
-        "show reservation integrity beside availability",
     )
-    source = replace_literal_once(
-        source,
-        "Available stock equals physical stock less active reservations; suggested replenishment is the minimum quantity needed to reach the configured reorder level.",
-        "Sellable availability is max(0, physical stock less active reservations). OVER-RESERVED flags reservations exceeding physical stock; suggested replenishment is based on sellable availability.",
-        "critical reorder description",
-    )
-
     source = replace_literal_once(
         source,
         "$inv_sql  = 'SELECT COALESCE(SUM(b.physical_stock*p.purchase_cost),0) FROM (SELECT location_id,variant_id,SUM(quantity_signed) physical_stock FROM %i WHERE variant_id IS NOT NULL GROUP BY location_id,variant_id) b JOIN %i p ON p.variant_id=b.variant_id';",
@@ -647,8 +621,10 @@ def rebuild_zip(path: Path) -> dict:
                     raise ValueError("Live stock API reconciliation changes were not retained: " + required_marker)
             if "$stock_args = array( $prod, $loc, $tx, $prod, $res, $prod, $tr, $prod );" not in php_final:
                 raise ValueError("Report query parameter order not retained.")
-            if "$low_args = array( Stockland_DB::table( 'products' ), Stockland_DB::table( 'locations' ), Stockland_DB::table( 'transactions' ), Stockland_DB::table( 'products' ), Stockland_DB::table( 'reservations' ), Stockland_DB::table( 'products' ), Stockland_DB::table( 'transfers' ), Stockland_DB::table( 'products' ) );" not in php_final:
-            if "$low_args = array( Stockland_DB::table( 'products' ), Stockland_DB::table( 'locations' ), Stockland_DB::table( 'transactions' ), Stockland_DB::table( 'products' ), Stockland_DB::table( 'reservations' ), Stockland_DB::table( 'products' ) );" not in php_final:
+            if (
+                "$low_args = array( Stockland_DB::table( 'products' ), Stockland_DB::table( 'locations' ), Stockland_DB::table( 'transactions' ), Stockland_DB::table( 'products' ), Stockland_DB::table( 'reservations' ), Stockland_DB::table( 'products' ), Stockland_DB::table( 'transfers' ), Stockland_DB::table( 'products' ) );" not in php_final
+                and "$low_args = array( Stockland_DB::table( 'products' ), Stockland_DB::table( 'locations' ), Stockland_DB::table( 'transactions' ), Stockland_DB::table( 'products' ), Stockland_DB::table( 'reservations' ), Stockland_DB::table( 'products' ) );" not in php_final
+            ):
                 raise ValueError("Low-stock query parameter order not retained.")
         before = hashlib.sha256(path.read_bytes()).hexdigest()
         os.replace(tmp, path)
