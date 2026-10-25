@@ -199,7 +199,7 @@ def patch_hr_rest(files):
         "block legacy hire activation bypass")
     p = once(p,
         "SELECT * FROM %i WHERE employee_id=%d AND effective_from<=%s ORDER BY effective_from ASC,id ASC",
-        "SELECT * FROM %i WHERE employee_id=%d AND effective_from<=%s AND COALESCE(approval_status,'APPROVED')='APPROVED' ORDER BY effective_from ASC,id ASC",
+        "SELECT * FROM %i WHERE employee_id=%d AND effective_from<=%s AND COALESCE(approval_status,\\'APPROVED\\')=\\'APPROVED\\' ORDER BY effective_from ASC,id ASC",
         "only owner-approved compensation is paid")
     old_effective = """if ( $period['start_date'] < Stockland_Payroll_Statutory::EFFECTIVE_DATE ) {
 				throw new Exception( 'This monthly statutory calculator starts on ' . Stockland_Payroll_Statutory::EFFECTIVE_DATE . '. The law applies from ' . Stockland_Payroll_Statutory::LAW_EFFECTIVE_DATE . '; July 2025 requires separately approved split-period treatment. Existing posted payroll must remain unchanged.' );
