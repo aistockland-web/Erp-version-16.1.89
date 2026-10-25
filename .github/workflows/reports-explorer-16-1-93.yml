@@ -306,6 +306,13 @@ jobs:
           semgrep scan --metrics=off --no-git-ignore --config p/php --config p/security-audit --include '*.php' --json --output STOCKLAND_ERP_16.1.96_SEMGREP.json "$APP_SCAN"
           python3 ci/qa/summarize-semgrep.py STOCKLAND_ERP_16.1.96_SEMGREP.json --expected-targets "$PHP_COUNT" | tee STOCKLAND_ERP_16.1.96_SEMGREP_SUMMARY.txt
           python3 ci/qa/dependency-inventory.py build/wordpress-update-16.1.96/stockland-erp-app STOCKLAND_ERP_16.1.96_DEPENDENCY_LICENSE_INVENTORY.json | tee STOCKLAND_ERP_16.1.96_DEPENDENCY_INVENTORY_SUMMARY.txt
+      - name: Enforce additive-only HR schema freeze before artifact publication
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 ci/qa/test_hr_schema_additive.py \
+            --baseline STOCKLAND_ERP_16.1.95_CANONICAL_WORDPRESS_UPDATE.zip \
+            --candidate STOCKLAND_ERP_16.1.96_FULL_HR_PAYROLL_LIFECYCLE_CANDIDATE_WORDPRESS_UPDATE.zip
       - name: Publish the verified 16.1.96 WordPress update and audit receipts
         uses: actions/upload-artifact@v4
         with:
