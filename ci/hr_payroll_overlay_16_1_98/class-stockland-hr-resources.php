@@ -119,6 +119,11 @@ final class Stockland_HR_Resources {
 			wp_die( esc_html__( 'The requested DOCX failed its integrity check. No document was sent.', 'stockland-erp' ), esc_html__( 'HR resource integrity error', 'stockland-erp' ), array( 'response' => 500 ) );
 		}
 		$filename = $catalog[ $key ]['filename'];
+		// Log only resource key/filename; never store request headers, tokens or personal document contents.
+		if ( ! class_exists( 'Stockland_Audit' ) || ! Stockland_Audit::log( get_current_user_id(), null, 'HR_RESOURCE_DOWNLOAD', null, null, null, $filename, 'Authorized HR resource download', 'HR_RESOURCE|' . $key ) ) {
+			status_header( 500 );
+			wp_die( esc_html__( 'The download could not be completed because its audit event was not recorded.', 'stockland-erp' ), esc_html__( 'HR resource audit error', 'stockland-erp' ), array( 'response' => 500 ) );
+		}
 		if ( ob_get_level() ) {
 			while ( ob_get_level() ) {
 				ob_end_clean();
