@@ -1,448 +1,588 @@
 #!/usr/bin/env python3
-"""Build a narrow 16.1.98 HR Resource Center candidate from the SHA-locked 16.1.95 installer.
-
-The build does not connect to WordPress and does not mutate business data or schema.
-It adds a role-gated, nonce-protected download handler and three real OOXML DOCX files,
-then emits an exact-package receipt. This is not a claim that the full HR lifecycle is complete.
+"""Build the full HR/payroll lifecycle base for the 16.1.98 candidate from the locked 16.1.95 installer.
+Build only. It never connects to WordPress or mutates ERP/employee data.
 """
 from __future__ import annotations
-
-import argparse
-import base64
-import hashlib
-import html
-import json
-import re
-import sys
-import zipfile
+import argparse, hashlib, importlib.util, json, re, zipfile
 from pathlib import Path, PurePosixPath
-from xml.sax.saxutils import escape
 
-BASELINE_SHA256 = "494e777247508d009dfdb216c9607bb1bc96717197e94a0e8ad3459b7cc81625"
-BASELINE_SIZE = 1_102_405
 ROOT = "stockland-erp-app/"
-TARGET = "16.1.98"
-MIME_DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+BASE_SHA256 = "494e777247508d009dfdb216c9607bb1bc96717197e94a0e8ad3459b7cc81625"
+RELEASE = "16.1.98"
 
-DOCS = {
-    "process-center-guide": {
-        "filename": "Stockland_HR_Process_Center_Guide_v1.docx",
-        "title": "Stockland Ethiopia HR Process Center",
-        "subtitle": "Operational guide • Version 1.0 • Internal resource",
-        "sections": [
-            ("Purpose and status", [
-                "This guide describes the intended Stockland HR operating controls. It is a working operational resource, not a substitute for an approved company SOP, employment contract, legal opinion, or effective-dated payroll rule.",
-                "Owner, HR/Management, and Finance must approve relevant policy choices. An Ethiopian labour, payroll, tax, and pension adviser must validate legal treatment before statutory calculations or remittances are activated."
-            ]),
-            ("End-to-end employee lifecycle", [
-                "1. Workforce request: document role, business need, budget, work location, reporting line, requested start date, and approving authority.",
-                "2. Recruitment: maintain candidate/application records with restricted access; use human review, documented selection rationale, and a separate approval decision. Do not automate final hiring or rejection decisions.",
-                "3. Contract and onboarding: verify the approved contract, effective dates, role, location, required personnel-document references, induction tasks, and Owner approval before employee activation.",
-                "4. Attendance and leave: record shifts, worked time, overtime, absence, leave requests/balances, supporting references, corrections, and the responsible approver.",
-                "5. Compensation: capture effective-dated base pay, each allowance/benefit/deduction, approval status, classification evidence, and the source rule/version. A label alone does not decide tax or pension treatment.",
-                "6. Payroll: freeze period inputs, calculate itemized values, review exceptions and variances, obtain separate Owner approval, record payment/remittance evidence, and reconcile the GL/PLEDGER.",
-                "7. Employee changes and exit: record approved increments/transfers/status changes; calculate final salary, leave and other settlement items using reviewed rules; perform clearance and remove access only through authorized workflow."
-            ]),
-            ("Maker-checker and audit controls", [
-                "The person preparing a record must not approve their own sensitive payroll, compensation, statutory rule, or settlement decision where the system requires independent approval.",
-                "Use effective dates and revision history. Do not edit posted payroll history to correct an error; use an approved adjustment or reversal linked to the original record.",
-                "Payroll payment references must be unique and posting must be idempotent. Debits and credits must balance; failed payments require a reviewed recovery action, not a second unlinked posting.",
-                "Use role- and location-scoped access enforced by the server. Hiding a button is not authorization. Access to personal records and document downloads should be logged."
-            ]),
-            ("Ethiopian statutory-rule control", [
-                "Record the exact official instrument, article/clause, official source URL or file hash, publication date, effective date, applicability, interpretation, reviewer, approval date, test vectors, and expiry/review trigger.",
-                "Do not hard-code historical pension rates, allowance exemptions, transport caps, or digital-service withholding assumptions without checking the current official rule and scope. Unknown or conflicting cases must stop for professional review.",
-                "A payroll preview is not legal certification. Keep rule approval separate from employee compensation entry and payroll-period approval."
-            ]),
-            ("Personal data and documents", [
-                "Collect only the minimum data required for a defined HR purpose. Store identity, bank, signed contract, and payroll documents only in an approved private repository with access controls and retention rules.",
-                "The resource downloads in this Center are blank general templates. Do not upload actual personnel documents into public media folders, public URLs, product fields, or ordinary branch notes.",
-                "Do not store ERP passwords, MFA codes, recovery codes, private session cookies, or social-platform credentials in HR records."
-            ]),
-            ("Monthly payroll review checklist", [
-                "[ ] Period dates are a complete valid month and the period is not already closed.",
-                "[ ] Employee eligibility and effective dates are checked; service/retainer payees are not automatically treated as employees.",
-                "[ ] Compensation is approved, effective for the period, and has a complete itemized breakdown.",
-                "[ ] Every exception has an evidence reference and a responsible reviewer; unknown legal classifications are held.",
-                "[ ] Gross, taxable base, tax, employee/employer pension, other deductions, net pay, and employer cost are reconciled.",
-                "[ ] Management review is complete and the Owner independently approves the exact frozen run.",
-                "[ ] Payment and remittance references are recorded; GL/PLEDGER balances; exceptions and audit events are retained."
-            ]),
-            ("Release and acceptance note", [
-                "This resource pack is delivered with a functional download handler, but its availability does not prove that all HR lifecycle screens, migrations, statutory rules, or live-host behavior have passed acceptance.",
-                "Before production certification, require exact-package tests, role/location authorization tests, synthetic lifecycle E2E, backup/restore and rollback evidence, current legal-source review, and Owner/HR/Finance acceptance."
-            ])
-        ]
-    },
-    "onboarding-checklist": {
-        "filename": "Stockland_Employee_Onboarding_Checklist_v1.docx",
-        "title": "Stockland Ethiopia Employee Onboarding Checklist",
-        "subtitle": "Blank controlled form • Version 1.0",
-        "sections": [
-            ("Employee and position", [
-                "Employee full name: _________________________________________________",
-                "Employee ID (after authorized allocation): ______________________________",
-                "Approved position / department: ______________________________________",
-                "Legal employer / work location / cost center: ___________________________",
-                "Reporting manager: __________________  Planned start date: ______________",
-                "Employment type and contract term: ___________________________________",
-                "Approved vacancy / selection decision reference: ________________________"
-            ]),
-            ("Contract and approvals", [
-                "[ ] Role and budget approved by authorized management.",
-                "[ ] Human selection decision and rationale are recorded.",
-                "[ ] Contract particulars match the approved role and effective dates.",
-                "[ ] Signed contract stored in the approved private repository; record reference only here.",
-                "Private contract reference (not a public URL): ___________________________",
-                "Contract signer / signed date: _________________________________________",
-                "[ ] Owner approval completed where required before activation."
-            ]),
-            ("Personnel records and privacy", [
-                "[ ] Required identity/work-eligibility records reviewed by authorized staff.",
-                "[ ] Only status and approved private document reference are recorded in this checklist.",
-                "[ ] Personal data access is limited to the roles with a business need.",
-                "Verification reviewer / date: __________________________________________",
-                "Private document vault/reference: ______________________________________"
-            ]),
-            ("Payroll setup — do not invent values", [
-                "[ ] Legal employer and payroll location confirmed.",
-                "[ ] Approved bank/payment details captured only in the authorized secure workflow.",
-                "[ ] Effective-dated compensation is entered from an approved instruction.",
-                "[ ] Allowances and benefits are itemized; unknown statutory treatment is held for review.",
-                "[ ] Pensionable-pay basis and current rule source are reviewed by the authorized adviser.",
-                "[ ] No salary, tax classification, pension basis, or allowance value is inferred from another employee.",
-                "Compensation approval reference / effective date: _________________________",
-                "Rule-set version and reviewer (if applicable): ____________________________"
-            ]),
-            ("Induction and access", [
-                "[ ] Code of conduct and applicable role SOPs issued.",
-                "[ ] Safety, attendance, leave, timekeeping, and incident-reporting process explained.",
-                "[ ] Required training and equipment tasks assigned with due dates.",
-                "[ ] ERP access follows least privilege and approved location scope.",
-                "[ ] Sensitive access is verified and unnecessary access is not granted.",
-                "Induction owner / completion date: _____________________________________"
-            ]),
-            ("Activation sign-off", [
-                "Prepared by / date: __________________________________________________",
-                "HR / Management review / date: ________________________________________",
-                "Owner approval / date (if required): ____________________________________",
-                "Outstanding tasks or exceptions and owner: ______________________________",
-                "Employee activation is permitted only after required contract, evidence, payroll setup, and independent approval checks are complete."
-            ]),
-            ("Important", [
-                "This checklist is a general process aid and does not replace a signed contract or legal advice. Confirm the current Ethiopian labour, tax, pension, privacy, and other applicable rules before relying on a legal or payroll conclusion."
-            ])
-        ]
-    },
-    "payroll-review-checklist": {
-        "filename": "Stockland_Monthly_Payroll_Review_Checklist_v1.docx",
-        "title": "Stockland Ethiopia Monthly Payroll Review",
-        "subtitle": "Management preparation and independent Owner approval • Version 1.0",
-        "sections": [
-            ("Run identification", [
-                "Payroll period (YYYY-MM): __________________  Run/reference: ____________",
-                "Prepared by / timestamp: ______________________________________________",
-                "Rule set version(s) and official effective dates: __________________________",
-                "Review deadline / payment date: _______________________________________"
-            ]),
-            ("Before calculation", [
-                "[ ] Period is a complete calendar month and has not already been posted or paid.",
-                "[ ] Included employee population and status/effective dates are confirmed.",
-                "[ ] New hires and terminations have approved dates and supporting workflow records.",
-                "[ ] Approved compensation exists for each included employee and is effective in the period.",
-                "[ ] Missing compensation, malformed allowance snapshots, or unresolved classifications remain blocking exceptions.",
-                "[ ] Retainer/service contractors and other nonemployees are routed under their own reviewed AP/tax process."
-            ]),
-            ("Calculation and variance review", [
-                "[ ] Input snapshot is frozen and can be traced to approved source records.",
-                "[ ] Base salary, taxable allowances, any legally approved exempt items, and deductions reconcile.",
-                "[ ] PAYE calculation uses the approved current monthly schedule and effective-date treatment.",
-                "[ ] Employee and employer pension amounts use the approved current pension rule.",
-                "[ ] Net pay and employer total cost reconcile for every line and period total.",
-                "[ ] Prior-period comparison and unusual variances have written explanations.",
-                "[ ] No employee pay or legal classification was invented or auto-filled to clear a health check."
-            ]),
-            ("Independent approval and posting", [
-                "[ ] Management confirms the run is complete and submits the exact version for approval.",
-                "[ ] Owner/reviewer is independent of preparation where required and checks exceptions/evidence.",
-                "[ ] Approval references the exact period/run version and audit history records the decision.",
-                "[ ] Payroll journal balances and is posted once through the accepted ledger service.",
-                "[ ] Payment batch uses unique payment references and supports failed-payment recovery without duplicate posting.",
-                "[ ] Tax/pension remittance receipts and payment evidence are retained in approved private storage.",
-                "[ ] PLEDGER / GL / payroll control totals reconcile and the period is locked against edits."
-            ]),
-            ("Exception register", [
-                "Employee/reference | Issue | Evidence needed | Responsible reviewer | Due date | Resolution",
-                "________________________________________________________________________",
-                "________________________________________________________________________",
-                "________________________________________________________________________",
-                "________________________________________________________________________"
-            ]),
-            ("Sign-off", [
-                "Management preparer: ______________________________  Date: ______________",
-                "Independent reviewer: ______________________________  Date: ______________",
-                "Owner approval: ____________________________________  Date: ______________",
-                "Finance reconciliation: _____________________________  Date: ______________",
-                "Open exceptions held from posting: ______________________________________"
-            ]),
-            ("Legal review boundary", [
-                "The system must not be described as fully compliant based on a calculated preview alone. Current official Ethiopian tax, labour, and pension instruments and their effective dates require independent qualified review. Preserve existing posted payroll; use linked corrections/reversals rather than rewriting history."
-            ])
-        ]
-    }
-}
+def sha256(b: bytes) -> str:
+    return hashlib.sha256(b).hexdigest()
 
-def sha256(raw: bytes) -> str:
-    return hashlib.sha256(raw).hexdigest()
-
-def replace_once(raw: bytes, old: str, new: str, label: str) -> bytes:
-    text = raw.decode("utf-8")
+def once(text: str, old: str, new: str, label: str) -> str:
     n = text.count(old)
     if n != 1:
-        raise SystemExit(f"{label}: expected one source anchor, found {n}")
-    return text.replace(old, new, 1).encode("utf-8")
+        raise ValueError(f"{label}: expected exactly one anchor; found {n}")
+    return text.replace(old, new, 1)
 
-def w_text(text: str) -> str:
-    return '<w:r><w:t xml:space="preserve">' + escape(text) + '</w:t></w:r>'
+def many(text: str, old: str, new: str, expected: int, label: str) -> str:
+    n = text.count(old)
+    if n != expected:
+        raise ValueError(f"{label}: expected {expected} anchors; found {n}")
+    return text.replace(old, new)
 
-def make_docx(doc: dict) -> bytes:
-    """Create a valid minimal Office Open XML .docx using only Python's standard library."""
-    paras = []
-    paras.append('<w:p><w:pPr><w:pStyle w:val="Title"/></w:pPr>' + w_text(doc["title"]) + '</w:p>')
-    paras.append('<w:p><w:pPr><w:pStyle w:val="Subtitle"/></w:pPr>' + w_text(doc["subtitle"]) + '</w:p>')
-    for heading, texts in doc["sections"]:
-        paras.append('<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr>' + w_text(heading) + '</w:p>')
-        for text in texts:
-            style = "BodyText"
-            if text.startswith("[ ]"):
-                style = "BodyText"
-            paras.append('<w:p><w:pPr><w:pStyle w:val="' + style + '"/></w:pPr>' + w_text(text) + '</w:p>')
-    sect = '<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="720" w:footer="720" w:gutter="0"/></w:sectPr>'
-    doc_xml = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-        '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
-        '<w:body>' + ''.join(paras) + sect + '</w:body></w:document>').encode()
-    styles = b'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
-<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:rPr><w:rFonts w:ascii="Aptos" w:hAnsi="Aptos"/><w:sz w:val="21"/></w:rPr><w:pPr><w:spacing w:after="80" w:line="258" w:lineRule="auto"/></w:pPr></w:style>
-<w:style w:type="paragraph" w:styleId="Title"><w:name w:val="Title"/><w:basedOn w:val="Normal"/><w:rPr><w:b/><w:color w:val="17365D"/><w:sz w:val="34"/></w:rPr><w:pPr><w:spacing w:after="180"/></w:pPr></w:style>
-<w:style w:type="paragraph" w:styleId="Subtitle"><w:name w:val="Subtitle"/><w:basedOn w:val="Normal"/><w:rPr><w:i/><w:color w:val="64748B"/><w:sz w:val="20"/></w:rPr><w:pPr><w:spacing w:after="260"/></w:pPr></w:style>
-<w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:next w:val="BodyText"/><w:qFormat/><w:rPr><w:b/><w:color w:val="17365D"/><w:sz w:val="25"/></w:rPr><w:pPr><w:keepNext/><w:spacing w:before="240" w:after="100"/></w:pPr></w:style>
-<w:style w:type="paragraph" w:styleId="BodyText"><w:name w:val="Body Text"/><w:basedOn w:val="Normal"/><w:rPr><w:sz w:val="21"/></w:rPr></w:style>
-</w:styles>'''
-    content_types = b'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
-<Default Extension="xml" ContentType="application/xml"/>
-<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
-<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
-<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
-<Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
-</Types>'''
-    rels = b'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
-<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
-<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
-</Relationships>'''
-    docrels = b'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
-</Relationships>'''
-    core = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-        '<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" '
-        'xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" '
-        'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">'
-        '<dc:title>' + escape(doc["title"]) + '</dc:title><dc:creator>Stockland Ethiopia</dc:creator>'
-        '<cp:lastModifiedBy>Stockland Ethiopia</cp:lastModifiedBy></cp:coreProperties>').encode()
-    app = b'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">
-<Application>Microsoft Office Word</Application><Company>Stockland Ethiopia</Company></Properties>'''
-    import io
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-        z.writestr("[Content_Types].xml", content_types)
-        z.writestr("_rels/.rels", rels)
-        z.writestr("word/document.xml", doc_xml)
-        z.writestr("word/_rels/document.xml.rels", docrels)
-        z.writestr("word/styles.xml", styles)
-        z.writestr("docProps/core.xml", core)
-        z.writestr("docProps/app.xml", app)
-    return buf.getvalue()
+def text(files, path):
+    key = ROOT + path
+    if key not in files:
+        raise ValueError("Required file missing: " + key)
+    try:
+        return files[key].decode("utf-8")
+    except UnicodeDecodeError as e:
+        raise ValueError("Expected UTF-8 source: " + key) from e
 
-def resource_files_php() -> bytes:
-    items = []
-    for key, doc in DOCS.items():
-        encoded = base64.b64encode(make_docx(doc)).decode()
-        chunks = [encoded[i:i + 4000] for i in range(0, len(encoded), 4000)]
-        items.append("        " + json.dumps(key) + " => array(\n            " +
-            ",\n            ".join(json.dumps(chunk) for chunk in chunks) + "\n        ),")
-    source = """<?php
-if ( ! defined( 'ABSPATH' ) ) { exit; }
-/** Generated, non-public DOCX payloads for authorized Stockland HR resource downloads. */
-final class Stockland_HR_Resource_Files {
-    private const FILES = array(
-""" + "\n".join(items) + """
-    );
-    public static function get( $key ) {
-        if ( ! isset( self::FILES[ $key ] ) ) { return false; }
-        $bytes = base64_decode( implode( '', self::FILES[ $key ] ), true );
-        return false === $bytes ? false : $bytes;
-    }
-}
+def put(files, path, value):
+    files[ROOT + path] = value.encode("utf-8")
+
+def patch_main(files, schema, rest):
+    p = text(files, "stockland-inventory.php")
+    p = once(p, " * Version:           16.1.95", " * Version:           16.1.98", "plugin header version")
+    p = once(p, "define( 'STOCKLAND_VERSION', '16.1.95' );", "define( 'STOCKLAND_VERSION', '16.1.98' );", "version constant")
+    p = once(p, "define( 'STOCKLAND_HR_SCHEMA_VERSION', '16.1.3' );", "define( 'STOCKLAND_HR_SCHEMA_VERSION', '16.2.0' );", "HR schema version")
+    p = once(p, "require_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-money.php';",
+        "require_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-money.php';\nrequire_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-hr-lifecycle.php';",
+        "HR lifecycle include")
+    p = once(p, "require_once STOCKLAND_PLUGIN_DIR . 'includes/rest/class-rest-hr.php';",
+        "require_once STOCKLAND_PLUGIN_DIR . 'includes/rest/class-rest-hr.php';\nrequire_once STOCKLAND_PLUGIN_DIR . 'includes/rest/class-rest-hr-lifecycle.php';",
+        "HR lifecycle REST include")
+    p = once(p, "new Stockland_REST_HR();", "new Stockland_REST_HR();\n\t\tnew Stockland_REST_HR_Lifecycle();", "register lifecycle controller")
+    put(files, "stockland-inventory.php", p)
+    put(files, "includes/class-stockland-hr-lifecycle.php", schema)
+    put(files, "includes/rest/class-rest-hr-lifecycle.php", rest)
+
+def find_batch_boundary(source: str, start: int) -> int:
+    """Return the PHP batch guard start after a table declaration, or -1."""
+    if start < 0:
+        return -1
+    match = re.search(r"(?m)^[ \t]*if\s*\(\s*\$batch_size\s*>\s*0\s*\)\s*\{[ \t\r]*$", source[start:])
+    return start + match.start() if match else -1
+
+
+def patch_hr_schema(files):
+    p = text(files, "includes/class-stockland-hr.php")
+    p = once(p,
+        "return array( 'employees', 'employee_compensation', 'payroll_periods', 'payroll_lines' );",
+        "return array_merge( array( 'employees', 'employee_compensation', 'payroll_periods', 'payroll_lines' ), Stockland_HR_Lifecycle::table_keys() );",
+        "HR table contract")
+    p = once(p,
+        "'allowance_breakdown_json'        => 'LONGTEXT NULL AFTER statutory_classification_note',",
+        "'allowance_breakdown_json'        => 'LONGTEXT NULL AFTER statutory_classification_note',\n\t\t\t\t'approval_status'                => \"VARCHAR(24) NOT NULL DEFAULT 'APPROVED' AFTER allowance_breakdown_json\",\n\t\t\t\t'approved_by'                    => 'BIGINT UNSIGNED NULL AFTER approval_status',\n\t\t\t\t'approved_at'                    => 'DATETIME NULL AFTER approved_by',\n\t\t\t\t'statutory_rule_set_id'           => 'BIGINT UNSIGNED NULL AFTER approved_at',\n\t\t\t\t'statutory_rule_version'          => 'VARCHAR(80) NULL AFTER statutory_rule_set_id',\n\t\t\t\t'allowance_rule_set_id'           => 'BIGINT UNSIGNED NULL AFTER statutory_rule_version',\n\t\t\t\t'allowance_rule_version'          => 'VARCHAR(80) NULL AFTER allowance_rule_set_id',",
+        "compensation additive columns")
+    p = once(p,
+        "'other_deduction_total'  => 'DECIMAL(14,2) NOT NULL DEFAULT 0.00 AFTER employer_pension_total',",
+        "'other_deduction_total'  => 'DECIMAL(14,2) NOT NULL DEFAULT 0.00 AFTER employer_pension_total',\n\t\t\t\t'statutory_rule_set_id'   => 'BIGINT UNSIGNED NULL AFTER other_deduction_total',\n\t\t\t\t'statutory_rule_version'  => 'VARCHAR(80) NULL AFTER statutory_rule_set_id',",
+        "period rule columns")
+    p = once(p,
+        "'tax_rule_version'         => 'VARCHAR(40) NULL AFTER employer_pension',",
+        "'tax_rule_version'         => 'VARCHAR(40) NULL AFTER employer_pension',\n\t\t\t\t'statutory_rule_set_id'    => 'BIGINT UNSIGNED NULL AFTER tax_rule_version',\n\t\t\t\t'statutory_rule_version'   => 'VARCHAR(80) NULL AFTER statutory_rule_set_id',\n\t\t\t\t'allowance_rule_set_id'    => 'BIGINT UNSIGNED NULL AFTER statutory_rule_version',\n\t\t\t\t'allowance_rule_version'   => 'VARCHAR(80) NULL AFTER allowance_rule_set_id',",
+        "payroll-line rule columns")
+    p = once(p,
+        "allowance_breakdown_json LONGTEXT NULL,\n            created_by BIGINT UNSIGNED NOT NULL,",
+        "allowance_breakdown_json LONGTEXT NULL,\n            approval_status VARCHAR(24) NOT NULL DEFAULT 'DRAFT',\n            approved_by BIGINT UNSIGNED NULL,\n            approved_at DATETIME NULL,\n            statutory_rule_set_id BIGINT UNSIGNED NULL,\n            statutory_rule_version VARCHAR(80) NULL,\n            allowance_rule_set_id BIGINT UNSIGNED NULL,\n            allowance_rule_version VARCHAR(80) NULL,\n            created_by BIGINT UNSIGNED NOT NULL,",
+        "fresh compensation schema")
+    p = once(p,
+        "payment_method VARCHAR(20) NULL,\n            notes VARCHAR(500) NULL,\n            created_by BIGINT UNSIGNED NOT NULL,",
+        "payment_method VARCHAR(20) NULL,\n            notes VARCHAR(500) NULL,\n            statutory_rule_set_id BIGINT UNSIGNED NULL,\n            statutory_rule_version VARCHAR(80) NULL,\n            created_by BIGINT UNSIGNED NOT NULL,",
+        "fresh payroll period schema")
+    p = once(p,
+        "tax_rule_version VARCHAR(40) NULL,\n            statutory_status VARCHAR(20) NOT NULL DEFAULT 'LEGACY',",
+        "tax_rule_version VARCHAR(40) NULL,\n            statutory_rule_set_id BIGINT UNSIGNED NULL,\n            statutory_rule_version VARCHAR(80) NULL,\n            allowance_rule_set_id BIGINT UNSIGNED NULL,\n            allowance_rule_version VARCHAR(80) NULL,\n            statutory_status VARCHAR(20) NOT NULL DEFAULT 'LEGACY',",
+        "fresh payroll line schema")
+    # Inject lifecycle DDL after the legacy payroll_lines declaration and before batching begins.
+    # Use the declaration boundary rather than a multiline SQL substring because CRLF/newline
+    # normalization can differ between the locked release archive and this patcher source.
+    last_table = p.find("CREATE TABLE {$p}stock_payroll_lines")
+    # Locate the batch guard as a PHP source line, independent of literal tabs vs escaped tabs
+    # and LF vs CRLF normalization. Search only after the legacy payroll_lines declaration.
+    batch_at = find_batch_boundary(p, last_table)
+    if last_table < 0 or batch_at < 0:
+        raise ValueError("Could not locate the payroll_lines table/batch boundary for the HR lifecycle DDL.")
+    lifecycle_ddl = "\t\tforeach ( Stockland_HR_Lifecycle::table_ddl( $p, $cc ) as $lifecycle_ddl ) {\n\t\t\t$tables[] = $lifecycle_ddl;\n\t\t}\n\n"
+    p = p[:batch_at] + lifecycle_ddl + p[batch_at:]
+    put(files, "includes/class-stockland-hr.php", p)
+
+def patch_statutory(files):
+    p = text(files, "includes/class-stockland-payroll-statutory.php")
+    p = once(p,
+        "public static function calculate( $base_salary, $taxable_allowance, $exempt_allowance, $pensionable_salary, $other_deduction ) {",
+        "public static function calculate( $base_salary, $taxable_allowance, $exempt_allowance, $pensionable_salary, $other_deduction, $rules = null ) {",
+        "dynamic statutory calculate signature")
+    p = once(p,
+        "$employee_pension = Stockland_Money::percentage( $pensionable, self::EMPLOYEE_PENSION_RATE );\n\t\t$employer_pension = Stockland_Money::percentage( $pensionable, self::EMPLOYER_PENSION_RATE );",
+        "if ( ! is_array( $rules ) || ! isset( $rules['employee_pension_rate'], $rules['employer_pension_rate'], $rules['monthly_tax_bands'], $rules['tax_base_method'], $rules['rule_version'] ) ) {\n\t\t\tthrow new InvalidArgumentException( 'An approved effective-dated statutory rule set is required; no legacy payroll fallback is permitted.' );\n\t\t}\n\t\t$employee_rate = $rules['employee_pension_rate'];\n\t\t$employer_rate = $rules['employer_pension_rate'];\n\t\tforeach ( array( $employee_rate, $employer_rate ) as $rate ) {\n\t\t\tif ( ! is_numeric( $rate ) || (float) $rate < 0 || (float) $rate > 1 ) {\n\t\t\t\tthrow new InvalidArgumentException( 'Approved pension rule rate is invalid.' );\n\t\t\t}\n\t\t}\n\t\t$employee_pension = Stockland_Money::percentage( $pensionable, (string) $employee_rate );\n\t\t$employer_pension = Stockland_Money::percentage( $pensionable, (string) $employer_rate );",
+        "dynamic pension rates")
+    old_base = """$taxable_gross  = Stockland_Money::add( $base, $taxable_allow );
+		$taxable_income = Stockland_Money::subtract( $taxable_gross, $employee_pension );
+		if ( Stockland_Money::minor( $taxable_income ) < 0 ) {
+			$taxable_income = '0.00';
+		}
+		list( $income_tax, $income_tax_rate ) = self::income_tax( $taxable_income );"""
+    new_base = """$taxable_gross = Stockland_Money::add( $base, $taxable_allow );
+		$tax_base_method = $rules['tax_base_method'] ?? null;
+		if ( 'TAXABLE_GROSS_LESS_EMPLOYEE_PENSION' === $tax_base_method ) {
+			$taxable_income = Stockland_Money::subtract( $taxable_gross, $employee_pension );
+		} elseif ( 'TAXABLE_GROSS' === $tax_base_method ) {
+			$taxable_income = $taxable_gross;
+		} else {
+			throw new InvalidArgumentException( 'Approved PAYE rule has an unsupported tax base method.' );
+		}
+		if ( Stockland_Money::minor( $taxable_income ) < 0 ) {
+			$taxable_income = '0.00';
+		}
+		list( $income_tax, $income_tax_rate ) = self::income_tax( $taxable_income, $rules['monthly_tax_bands'] ?? null );"""
+    p = once(p, old_base, new_base, "dynamic tax-base method")
+    p = once(p,
+        "'tax_base_basis'          => 'TAXABLE_GROSS_LESS_EMPLOYEE_PENSION',",
+        "'tax_base_basis'          => $rules['tax_base_method'] ?? 'TAXABLE_GROSS_LESS_EMPLOYEE_PENSION',",
+        "tax-base provenance")
+    p = once(p,
+        "'employee_pension_rate'   => self::EMPLOYEE_PENSION_RATE,\n\t\t\t'employer_pension_rate'   => self::EMPLOYER_PENSION_RATE,",
+        "'employee_pension_rate'   => (string) $employee_rate,\n\t\t\t'employer_pension_rate'   => (string) $employer_rate,",
+        "dynamic pension response")
+    p = once(p,
+        "'tax_rule_version'        => self::RULE_VERSION,",
+        "'tax_rule_version'        => (string) ( $rules['rule_version'] ?? self::RULE_VERSION ),\n\t\t\t'statutory_rule_set_id'   => isset( $rules['rule_set_id'] ) ? (int) $rules['rule_set_id'] : null,\n\t\t\t'statutory_rule_version'  => (string) ( $rules['rule_version'] ?? self::RULE_VERSION ),",
+        "statutory version pin")
+    p = once(p,
+        "public static function income_tax( $taxable_income ) {",
+        "public static function income_tax( $taxable_income, $bands = null ) {\n\t\tif ( ! is_array( $bands ) || ! $bands ) { throw new InvalidArgumentException( 'Approved effective-dated PAYE bands are required; no legacy fallback is permitted.' ); }",
+        "dynamic tax-band method signature")
+    anchor = "\t\t$minor  = Stockland_Money::minor( $income );"
+    dynamic = """\t\t$minor  = Stockland_Money::minor( $income );
+		if ( is_array( $bands ) ) {
+			if ( ! $bands ) {
+				throw new InvalidArgumentException( 'Approved PAYE schedule contains no tax bands.' );
+			}
+			foreach ( $bands as $band ) {
+				if ( ! is_array( $band ) || ! isset( $band['rate'], $band['credit'] ) || ! is_numeric( $band['rate'] ) || ! is_numeric( $band['credit'] ) || (float) $band['rate'] < 0 || (float) $band['rate'] > 1 ) {
+					throw new InvalidArgumentException( 'Approved PAYE band is invalid.' );
+				}
+				$upper = array_key_exists( 'up_to', $band ) && null !== $band['up_to'] ? Stockland_Money::minor( $band['up_to'] ) : null;
+				if ( null !== $upper && $minor > $upper ) {
+					continue;
+				}
+				$rate = (string) $band['rate'];
+				$credit = self::amount( $band['credit'], 'PAYE band credit' );
+				$tax = Stockland_Money::subtract( Stockland_Money::percentage( $income, $rate ), $credit );
+				if ( Stockland_Money::minor( $tax ) < 0 ) {
+					$tax = '0.00';
+				}
+				return array( $tax, number_format( (float) $rate * 100, 2, '.', '' ) );
+			}
+			throw new InvalidArgumentException( 'Taxable income is outside the approved PAYE bands.' );
+		}"""
+    p = once(p, anchor, dynamic, "inject dynamic tax band engine")
+    # Historical rule fixtures remain for legacy display/tests only; the new payroll run always supplies an approved rule object.
+    p = once(p,
+        "$manager_safe = 'MANAGEMENT_PREPARED' === $status && 0 === $exempt_minor && $pensionable_minor === $base_minor;\n\t\tif ( 'OWNER_CLASSIFIED' !== $status && ! $manager_safe ) {",
+        "$manager_safe = 'MANAGEMENT_PREPARED' === $status && 0 === $exempt_minor && $pensionable_minor === $base_minor;\n\t\t$rule_classified = 'RULE_CLASSIFIED' === $status && 'APPROVED' === strtoupper( (string) ( $record['approval_status'] ?? '' ) ) && ( 0 === $exempt_minor || ( ! empty( $record['allowance_rule_set_id'] ) && ! empty( $record['allowance_rule_version'] ) ) );\n\t\tif ( 'OWNER_CLASSIFIED' !== $status && ! $manager_safe && ! $rule_classified ) {",
+        "allow system-rule classification after separate Owner compensation approval")
+    # A mixed allowance is stored as two amount rows from split_allowances(), so the established validator's tax-treatment sum stays exact.
+    put(files, "includes/class-stockland-payroll-statutory.php", p)
+
+def patch_hr_rest(files):
+    p = text(files, "includes/rest/class-rest-hr.php")
+    p = once(p,
+        "public function employee_create( WP_REST_Request $r ) {",
+        "public function employee_create( WP_REST_Request $r ) {\n\t\treturn new WP_Error( 'hr_recruitment_lifecycle_required', 'Direct employee creation is disabled. Use the approved recruitment-selection, contract-signing, document-verification and Owner-activation lifecycle.', array( 'status' => 409 ) );",
+        "prevent direct employee creation from bypassing the recruitment pipeline")
+    p = once(p,
+        "'allowance_breakdown_json'        => wp_json_encode( $normalized_allowances ),",
+        "'allowance_breakdown_json'        => wp_json_encode( $normalized_allowances ),\n\t\t\t'approval_status'                 => 'DRAFT',\n\t\t\t'approved_by'                     => null,\n\t\t\t'approved_at'                     => null,\n\t\t\t'statutory_rule_set_id'            => null,\n\t\t\t'statutory_rule_version'           => null,\n\t\t\t'allowance_rule_set_id'            => null,\n\t\t\t'allowance_rule_version'           => null,",
+        "legacy compensation endpoint creates reviewable drafts")
+    p = once(p,
+        "if ( 'PENDING' !== strtoupper( (string) $employee['status'] ) ) {\n\t\t\t\tthrow new Exception( 'Only a pending employee file can be approved. Current status: ' . $employee['status'] . '.' );\n\t\t\t}",
+        "if ( 'PENDING' !== strtoupper( (string) $employee['status'] ) ) {\n\t\t\t\tthrow new Exception( 'Only a pending employee file can be approved. Current status: ' . $employee['status'] . '.' );\n\t\t\t}\n\t\t\tthrow new Exception( 'Use the controlled full-lifecycle activation handler after signed contract, verified documents, onboarding, approved compensation and audit prerequisites.' );",
+        "block legacy hire activation bypass")
+    p = once(p,
+        "SELECT * FROM %i WHERE employee_id=%d AND effective_from<=%s ORDER BY effective_from ASC,id ASC",
+        "SELECT * FROM %i WHERE employee_id=%d AND effective_from<=%s AND COALESCE(approval_status,\\'APPROVED\\')=\\'APPROVED\\' ORDER BY effective_from ASC,id ASC",
+        "only owner-approved compensation is paid")
+    old_effective = """if ( $period['start_date'] < Stockland_Payroll_Statutory::EFFECTIVE_DATE ) {
+				throw new Exception( 'This monthly statutory calculator starts on ' . Stockland_Payroll_Statutory::EFFECTIVE_DATE . '. The law applies from ' . Stockland_Payroll_Statutory::LAW_EFFECTIVE_DATE . '; July 2025 requires separately approved split-period treatment. Existing posted payroll must remain unchanged.' );
+			}"""
+    new_effective = """$payroll_rules = Stockland_HR_Lifecycle::payroll_rules_for_period( $period['start_date'], $period['end_date'] );
+			if ( is_wp_error( $payroll_rules ) ) {
+				throw new Exception( $payroll_rules->get_error_message() );
+			}"""
+    p = once(p, old_effective, new_effective, "require approved rule set before payroll")
+    p = once(p,
+        "$calc = Stockland_Payroll_Statutory::calculate( $c['base_salary'], $c['taxable_allowance_total'], $c['exempt_allowance_total'], $c['pensionable_salary'], $c['other_deduction_total'] );",
+        "$calc = Stockland_Payroll_Statutory::calculate( $c['base_salary'], $c['taxable_allowance_total'], $c['exempt_allowance_total'], $c['pensionable_salary'], $c['other_deduction_total'], $payroll_rules );",
+        "use approved rule object for generated payroll")
+    p = once(p,
+        "$check = Stockland_Payroll_Statutory::calculate( $base, $taxable, $exempt, $pensionable, $other );",
+        "$check = array( 'allowance_total' => Stockland_Money::add( $taxable, $exempt ) );",
+        "compensation creation only reconciles amounts before an approved ruleset exists")
+    p = once(p,
+        "$calc        = Stockland_Payroll_Statutory::calculate( $line['base_salary'], $taxable, $exempt, $pensionable, $other );",
+        "$line_rules = Stockland_HR_Lifecycle::payroll_rules_for_period( $period['start_date'], $period['end_date'] );\n\t\t\tif ( is_wp_error( $line_rules ) ) { throw new RuntimeException( $line_rules->get_error_message() ); }\n\t\t\t$calc = Stockland_Payroll_Statutory::calculate( $line['base_salary'], $taxable, $exempt, $pensionable, $other, $line_rules );",
+        "draft line recalculation uses pinned period rules")
+    p = once(p,
+        "$calc = Stockland_Payroll_Statutory::calculate(\n\t\t\t\t$line['base_salary'],\n\t\t\t\t$taxable,\n\t\t\t\t$exempt,\n\t\t\t\t$line['pensionable_salary'] ?? $line['base_salary'],\n\t\t\t\t$line['other_deduction_total'] ?? '0.00'\n\t\t\t);",
+        "$line_rules = Stockland_HR_Lifecycle::payroll_rules_for_period( $period['start_date'], $period['end_date'] );\n\t\t\tif ( is_wp_error( $line_rules ) ) { throw new Exception( $line_rules->get_error_message() ); }\n\t\t\t$calc = Stockland_Payroll_Statutory::calculate( $line['base_salary'], $taxable, $exempt, $line['pensionable_salary'] ?? $line['base_salary'], $line['other_deduction_total'] ?? '0.00', $line_rules );",
+        "Owner allowance reclassification uses pinned period rules")
+    p = once(p,
+        "'allowance_breakdown_json' => wp_json_encode( $schedule['allowance_breakdown'] ?? array() ),",
+        "'allowance_breakdown_json' => wp_json_encode( $schedule['allowance_breakdown'] ?? array() ),\n\t\t\t\t\t\t'statutory_rule_set_id'    => (int) $payroll_rules['rule_set_id'],\n\t\t\t\t\t\t'statutory_rule_version'   => (string) $payroll_rules['rule_version'],\n\t\t\t\t\t\t'allowance_rule_set_id'    => $this->unique_allowance_rule_id( $schedule['allowance_breakdown'] ?? array() ),\n\t\t\t\t\t\t'allowance_rule_version'   => $this->unique_allowance_rule_version( $schedule['allowance_breakdown'] ?? array() ),",
+        "pin rule provenance on generated line")
+    # Pin the payroll period to the same rule set as its lines before totals are refreshed.
+    p = once(p,
+        "$totals = $this->save_payroll_totals( $id );",
+        "if ( false === Stockland_DB::update_record( Stockland_DB::table( 'payroll_periods' ), array( 'statutory_rule_set_id' => (int) $payroll_rules['rule_set_id'], 'statutory_rule_version' => (string) $payroll_rules['rule_version'] ), array( 'id' => $id ) ) ) {\n\t\t\t\tthrow new Exception( 'Could not pin approved statutory rule version to the payroll period.' );\n\t\t\t}\n\t\t\t$totals = $this->save_payroll_totals( $id );",
+        "pin rule provenance on period")
+    # Helper methods sit in the controller and are not exposed as REST routes.
+    helper = """
+	private function unique_allowance_rule_id( $components ) {
+		$ids = array_values( array_unique( array_filter( array_map( static function ( $c ) { return isset( $c['rule_set_id'] ) ? (int) $c['rule_set_id'] : 0; }, (array) $components ) ) ) );
+		return count( $ids ) === 1 ? $ids[0] : null;
+	}
+	private function unique_allowance_rule_version( $components ) {
+		$versions = array_values( array_unique( array_filter( array_map( static function ( $c ) { return (string) ( $c['rule_set_version'] ?? '' ); }, (array) $components ) ) ) );
+		return count( $versions ) === 1 ? $versions[0] : ( count( $versions ) > 1 ? 'MULTI' : null );
+	}
 """
-    return source.encode("utf-8")
+    p = once(p, "\tprivate function compensation_notes( $employee_id, $as_of ) {", helper + "\n\tprivate function compensation_notes( $employee_id, $as_of ) {", "insert allowance rule provenance helpers")
+    p = once(p,
+        "( $line['statutory_status'] ?? '' ) !== 'CALCULATED' || ( $line['tax_rule_version'] ?? '' ) !== Stockland_Payroll_Statutory::RULE_VERSION",
+        "( $line['statutory_status'] ?? '' ) !== 'CALCULATED' || (string) ( $line['tax_rule_version'] ?? '' ) !== (string) ( $p['statutory_rule_version'] ?? '' ) || (int) ( $line['statutory_rule_set_id'] ?? 0 ) !== (int) ( $p['statutory_rule_set_id'] ?? 0 )",
+        "approval requires period-pinned rule")
+    p = once(p,
+        "if ( 'CALCULATED' !== (string) ( $line['statutory_status'] ?? '' ) || Stockland_Payroll_Statutory::RULE_VERSION !== (string) ( $line['tax_rule_version'] ?? '' ) ) {",
+        "$line_rules = Stockland_HR_Lifecycle::payroll_rules_for_period( $period['start_date'], $period['end_date'] );\n\t\t\tif ( is_wp_error( $line_rules ) ) { throw new Exception( $line_rules->get_error_message() ); }\n\t\t\tif ( 'CALCULATED' !== (string) ( $line['statutory_status'] ?? '' ) || (string) ( $line['tax_rule_version'] ?? '' ) !== (string) ( $period['statutory_rule_version'] ?? '' ) || (int) ( $line['statutory_rule_set_id'] ?? 0 ) !== (int) ( $period['statutory_rule_set_id'] ?? 0 ) ) {",
+        "owner classification requires exact period rule")
+    p = once(p,
+        "Stockland_Payroll_Statutory::RULE_VERSION\n\t\t\t\t)\n\t\t\t);",
+        "(string) ( $p['statutory_rule_version'] ?? '' )\n\t\t\t\t)\n\t\t\t);",
+        "submission checks exact period-pinned rule")
+    p = once(p,
+        "Payroll submitted for independent Owner approval under ' . Stockland_Payroll_Statutory::RULE_VERSION",
+        "Payroll submitted for independent Owner approval under ' . (string) ( $p['statutory_rule_version'] ?? 'UNPINNED' )",
+        "submit audit uses exact rule version")
+    p = once(p,
+        "'tax_rule_version'       => Stockland_Payroll_Statutory::RULE_VERSION,",
+        "'tax_rule_version'       => (string) ( $p['statutory_rule_version'] ?? '' ),\n\t\t\t\t\t'statutory_rule_set_id' => (int) ( $p['statutory_rule_set_id'] ?? 0 ),",
+        "audit uses pinned rule version")
+    p = once(p,
+        "'Payroll ' . $p['period_key'] . ' / ' . Stockland_Payroll_Statutory::RULE_VERSION",
+        "'Payroll ' . $p['period_key'] . ' / ' . (string) ( $p['statutory_rule_version'] ?? 'UNPINNED' )",
+        "journal memo rule version")
+    put(files, "includes/rest/class-rest-hr.php", p)
 
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--input", required=True)
-    parser.add_argument("--output", required=True)
-    args = parser.parse_args()
-    source = Path(args.input)
-    output = Path(args.output)
-    if not source.is_file():
-        raise SystemExit("Missing baseline installer ZIP")
-    raw = source.read_bytes()
-    if len(raw) != BASELINE_SIZE or sha256(raw) != BASELINE_SHA256:
-        raise SystemExit("STOP: baseline installer SHA-256 or size does not match the reviewed 16.1.95 source lock")
-    with zipfile.ZipFile(source) as zin:
-        if zin.testzip() is not None:
-            raise SystemExit("Baseline ZIP CRC failed")
-        infos = [i for i in zin.infolist() if not i.is_dir()]
-        names = [i.filename for i in infos]
-        if len(names) != 75 or len(set(names)) != len(names):
-            raise SystemExit("Expected the checksum-locked 75-file baseline package")
-        if any(PurePosixPath(n).parts[0] != "stockland-erp-app" or ".." in PurePosixPath(n).parts for n in names):
-            raise SystemExit("Unsafe or unexpected package root")
-        files = {n: zin.read(n) for n in names}
-    main_path = ROOT + "stockland-inventory.php"
-    front_path = ROOT + "includes/class-stockland-frontend.php"
-    js_path = ROOT + "assets/app.js"
-    manifest_path = ROOT + "RELEASE_MANIFEST.json"
-    readme_path = ROOT + "README.md"
-    authority_path = ROOT + "includes/class-stockland-authority.php"
-    require = lambda p: p in files
-    for path in (main_path, front_path, js_path, manifest_path, readme_path, authority_path):
-        if not require(path):
-            raise SystemExit("Required baseline member missing: " + path)
-    files[main_path] = replace_once(files[main_path], "* Version:           16.1.95", "* Version:           16.1.98", "plugin header")
-    files[main_path] = replace_once(files[main_path], "define( 'STOCKLAND_VERSION', '16.1.95' );", "define( 'STOCKLAND_VERSION', '16.1.98' );", "plugin version constant")
-    files[front_path] = replace_once(files[front_path], "const ROUTE_VERSION      = '16.1.95';", "const ROUTE_VERSION      = '16.1.98';", "frontend route/cache version")
-    files[main_path] = replace_once(
-        files[main_path],
+def patch_health(files):
+    for path in ("includes/rest/class-rest-app.php","includes/rest/class-rest-setup.php","assets/app.js","README.md","RELEASE_MANIFEST.json","includes/class-stockland-business-calendar.php","includes/rest/class-rest-products.php"):
+        if ROOT + path not in files:
+            continue
+        t = text(files, path)
+        t = t.replace("schema_contract_exact_49", "schema_contract_expected")
+        t = t.replace("49-table contract", "73-table contract")
+        t = t.replace("49/49", "73/73")
+        t = t.replace("total'] ?? 49", "total'] ?? 73")
+        t = t.replace("total:49", "total:73")
+        t = t.replace("total||49", "total||73")
+        t = t.replace("total||4", "total||28")
+        t = t.replace("49-table setup", "73-table setup")
+        t = t.replace("49/49", "73/73")
+        if path == "includes/rest/class-rest-app.php":
+            old = "$hr_expected         = array( 'employees', 'employee_compensation', 'payroll_periods', 'payroll_lines' );"
+            new = "$hr_expected         = array_values( array_unique( array_merge( array( 'employees', 'employee_compensation', 'payroll_periods', 'payroll_lines' ), Stockland_HR_Lifecycle::table_keys() ) ) );"
+            t = many(t, old, new, 2, "dynamic HR expected set")
+            t = many(t, "count( $found_keys ) === 49", "count( $found_keys ) === 73", 2, "73-table health contract")
+        if path == "includes/rest/class-rest-setup.php":
+            t = t.replace("(int) ( $snapshot['total']['total'] ?? 49 )", "(int) ( $snapshot['total']['total'] ?? 73 )")
+        if path == "RELEASE_MANIFEST.json":
+            m = json.loads(t)
+            m["release"] = RELEASE
+            m["release_label"] = "Stockland Ethiopia ERP — full HR & Payroll lifecycle candidate 16.1.98"
+            m["schema_contract"] = {"total":73,"core_operations":29,"accounting_procurement":16,"hr_payroll":28}
+            m["classification"] = "Cumulative 16.1.95 source/package plus additive full HRIS lifecycle. No production or employee data changed by build."
+            m["release_changes"] = list(m.get("release_changes", [])) + [
+                "Adds workforce planning, recruitment/selection, contract/onboarding, attendance/shifts/leave, effective-dated compensation, approved legal rules, payroll events/payments/adjustments and final settlement handlers.",
+                "Adds effective-dated law-backed allowance split. Unknown categories remain taxable; no exemption caps or statutory rates are seeded.",
+                "Adds 24 HR lifecycle tables to the prior 49-table contract (new total 73); old 49 were not removed and schema changes are additive.",
+                "New payroll runs require an approved rule set covering the full payroll period and pin the exact rule-set ID/version to each line and period.",
+                "No live WordPress activation, production deployment or employee data mutation was performed by the builder."
+            ]
+            m.setdefault("payroll_integrity", {})
+            m["payroll_integrity"] = {
+                "runtime":"Versioned, effective-dated rule registry; payroll blocks when no approved rule set covers the complete period.",
+                "allowance_split":"Effective-dated approved rule splits the original component into taxable and exempt allocations and reconciles the original total to the cent.",
+                "unknown_allowance_categories":"taxable by default",
+                "statutory_rates_seeded":False,
+                "historical_posted_payroll_recalculated":False,
+                "employee_compensation_autofilled":False
+            }
+            m["preserved"]["schema_contract_total_changed_additively"] = True
+            m["preserved"]["historical_payroll_and_ledger_unchanged_by_build"] = True
+            m["baseline"] = "16.1.95"
+            m["release_gate_note"] = "16.1.98 is a candidate. Exact package tests are required; approved Ethiopian legal rules, live-like workflow tests, secure private documents, backup/restore, source parity and Owner/HR/Finance sign-off remain separate release gates."
+            t = json.dumps(m, ensure_ascii=False, indent=2) + "\n"
+        elif path == "README.md":
+            t = t.replace("16.1.95", "16.1.98", 1)
+            t += "\n\n## HRIS/Payroll lifecycle (16.1.98 candidate)\n\nThe current candidate extends the prior four HR/payroll tables to a 28-table HR/payroll subsystem and 73 total ERP tables. It includes workforce plans, positions/vacancies, candidate/application/interview stages, contracts, document metadata, onboarding, shifts, attendance, leave policies/balances/requests, compensation components, rule-set versions, audit events, payroll payments/adjustments, training/performance and settlement calculation. The private document vault itself must be integrated and security-tested before document handling can be certified. Payroll uses an effective-dated, approved ruleset; no tax rates or exemption caps are populated by this build. Do not upload this candidate to production until CI, legal review and staging acceptance pass.\n"
+        put(files, path, t)
+    return
+
+def rebuild_css(files):
+    module_path = ROOT + "assets/css/06-operational-guards.css"
+    css_path = ROOT + "assets/app.css"
+    min_path = ROOT + "assets/app.min.css"
+    modules_path = ROOT + "assets/css/modules.json"
+    module = files[module_path].decode("utf-8")
+    overlay = Path(__file__).resolve().parent / "hr_payroll_overlay" / "hr-lifecycle-ui.css"
+    css = overlay.read_text(encoding="utf-8")
+    marker = "/* HRIS lifecycle workspace: conservative SAP/Odoo-style data density"
+    if marker not in module:
+        module = module.rstrip() + "\n\n" + css.strip() + "\n"
+    files[module_path] = module.encode("utf-8")
+    modules = json.loads(files[modules_path].decode("utf-8"))
+    if len(modules.get("modules", [])) != 6 or len(set(modules["modules"])) != 6:
+        raise ValueError("Ordered CSS module manifest invalid.")
+    modules["release"] = RELEASE
+    modules["description"] = "16.1.98 ordered source CSS modules; HRIS forms, tables, workflow and mobile layout."
+    files[modules_path] = (json.dumps(modules, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+    chunks = [files[ROOT + "assets/css/" + name].decode("utf-8").strip() for name in modules["modules"]]
+    app_css = "\n\n".join(chunks) + "\n"
+    normalized = re.sub(r"/\*[\s\S]*?\*/", " ", app_css)
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+    normalized = re.sub(r"\s*([{}:;,])\s*", r"\1", normalized).replace(";}", "}")
+    files[css_path] = app_css.encode("utf-8")
+    files[min_path] = normalized.encode("utf-8")
+
+def patch_app_js(files):
+    app = text(files, "assets/app.js")
+    overlay = (Path(__file__).resolve().parent / "hr_payroll_overlay" / "hr-lifecycle-ui.js").read_text(encoding="utf-8")
+    start = app.find("function hr(){")
+    end = app.find("function slPayrollMinor(value)", start)
+    if start < 0 or end < 0 or end <= start:
+        raise ValueError("Could not locate exact existing HR dashboard JS boundary.")
+    wrapper = """function hr(){if(!state.hrLifecycleLoaded){return title('HR & People Operations','Loading the full employee lifecycle, legal rule registry and payroll workflow…','')+'<div id=\"hrPage\"><div class=\"sl-panel\"><div class=\"sl-skeleton\"><div class=\"sl-skeleton-line w85\"></div><div class=\"sl-skeleton-line w60\"></div><div class=\"sl-skeleton-line w40\"></div></div></div></div>';}return hrlcLifecycleLists(state.hrLifecycle||{});}\n"""
+    app = app[:start] + wrapper + overlay.strip() + "\n" + app[end:]
+    old_bind = "if($('#usersTable')){loadUsers();loadAvailableWPUsers();}if($('#locationsRegistry'))loadLocationsRegistry();if($('#hrPage'))loadHR();if($('#refreshHR'))$('#refreshHR').onclick=loadHR;"
+    new_bind = "if($('#usersTable')){loadUsers();loadAvailableWPUsers();}if($('#locationsRegistry'))loadLocationsRegistry();if($('#hrPage')&&!state.hrLifecycleLoaded&&!state.hrLifecycleLoading)loadHRLifecycle();bindHRLifecycleForms();"
+    app = once(app, old_bind, new_bind, "replace legacy HR dashboard event binding")
+    app = app.replace("16.1.95", RELEASE)
+    put(files, "assets/app.js", app)
+
+def patch_misc_versions(files):
+    for path in ("assets/pwa.js","assets/manifest.json","includes/class-stockland-frontend.php","assets/css/modules.json"):
+        if ROOT + path not in files: continue
+        t = text(files, path)
+        t = t.replace("16.1.95", RELEASE)
+        if path == "assets/manifest.json":
+            try:
+                m=json.loads(t); m["version"]=RELEASE; t=json.dumps(m,ensure_ascii=False,indent=2)+"\n"
+            except Exception: pass
+        if path == "assets/css/modules.json":
+            m=json.loads(t);m["release"]=RELEASE;t=json.dumps(m,ensure_ascii=False,indent=2)+"\n"
+        put(files,path,t)
+
+def transform_allowance_split(schema):
+    start = schema.find("\t\t\t$component = array(")
+    end = schema.find("\n\t\t\t$result['taxable_total']", start)
+    if start < 0 or end < 0:
+        raise ValueError("Could not find allowance component constructor in HR lifecycle source.")
+    new = """\t\t\t$base_component = array(
+				'category' => $category,
+				'label' => $label,
+				'original_amount' => $amount,
+				'system_rule_classified' => (bool) $rule,
+				'rule_set_id' => $rule ? (int) $rule['rule_set_id'] : null,
+				'rule_set_version' => $rule ? (string) $rule['rule_set_version'] : null,
+				'rule_approved_by' => $rule ? (int) $rule['approved_by'] : null,
+				'rule_approved_at' => $rule ? (string) $rule['approved_at'] : null,
+				'legal_basis' => $rule ? (string) $rule['source_title'] . ' — ' . (string) $rule['source_clause'] : '',
+				'evidence_reference' => $rule ? (string) $rule['source_url'] : '',
+				'source_hash' => $rule ? (string) $rule['source_sha256'] : '',
+				'owner_verified' => false,
+			);
+			// Store taxable and exempt allocations as separate ledger-like rows. This
+			// keeps every historical validator/snapshot reconciliation exact to cents.
+			if ( Stockland_Money::minor( $taxable ) > 0 ) {
+				$result['components'][] = array_merge( $base_component, array(
+					'amount' => $taxable, 'tax_treatment' => 'TAXABLE',
+					'taxable_amount' => $taxable, 'exempt_amount' => '0.00',
+					'pensionable_amount' => 'PENSIONABLE' === strtoupper( (string) ( $rule['pensionable_treatment'] ?? 'SALARY_ONLY' ) ) ? $taxable : '0.00',
+				) );
+			}
+			if ( Stockland_Money::minor( $exempt ) > 0 ) {
+				$result['components'][] = array_merge( $base_component, array(
+					'amount' => $exempt, 'tax_treatment' => 'EXEMPT',
+					'taxable_amount' => '0.00', 'exempt_amount' => $exempt,
+					'pensionable_amount' => 'PENSIONABLE' === strtoupper( (string) ( $rule['pensionable_treatment'] ?? 'SALARY_ONLY' ) ) ? $exempt : '0.00',
+				) );
+			}"""
+    return schema[:start] + new + schema[end:]
+
+
+def patch_resource_downloads(files):
+    """Add secure general-resource downloads inside the complete HR lifecycle package."""
+    entry = text(files, "stockland-inventory.php")
+    entry = once(
+        entry,
         "require_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-authority.php';",
         "require_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-authority.php';\nrequire_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-hr-resources.php';",
-        "HR resources class include")
-    files[main_path] = replace_once(
-        files[main_path],
+        "load HR resource download controller",
+    )
+    entry = once(
+        entry,
         "new Stockland_App();",
         "new Stockland_App();\n\t\tnew Stockland_HR_Resources();",
-        "HR resources download handler registration")
-    files[front_path] = replace_once(
-        files[front_path],
+        "register HR resource download controller",
+    )
+    put(files, "stockland-inventory.php", entry)
+
+    frontend = text(files, "includes/class-stockland-frontend.php")
+    frontend = once(
+        frontend,
         "'count_template' => esc_url_raw( STOCKLAND_PLUGIN_URL . 'templates/Stockland_Physical_Count_Template.xlsx' ),",
         "'count_template' => esc_url_raw( STOCKLAND_PLUGIN_URL . 'templates/Stockland_Physical_Count_Template.xlsx' ),\n\t\t\t'hr_resources'  => Stockland_HR_Resources::downloads(),",
-        "frontend HR resource catalogue")
-    css_manifest_path = ROOT + "assets/css/modules.json"
-    css_manifest = json.loads(files[css_manifest_path].decode("utf-8"))
-    css_manifest["release"] = TARGET
-    css_manifest["description"] = "16.1.98 HR resource download candidate; the six ordered CSS source modules remain byte-identical."
-    files[css_manifest_path] = (json.dumps(css_manifest, ensure_ascii=False, indent=2) + "\n").encode()
-    js = files[js_path].decode("utf-8")
-    helper_anchor = "function slPayrollMinor(value){"
-    helper = r'''
-function hrResourceCenter(){
-  const resources=Array.isArray(A.hr_resources)?A.hr_resources:[];
-  if(!resources.length)return '';
-  return '<section class="sl-panel sl-hr-resource-center"><div class="sl-block-head"><div><div class="sl-eyebrow">HR PROCESS CENTER</div><h3>Downloadable Resources</h3><small>Approved general templates and process guides. Personnel records and signed contracts are not stored here.</small></div><span class="sl-pill info">DOCX</span></div><div class="sl-grid sl-grid-compact">'+resources.map(r=>'<article class="sl-panel"><div class="sl-eyebrow">'+esc(r.category||'HR RESOURCE')+'</div><h4>'+esc(r.title||r.filename||'HR resource')+'</h4><p class="sl-sub">'+esc(r.description||'')+'</p><div class="sl-sub">'+esc(r.language||'English')+' · '+esc(r.version||'v1.0')+' · '+esc(r.filename||'DOCX')+'</div><a class="sl-btn primary" data-hr-resource-download data-filename="'+esc(r.filename||'resource.docx')+'" data-resource-title="'+esc(r.title||r.filename||'HR resource')+'" href="'+esc(r.download_url||'#')+'" download>DOWNLOAD DOCX</a></article>').join('')+'</div><p class="sl-sub">Templates are working resources, not a legal opinion or approval of current Ethiopian statutory treatment. Confirm official source, effective date, and Owner/HR/Finance review before operational use.</p></section>';
-}
-function bindHRResourceDownloads(){
-  document.querySelectorAll('[data-hr-resource-download]').forEach(a=>{
-    if(a.__hrResourceBound)return;
-    a.__hrResourceBound=true;
-    a.addEventListener('click',async ev=>{
-      ev.preventDefault();
-      if(a.getAttribute('aria-busy')==='true')return;
-      a.setAttribute('aria-busy','true');
-      try{
-        const response=await fetch(a.href,{credentials:'same-origin',cache:'no-store',headers:{'X-Requested-With':'XMLHttpRequest'}});
-        if(!response.ok)throw new Error('HTTP '+response.status+' — check your HR access and sign-in.');
-        const type=String(response.headers.get('content-type')||'').toLowerCase();
-        if(!type.includes('application/vnd.openxmlformats-officedocument.wordprocessingml.document'))throw new Error('The server did not return a valid DOCX download.');
-        const blob=await response.blob();
-        if(blob.size<1500)throw new Error('The downloaded document is unexpectedly small; try again or contact the ERP Owner.');
-        const url=URL.createObjectURL(blob);
-        const temp=document.createElement('a');temp.href=url;temp.download=a.dataset.filename||'Stockland_HR_Resource.docx';temp.style.display='none';document.body.appendChild(temp);temp.click();temp.remove();
-        window.setTimeout(()=>URL.revokeObjectURL(url),1500);
-        toast('Downloaded '+(a.dataset.resourceTitle||a.dataset.filename||'HR resource')+'.');
-      }catch(err){toast('Download failed: HR resource — '+String(err.message||err),true)}
-      finally{a.removeAttribute('aria-busy')}
-    });
-  });
-}
-'''
-    js = replace_once(js.encode(), helper_anchor, helper + "\n" + helper_anchor, "resource center renderer and download feedback").decode()
-    js = replace_once(
-        js.encode(),
-        "      setup+\n      '<div class=\"sl-panel\"><div class=\"sl-block-head\"><div><h3>Employee Master</h3>",
-        "      setup+\n      hrResourceCenter()+\n      '<div class=\"sl-panel\"><div class=\"sl-block-head\"><div><h3>Employee Master</h3>",
-        "responsive HR resource center placement").decode()
-    js = replace_once(
-        js.encode(),
-        "if(c.payroll_manage||c.payroll_approve){renderPayrollTable(d,c);}document.querySelectorAll('[data-hr-comp]')",
-        "if(c.payroll_manage||c.payroll_approve){renderPayrollTable(d,c);}bindHRResourceDownloads();document.querySelectorAll('[data-hr-comp]')",
-        "bind resource click feedback after HR render").decode()
-    files[js_path] = js.encode()
-    manifest = json.loads(files[manifest_path].decode())
-    manifest["release"] = TARGET
-    manifest["release_label"] = "Stockland Ethiopia ERP — HR resource download candidate 16.1.98"
-    manifest.setdefault("release_changes", []).append(
-        "16.1.98 candidate: responsive HR Process Center resources with nonce-protected, role-checked, real DOCX downloads and browser success/error feedback.")
-    manifest["schema_contract"] = {"total":49,"core_operations":29,"accounting_procurement":16,"hr_payroll":4}
-    manifest["schema_changed"] = False
-    manifest["live_business_data_changed"] = False
-    manifest["hr_resource_downloads"] = {
-        "resources": [v["filename"] for v in DOCS.values()],
-        "format": "OOXML DOCX (not a legacy .doc file or renamed HTML)",
-        "handler": "admin-post with signed WordPress nonce and Stockland_Authority::can_view_hr",
-        "direct_public_urls": False,
-        "status": "candidate component only; does not complete the full HR lifecycle"
-    }
-    manifest["production_acceptance"] = {
-        "status":"PENDING — candidate component only",
-        "live_source_parity":"PENDING — builder input is the checksum-locked 16.1.95 installer; live site was reported as 16.1.97. No in-place install until source parity and intervening fixes are proven.",
-        "pending":["full HR lifecycle implementation and isolated end-to-end tests","role/location authorization and direct-download denial tests on target hosting","current Ethiopian labour/tax/pension legal review","Owner/HR/Finance acceptance","verified backup/restore and rollback receipts"]
-    }
-    files[manifest_path] = (json.dumps(manifest, ensure_ascii=False, indent=2) + "\n").encode()
-    readme = files[readme_path].decode("utf-8")
-    note = "\n\n## HR Process Center download candidate (16.1.98)\n\nThe candidate adds nonce-protected, role-checked and audited downloads of genuine DOCX general templates in the HR & Payroll workspace. It does not contain employee-specific documents, does not change the 49-table schema or live business data, and is not by itself a complete HR lifecycle release. Source-parity gate: the verified builder input is 16.1.95 while the live site was reported as 16.1.97. Do not install in place until exact source parity is proven and intervening fixes are preserved. See the release manifest and acceptance gates.\n"
-    if "HR Process Center download candidate (16.1.98)" in readme:
-        raise SystemExit("README already contains 16.1.98 HR resource section")
-    files[readme_path] = (readme.rstrip() + note).encode()
-    files[ROOT + "includes/class-stockland-hr-resources.php"] = (Path(__file__).resolve().parent / "hr_payroll_overlay_16_1_98" / "class-stockland-hr-resources.php").read_bytes()
-    files[ROOT + "includes/class-stockland-hr-resource-files.php"] = resource_files_php()
-    if not files[ROOT + "includes/class-stockland-hr-resources.php"]:
-        raise SystemExit("HR resource handler source is empty")
-    output.parent.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as zout:
-        for name, data in files.items():
-            zout.writestr(name, data)
-    final = output.read_bytes()
-    digest = sha256(final)
-    output.with_suffix(output.suffix + ".sha256").write_text(digest + "  " + output.name + "\n", encoding="utf-8")
-    receipt = {
-        "release": TARGET,
-        "baseline_installer_sha256": BASELINE_SHA256,
-        "installer_sha256": digest,
-        "installer_size_bytes": len(final),
-        "package_files": len(files),
-        "schema_changed": False,
-        "live_business_data_changed": False,
-        "resource_downloads": [doc["filename"] for doc in DOCS.values()],
-        "candidate_component_only": True,
-        "production_ready": False,
-        "production_gates_pending": ["prove exact source parity with live 16.1.97 and preserve all intervening fixes; builder baseline is 16.1.95", "full HR lifecycle E2E", "target-host access/download tests", "legal review", "Owner/HR/Finance acceptance", "backup/restore and rollback"]
-    }
-    print(json.dumps(receipt, ensure_ascii=False, sort_keys=True))
+        "pass authorized HR resources to ERP frontend",
+    )
+    put(files, "includes/class-stockland-frontend.php", frontend)
 
-if __name__ == "__main__":
-    main()
+    handler_path = Path(__file__).resolve().parent / "hr_payroll_overlay_16_1_98" / "class-stockland-hr-resources.php"
+    if not handler_path.is_file():
+        raise ValueError("Required role-gated HR resource handler source missing.")
+    handler = handler_path.read_text(encoding="utf-8")
+    if "Stockland_Audit::log(" not in handler or "check_admin_referer" not in handler or "Stockland_Authority::can_view_hr()" not in handler:
+        raise ValueError("HR resource handler is missing required nonce, capability or audit controls.")
+    files[ROOT + "includes/class-stockland-hr-resources.php"] = handler.encode("utf-8")
+
+    payload_path = Path(__file__).resolve().parent / "hr_resource_payload_source_16_1_98.py"
+    spec = importlib.util.spec_from_file_location("stockland_hr_resource_payload_source", payload_path)
+    if spec is None or spec.loader is None:
+        raise ValueError("Cannot load deterministic HR resource payload source.")
+    payload_source = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(payload_source)
+    payload_php = payload_source.resource_files_php()
+    files[ROOT + "includes/class-stockland-hr-resource-files.php"] = payload_php
+
+    manifest_path = ROOT + "RELEASE_MANIFEST.json"
+    manifest = json.loads(files[manifest_path].decode("utf-8"))
+    manifest["hr_resource_downloads"] = {
+        "resources": [doc["filename"] for doc in payload_source.DOCS.values()],
+        "format": "genuine OOXML DOCX; not legacy .doc or renamed HTML",
+        "handler": "admin-post with WordPress nonce, Stockland HR authorization and append-only audit-chain event",
+        "public_static_file_urls": False,
+        "placement": "inside the HR & Payroll lifecycle workspace",
+        "status": "candidate implementation; still requires target-host click/access tests and full HR lifecycle acceptance",
+    }
+    pending = manifest.setdefault("production_acceptance", {}).setdefault("pending", [])
+    parity_gate = "Compare against the reported live 16.1.97 source; this candidate builder is locked to 16.1.95. Do not install in place until all intervening fixes are preserved."
+    if parity_gate not in pending:
+        pending.insert(0, parity_gate)
+    files[manifest_path] = (json.dumps(manifest, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+
+    readme_path = ROOT + "README.md"
+    readme = files[readme_path].decode("utf-8")
+    heading = "## HR Process Center downloads (16.1.98 candidate)"
+    if heading not in readme:
+        readme += (
+            "\n\n" + heading + "\n\n"
+            "The full HR lifecycle candidate includes a responsive resource center within HR & Payroll. "
+            "It provides real OOXML DOCX templates through authenticated, nonce-protected, HR-authorized "
+            "and audited downloads. This does not substitute for the full lifecycle controls, current "
+            "Ethiopian legal review, target-host acceptance or source-parity check. The package is based "
+            "on 16.1.95 while the live site was reported as 16.1.97; do not install in place before all "
+            "intervening fixes are proven preserved.\n"
+        )
+    files[readme_path] = readme.encode("utf-8")
+
+def build(input_zip: Path, output_zip: Path):
+    raw = input_zip.read_bytes()
+    if sha256(raw) != BASE_SHA256:
+        raise ValueError("Input 16.1.95 package SHA-256 is not the locked canonical baseline.")
+    with zipfile.ZipFile(input_zip) as zin:
+        if zin.testzip() is not None:
+            raise ValueError("Input archive CRC failure.")
+        infos = [i for i in zin.infolist() if not i.is_dir()]
+        names = [i.filename for i in infos]
+        if len(names) != 75 or len(set(names)) != 75:
+            raise ValueError("Locked 16.1.95 package must have exactly 75 unique files.")
+        if any(PurePosixPath(n).parts[0] != "stockland-erp-app" or ".." in PurePosixPath(n).parts for n in names):
+            raise ValueError("Unexpected ZIP root/path traversal.")
+        files = {i.filename: zin.read(i.filename) for i in infos}
+    schema = (Path(__file__).resolve().parent / "hr_payroll_overlay" / "class-stockland-hr-lifecycle.php").read_text(encoding="utf-8")
+    schema = transform_allowance_split(schema)
+    # Add the employer-side pension ledger amount required to balance exit settlement journals.
+    schema = once(schema,
+        "employee_pension_total DECIMAL(14,2) NOT NULL DEFAULT 0.00,\n\t\t\tother_deductions_total DECIMAL(14,2) NOT NULL DEFAULT 0.00,",
+        "employee_pension_total DECIMAL(14,2) NOT NULL DEFAULT 0.00,\n\t\t\temployer_pension_total DECIMAL(14,2) NOT NULL DEFAULT 0.00,\n\t\t\tother_deductions_total DECIMAL(14,2) NOT NULL DEFAULT 0.00,",
+        "final settlement employer pension column")
+    rest = (Path(__file__).resolve().parent / "hr_payroll_overlay" / "class-rest-hr-lifecycle.php").read_text(encoding="utf-8")
+    patch_main(files, schema, rest)
+    patch_hr_schema(files)
+    patch_statutory(files)
+    patch_hr_rest(files)
+    patch_health(files)
+    rebuild_css(files)
+    patch_app_js(files)
+    patch_misc_versions(files)
+    patch_resource_downloads(files)
+    # Two lifecycle controllers and two resource-download PHP files are added to the runtime package.
+    out_names = list(names)
+    additions = (
+        ROOT+"includes/class-stockland-hr-lifecycle.php",
+        ROOT+"includes/rest/class-rest-hr-lifecycle.php",
+        ROOT+"includes/class-stockland-hr-resources.php",
+        ROOT+"includes/class-stockland-hr-resource-files.php",
+    )
+    for addition in additions:
+        if addition not in out_names:
+            out_names.append(addition)
+    if len(out_names) != 79 or len(set(out_names)) != 79:
+        raise ValueError(f"Final runtime package inventory mismatch: {len(out_names)} files.")
+    if any(out_names.count(name) != 1 for name in additions):
+        raise ValueError("Each HR lifecycle/resource PHP file must be included exactly once.")
+    manifest = json.loads(files[ROOT+"RELEASE_MANIFEST.json"].decode("utf-8"))
+    if manifest["schema_contract"] != {"total":73,"core_operations":29,"accounting_procurement":16,"hr_payroll":28}:
+        raise ValueError("73-table manifest contract incorrect.")
+    # Ensure unseeded source-based legal rules: no ETB 1,000 exemption is embedded.
+    if re.search(r"exemption_cap.{0,20}1000(?:\.00)?", schema, re.I):
+        raise ValueError("A legal exemption cap must not be hard-coded into shipped source.")
+    # Check dynamic payroll call sites are tied to the approved period ruleset.
+    hr_rest = files[ROOT+"includes/rest/class-rest-hr.php"].decode("utf-8")
+    if "Stockland_HR_Lifecycle::payroll_rules_for_period" not in hr_rest or "$payroll_rules );" not in hr_rest:
+        raise ValueError("New payroll generation is not wired to approved effective-dated rules.")
+    output_zip.parent.mkdir(parents=True, exist_ok=True)
+    tmp = output_zip.with_suffix(output_zip.suffix+".tmp")
+    with zipfile.ZipFile(tmp,"w",compression=zipfile.ZIP_DEFLATED,compresslevel=9) as zout:
+        for name in out_names:
+            # Keep a one-root installable WordPress plugin archive.
+            info = next((i for i in infos if i.filename==name), None)
+            zi = zipfile.ZipInfo(name, date_time=info.date_time if info else (2026,10,24,0,0,0))
+            zi.compress_type=zipfile.ZIP_DEFLATED
+            zi.external_attr=info.external_attr if info else 0o100644 << 16
+            zi.create_system=info.create_system if info else 3
+            zout.writestr(zi,files[name],compress_type=zipfile.ZIP_DEFLATED,compresslevel=9)
+    with zipfile.ZipFile(tmp) as check:
+        bad=check.testzip()
+        actual=[i.filename for i in check.infolist() if not i.is_dir()]
+        if bad is not None or actual != out_names:
+            tmp.unlink(missing_ok=True);raise ValueError("Final ZIP failed CRC/inventory verification.")
+    tmp.replace(output_zip)
+    digest=sha256(output_zip.read_bytes())
+    side=output_zip.with_suffix(output_zip.suffix+".sha256")
+    side.write_text(f"{digest}  {output_zip.name}\n",encoding="ascii")
+    receipt={
+        "release":RELEASE,"baseline_release":"16.1.95","baseline_sha256":BASE_SHA256,
+        "installer":output_zip.name,"installer_sha256":digest,"runtime_file_count":79,
+        "implementation_scope":"full HR/Payroll lifecycle candidate plus secure resource library; not a document-only build",
+        "schema_contract":{"total":73,"core_operations":29,"accounting_procurement":16,"hr_payroll":28},
+        "new_tables":24,"statutory_rates_or_exemption_caps_seeded":False,
+        "production_database_touched":False,"wordpress_activated":False,
+        "required_external_acceptance":["compare candidate source with live 16.1.97; builder baseline is 16.1.95 and in-place install is blocked until intervening fixes are preserved","official Ethiopian gazette text/effective dates and independent payroll/tax/pension sign-off","private employee-document vault integration and access tests","full isolated WordPress/MariaDB lifecycle E2E","two-period parallel payroll and GL/PLEDGER reconciliation","backup/restore/rollback","deep-integrity and Owner/HR/Finance acceptance receipts"]
+    }
+    output_zip.with_suffix(".receipt.json").write_text(json.dumps(receipt,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+    print(json.dumps(receipt,ensure_ascii=False,indent=2))
+
+if __name__=="__main__":
+    ap=argparse.ArgumentParser()
+    ap.add_argument("--input",required=True,type=Path)
+    ap.add_argument("--output",required=True,type=Path)
+    args=ap.parse_args()
+    build(args.input,args.output)
