@@ -33,6 +33,13 @@ def main():
         assert report["legacy_hr_routes"]["count"]==13
         assert not report["legacy_hr_routes"]["missing_permission_callback_lines"]
         assert (root/"canonical"/"hr_table_dependency_index.csv").stat().st_size>1000
+        context_csv=root/"canonical"/"hr_legacy_dependency_context.csv"
+        assert context_csv.is_file() and context_csv.stat().st_size>1000
+        context_text=context_csv.read_text(encoding="utf-8-sig")
+        assert "payroll_generate" in context_text
+        assert "payroll_approve" in context_text
+        assert "payroll_pay" in context_text
+        assert "Static lexical/function-context lead only" in context_text
         wrong=run(installer,root/"wrong-hash",allow=True,expected_sha="0"*64)
         assert wrong.returncode==0
         wr=json.loads((root/"wrong-hash"/"hr_replacement_baseline_audit.json").read_text())
