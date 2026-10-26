@@ -44,7 +44,7 @@ final class Stockland_HR_Payroll_Calculator {
 			$items,
 			static function ( $left, $right ) {
 				$code_order = strcmp( strtoupper( (string) ( $left['item_code'] ?? '' ) ), strtoupper( (string) ( $right['item_code'] ?? '' ) ) );
-				return 0 !== $code_order ? $code_order : strcmp( (string) ( $left['source_reference'] ?? '' ), (string) ( $right['source_reference'] ?? '' ) );
+				return 0 !== $code_order ? $code_order : strcmp( (string) ( $left['input_reference'] ?? '' ), (string) ( $right['input_reference'] ?? '' ) );
 			}
 		);
 
@@ -65,11 +65,15 @@ final class Stockland_HR_Payroll_Calculator {
 			if ( ! preg_match( '/^[A-Z][A-Z0-9_]{1,63}$/', $code ) || ! isset( $rule['components'][ $code ] ) ) {
 				throw new DomainException( 'Unknown payroll item code; legal classification review is required.' );
 			}
+			$input_ref = trim( (string) ( $item['input_reference'] ?? '' ) );
 			$source_ref = trim( (string) ( $item['source_reference'] ?? '' ) );
-			if ( '' === $source_ref || isset( $seen_sources[ $source_ref ] ) ) {
-				throw new DomainException( 'Every payroll input needs a unique source reference to prevent duplicate inclusion.' );
+			if ( '' === $input_ref || isset( $seen_sources[ $input_ref ] ) ) {
+				throw new DomainException( 'Every payroll item needs a unique input reference to prevent duplicate inclusion.' );
 			}
-			$seen_sources[ $source_ref ] = true;
+			if ( '' === $source_ref ) {
+				throw new DomainException( 'Every payroll item needs a source reference for traceability.' );
+			}
+			$seen_sources[ $input_ref ] = true;
 			$amount = self::money_to_minor( $item['amount'] ?? null );
 			if ( $amount <= 0 ) {
 				throw new DomainException( 'Payroll input amounts must be positive; submit a separately approved correction for negative adjustments.' );
@@ -122,6 +126,7 @@ final class Stockland_HR_Payroll_Calculator {
 				'tax_treatment' => $tax_treatment,
 				'pension_treatment' => $pension_treatment,
 				'rule_version' => (string) $rule['version'],
+				'input_reference' => $input_ref,
 				'source_reference' => $source_ref,
 				'evidence_reference' => $evidence,
 				'basis_reference' => $basis,
