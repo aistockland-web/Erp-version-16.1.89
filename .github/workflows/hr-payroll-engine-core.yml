@@ -2,7 +2,7 @@ name: Stockland HR/payroll domain core tests
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feature/hr-payroll-replacement-phase0]
     paths:
       - 'ci/hr_payroll_candidate/**'
       - '.github/workflows/hr-payroll-engine-core.yml'
