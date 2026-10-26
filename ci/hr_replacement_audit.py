@@ -136,13 +136,38 @@ def main() -> None:
     routes_without_perm=[x for x in routes if not x["has_permission_callback"]]
     if routes_without_perm: failures.append("legacy HR registration missing literal permission callback at lines "+str([x['line'] for x in routes_without_perm]))
     consumers={k:[] for k in sorted(declared_keys)}
+    dependency_context_rows=[]
+    route_callback_context={}
+    for route in routes:
+        for callback in route.get("callbacks",[]):
+            route_callback_context.setdefault(callback,[]).append({
+                "route":route.get("path") or "(dynamic/unparsed route)",
+                "methods":",".join(route.get("methods",[])) or "(not parsed)",
+                "line":route.get("line")
+            })
     for path,data in files.items():
         if not path.endswith('.php'): continue
         rel=path[len(ROOT):]; source=data.decode("utf-8",errors="replace")
+        function_matches=list(re.finditer(r"(?m)^\s*(?:(?:public|protected|private|static|final|abstract)\s+)*function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(",source))
+        function_starts=[(m.start(),m.group(1)) for m in function_matches]
         for kind,pattern in [("DB::table",r"Stockland_DB::table\(\s*['\"]([a-z][a-z0-9_]*)['\"]"),("physical_stock_table",r"\bstock_([a-z][a-z0-9_]*)\b")]:
             for m in re.finditer(pattern,source,re.I):
                 key=m.group(1).lower()
-                if key in consumers: consumers[key].append({"path":rel,"line":source[:m.start()].count("\n")+1,"kind":kind,"excerpt":source[m.start():m.start()+100].splitlines()[0][:100]})
+                if key not in consumers: continue
+                pos=m.start()
+                prior=[item for item in function_starts if item[0]<=pos]
+                function=prior[-1][1] if prior else "(class scope / no function parsed)"
+                line=source.count("\n",0,pos)+1
+                context=source[max(0,pos-260):min(len(source),pos+260)]
+                operation="MIXED/REVIEW"
+                if re.search(r"\b(INSERT\s+INTO|UPDATE|DELETE\s+FROM|REPLACE\s+INTO)\b",context,re.I):
+                    operation="POSSIBLE_WRITE"
+                elif re.search(r"\bSELECT\b",context,re.I):
+                    operation="POSSIBLE_READ"
+                route_refs=route_callback_context.get(function,[])
+                entry={"path":rel,"line":line,"kind":kind,"function":function,"operation_hint":operation,"route_refs":route_refs,"excerpt":source[m.start():m.start()+100].splitlines()[0][:100]}
+                consumers[key].append(entry)
+                dependency_context_rows.append({"table_key":key,**entry})
     service_status={}
     for service,rel in SHARED_SERVICE_CANDIDATES.items():
         key=ROOT+rel; service_status[service]={"path":rel,"exists":key in files,"sha256":digest(files[key]) if key in files else None}
@@ -174,6 +199,11 @@ def main() -> None:
             ddl=";".join(f"{x['path']}:{x['line']}" for x in declared[key]); refs=consumers.get(key,[])
             locs=";".join(f"{x['path']}:{x['line']}[{x['kind']}]" for x in refs)
             w.writerow([key,ddl,len(refs),locs,"Navigation only; verify execution and runtime paths before migration."])
+    with (args.output_dir/"hr_legacy_dependency_context.csv").open("w",newline="",encoding="utf-8-sig") as f:
+        w=csv.writer(f); w.writerow(["table_key","source_file","line","function_scope_inferred","operation_hint","kind","route_methods_paths","source_excerpt","interpretation"])
+        for item in sorted(dependency_context_rows,key=lambda x:(x["table_key"],x["path"],x["line"])):
+            routes_cell="; ".join(r["methods"]+" "+r["route"] for r in item["route_refs"])
+            w.writerow([item["table_key"],item["path"],item["line"],item["function"],item["operation_hint"],item["kind"],routes_cell,item["excerpt"],"Static lexical/function-context lead only; inspect complete call flow before migration."])
     (args.output_dir/"hr_baseline_source_fingerprints.csv").write_text("path,sha256\n"+"".join(f'"{p}",{h}\n' for p,h in sorted(source_hashes.items())),encoding="utf-8")
     print(json.dumps({"pass":not failures,"release":manifest.get("release"),"sha256":actual_sha,"members":len(names),"php_files":php_count,"core_tables":len(core_keys),"finance_procurement_tables":len(finance_keys),"legacy_hr_tables":len(hr_keys),"static_ddl_tables":len(declared_keys),"legacy_hr_routes":len(routes),"failure_count":len(failures),"failures":failures,"report":str(out)},indent=2))
     if failures and not args.allow_noncanonical: raise SystemExit(2)
