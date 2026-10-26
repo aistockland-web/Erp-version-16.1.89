@@ -106,7 +106,7 @@ jobs:
       - name: Validate CSS source modules, PostCSS syntax and responsive selectors
         env:
           NODE_PATH: ${{ runner.temp }}/cssqa/node_modules
-        run: node ci/qa/check-css-postcss.js "$STOCKLAND_APP"
+        run: node ci/qa/check-css-postcss.js "$STOCKLAND_APP" --scope baseline
 
   wordpress-coding-standards:
     name: WordPress Coding Standards (PHPCS/WPCS)
