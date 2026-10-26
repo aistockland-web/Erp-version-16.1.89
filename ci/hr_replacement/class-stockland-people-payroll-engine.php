@@ -95,7 +95,9 @@ final class Stockland_People_Payroll_Engine {
 			if ( ! $exceptions ) {
 				// A payroll cutoff locks only the approved target-domain time entries
 				// within this period, within the same transaction as the snapshot.
-				$wpdb->update( Stockland_People_Replacement::table( 'people_time_entries' ), array( 'status'=>'LOCKED','locked_at'=>$now,'version_no'=>1 ), array( 'status'=>'APPROVED' ) );
+				$time_table = Stockland_People_Replacement::table( 'people_time_entries' );
+				$lock_sql = $wpdb->prepare( "UPDATE %i SET status='LOCKED',locked_at=%s,version_no=version_no+1,updated_by=%d,updated_at=%s WHERE status='APPROVED' AND work_date BETWEEN %s AND %s", $time_table, $now, get_current_user_id(), $now, $run['period_start'], $run['period_end'] );
+				if ( false === $wpdb->query( $lock_sql ) ) { throw new RuntimeException( 'Could not lock approved target-domain time entries for payroll cutoff.' ); }
 			}
 			if ( ! Stockland_People_Replacement::event( 'payroll-run', $run_id, 'PAYROLL_CALCULATED', 'DRAFT', $status, $exceptions ? 'Held for blocking exceptions' : 'Deterministic calculation completed', array( 'snapshot_hash'=>$snapshot_hash,'line_count'=>count($line_ids),'exception_count'=>$exceptions,'rule_set_id'=>(int)$rule['id'] ) ) ) {
 				throw new RuntimeException( 'Payroll calculation audit event failed.' );
@@ -162,7 +164,7 @@ final class Stockland_People_Payroll_Engine {
 				throw new RuntimeException( 'Malformed progressive PAYE band.' );
 			}
 			$lower = Stockland_Money::minor( $band['lower'] );
-			if ( $lower <= $last ) { throw new RuntimeException( 'PAYE band lower bounds must increase strictly.' ); }
+			if ( $lower < $last ) { throw new RuntimeException( 'PAYE bands overlap or lower bounds are not increasing.' ); }
 			if ( ! array_key_exists( 'upper', $band ) || null === $band['upper'] ) {
 				$last = PHP_INT_MAX;
 			} else {
@@ -230,9 +232,12 @@ final class Stockland_People_Payroll_Engine {
 			$cursor = date( 'Y-m-d', strtotime( $cursor . ' +1 day' ) );
 		}
 		if ( ! $hold && empty( $rule_items['BASE_SALARY'] ) ) { $hold = 'BASE_SALARY classification is missing from the active reviewed rule set.'; }
+		$base_class = strtoupper( (string) ( $rule_items['BASE_SALARY']['classification_code'] ?? '' ) );
+		if ( ! $hold && ! in_array( $base_class, array( 'TAXABLE_PENSIONABLE','TAXABLE_NONPENSIONABLE','EXEMPT_PENSIONABLE','EXEMPT_NONPENSIONABLE' ), true ) ) {
+			$hold = 'BASE_SALARY classification is not an approved taxable/exempt earning.';
+		}
 		if ( ! $hold ) {
-			$components['BASE_SALARY'] = $base;
-			$component_evidence[] = array( 'component_code'=>'BASE_SALARY', 'amount'=>$base, 'rule_item_id'=>(int)$rule_items['BASE_SALARY']['id'] );
+			$component_evidence[] = array( 'component_code'=>'BASE_SALARY', 'amount'=>$base, 'rule_item_id'=>(int)$rule_items['BASE_SALARY']['id'], 'classification_code'=>$base_class );
 		}
 		$assignment_ids = array();
 		foreach ( $assignment_by_day as $day => $a ) { if ( ! isset($unpaid_days[$day]) ) $assignment_ids[(int)$a['id']] = $a; }
@@ -286,6 +291,9 @@ final class Stockland_People_Payroll_Engine {
 		}
 		$taxable = '0.00'; $exempt = '0.00'; $pensionable = '0.00'; $deductions = '0.00';
 		if ( ! $hold ) {
+			if ( in_array( $base_class, array( 'TAXABLE_PENSIONABLE','TAXABLE_NONPENSIONABLE' ), true ) ) { $taxable = $base; }
+			if ( in_array( $base_class, array( 'EXEMPT_PENSIONABLE','EXEMPT_NONPENSIONABLE' ), true ) ) { $exempt = $base; }
+			if ( in_array( $base_class, array( 'TAXABLE_PENSIONABLE','EXEMPT_PENSIONABLE' ), true ) ) { $pensionable = $base; }
 			foreach ( $components as $code => $amount ) {
 				$item = $rule_items[$code] ?? null;
 				if ( ! $item ) { $hold = 'Missing classification rule for ' . $code . '.'; break; }
@@ -297,7 +305,9 @@ final class Stockland_People_Payroll_Engine {
 				if ( in_array($class,array('TAXABLE_PENSIONABLE','EXEMPT_PENSIONABLE'),true) ) { $pensionable = Stockland_Money::add($pensionable,$amount); }
 			}
 		}
-		$gross = Stockland_Money::add( Stockland_Money::add($base,$taxable), $exempt );
+		$component_taxable_total = in_array( $base_class, array( 'TAXABLE_PENSIONABLE','TAXABLE_NONPENSIONABLE' ), true ) ? Stockland_Money::subtract( $taxable, $base ) : $taxable;
+		$component_exempt_total = in_array( $base_class, array( 'EXEMPT_PENSIONABLE','EXEMPT_NONPENSIONABLE' ), true ) ? Stockland_Money::subtract( $exempt, $base ) : $exempt;
+		$gross = Stockland_Money::add( $base, Stockland_Money::add( $component_taxable_total, $component_exempt_total ) );
 		$employee_pension = '0.00'; $employer_pension = '0.00'; $paye = '0.00'; $net = '0.00'; $cost = '0.00'; $taxable_base = $taxable;
 		if ( ! $hold ) {
 			$employee_pension = Stockland_Money::percentage( $pensionable, (string)$params['employee_pension_rate'] );
@@ -309,9 +319,7 @@ final class Stockland_People_Payroll_Engine {
 			}
 			if ( ! $hold ) {
 				$paye = self::calculate_paye( $taxable_base, $params );
-				$deductions = Stockland_Money::add($deductions,$employee_pension);
-				$deductions = Stockland_Money::add($deductions,$paye);
-				$net = Stockland_Money::subtract($gross,$deductions);
+				$net = Stockland_Money::subtract( Stockland_Money::subtract( Stockland_Money::subtract( $gross, $employee_pension ), $paye ), $deductions );
 				$cost = Stockland_Money::add($gross,$employer_pension);
 				if ( Stockland_Money::minor($net) < 0 ) { $hold = 'Net pay is negative; deductions or inputs require authorized review.'; }
 			}
@@ -323,7 +331,7 @@ final class Stockland_People_Payroll_Engine {
 			'assignment_by_day'=>array_map(static function($a){return (int)$a['id'];},$assignment_by_day),
 			'unpaid_days'=>array_keys($unpaid_days),'rule_set_id'=>(int)$rule['id'],'rule_version'=>$rule['version_label'],
 			'rule_source_sha256'=>$rule['source_sha256'],'component_evidence'=>$component_evidence,
-			'components'=>$components,'taxable_base'=>$taxable_base,'pensionable_base'=>$pensionable,
+			'components'=>$components,'taxable_components'=>$component_taxable_total,'exempt_components'=>$component_exempt_total,'taxable_base'=>$taxable_base,'pensionable_base'=>$pensionable,
 			'gross'=>$gross,'paye'=>$paye,'employee_pension'=>$employee_pension,'employer_pension'=>$employer_pension,'deductions'=>$deductions,'net'=>$net,
 		);
 		return array(
