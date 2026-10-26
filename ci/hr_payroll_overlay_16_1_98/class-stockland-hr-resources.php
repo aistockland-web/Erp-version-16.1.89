@@ -2,6 +2,8 @@
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
+require_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-hr-resource-files.php';
+
 
 /**
  * Access-controlled downloads for general HR process resources.
