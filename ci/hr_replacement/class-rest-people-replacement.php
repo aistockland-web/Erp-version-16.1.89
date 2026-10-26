@@ -46,7 +46,7 @@ final class Stockland_REST_People_Replacement extends Stockland_REST_Base {
 	private function ready() { $s=Stockland_People_Replacement::schema_status(); return !empty($s['ready']); }
 
 	public function status($r) {
-		return rest_ensure_response(array('schema'=>Stockland_People_Replacement::schema_status(),'legacy_tables_are_targets'=>false,'legacy_tables_are_migration_sources'=>true,'production_certified'=>false,'message'=>'Replacement target only; cutover requires a separate approved migration and reconciliation.'));
+		return rest_ensure_response(array('schema'=>Stockland_People_Replacement::schema_status(),'legacy_tables_are_targets'=>false,'legacy_tables_are_migration_sources'=>true,'production_certified'=>false,'can_install_schema'=>$this->can_install_schema(),'message'=>'Replacement target only; cutover requires a separate approved migration and reconciliation.'));
 	}
 	public function install_schema($r) {
 		if (!$this->can_install_schema($r)) return new WP_Error('people_schema_forbidden','Owner schema and HR-management permissions are required.',array('status'=>403));
@@ -57,7 +57,7 @@ final class Stockland_REST_People_Replacement extends Stockland_REST_Base {
 		$schema=Stockland_People_Replacement::schema_status();
 		if (empty($schema['ready'])) return new WP_REST_Response(array('ready'=>false,'schema'=>$schema,'legacy_fallback'=>false,'message'=>'New target tables must be installed by an authorized administrator.'),503);
 		$entities=array();
-		foreach(self::specs() as $k=>$s) if($this->can_read($s)) $entities[]=array('id'=>$k,'title'=>$s['title'],'description'=>$s['description'],'can_create'=>$this->can_write($s));
+		foreach(self::specs() as $k=>$s) if($this->can_read($s)) $entities[]=array('id'=>$k,'title'=>$s['title'],'description'=>$s['description'],'can_create'=>$this->can_write($s),'fields'=>$s['fields'],'required'=>$s['required'],'list_fields'=>$s['list']);
 		return rest_ensure_response(array('ready'=>true,'schema'=>$schema,'company'=>'STOCKLAND ETHIOPIA','locations'=>array('CENTRAL WAREHOUSE','GORO BRANCH','GERJI BRANCH','MEXICO BRANCH','MEGENAGNA BRANCH'),'entities'=>$entities,'capabilities'=>array('hr_prepare'=>$this->can_prepare_hr(),'hr_approve'=>$this->can_approve_hr(),'payroll_prepare'=>$this->can_prepare_payroll(),'payroll_approve'=>$this->can_approve_payroll(),'finance'=>$this->can_finance(),'legal_review'=>$this->can_review_legal_rule()),'workflow'=>array('employment'=>array('Workforce plan','Vacancy','Candidate review','Human selection','Contract','Onboarding','Employee activation','Time and leave','Approved compensation','Payroll','Exit and final settlement'),'payroll'=>array('Draft','Calculated','Submitted','Approved','Posted','Payment batch','Confirmed recipient payment','Remittance','Reconciled','Closed'),'payees'=>array('Draft','Submitted','Legal review','Approved','Ready to pay','Paid or failed','Reconciled','Closed'))));
 	}
 
