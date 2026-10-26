@@ -137,6 +137,10 @@ def main():
             "authenticated nonce-protected download handler is incomplete")
     require("Stockland_Authority::can_view_hr()" in handler,
             "server-side HR capability check is missing")
+    require("Stockland_Audit::log(" in handler and "'HR_RESOURCE_DOWNLOAD'" in handler,
+            "resource downloads must be written to the append-only audit chain")
+    require("audit event was not recorded" in handler,
+            "download must fail closed if its audit event cannot be stored")
     require("Content-Disposition: attachment" in handler and MIME in handler,
             "correct DOCX download headers are missing")
     require("sanitize_key" in handler and "self::catalog()" in handler,
