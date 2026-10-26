@@ -13,6 +13,7 @@ on:
       - 'ci/qa/test-release-invariants.py'
       - 'ci/qa/test-phpcs-security-review.py'
       - 'ci/qa/summarize-semgrep.py'
+      - 'ci/qa/test_summarize_semgrep.py'
       - 'ci/qa/stockland-phpcs.xml'
       - '.github/workflows/erp-16-1-89-deep-gates.yml'
   pull_request:
@@ -27,6 +28,7 @@ on:
       - 'ci/qa/test-release-invariants.py'
       - 'ci/qa/test-phpcs-security-review.py'
       - 'ci/qa/summarize-semgrep.py'
+      - 'ci/qa/test_summarize_semgrep.py'
       - 'ci/qa/stockland-phpcs.xml'
       - '.github/workflows/erp-16-1-89-deep-gates.yml'
   workflow_dispatch:
@@ -79,6 +81,8 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0 — immutable SHA
         with:
           node-version: "22"
+      - name: Test Semgrep coverage gate with synthetic reports
+        run: python ci/qa/test_summarize_semgrep.py
       - name: Install parser used by the CSS regression test
         run: npm install --prefix "$RUNNER_TEMP/cssqa" --no-save postcss@8
       - name: Extract the exact checksum-verified installer
@@ -238,7 +242,9 @@ jobs:
           semgrep --version
           semgrep scan --metrics=off --config p/php --config p/security-audit \
             --include '*.php' --json --output semgrep-results.json "$APP"
-          python ci/qa/summarize-semgrep.py semgrep-results.json
+          PHP_COUNT="$(find "$APP" -type f -name '*.php' | wc -l | tr -d '[:space:]')"
+          test "$PHP_COUNT" -gt 0
+          python ci/qa/summarize-semgrep.py semgrep-results.json --expected-targets "$PHP_COUNT"
       - name: Upload Semgrep findings
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2 — immutable SHA
