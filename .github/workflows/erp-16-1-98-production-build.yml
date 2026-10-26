@@ -102,6 +102,9 @@ jobs:
         run: |
           python ci/qa/test_release_16_1_98.py --baseline "$BASELINE" --package "$CANDIDATE_ZIP" --receipt "$CANDIDATE_RECEIPT"
 
+      - name: Confirm legacy HR schema is additive-only and activator is unchanged
+        run: python ci/qa/test_hr_schema_additive.py --baseline "$BASELINE" --candidate "$CANDIDATE_ZIP"
+
       - name: Extract the exact built installer
         shell: bash
         run: |
