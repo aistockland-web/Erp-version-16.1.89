@@ -5,7 +5,7 @@ import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[2]
-AUDIT = ROOT / "diagnostics" / "hr_replacement_clone_audit.php"
+AUDIT = ROOT / "ci" / "diagnostics" / "hr_replacement_clone_audit.php"
 
 REQUIRED_CHECKS = {
     "duplicate_employee_codes",
