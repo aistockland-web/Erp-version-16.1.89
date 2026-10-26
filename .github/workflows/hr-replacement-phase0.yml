@@ -1,0 +1,72 @@
+name: Stockland HR replacement phase-0 baseline audit
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs/hr-replacement/**'
+      - 'ci/hr_replacement_audit.py'
+      - 'ci/qa/test_hr_replacement_audit.py'
+      - '.github/workflows/hr-replacement-phase0.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: stockland-hr-phase0-\${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-baseline-audit:
+    name: Verify checksum-locked baseline and audit fail-closed behavior
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact reviewed commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Download canonical 16.1.95 artifact receipt
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: STOCKLAND-ERP-16.1.95-Cumulative-WordPress-Update
+          repository: aistockland-web/Erp-version-16.1.89
+          run-id: 40036018031
+          github-token: \${{ secrets.GITHUB_TOKEN }}
+          path: \${{ runner.temp }}/stockland-16.1.95-source
+
+      - name: Verify exact expected installer and archive integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASELINE="$RUNNER_TEMP/stockland-16.1.95-source/STOCKLAND_ERP_16.1.95_CANONICAL_WORDPRESS_UPDATE.zip"
+          test -s "$BASELINE"
+          echo "BASELINE=$BASELINE" >> "$GITHUB_ENV"
+          echo "494e777247508d009dfdb216c9607bb1bc96717197e94a0e8ad3459b7cc81625  $BASELINE" | sha256sum --check -
+          unzip -t "$BASELINE"
+
+      - name: Compile audit and test sources
+        run: python -m py_compile ci/hr_replacement_audit.py ci/qa/test_hr_replacement_audit.py
+
+      - name: Generate read-only source/schema inventory
+        run: python ci/hr_replacement_audit.py --installer "$BASELINE" --output-dir "$RUNNER_TEMP/hr-replacement-audit"
+
+      - name: Test baseline invariants and fail-closed cases
+        run: python ci/qa/test_hr_replacement_audit.py "$BASELINE"
+
+      - name: Upload audit evidence
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: STOCKLAND-HR-REPLACEMENT-PHASE0-AUDIT
+          path: |
+            \${{ runner.temp }}/hr-replacement-audit/hr_replacement_baseline_audit.json
+            \${{ runner.temp }}/hr-replacement-audit/hr_table_dependency_index.csv
+            \${{ runner.temp }}/hr-replacement-audit/hr_baseline_source_fingerprints.csv
+          if-no-files-found: error
+          retention-days: 30
