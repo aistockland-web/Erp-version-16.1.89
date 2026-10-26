@@ -169,7 +169,7 @@ jobs:
           node ci/qa/test-notification-drawer.js "$STOCKLAND_APP/assets/app.js"
           node ci/qa/test-payroll-preview.js "$STOCKLAND_APP/assets/app.js"
       - name: PostCSS source/minified parity from exact npm lock
-        run: NODE_PATH="$PWD/ci/cssqa/node_modules" node ci/qa/check-css-postcss.js "$STOCKLAND_APP"
+        run: NODE_PATH="$PWD/ci/cssqa/node_modules" node ci/qa/check-css-postcss.js "$STOCKLAND_APP" --scope baseline
       - name: WordPress Coding Standards from exact Composer lock
         shell: bash
         run: |
@@ -188,7 +188,9 @@ jobs:
           set -euo pipefail
           python -m pip install --disable-pip-version-check 'pydantic==2.12.5' 'semgrep==1.139.0'
           semgrep scan --metrics=off --config p/php --config p/security-audit --include '*.php' --json --output semgrep-16.1.92.json "$STOCKLAND_APP"
-          python ci/qa/summarize-semgrep.py semgrep-16.1.92.json
+          PHP_COUNT="$(find "$STOCKLAND_APP" -type f -name '*.php' | wc -l | tr -d '[:space:]')"
+          test "$PHP_COUNT" -gt 0
+          python ci/qa/summarize-semgrep.py semgrep-16.1.92.json --expected-targets "$PHP_COUNT"
       - name: Upload package and QA evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -256,7 +258,7 @@ jobs:
           php ci/qa/test-stockland-csv-reader.php "$app/includes/class-stockland-csv.php"
           node --check "$app/assets/app.js"
           node ci/qa/test-period-summary-csv.js "$app/assets/app.js"
-          NODE_PATH="$PWD/ci/cssqa/node_modules" node ci/qa/check-css-postcss.js "$app"
+          NODE_PATH="$PWD/ci/cssqa/node_modules" node ci/qa/check-css-postcss.js "$app" --scope baseline
           ci/phpcs/vendor/bin/phpcs --standard=ci/qa/stockland-phpcs.xml --extensions=php "$app"
           {
             echo
