@@ -47,20 +47,14 @@ jobs:
           coverage: none
           tools: composer
 
-      - name: Check whether the 16.1.98 builder is present
-        id: candidate
+      - name: Require the reviewed 16.1.98 product builder and QA suite
         shell: bash
         run: |
           set -euo pipefail
-          if [ -f ci/build_release_16_1_98.py ] && [ -f ci/qa/test_release_16_1_98.py ]; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Build harness installed. Exact package build waits for the reviewed 16.1.98 builder and its test suite."
-          fi
+          test -s ci/build_release_16_1_98.py || { echo "::error::Missing reviewed 16.1.98 product builder; no installer may be produced."; exit 1; }
+          test -s ci/qa/test_release_16_1_98.py || { echo "::error::Missing exact-package QA suite; no installer may be produced."; exit 1; }
 
       - name: Download the exact, previously audited 16.1.95 Actions artifact
-        if: steps.candidate.outputs.present == 'true'
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: STOCKLAND-ERP-16.1.95-Cumulative-WordPress-Update
@@ -70,7 +64,6 @@ jobs:
           path: ${{ runner.temp }}/stockland-16.1.95-source
 
       - name: Verify and extract the exact baseline installer
-        if: steps.candidate.outputs.present == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -93,11 +86,9 @@ jobs:
           PY
 
       - name: Compile build scripts
-        if: steps.candidate.outputs.present == 'true'
         run: python -m compileall -q ci
 
       - name: Build 16.1.98 cumulative WordPress installer
-        if: steps.candidate.outputs.present == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -108,12 +99,10 @@ jobs:
           echo "CANDIDATE_RECEIPT=$RUNNER_TEMP/STOCKLAND_ERP_16.1.98_BUILD_RECEIPT.json" >> "$GITHUB_ENV"
 
       - name: Exact changed-file, schema, version, workflow and functional contracts
-        if: steps.candidate.outputs.present == 'true'
         run: |
           python ci/qa/test_release_16_1_98.py --baseline "$BASELINE" --package "$CANDIDATE_ZIP" --receipt "$CANDIDATE_RECEIPT"
 
       - name: Extract the exact built installer
-        if: steps.candidate.outputs.present == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -123,7 +112,6 @@ jobs:
           echo "STOCKLAND_APP=$DEST/stockland-erp-app" >> "$GITHUB_ENV"
 
       - name: PHP syntax for every packaged PHP file
-        if: steps.candidate.outputs.present == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -131,31 +119,25 @@ jobs:
           test "$(grep -c 'No syntax errors detected' "$RUNNER_TEMP/php-lint.txt")" -eq "$(find "$STOCKLAND_APP" -type f -name '*.php' | wc -l)"
 
       - name: JavaScript syntax
-        if: steps.candidate.outputs.present == 'true'
         run: node --check "$STOCKLAND_APP/assets/app.js" && node --check "$STOCKLAND_APP/assets/pwa.js"
 
       - name: Install locked CSS QA dependencies
-        if: steps.candidate.outputs.present == 'true'
         run: npm ci --prefix ci/cssqa --ignore-scripts --no-audit --no-fund
 
       - name: Validate CSS module order, PostCSS, search, worksheet and mobile selectors
-        if: steps.candidate.outputs.present == 'true'
         env:
           NODE_PATH: ${{ github.workspace }}/ci/cssqa/node_modules
         run: node ci/qa/check-css-postcss.js "$STOCKLAND_APP"
 
       - name: PAYE, payroll classification and fail-closed regression tests
-        if: steps.candidate.outputs.present == 'true'
         run: |
           php ci/qa/test-payroll-health-policy.php "$STOCKLAND_APP"
           node ci/qa/test-payroll-preview.js "$STOCKLAND_APP/assets/app.js"
 
       - name: Plain-permalink and REST URL regression
-        if: steps.candidate.outputs.present == 'true'
         run: node ci/qa/test_plain_permalink_url.js "$CANDIDATE_ZIP"
 
       - name: Audit release receipt and artifact evidence
-        if: steps.candidate.outputs.present == 'true'
         run: |
           mkdir -p build/stockland-16.1.98
           cp "$CANDIDATE_ZIP" "$CANDIDATE_ZIP.sha256" "$CANDIDATE_RECEIPT" build/stockland-16.1.98/
@@ -175,20 +157,9 @@ jobs:
           PY
 
       - name: Upload exact final installer and receipts
-        if: steps.candidate.outputs.present == 'true' && success()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: STOCKLAND-ERP-16.1.98-CANONICAL-WORDPRESS-UPDATE
           path: build/stockland-16.1.98/
           if-no-files-found: error
           retention-days: 30
-
-      - name: State the exact-package gate disposition
-        if: always()
-        shell: bash
-        run: |
-          if [ "${{ steps.candidate.outputs.present }}" = "true" ]; then
-            echo "The exact-package gate ran. Its result applies only to the installer hash in the build receipt."
-          else
-            echo "::notice::Build harness is available; no product build was claimed because the 16.1.98 source builder has not yet been added."
-          fi
