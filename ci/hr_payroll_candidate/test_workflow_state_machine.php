@@ -37,7 +37,7 @@ expectDomainCode('legal_review_missing', function() {
         'reviewer_ref'=>'reviewer','test_pack_ref'=>'tests','effective_date'=>'2026-01-01'
     ]);
 });
-expectDomainCode('payroll_settlement_incomplete', function() {
+expectDomainCode('settlement_incomplete', function() {
     go('PAYROLL_RUN','SETTLEMENT_PENDING','SETTLED',['actor_id'=>'owner','maker_id'=>'hr','all_recipients_confirmed'=>false]);
 });
 expectDomainCode('evidence_missing', function() {
