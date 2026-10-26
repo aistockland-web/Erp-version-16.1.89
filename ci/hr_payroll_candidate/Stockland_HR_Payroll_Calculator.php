@@ -153,6 +153,10 @@ final class Stockland_HR_Payroll_Calculator {
 			'period_end' => (string) $period_end,
 			'rule_version' => (string) $rule['version'],
 			'rule_source_sha256' => strtolower( (string) $rule['source_sha256'] ),
+			'rule_source_reference' => (string) $rule['source_reference'],
+			'rule_approval_reference' => (string) $rule['approval_reference'],
+			'rule_reviewer_id' => (int) $rule['reviewer_id'],
+			'rule_reviewed_at' => (string) $rule['reviewed_at'],
 			'taxable_base_mode' => (string) $rule['taxable_base_mode'],
 			'rounding_mode' => (string) $rule['tax_rounding_mode'],
 			'items' => $calculated,
@@ -370,6 +374,10 @@ final class Stockland_HR_Payroll_Calculator {
 	}
 
 	private static function canonical_json( array $data ) {
-		return json_encode( $data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+		try {
+			return json_encode( $data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR );
+		} catch ( JsonException $e ) {
+			throw new DomainException( 'Payroll output could not be canonically serialized for its audit hash.' );
+		}
 	}
 }
