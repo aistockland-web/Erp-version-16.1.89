@@ -214,6 +214,9 @@ final class Stockland_People_Payroll_Engine {
 		), ARRAY_A );
 		if ( ! is_array( $assignments ) ) { $hold = $hold ?: 'Approved compensation assignments could not be read.'; $assignments = array(); }
 		$unpaid_days = self::unpaid_days( (int)$employment['id'], $start, $end, $active_start, $active_end );
+		if ( $unpaid_days && strtoupper( (string) ( $params['unpaid_leave_method'] ?? '' ) ) !== 'PRO_RATA_CALENDAR_DAY' ) {
+			$hold = 'Unpaid leave exists but the reviewed rule set does not define PRO_RATA_CALENDAR_DAY treatment.';
+		}
 		$cursor = $active_start;
 		while ( ! $hold && $cursor <= $active_end ) {
 			$matching = array();
@@ -335,7 +338,7 @@ final class Stockland_People_Payroll_Engine {
 			'gross'=>$gross,'paye'=>$paye,'employee_pension'=>$employee_pension,'employer_pension'=>$employer_pension,'deductions'=>$deductions,'net'=>$net,
 		);
 		return array(
-			'base_amount'=>$hold? '0.00' : $base,'taxable_earnings'=>$hold? '0.00' : $taxable,'approved_exempt_earnings'=>$hold? '0.00' : $exempt,
+			'base_amount'=>$hold? '0.00' : $base,'taxable_earnings'=>$hold? '0.00' : $component_taxable_total,'approved_exempt_earnings'=>$hold? '0.00' : $component_exempt_total,
 			'gross_amount'=>$hold? '0.00' : $gross,'taxable_base'=>$hold? null : $taxable_base,'paye_amount'=>$hold? null : $paye,
 			'employee_pension_base'=>$hold? null : $pensionable,'employee_pension_amount'=>$hold? null : $employee_pension,
 			'employer_pension_amount'=>$hold? null : $employer_pension,'other_deduction_amount'=>$hold? '0.00' : $deductions,
