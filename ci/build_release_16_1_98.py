@@ -374,7 +374,7 @@ function bindHRResourceDownloads(){
         const temp=document.createElement('a');temp.href=url;temp.download=a.dataset.filename||'Stockland_HR_Resource.docx';temp.style.display='none';document.body.appendChild(temp);temp.click();temp.remove();
         window.setTimeout(()=>URL.revokeObjectURL(url),1500);
         toast('Downloaded '+(a.dataset.resourceTitle||a.dataset.filename||'HR resource')+'.');
-      }catch(err){toast('HR resource download failed: '+String(err.message||err),true)}
+      }catch(err){toast('Download failed: HR resource — '+String(err.message||err),true)}
       finally{a.removeAttribute('aria-busy')}
     });
   });
