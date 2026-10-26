@@ -67,6 +67,7 @@ jobs:
           path: |
             ${{ runner.temp }}/hr-replacement-audit/hr_replacement_baseline_audit.json
             ${{ runner.temp }}/hr-replacement-audit/hr_table_dependency_index.csv
+            ${{ runner.temp }}/hr-replacement-audit/hr_legacy_dependency_context.csv
             ${{ runner.temp }}/hr-replacement-audit/hr_baseline_source_fingerprints.csv
           if-no-files-found: error
           retention-days: 30
