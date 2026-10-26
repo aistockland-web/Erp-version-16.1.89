@@ -108,10 +108,10 @@ final class Stockland_HR_Payroll_Calculator {
 			} elseif ( 'REIMBURSEMENT' === $kind ) {
 				$reimbursements = self::safe_add_minor( $reimbursements, $amount );
 				if ( 'TAXABLE' === $tax_treatment ) {
-					$taxable_gross += $amount;
+					$taxable_gross = self::safe_add_minor( $taxable_gross, $amount );
 				}
 				if ( 'PENSIONABLE' === $pension_treatment ) {
-					$pensionable_base += $amount;
+					$pensionable_base = self::safe_add_minor( $pensionable_base, $amount );
 				}
 			} elseif ( 'DEDUCTION' === $kind ) {
 				$other_deductions = self::safe_add_minor( $other_deductions, $amount );
