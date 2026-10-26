@@ -110,11 +110,12 @@ $assert( '28.00' === $base_result['totals']['income_tax'], 'synthetic alternate 
 
 $rounding_rule = $rule;
 $rounding_rule['employee_pension_rate_bps'] = 750;
+$rounding_rule['tax_bands'] = array( array( 'lower_minor' => 0, 'upper_minor' => null, 'rate_bps' => 1000 ) );
 $rounding_items = array(
 	array( 'item_code' => 'TEST_SALARY', 'amount' => '100.09', 'source_reference' => 'compensation:rounding-fixture', 'evidence_reference' => 'fixture:salary', 'basis_reference' => 'fixture:contract' ),
 );
 $rounding = Stockland_HR_Payroll_Calculator::calculate( $rounding_items, $rounding_rule, '2026-01-31' );
-$assert( '0.01' === $rounding['totals']['income_tax'], 'small taxable amount rounds through the configured marginal rule' );
+$assert( '10.01' === $rounding['totals']['income_tax'], 'small taxable amount rounds through the configured marginal rule' );
 $assert( '7.51' === $rounding['totals']['employee_pension'], 'half-up rounding is deterministic in minor currency units' );
 
 echo "PASS HR calculator: synthetic gross-to-net, progressive bands, basis selection, hashes, and fail-closed statutory/evidence guards\n";
