@@ -35,6 +35,19 @@ final class Stockland_HR_Payroll_Calculator {
 			throw new DomainException( 'At least one approved payroll input item is required.' );
 		}
 
+		foreach ( $items as $item ) {
+			if ( ! is_array( $item ) ) {
+				throw new DomainException( 'Every payroll input must be a structured item.' );
+			}
+		}
+		usort(
+			$items,
+			static function ( $left, $right ) {
+				$code_order = strcmp( strtoupper( (string) ( $left['item_code'] ?? '' ) ), strtoupper( (string) ( $right['item_code'] ?? '' ) ) );
+				return 0 !== $code_order ? $code_order : strcmp( (string) ( $left['source_reference'] ?? '' ), (string) ( $right['source_reference'] ?? '' ) );
+			}
+		);
+
 		$seen_sources = array();
 		$calculated   = array();
 		$earnings     = 0;
@@ -79,17 +92,17 @@ final class Stockland_HR_Payroll_Calculator {
 			}
 
 			if ( 'EARNING' === $kind ) {
-				$earnings += $amount;
+				$earnings = self::safe_add_minor( $earnings, $amount );
 				if ( 'TAXABLE' === $tax_treatment ) {
-					$taxable_gross += $amount;
+					$taxable_gross = self::safe_add_minor( $taxable_gross, $amount );
 				} elseif ( 'EXEMPT' === $tax_treatment ) {
-					$exempt_earnings += $amount;
+					$exempt_earnings = self::safe_add_minor( $exempt_earnings, $amount );
 				}
 				if ( 'PENSIONABLE' === $pension_treatment ) {
-					$pensionable_base += $amount;
+					$pensionable_base = self::safe_add_minor( $pensionable_base, $amount );
 				}
 			} elseif ( 'REIMBURSEMENT' === $kind ) {
-				$reimbursements += $amount;
+				$reimbursements = self::safe_add_minor( $reimbursements, $amount );
 				if ( 'TAXABLE' === $tax_treatment ) {
 					$taxable_gross += $amount;
 				}
@@ -97,7 +110,7 @@ final class Stockland_HR_Payroll_Calculator {
 					$pensionable_base += $amount;
 				}
 			} elseif ( 'DEDUCTION' === $kind ) {
-				$other_deductions += $amount;
+				$other_deductions = self::safe_add_minor( $other_deductions, $amount );
 			} else {
 				throw new DomainException( 'Unsupported component kind.' );
 			}
@@ -123,11 +136,13 @@ final class Stockland_HR_Payroll_Calculator {
 		}
 		$tax_breakdown = self::calculate_tax( $tax_base, $rule['tax_bands'], $rule['tax_rounding_mode'] );
 		$income_tax = $tax_breakdown['tax_minor'];
-		$net_payable = $earnings + $reimbursements - $income_tax - $employee_pension - $other_deductions;
+		$cash_due = self::safe_add_minor( $earnings, $reimbursements );
+		$deductions_due = self::safe_add_minor( self::safe_add_minor( $income_tax, $employee_pension ), $other_deductions );
+		$net_payable = $cash_due - $deductions_due;
 		if ( $net_payable < 0 ) {
 			throw new DomainException( 'Calculated net pay is negative; payroll must be held for review.' );
 		}
-		$employer_cost = $earnings + $reimbursements + $employer_pension;
+		$employer_cost = self::safe_add_minor( self::safe_add_minor( $earnings, $reimbursements ), $employer_pension );
 
 		$result = array(
 			'period_end' => (string) $period_end,
@@ -157,7 +172,7 @@ final class Stockland_HR_Payroll_Calculator {
 	}
 
 	private static function validate_rule( array $rule, $as_of ) {
-		$required = array( 'version', 'approval_status', 'effective_from', 'effective_to', 'source_reference', 'source_sha256', 'reviewer_id', 'reviewed_at', 'taxable_base_mode', 'tax_rounding_mode', 'employee_pension_rate_bps', 'employer_pension_rate_bps', 'tax_bands', 'components' );
+		$required = array( 'version', 'approval_status', 'effective_from', 'effective_to', 'source_reference', 'source_sha256', 'reviewer_id', 'reviewed_at', 'reviewer_qualification', 'approval_reference', 'taxable_base_mode', 'tax_rounding_mode', 'employee_pension_rate_bps', 'employer_pension_rate_bps', 'tax_bands', 'components' );
 		foreach ( $required as $key ) {
 			if ( ! array_key_exists( $key, $rule ) ) {
 				throw new DomainException( 'Approved legal rule bundle is missing ' . $key . '; payroll cannot calculate.' );
@@ -169,7 +184,7 @@ final class Stockland_HR_Payroll_Calculator {
 		if ( '' === trim( (string) $rule['version'] ) || '' === trim( (string) $rule['source_reference'] ) || ! preg_match( '/^[a-f0-9]{64}$/i', (string) $rule['source_sha256'] ) ) {
 			throw new DomainException( 'The rule version/source reference/hash is invalid.' );
 		}
-		if ( (int) $rule['reviewer_id'] <= 0 || '' === trim( (string) $rule['reviewed_at'] ) ) {
+		if ( (int) $rule['reviewer_id'] <= 0 || '' === trim( (string) $rule['reviewed_at'] ) || 'QUALIFIED_ET_TAX_PENSION_REVIEWER' !== strtoupper( (string) $rule['reviewer_qualification'] ) || '' === trim( (string) $rule['approval_reference'] ) ) {
 			throw new DomainException( 'A named qualified reviewer and review timestamp are required before rule activation.' );
 		}
 		if ( ! self::valid_date( (string) $rule['effective_from'] ) || ( null !== $rule['effective_to'] && '' !== $rule['effective_to'] && ! self::valid_date( (string) $rule['effective_to'] ) ) ) {
@@ -236,8 +251,8 @@ final class Stockland_HR_Payroll_Calculator {
 		if ( ! in_array( $component['pension_treatment'] ?? '', array( 'PENSIONABLE', 'NON_PENSIONABLE', 'NOT_APPLICABLE' ), true ) ) {
 			throw new DomainException( 'Payroll item ' . $code . ' has unresolved pension treatment.' );
 		}
-		if ( ! isset( $component['source_reference'] ) || '' === trim( (string) $component['source_reference'] ) ) {
-			throw new DomainException( 'Payroll item ' . $code . ' has no source rule reference.' );
+		if ( ! isset( $component['source_reference'] ) || '' === trim( (string) $component['source_reference'] ) || ! isset( $component['source_sha256'] ) || ! preg_match( '/^[a-f0-9]{64}$/i', (string) $component['source_sha256'] ) ) {
+			throw new DomainException( 'Payroll item ' . $code . ' has no source rule reference/hash.' );
 		}
 		if ( 'DEDUCTION' === $kind && ( 'NOT_APPLICABLE' !== $component['tax_treatment'] || 'NOT_APPLICABLE' !== $component['pension_treatment'] ) ) {
 			throw new DomainException( 'Deductions cannot choose wage tax or pension treatment; the rule bundle must define them as not applicable.' );
@@ -267,10 +282,10 @@ final class Stockland_HR_Payroll_Calculator {
 				$slice = max( 0, $limit - $lower );
 			}
 			$numerator = $slice * $band['rate_bps'];
-			$numerator_total += $numerator;
+			$numerator_total = self::safe_add_integer( $numerator_total, $numerator );
 			$band_tax = self::round_ratio( $numerator, 10000 );
 			if ( self::ROUND_PER_BAND === $rounding_mode ) {
-				$tax_total += $band_tax;
+				$tax_total = self::safe_add_minor( $tax_total, $band_tax );
 			}
 			$breakdown[] = array(
 				'lower_minor' => $lower,
@@ -306,12 +321,38 @@ final class Stockland_HR_Payroll_Calculator {
 			throw new DomainException( 'Invalid non-negative money amount.' );
 		}
 		$parts = explode( '.', $value, 2 );
-		$whole = (int) $parts[0];
 		$fraction = isset( $parts[1] ) ? str_pad( $parts[1], 2, '0' ) : '00';
-		if ( $whole > intdiv( PHP_INT_MAX - 99, 100 ) ) {
+		if ( strlen( $parts[0] ) > 15 ) {
 			throw new DomainException( 'Money amount exceeds the supported calculation range.' );
 		}
-		return $whole * 100 + (int) $fraction;
+		$whole = (int) $parts[0];
+		if ( $whole > intdiv( self::max_safe_minor() - 99, 100 ) ) {
+			throw new DomainException( 'Money amount exceeds the safe calculation range.' );
+		}
+		$minor = $whole * 100 + (int) $fraction;
+		if ( $minor > self::max_safe_minor() ) {
+			throw new DomainException( 'Money amount exceeds the safe calculation range.' );
+		}
+		return $minor;
+	}
+
+	private static function max_safe_minor() {
+		return intdiv( PHP_INT_MAX - 10000, 10000 );
+	}
+
+	private static function safe_add_minor( $left, $right ) {
+		$limit = self::max_safe_minor();
+		if ( $left < 0 || $right < 0 || $left > $limit - $right ) {
+			throw new DomainException( 'Monetary total exceeds safe calculation bounds.' );
+		}
+		return $left + $right;
+	}
+
+	private static function safe_add_integer( $left, $right ) {
+		if ( $left < 0 || $right < 0 || $left > PHP_INT_MAX - $right ) {
+			throw new DomainException( 'Calculation precision exceeds safe integer bounds.' );
+		}
+		return $left + $right;
 	}
 
 	private static function minor_to_money( $minor ) {
