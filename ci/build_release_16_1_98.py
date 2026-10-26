@@ -414,7 +414,7 @@ function bindHRResourceDownloads(){
     }
     files[manifest_path] = (json.dumps(manifest, ensure_ascii=False, indent=2) + "\n").encode()
     readme = files[readme_path].decode("utf-8")
-    note = "\n\n## HR Process Center download candidate (16.1.98)\n\nThe candidate adds nonce-protected, role-checked downloads of genuine DOCX general templates in the HR & Payroll workspace. It does not contain employee-specific documents, does not change the 49-table schema or live business data, and is not by itself a complete HR lifecycle release. See the release manifest and acceptance gates.\n"
+    note = "\n\n## HR Process Center download candidate (16.1.98)\n\nThe candidate adds nonce-protected, role-checked and audited downloads of genuine DOCX general templates in the HR & Payroll workspace. It does not contain employee-specific documents, does not change the 49-table schema or live business data, and is not by itself a complete HR lifecycle release. Source-parity gate: the verified builder input is 16.1.95 while the live site was reported as 16.1.97. Do not install in place until exact source parity is proven and intervening fixes are preserved. See the release manifest and acceptance gates.\n"
     if "HR Process Center download candidate (16.1.98)" in readme:
         raise SystemExit("README already contains 16.1.98 HR resource section")
     files[readme_path] = (readme.rstrip() + note).encode()
@@ -440,7 +440,7 @@ function bindHRResourceDownloads(){
         "resource_downloads": [doc["filename"] for doc in DOCS.values()],
         "candidate_component_only": True,
         "production_ready": False,
-        "production_gates_pending": ["full HR lifecycle E2E", "target-host access/download tests", "legal review", "Owner/HR/Finance acceptance", "backup/restore and rollback"]
+        "production_gates_pending": ["prove exact source parity with live 16.1.97 and preserve all intervening fixes; builder baseline is 16.1.95", "full HR lifecycle E2E", "target-host access/download tests", "legal review", "Owner/HR/Finance acceptance", "backup/restore and rollback"]
     }
     print(json.dumps(receipt, ensure_ascii=False, sort_keys=True))
 
