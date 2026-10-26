@@ -27,7 +27,7 @@ final class Stockland_HR_Payroll_Calculator {
 		$parts = explode( '.', $value, 2 );
 		$whole = $parts[0];
 		$frac = isset( $parts[1] ) ? str_pad( $parts[1], 2, '0' ) : '00';
-		if ( strlen( $whole ) > 12 ) {
+		if ( strlen( $whole ) > 10 ) {
 			self::fail( 'money_overflow', $field . ' exceeds the supported bound' );
 		}
 		return ( (int) $whole * 100 ) + (int) $frac;
@@ -261,7 +261,7 @@ final class Stockland_HR_Payroll_Calculator {
 		return array(
 			'status' => $synthetic ? 'SYNTHETIC_TEST_ONLY' : 'CALCULATED_REQUIRES_APPROVAL',
 			'synthetic_only' => $synthetic,
-			'legal_approval_claimed' => false === $synthetic,
+			'rule_bundle_status_confirmed' => $rules['status'],
 			'employee_ref' => isset( $input['employee_ref'] ) && is_string( $input['employee_ref'] ) ? $input['employee_ref'] : null,
 			'period_date' => $input['period_date'],
 			'rule_version' => $rules['rule_version'],
