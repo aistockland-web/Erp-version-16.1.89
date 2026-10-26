@@ -409,6 +409,7 @@ function bindHRResourceDownloads(){
     }
     manifest["production_acceptance"] = {
         "status":"PENDING — candidate component only",
+        "live_source_parity":"PENDING — builder input is the checksum-locked 16.1.95 installer; live site was reported as 16.1.97. No in-place install until source parity and intervening fixes are proven.",
         "pending":["full HR lifecycle implementation and isolated end-to-end tests","role/location authorization and direct-download denial tests on target hosting","current Ethiopian labour/tax/pension legal review","Owner/HR/Finance acceptance","verified backup/restore and rollback receipts"]
     }
     files[manifest_path] = (json.dumps(manifest, ensure_ascii=False, indent=2) + "\n").encode()
