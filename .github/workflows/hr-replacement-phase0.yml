@@ -7,6 +7,8 @@ on:
       - 'docs/hr-replacement/**'
       - 'ci/hr_replacement_audit.py'
       - 'ci/qa/test_hr_replacement_audit.py'
+      - 'ci/diagnostics/**'
+      - 'ci/qa/test_hr_replacement_clone_audit.py'
       - '.github/workflows/hr-replacement-phase0.yml'
   workflow_dispatch:
 
@@ -51,8 +53,17 @@ jobs:
           echo "494e777247508d009dfdb216c9607bb1bc96717197e94a0e8ad3459b7cc81625  $BASELINE" | sha256sum --check -
           unzip -t "$BASELINE"
 
-      - name: Compile audit and test sources
-        run: python -m py_compile ci/hr_replacement_audit.py ci/qa/test_hr_replacement_audit.py
+      - name: Set up PHP 8.3 for clone-audit syntax gate
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
+        with:
+          php-version: "8.3"
+          coverage: none
+
+      - name: Compile and lint audit/test sources
+        run: |
+          python -m py_compile ci/hr_replacement_audit.py ci/qa/test_hr_replacement_audit.py ci/qa/test_hr_replacement_clone_audit.py
+          php -l ci/diagnostics/hr_replacement_clone_audit.php
+          python ci/qa/test_hr_replacement_clone_audit.py
 
       - name: Generate read-only source/schema inventory
         run: python ci/hr_replacement_audit.py --installer "$BASELINE" --output-dir "$RUNNER_TEMP/hr-replacement-audit"
