@@ -40,6 +40,7 @@ final class Stockland_People_Payroll_Engine {
 				ARRAY_A
 			);
 			if ( ! is_array( $employments ) ) { throw new RuntimeException( 'Could not read target-domain employee relationships.' ); }
+			if ( ! $employments ) { throw new RuntimeException( 'No eligible target-domain employees exist for this period; zero-line payroll is blocked.' ); }
 			// Re-entrant generation is intentionally prohibited after this point. The
 			// draft is calculated exactly once; errors roll back the entire transaction.
 			$line_ids = array();
@@ -268,7 +269,7 @@ final class Stockland_People_Payroll_Engine {
 		// Premium pay is calculated only from approved, locked time entries and an
 		// explicitly reviewed time_pay block. Missing rules hold the employee line.
 		$time_rows = Stockland_DB::read_results( $wpdb->prepare(
-			"SELECT * FROM %i WHERE employment_id=%d AND work_date BETWEEN %s AND %s AND status='LOCKED' ORDER BY work_date,id",
+			"SELECT * FROM %i WHERE employment_id=%d AND work_date BETWEEN %s AND %s AND status IN ('APPROVED','LOCKED') ORDER BY work_date,id",
 			Stockland_People_Replacement::table( 'people_time_entries' ), (int)$employment['id'], $start, $end
 		), ARRAY_A );
 		foreach ( (array)$time_rows as $time ) {
