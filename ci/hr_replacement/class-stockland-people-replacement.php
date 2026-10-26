@@ -503,6 +503,8 @@ KEY payee_date (payee_type,payee_id,created_at)"
 				'columns' => $common . ",
 remittance_code VARCHAR(60) NOT NULL,
 remittance_type VARCHAR(32) NOT NULL,
+source_type VARCHAR(32) NOT NULL DEFAULT 'PAYROLL_RUN',
+source_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
 jurisdiction VARCHAR(80) NOT NULL DEFAULT 'ET-FEDERAL',
 period_start DATE NOT NULL,
 period_end DATE NOT NULL,
@@ -520,6 +522,7 @@ reconciled_at DATETIME NULL",
 				'indexes' => $base_indexes . ",
 UNIQUE KEY remittance_code (remittance_code),
 KEY type_period (remittance_type,period_start,period_end),
+KEY source_ref (source_type,source_id),
 KEY due_status (due_date,status)"
 			),
 			'people_exit_cases' => array(
