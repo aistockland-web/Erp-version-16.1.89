@@ -15,7 +15,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: stockland-hr-phase0-\${{ github.event.pull_request.number || github.ref }}
+  group: stockland-hr-phase0-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -38,8 +38,8 @@ jobs:
           name: STOCKLAND-ERP-16.1.95-Cumulative-WordPress-Update
           repository: aistockland-web/Erp-version-16.1.89
           run-id: 40036018031
-          github-token: \${{ secrets.GITHUB_TOKEN }}
-          path: \${{ runner.temp }}/stockland-16.1.95-source
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/stockland-16.1.95-source
 
       - name: Verify exact expected installer and archive integrity
         shell: bash
@@ -65,8 +65,8 @@ jobs:
         with:
           name: STOCKLAND-HR-REPLACEMENT-PHASE0-AUDIT
           path: |
-            \${{ runner.temp }}/hr-replacement-audit/hr_replacement_baseline_audit.json
-            \${{ runner.temp }}/hr-replacement-audit/hr_table_dependency_index.csv
-            \${{ runner.temp }}/hr-replacement-audit/hr_baseline_source_fingerprints.csv
+            ${{ runner.temp }}/hr-replacement-audit/hr_replacement_baseline_audit.json
+            ${{ runner.temp }}/hr-replacement-audit/hr_table_dependency_index.csv
+            ${{ runner.temp }}/hr-replacement-audit/hr_baseline_source_fingerprints.csv
           if-no-files-found: error
           retention-days: 30
