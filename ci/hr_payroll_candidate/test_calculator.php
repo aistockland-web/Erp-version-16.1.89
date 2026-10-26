@@ -58,6 +58,16 @@ $items = array(
 	array( 'item_code' => 'TEST_DEDUCTION', 'amount' => '200.00', 'source_reference' => 'deduction:fixture-001', 'evidence_reference' => 'fixture:employee-authorization', 'basis_reference' => 'fixture:contractual-basis' ),
 );
 
+foreach ( $items as $index => &$synthetic_item ) {
+	$synthetic_item['input_reference'] = 'fixture-input-' . ( $index + 1 );
+}
+unset( $synthetic_item );
+
+$shared_source_items = $items;
+$shared_source_items[1]['source_reference'] = $shared_source_items[0]['source_reference'];
+$shared_source_result = Stockland_HR_Payroll_Calculator::calculate( $shared_source_items, $rule, '2026-01-31' );
+$assert( 5 === count( $shared_source_result['items'] ), 'multiple distinct input items may share a source document without being treated as duplicate lines' );
+
 $result = Stockland_HR_Payroll_Calculator::calculate( $items, $rule, '2026-01-31' );
 $assert( '2500.00' === $result['totals']['earnings'], 'gross earnings reconcile' );
 $assert( '150.00' === $result['totals']['reimbursements'], 'reimbursements remain separated from earnings' );
@@ -106,7 +116,7 @@ $unknown_item[0]['item_code'] = 'UNKNOWN_COMPONENT';
 $throws( static function () use ( $unknown_item, $rule ) { Stockland_HR_Payroll_Calculator::calculate( $unknown_item, $rule, '2026-01-31' ); }, 'unknown item classification' );
 
 $duplicate = $items;
-$duplicate[1]['source_reference'] = $duplicate[0]['source_reference'];
+$duplicate[1]['input_reference'] = $duplicate[0]['input_reference'];
 $throws( static function () use ( $duplicate, $rule ) { Stockland_HR_Payroll_Calculator::calculate( $duplicate, $rule, '2026-01-31' ); }, 'duplicate source reference' );
 
 $floats = $items;
@@ -130,7 +140,7 @@ $rounding_rule = $rule;
 $rounding_rule['employee_pension_rate_bps'] = 750;
 $rounding_rule['tax_bands'] = array( array( 'lower_minor' => 0, 'upper_minor' => null, 'rate_bps' => 1000 ) );
 $rounding_items = array(
-	array( 'item_code' => 'TEST_SALARY', 'amount' => '100.09', 'source_reference' => 'compensation:rounding-fixture', 'evidence_reference' => 'fixture:salary', 'basis_reference' => 'fixture:contract' ),
+	array( 'item_code' => 'TEST_SALARY', 'input_reference' => 'fixture-input-rounding-1', 'amount' => '100.09', 'source_reference' => 'compensation:rounding-fixture', 'evidence_reference' => 'fixture:salary', 'basis_reference' => 'fixture:contract' ),
 );
 $rounding = Stockland_HR_Payroll_Calculator::calculate( $rounding_items, $rounding_rule, '2026-01-31' );
 $assert( '10.01' === $rounding['totals']['income_tax'], 'small taxable amount rounds through the configured marginal rule' );
