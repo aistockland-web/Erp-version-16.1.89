@@ -164,7 +164,20 @@ final class Stockland_REST_People_Replacement extends Stockland_REST_Base {
 		foreach($s['required'] as $f) if(!array_key_exists($f,$data)||$data[$f]===null||$data[$f]==='')return new WP_Error('people_field_required','Required field missing: '.$f,array('status'=>400,'field'=>$f));
 		$rel=$this->relations($e,$data);if(is_wp_error($rel))return $rel;
 		if($e==='applications'&&empty($data['notice_acknowledged_at']))return new WP_Error('candidate_notice_required','Candidate privacy notice and acknowledgement are required.',array('status'=>400));
-		if($e==='leave-events'&&strtoupper((string)$data['event_kind'])!=='REQUEST')return new WP_Error('leave_ledger_forbidden','Accrual/use/reversal events must be created by controlled ledger workflows.',array('status'=>403));
+		if($e==='leave-events'){
+			$kind=strtoupper((string)($data['event_kind']??''));
+			if($kind!=='REQUEST'){
+				if(!Stockland_Authority::can_manage_hr())return new WP_Error('leave_ledger_forbidden','Only HR management can prepare leave accrual/grant/use/carry-forward/reversal ledger entries.',array('status'=>403));
+				if(strlen(trim((string)($data['reason']??'')))<20||empty($data['policy_version']))return new WP_Error('leave_ledger_evidence_required','Ledger entries require policy version and a specific evidence-backed reason.',array('status'=>400));
+				if(!in_array($kind,array('ACCRUAL','GRANT','USE','REVERSAL','CARRY_FORWARD'),true))return new WP_Error('leave_ledger_kind_invalid','Unsupported leave ledger event.',array('status'=>400));
+				if(!isset($data['units'])||Stockland_Money::minor($data['units'])<0)return new WP_Error('leave_ledger_units_invalid','Leave units must be a non-negative quantity.',array('status'=>400));
+				if($kind==='REVERSAL'){
+					if(empty($data['reversal_of_id']))return new WP_Error('leave_reversal_target_required','A reversal must reference the original posted leave event.',array('status'=>400));
+					$original=Stockland_DB::read_row($wpdb->prepare("SELECT id,employment_id,status,event_kind FROM %i WHERE id=%d",Stockland_People_Replacement::table('people_leave_events'),(int)$data['reversal_of_id']),ARRAY_A);
+					if(!$original||$original['status']!=='POSTED'||(int)$original['employment_id']!==(int)$data['employment_id']||$original['event_kind']==='REVERSAL')return new WP_Error('leave_reversal_source_invalid','The reversal must reference a posted event for the same employment.',array('status'=>400));
+				}
+			}
+		}
 		if($e==='individual-payables')$data['tax_classification_status']='LEGAL_REVIEW';
 		if($e==='rule-sets')$data['review_status']='LEGAL_REVIEW';
 		if($e==='payroll-runs'){$v=$this->full_month($data['period_start'],$data['period_end']);if(is_wp_error($v))return $v;}
@@ -371,7 +384,6 @@ final class Stockland_REST_People_Replacement extends Stockland_REST_Base {
 			$n=$wpdb->update($t,array('status'=>'POSTED','posted_journal_id'=>(int)$jid,'posted_at'=>current_time('mysql'),'version_no'=>(int)$run['version_no']+1,'updated_by'=>get_current_user_id(),'updated_at'=>current_time('mysql')),array('id'=>$id,'version_no'=>(int)$run['version_no']));
 			if(false===$n||$n===0)throw new RuntimeException('Concurrent payroll posting or missing journal link.');
 			if(!Stockland_People_Replacement::event('payroll-run',$id,'PAYROLL_POSTED','APPROVED','POSTED','Shared GL journal posted',array('journal_id'=>(int)$jid,'snapshot_hash'=>$run['input_snapshot_hash'])))throw new RuntimeException('Payroll posting audit event failed.');
-			foreach(array('PAYE'=>array('paye_total','PAYE'),'PENSION'=>array('employee_pension_total','PENSION_EMPLOYEE'),'PENSION'=>array('employer_pension_total','PENSION_EMPLOYER')) as $type=>$unused) { /* actual remittance rows are created in the next controlled finance action */ }
 			if(false===$wpdb->query('COMMIT'))throw new RuntimeException('Posting transaction commit failed.');
 			return rest_ensure_response(array('id'=>$id,'status'=>'POSTED','journal_id'=>(int)$jid,'message'=>'Payroll posted through the shared GL service. Payment and statutory remittance remain separate workflows.'));
 		}catch(Throwable $x){$wpdb->query('ROLLBACK');return new WP_Error('people_payroll_post_failed',$x->getMessage(),array('status'=>409));}
@@ -422,6 +434,31 @@ final class Stockland_REST_People_Replacement extends Stockland_REST_Base {
 			return rest_ensure_response(array('id'=>$id,'status'=>$outcome,'batch_status'=>$state,'message'=>'Recipient payment outcome recorded. Batch reconciliation and statutory remittance remain separate.'));
 		}catch(Throwable $x){$wpdb->query('ROLLBACK');return new WP_Error('people_payment_result_failed',$x->getMessage(),array('status'=>409));}
 	}
-	public function calculate_exit($r) { return new WP_Error('people_exit_gate_pending','Final-settlement calculation remains blocked until legal rules and leave/time source reconciliation are approved.',array('status'=>409)); }
-	public function approve_exit($r) { return new WP_Error('people_exit_gate_pending','Final settlement approval remains blocked until calculation and payment workflow tests pass.',array('status'=>409)); }
+	public function calculate_exit($r) {
+		if(!$this->ready())return new WP_REST_Response(array('ready'=>false,'schema'=>Stockland_People_Replacement::schema_status()),503);
+		if(!class_exists('Stockland_People_Exit_Engine'))return new WP_Error('people_exit_engine_missing','The replacement exit engine is not loaded.',array('status'=>503));
+		try{return rest_ensure_response(Stockland_People_Exit_Engine::calculate_case(absint($r['id'])));}
+		catch(Throwable $x){Stockland_Runtime_Diagnostics::log_error('People exit calculation blocked: '.$x->getMessage());return new WP_Error('people_exit_calculation_blocked',$x->getMessage(),array('status'=>409));}
+	}
+	public function approve_exit($r) {
+		global $wpdb;$id=absint($r['id']);$b=$r->get_json_params();$reason=sanitize_textarea_field((string)($b['reason']??''));
+		if(strlen(trim($reason))<20)return new WP_Error('people_exit_approval_reason','Independent Owner settlement review and rationale of at least 20 characters are required.',array('status'=>400));
+		$t=Stockland_People_Replacement::table('people_exit_cases');$wpdb->query('START TRANSACTION');
+		try{
+			$case=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',$t,$id),ARRAY_A);
+			if(!$case||$case['status']!=='CALCULATED')throw new RuntimeException('Only a calculated final-settlement case may be approved.');
+			if((int)$case['created_by']===get_current_user_id())throw new RuntimeException('Settlement preparer cannot approve their own settlement.');
+			$items=Stockland_DB::read_results($wpdb->prepare("SELECT * FROM %i WHERE exit_case_id=%d AND status='CALCULATED' ORDER BY id",Stockland_People_Replacement::table('people_exit_items'),$id),ARRAY_A);
+			if(!is_array($items)||!$items)throw new RuntimeException('Itemized settlement evidence is missing.');
+			foreach($items as $item){
+				$rule=Stockland_DB::read_row($wpdb->prepare("SELECT * FROM %i WHERE id=%d AND rule_type='EXIT' AND status='ACTIVE' AND review_status='APPROVED'",Stockland_People_Replacement::table('people_rule_sets'),(int)$item['rule_set_id']),ARRAY_A);
+				if(!$rule||empty($rule['reviewer_user_id'])||(int)$rule['reviewer_user_id']===(int)$rule['created_by']||(int)$rule['reviewer_user_id']===(int)$rule['approved_by'])throw new RuntimeException('Settlement rule is no longer independently reviewed and approved.');
+			}
+			$n=$wpdb->update($t,array('status'=>'APPROVED','approved_by'=>get_current_user_id(),'approved_at'=>current_time('mysql'),'version_no'=>(int)$case['version_no']+1,'updated_by'=>get_current_user_id(),'updated_at'=>current_time('mysql')),array('id'=>$id,'version_no'=>(int)$case['version_no']));
+			if(false===$n||$n===0)throw new RuntimeException('Exit case changed concurrently.');
+			if(!Stockland_People_Replacement::event('exit-case',$id,'SETTLEMENT_APPROVED','CALCULATED','APPROVED',$reason,array('item_count'=>count($items))))throw new RuntimeException('Settlement approval audit event failed.');
+			if(false===$wpdb->query('COMMIT'))throw new RuntimeException('Settlement approval transaction failed.');
+			return rest_ensure_response(array('id'=>$id,'status'=>'APPROVED','message'=>'Final settlement approved. Payment instructions, external confirmation, remittance and reconciliation remain separate.'));
+		}catch(Throwable $x){$wpdb->query('ROLLBACK');return new WP_Error('people_exit_approval_failed',$x->getMessage(),array('status'=>409));}
+	}
 }
