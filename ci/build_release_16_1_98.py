@@ -342,6 +342,11 @@ def main() -> None:
         "'count_template' => esc_url_raw( STOCKLAND_PLUGIN_URL . 'templates/Stockland_Physical_Count_Template.xlsx' ),",
         "'count_template' => esc_url_raw( STOCKLAND_PLUGIN_URL . 'templates/Stockland_Physical_Count_Template.xlsx' ),\n\t\t\t'hr_resources'  => Stockland_HR_Resources::downloads(),",
         "frontend HR resource catalogue")
+    css_manifest_path = ROOT + "assets/css/modules.json"
+    css_manifest = json.loads(files[css_manifest_path].decode("utf-8"))
+    css_manifest["release"] = TARGET
+    css_manifest["description"] = "16.1.98 HR resource download candidate; the six ordered CSS source modules remain byte-identical."
+    files[css_manifest_path] = (json.dumps(css_manifest, ensure_ascii=False, indent=2) + "\n").encode()
     js = files[js_path].decode("utf-8")
     helper_anchor = "function slPayrollMinor(value){"
     helper = r'''
