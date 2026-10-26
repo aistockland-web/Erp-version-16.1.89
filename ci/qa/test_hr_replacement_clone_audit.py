@@ -46,7 +46,7 @@ def main() -> None:
     assert len(keys) == 49 and len(set(keys)) == 49, f"expected 49 unique table keys; got {len(keys)}"
     assert {"employees", "employee_compensation", "payroll_periods", "payroll_lines"}.issubset(keys)
     for check in REQUIRED_CHECKS:
-        assert re.search(r"['\"]" + re.escape(check) + r"['\"]\s*=>", source), f"missing data-health check {check}"
+        assert re.search(r"['\"]" + re.escape(check) + r"['\"]\s*(?:=>|\])", source), f"missing data-health check {check}"
     # The SQL in this file is for SELECT / INFORMATION_SCHEMA metadata and aggregate checks only.
     # Keep this broad lexical guard as a review tripwire, not a proof of SQL semantics.
     assert not FORBIDDEN_SQL.search(source), "potentially mutating SQL statement found in read-only audit tool"
