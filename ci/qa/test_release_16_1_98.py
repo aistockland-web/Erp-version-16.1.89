@@ -144,7 +144,7 @@ def main():
             "download handler is not loaded by plugin bootstrap")
     require("'hr_resources'  => Stockland_HR_Resources::downloads()" in front,
             "authorized resource list is not attached to frontend config")
-    require("function hrResourceCenter()" in js and "hrResourceCenter()+" in js,
+    require("function hrlcResourceCenter()" in js and "hrlcResourceCenter()" in js,
             "resource center not rendered in HR & Payroll view")
     require("function bindHRResourceDownloads()" in js and "bindHRResourceDownloads()" in js,
             "working click handler / feedback is missing")
