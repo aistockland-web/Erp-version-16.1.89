@@ -159,6 +159,8 @@ def main():
     acceptance = manifest.get("production_acceptance", {})
     require(acceptance.get("status", "").startswith("PENDING"),
             "candidate must not claim production acceptance")
+    require("16.1.95" in acceptance.get("live_source_parity", "") and "16.1.97" in acceptance.get("live_source_parity", "") and "No in-place install" in acceptance.get("live_source_parity", ""),
+            "in-place install must remain blocked until candidate/live source parity is proven")
     require(manifest.get("hr_resource_downloads", {}).get("status") == "candidate component only; does not complete the full HR lifecycle",
             "manifest overstates HR completion")
 
