@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Exact-package regression tests for the 16.1.98 HR Resource Center component.
+"""Exact-package regression tests for the 16.1.98 full HR/Payroll candidate.
 
-These tests prove ZIP/source invariants and genuine DOCX packaging only. They do not
-prove target-host authorization, full HR lifecycle behavior, or legal compliance.
+These tests prove package/source contracts and genuine DOCX payloads, not live-host
+acceptance, legal compliance or source parity with the current live release.
 """
 import argparse
 import base64
@@ -26,9 +26,24 @@ ALLOWED_CHANGED = {
     ROOT_IN_ZIP + "assets/app.js",
     ROOT_IN_ZIP + "README.md",
     ROOT_IN_ZIP + "RELEASE_MANIFEST.json",
+    ROOT_IN_ZIP + "includes/class-stockland-hr.php",
+    ROOT_IN_ZIP + "includes/class-stockland-payroll-statutory.php",
+    ROOT_IN_ZIP + "includes/rest/class-rest-hr.php",
+    ROOT_IN_ZIP + "includes/rest/class-rest-app.php",
+    ROOT_IN_ZIP + "includes/rest/class-rest-setup.php",
+    ROOT_IN_ZIP + "includes/rest/class-rest-products.php",
+    ROOT_IN_ZIP + "includes/class-stockland-business-calendar.php",
+    ROOT_IN_ZIP + "assets/app.js",
+    ROOT_IN_ZIP + "assets/app.css",
+    ROOT_IN_ZIP + "assets/app.min.css",
+    ROOT_IN_ZIP + "assets/css/06-operational-guards.css",
     ROOT_IN_ZIP + "assets/css/modules.json",
+    ROOT_IN_ZIP + "assets/pwa.js",
+    ROOT_IN_ZIP + "assets/manifest.json",
 }
 EXPECTED_NEW = {
+    ROOT_IN_ZIP + "includes/class-stockland-hr-lifecycle.php",
+    ROOT_IN_ZIP + "includes/rest/class-rest-hr-lifecycle.php",
     ROOT_IN_ZIP + "includes/class-stockland-hr-resources.php",
     ROOT_IN_ZIP + "includes/class-stockland-hr-resource-files.php",
 }
@@ -85,9 +100,10 @@ def main():
     raw = package_path.read_bytes()
     require(receipt.get("release") == TARGET, "receipt release does not match 16.1.98")
     require(receipt.get("installer_sha256") == digest(raw), "receipt hash does not match exact package")
-    require(receipt.get("schema_changed") is False, "candidate must preserve 49-table schema")
-    require(receipt.get("live_business_data_changed") is False, "builder must not claim live-data mutation")
-    require(receipt.get("production_ready") is False, "component-only candidate must remain explicitly not production-ready")
+    require(receipt.get("runtime_file_count") == 79, "full candidate runtime inventory must contain 79 files")
+    require(receipt.get("schema_contract") == {"total":73,"core_operations":29,"accounting_procurement":16,"hr_payroll":28}, "full HR/payroll schema contract is inconsistent")
+    require(receipt.get("production_database_touched") is False and receipt.get("wordpress_activated") is False, "builder must not mutate live production data")
+    require(any("live 16.1.97" in item and "16.1.95" in item for item in receipt.get("required_external_acceptance", [])), "source parity blocker is missing")
     sha_file = package_path.with_suffix(package_path.suffix + ".sha256")
     require(sha_file.is_file() and sha_file.read_text().split()[0] == digest(raw),
             "package SHA-256 sidecar mismatch")
@@ -97,8 +113,8 @@ def main():
         after_names = [n.filename for n in z.infolist() if not n.is_dir()]
         require(len(before_names) == 75 and len(set(before_names)) == 75,
                 "reviewed baseline inventory differs from its lock")
-        require(len(after_names) == 77 and len(set(after_names)) == 77,
-                "candidate must contain exactly 77 unique files")
+        require(len(after_names) == 79 and len(set(after_names)) == 79,
+                "candidate must contain exactly 79 unique files")
         require(after_names[:len(before_names)] == before_names,
                 "existing installer member order changed")
         require(set(after_names) - set(before_names) == EXPECTED_NEW,
@@ -108,8 +124,9 @@ def main():
         old = {n: bz.read(n) for n in before_names}
         new = {n: z.read(n) for n in after_names}
     changed = {n for n in old if old[n] != new[n]}
-    require(changed == ALLOWED_CHANGED, "unapproved baseline changes: " + repr(sorted(changed ^ ALLOWED_CHANGED)))
-    require(sum(n.endswith(".php") for n in new) == sum(n.endswith(".php") for n in old) + 2,
+    require(changed.issubset(ALLOWED_CHANGED), "unapproved baseline changes: " + repr(sorted(changed - ALLOWED_CHANGED)))
+    require(bool(changed & {ROOT_IN_ZIP + "includes/class-stockland-hr.php", ROOT_IN_ZIP + "includes/rest/class-rest-hr.php"}), "full HR/payroll runtime was not wired")
+    require(sum(n.endswith(".php") for n in new) == sum(n.endswith(".php") for n in old) + 4,
             "candidate PHP file inventory is unexpected")
 
     main = new[ROOT_IN_ZIP + "stockland-inventory.php"].decode()
@@ -152,34 +169,41 @@ def main():
     require("public static function get( $key )" in payload_file, "embedded payload loader missing")
 
     contract = manifest.get("schema_contract", {})
-    require(contract == {"total":49,"core_operations":29,"accounting_procurement":16,"hr_payroll":4},
-            "49-table schema contract changed")
-    require(manifest.get("schema_changed") is False and manifest.get("live_business_data_changed") is False,
-            "manifest must explicitly preserve schema/live records")
+    require(contract == {"total":73,"core_operations":29,"accounting_procurement":16,"hr_payroll":28}, "73-table additive lifecycle contract missing from manifest")
+    require(manifest.get("payroll_integrity", {}).get("employee_compensation_autofilled") is False, "existing compensation must never be auto-filled")
+    require(manifest.get("payroll_integrity", {}).get("statutory_rates_seeded") is False, "unreviewed rates/exemption caps must not be seeded")
     acceptance = manifest.get("production_acceptance", {})
-    require(acceptance.get("status", "").startswith("PENDING"),
-            "candidate must not claim production acceptance")
-    require("16.1.95" in acceptance.get("live_source_parity", "") and "16.1.97" in acceptance.get("live_source_parity", "") and "No in-place install" in acceptance.get("live_source_parity", ""),
-            "in-place install must remain blocked until candidate/live source parity is proven")
-    require(manifest.get("hr_resource_downloads", {}).get("status") == "candidate component only; does not complete the full HR lifecycle",
-            "manifest overstates HR completion")
+    require(acceptance.get("status", "").startswith("PENDING"), "candidate must not claim production acceptance")
+    pending = receipt.get("required_external_acceptance", [])
+    require(any("live 16.1.97" in item and "16.1.95" in item for item in pending), "in-place install blocked until source parity is proven")
+    require("function table_keys()" in new[ROOT_IN_ZIP + "includes/class-stockland-hr-lifecycle.php"].decode(), "full HR lifecycle schema missing")
+    lifecycle_ui = new[ROOT_IN_ZIP + "assets/app.js"].decode()
+    for title in ("Workforce planning", "Recruitment and selection", "Contracts, personnel documents and onboarding", "Shifts, attendance and leave", "Compensation, increments, allowances and benefits", "Statutory rule register", "Payroll run, payslips and accounting", "Exit and final settlement"):
+        require(title in lifecycle_ui, "missing lifecycle work area: " + title)
+    require("hrlcLifecycleLists" in lifecycle_ui and "bindHRLifecycleForms" in lifecycle_ui, "full lifecycle UI is not wired")
 
     sys_path = str(ROOT / "ci")
     if sys_path not in __import__("sys").path:
         __import__("sys").path.insert(0, sys_path)
-    builder = importlib.import_module("build_release_16_1_98")
+    spec = importlib.util.spec_from_file_location("hr_resource_payload_source", ROOT / "ci/hr_resource_payload_source_16_1_98.py")
+    require(spec is not None and spec.loader is not None, "deterministic DOCX source unavailable")
+    payload_source = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(payload_source)
     actual_payloads = docx_payloads(payload_file)
-    require(set(actual_payloads) == set(builder.DOCS), "embedded DOCX catalog does not match builder source")
-    expected_filenames = {item["filename"] for item in builder.DOCS.values()}
-    require(set(receipt.get("resource_downloads", [])) == expected_filenames,
-            "receipt resource inventory differs from built DOCX files")
+    require(set(actual_payloads) == set(payload_source.DOCS), "embedded DOCX catalog does not match source")
+    expected_filenames = {item["filename"] for item in payload_source.DOCS.values()}
+    require(set(receipt.get("resource_downloads", [])) == expected_filenames, "receipt resource inventory mismatch")
     for key, payload in actual_payloads.items():
-        require(payload == builder.make_docx(builder.DOCS[key]), key + " payload differs from deterministic DOCX source")
-        verify_docx(key, payload, builder)
-    require(all(name.endswith(".docx") and not name.endswith(".doc") for name in expected_filenames),
-            "download filenames must use genuine .docx extensions")
-    print("PASS 16.1.98 exact-package resource-download component: ZIP/hash, schema preservation, auth/nonce source contracts, UI wiring, and three genuine DOCX payloads.")
-    print("NOT PASSED / NOT CLAIMED: live target-host behavior, full HR lifecycle, legal review, backup/restore, Owner/HR/Finance sign-off.")
+        require(payload == payload_source.make_docx(payload_source.DOCS[key]), key + " payload differs from deterministic source")
+        verify_docx(key, payload, payload_source)
+    require(all(name.endswith(".docx") and not name.endswith(".doc") for name in expected_filenames), "resource downloads must be genuine .docx")
+    handler = new[ROOT_IN_ZIP + "includes/class-stockland-hr-resources.php"].decode()
+    require("check_admin_referer" in handler and "Stockland_Authority::can_view_hr()" in handler, "resource download handler lacks nonce/authorization")
+    require("Stockland_Audit::log(" in handler and "'HR_RESOURCE_DOWNLOAD'" in handler, "resource access is not audited")
+    require("Content-Disposition: attachment" in handler and MIME in handler, "DOCX MIME/content-disposition missing")
+    require("approval_status'                => \"VARCHAR(24) NOT NULL DEFAULT 'DRAFT' AFTER allowance_breakdown_json\"" in new[ROOT_IN_ZIP + "includes/class-stockland-hr.php"].decode(), "migrated compensation must remain DRAFT pending review")
+    print("PASS 16.1.98 exact-package full HR/Payroll lifecycle and resource download source/package contracts.")
+    print("PENDING: live target-host lifecycle/payment E2E, private vault tests, legal/tax/pension review, source parity with live 16.1.97, two-period parallel payroll, backup/restore/rollback and Owner/HR/Finance sign-off.")
 
 if __name__ == "__main__":
     main()
