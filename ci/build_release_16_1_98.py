@@ -41,7 +41,7 @@ def patch_main(files, schema, rest):
     p = text(files, "stockland-inventory.php")
     p = once(p, " * Version:           16.1.95", " * Version:           16.1.98", "plugin header version")
     p = once(p, "define( 'STOCKLAND_VERSION', '16.1.95' );", "define( 'STOCKLAND_VERSION', '16.1.98' );", "version constant")
-    p = once(p, "define( 'STOCKLAND_HR_SCHEMA_VERSION', '16.1.3' );", "define( 'STOCKLAND_HR_SCHEMA_VERSION', '16.2.0' );", "HR schema version")
+    p = once(p, "define( 'STOCKLAND_HR_SCHEMA_VERSION', '16.1.3' );", "define( 'STOCKLAND_HR_SCHEMA_VERSION', '16.2.1' );", "HR schema version")
     p = once(p, "require_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-money.php';",
         "require_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-money.php';\nrequire_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-hr-lifecycle.php';",
         "HR lifecycle include")
