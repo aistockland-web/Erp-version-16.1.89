@@ -127,15 +127,17 @@ final class Stockland_HR_Time_Leave_Engine {
             $applied++;
             $trace[] = ['txn_ref'=>$tx['txn_ref'],'type'=>$type,'quantity'=>$tx['quantity'],'delta'=>$delta >= 0 ? self::minorToUnits($delta) : self::minorToUnits($delta),'status'=>'APPROVED','applied'=>true,'running_balance'=>self::minorToUnits($sum),'policy_version'=>$version];
         }
-        if ($unit === null) self::deny('leave_policy_missing', 'no approved leave transactions or policy unit was found for this employee and leave type');
         $currentRules = null;
-        foreach (array_keys($ruleVersionsUsed) as $v) {
-            $candidate = $rulesByVersion[$v];
-            if ($candidate['effective_from'] <= $asOfDate && (!isset($candidate['effective_to']) || $candidate['effective_to'] === null || $asOfDate <= $candidate['effective_to'])) {
-                if ($currentRules === null || $candidate['effective_from'] > $currentRules['effective_from']) $currentRules = $candidate;
-            }
+        foreach ($rulesByVersion as $version => $candidate) {
+            if (!is_array($candidate) || strtoupper((string)($candidate['leave_type'] ?? '')) !== strtoupper($leaveType)) continue;
+            if (!self::date($candidate['effective_from'] ?? null) || $candidate['effective_from'] > $asOfDate) continue;
+            if (isset($candidate['effective_to']) && $candidate['effective_to'] !== null && (!self::date($candidate['effective_to']) || $candidate['effective_to'] < $asOfDate)) continue;
+            self::validatePolicy((string)$version, $candidate, $asOfDate, $allowSyntheticTestPolicy);
+            if ($currentRules === null || $candidate['effective_from'] > $currentRules['effective_from']) $currentRules = $candidate;
         }
-        if ($currentRules === null) self::deny('leave_policy_out_of_date', 'a current policy version for the as-of date is required even when the balance has historical transactions');
+        if ($currentRules === null) self::deny('leave_policy_out_of_date', 'no current approved policy version exists for the balance date');
+        if ($unit === null) $unit = $currentRules['unit'];
+        if ($unit !== $currentRules['unit']) self::deny('leave_unit_mismatch', 'historical ledger unit differs from current policy unit and needs a reviewed conversion');
         if ($sum < 0 && $currentRules['allow_negative_balance'] !== true) self::deny('leave_balance_negative', 'approved leave ledger would produce a negative balance');
         return [
             'employee_ref'=>$employeeRef,
