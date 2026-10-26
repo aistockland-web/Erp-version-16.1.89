@@ -41,7 +41,7 @@ jobs:
         id: calculator
         shell: bash
         run: |
-          if test -s ci/hr_payroll_candidate/Stockland_HR_Payroll_Calculator.php && test -s ci/hr_payroll_candidate/test_calculator.php && test -s ci/hr_payroll_candidate/Stockland_HR_Workflow_State_Machine.php && test -s ci/hr_payroll_candidate/test_workflow_state_machine.php; then
+          if test -s ci/hr_payroll_candidate/Stockland_HR_Payroll_Calculator.php && test -s ci/hr_payroll_candidate/test_calculator.php && test -s ci/hr_payroll_candidate/Stockland_HR_Workflow_State_Machine.php && test -s ci/hr_payroll_candidate/test_workflow_state_machine.php && test -s ci/hr_payroll_candidate/Stockland_HR_Time_Leave_Engine.php && test -s ci/hr_payroll_candidate/test_time_leave_engine.php; then
             echo "source_present=true" >> "$GITHUB_OUTPUT"
           else
             echo "source_present=false" >> "$GITHUB_OUTPUT"
@@ -58,6 +58,8 @@ jobs:
           php -l ci/hr_payroll_candidate/test_calculator.php
           php -l ci/hr_payroll_candidate/Stockland_HR_Workflow_State_Machine.php
           php -l ci/hr_payroll_candidate/test_workflow_state_machine.php
+          php -l ci/hr_payroll_candidate/Stockland_HR_Time_Leave_Engine.php
+          php -l ci/hr_payroll_candidate/test_time_leave_engine.php
 
       - name: Synthetic calculator and fail-closed rules
         if: steps.calculator.outputs.source_present == 'true'
@@ -65,4 +67,6 @@ jobs:
 
       - name: Synthetic workflow transitions and evidence gates
         if: steps.calculator.outputs.source_present == 'true'
-        run: php ci/hr_payroll_candidate/test_workflow_state_machine.php
+        run: |
+          php ci/hr_payroll_candidate/test_workflow_state_machine.php
+          php ci/hr_payroll_candidate/test_time_leave_engine.php
