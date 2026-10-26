@@ -107,7 +107,7 @@ jobs:
         run: |
           set -euo pipefail
           npm install --prefix "$RUNNER_TEMP/cssqa" --no-save postcss@8
-          NODE_PATH="$RUNNER_TEMP/cssqa/node_modules" node ci/qa/check-css-postcss.js "$STOCKLAND_APP"
+          NODE_PATH="$RUNNER_TEMP/cssqa/node_modules" node ci/qa/check-css-postcss.js "$STOCKLAND_APP" --scope baseline
       - name: WordPress Coding Standards with registered Stockland capabilities
         shell: bash
         run: |
@@ -126,7 +126,9 @@ jobs:
           set -euo pipefail
           python -m pip install --disable-pip-version-check 'pydantic==2.12.5' 'semgrep==1.139.0'
           semgrep scan --metrics=off --config p/php --config p/security-audit --include '*.php' --json --output semgrep-16.1.90.json "$STOCKLAND_APP"
-          python ci/qa/summarize-semgrep.py semgrep-16.1.90.json
+          PHP_COUNT="$(find "$STOCKLAND_APP" -type f -name '*.php' | wc -l | tr -d '[:space:]')"
+          test "$PHP_COUNT" -gt 0
+          python ci/qa/summarize-semgrep.py semgrep-16.1.90.json --expected-targets "$PHP_COUNT"
       - name: Upload exact version package, checksum, PHPCS and Semgrep reports
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
