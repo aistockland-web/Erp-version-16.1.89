@@ -94,7 +94,7 @@ jobs:
           set -euo pipefail
           OUT="$RUNNER_TEMP/STOCKLAND_ERP_16.1.98_CANONICAL_WORDPRESS_UPDATE.zip"
           python ci/build_release_16_1_98.py --input "$BASELINE" --output "$OUT" | tee "$RUNNER_TEMP/STOCKLAND_ERP_16.1.98_BUILD_RECEIPT.json"
-          sha256sum --check "$OUT.sha256"
+          (cd "$(dirname "$OUT")" && sha256sum --check "$(basename "$OUT").sha256")
           echo "CANDIDATE_ZIP=$OUT" >> "$GITHUB_ENV"
           echo "CANDIDATE_RECEIPT=$RUNNER_TEMP/STOCKLAND_ERP_16.1.98_BUILD_RECEIPT.json" >> "$GITHUB_ENV"
 
@@ -140,9 +140,9 @@ jobs:
       - name: Audit release receipt and artifact evidence
         run: |
           mkdir -p build/stockland-16.1.98
-          cp "$CANDIDATE_ZIP" "$CANDIDATE_ZIP.sha256" "$CANDIDATE_RECEIPT" build/stockland-16.1.98/
+          cp "$CANDIDATE_ZIP" "$CANDIDATE_ZIP.sha256" build/stockland-16.1.98/
+          cp "$CANDIDATE_RECEIPT" build/stockland-16.1.98/STOCKLAND_ERP_16.1.98_BUILD.receipt.json
           cp "$RUNNER_TEMP/php-lint.txt" build/stockland-16.1.98/
-          cp "$RUNNER_TEMP/STOCKLAND_ERP_16.1.98_BUILD_RECEIPT.json" build/stockland-16.1.98/
           python - <<'PY'
           import json, os, hashlib
           from pathlib import Path
