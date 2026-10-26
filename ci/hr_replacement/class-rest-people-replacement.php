@@ -344,9 +344,83 @@ final class Stockland_REST_People_Replacement extends Stockland_REST_Base {
 			return rest_ensure_response(array('id'=>$id,'status'=>$to));
 		}catch(Throwable $x){$wpdb->query('ROLLBACK');return new WP_Error('people_payroll_transition_failed',$x->getMessage(),array('status'=>409));}
 	}
-	public function post_payroll($r) { return new WP_Error('people_gl_gate_pending','Posting remains blocked until the approved rule set contains Finance-approved GL account mappings and staging tests prove idempotency/reconciliation.',array('status'=>409)); }
-	public function create_payment_batch($r) { return new WP_Error('people_payment_gate_pending','Payment batches remain blocked until GL posting and target-host payment reconciliation tests pass.',array('status'=>409)); }
-	public function update_payment_result($r) { return new WP_Error('people_payment_gate_pending','Recipient outcomes remain blocked until payment batch creation is verified in isolated staging.',array('status'=>409)); }
+	public function post_payroll($r) {
+		global $wpdb; $id=absint($r['id']); $t=Stockland_People_Replacement::table('people_payroll_runs'); $wpdb->query('START TRANSACTION');
+		try {
+			$run=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',$t,$id),ARRAY_A);
+			if(!$run||$run['status']!=='APPROVED')throw new RuntimeException('Only Owner-approved payroll can be posted.');
+			if((int)$run['created_by']===(int)$run['approved_by']||(int)$run['submitted_by']===(int)$run['approved_by']||empty($run['input_snapshot_hash'])||(int)$run['exception_count']>0)throw new RuntimeException('Independent approval, frozen snapshot, or exception gate failed.');
+			$ids=json_decode((string)$run['rule_set_ids_json'],true);$rule_id=is_array($ids)?absint($ids[0]??0):0;
+			$rule=$rule_id?Stockland_DB::read_row($wpdb->prepare("SELECT * FROM %i WHERE id=%d AND rule_type='PAYROLL' AND status='ACTIVE' AND review_status='APPROVED'",Stockland_People_Replacement::table('people_rule_sets'),$rule_id),ARRAY_A):null;
+			if(!$rule||empty($rule['reviewer_user_id'])||(int)$rule['created_by']===(int)$rule['reviewer_user_id']||(int)$rule['approved_by']===(int)$rule['reviewer_user_id'])throw new RuntimeException('Current rule set lacks independent legal review and approval.');
+			$p=json_decode((string)$rule['parameters_json'],true);$m=is_array($p)?($p['gl_mapping']??array()):array();
+			$keys=array('gross_expense','employer_pension_expense','net_payable','paye_payable','employee_pension_payable','employer_pension_payable','other_deductions_payable');
+			foreach($keys as $k)if(empty($m[$k])||!is_string($m[$k]))throw new RuntimeException('Finance-approved GL mapping is missing: '.$k);
+			$journal_lines=array(
+				array('account_code'=>$m['gross_expense'],'debit'=>$run['gross_total'],'credit'=>'0.00','memo'=>'Gross payroll expense'),
+				array('account_code'=>$m['employer_pension_expense'],'debit'=>$run['employer_pension_total'],'credit'=>'0.00','memo'=>'Employer pension expense'),
+				array('account_code'=>$m['paye_payable'],'debit'=>'0.00','credit'=>$run['paye_total'],'memo'=>'PAYE payable'),
+				array('account_code'=>$m['employee_pension_payable'],'debit'=>'0.00','credit'=>$run['employee_pension_total'],'memo'=>'Employee pension payable'),
+				array('account_code'=>$m['employer_pension_payable'],'debit'=>'0.00','credit'=>$run['employer_pension_total'],'memo'=>'Employer pension payable'),
+				array('account_code'=>$m['net_payable'],'debit'=>'0.00','credit'=>$run['net_total'],'memo'=>'Net wages payable'),
+				array('account_code'=>$m['other_deductions_payable'],'debit'=>'0.00','credit'=>$run['deduction_total'],'memo'=>'Other approved deductions payable')
+			);
+			$jid=Stockland_Accounting::post_journal($run['period_end'],'PEOPLE_PAYROLL_RUN',$id,'People payroll '.$run['run_code'],$journal_lines,get_current_user_id());
+			if(!$jid)throw new RuntimeException('Shared GL service rejected posting; verify mappings, period locks and reconciliation.');
+			$n=$wpdb->update($t,array('status'=>'POSTED','posted_journal_id'=>(int)$jid,'posted_at'=>current_time('mysql'),'version_no'=>(int)$run['version_no']+1,'updated_by'=>get_current_user_id(),'updated_at'=>current_time('mysql')),array('id'=>$id,'version_no'=>(int)$run['version_no']));
+			if(false===$n||$n===0)throw new RuntimeException('Concurrent payroll posting or missing journal link.');
+			if(!Stockland_People_Replacement::event('payroll-run',$id,'PAYROLL_POSTED','APPROVED','POSTED','Shared GL journal posted',array('journal_id'=>(int)$jid,'snapshot_hash'=>$run['input_snapshot_hash'])))throw new RuntimeException('Payroll posting audit event failed.');
+			foreach(array('PAYE'=>array('paye_total','PAYE'),'PENSION'=>array('employee_pension_total','PENSION_EMPLOYEE'),'PENSION'=>array('employer_pension_total','PENSION_EMPLOYER')) as $type=>$unused) { /* actual remittance rows are created in the next controlled finance action */ }
+			if(false===$wpdb->query('COMMIT'))throw new RuntimeException('Posting transaction commit failed.');
+			return rest_ensure_response(array('id'=>$id,'status'=>'POSTED','journal_id'=>(int)$jid,'message'=>'Payroll posted through the shared GL service. Payment and statutory remittance remain separate workflows.'));
+		}catch(Throwable $x){$wpdb->query('ROLLBACK');return new WP_Error('people_payroll_post_failed',$x->getMessage(),array('status'=>409));}
+	}
+	public function create_payment_batch($r) {
+		global $wpdb; $id=absint($r['id']); $b=$r->get_json_params(); $method=strtoupper(sanitize_key((string)($b['payment_method']??''))); $idem=sanitize_text_field((string)($b['idempotency_key']??'')); $reference=sanitize_text_field((string)($b['external_batch_reference']??''));
+		if(!in_array($method,array('BANK_TRANSFER','ACCOUNT_PAYEE_CHEQUE','APPROVED_OTHER'),true)||strlen($idem)<12||strlen($reference)<4)return new WP_Error('people_payment_input','Payment method, external batch reference and a unique idempotency key of at least 12 characters are required.',array('status'=>400));
+		$wpdb->query('START TRANSACTION');
+		try {
+			$run=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',Stockland_People_Replacement::table('people_payroll_runs'),$id),ARRAY_A);
+			if(!$run||$run['status']!=='POSTED')throw new RuntimeException('Only a posted payroll run can create payment instructions.');
+			$table=Stockland_People_Replacement::table('people_payment_batches');
+			$old=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE idempotency_key=%s',$table,$idem),ARRAY_A);
+			if($old){if($old['source_type']==='PAYROLL_RUN'&&(int)$old['source_id']===$id){$wpdb->query('ROLLBACK');return rest_ensure_response(array('id'=>(int)$old['id'],'status'=>$old['status'],'idempotent_replay'=>true));}throw new RuntimeException('Idempotency key belongs to another source.');}
+			$existing=Stockland_DB::read_row($wpdb->prepare("SELECT * FROM %i WHERE source_type='PAYROLL_RUN' AND source_id=%d",$table,$id),ARRAY_A);
+			if($existing)throw new RuntimeException('A payment batch already exists for this payroll run. Use the existing batch and reconcile its recipient items.');
+			$lines=Stockland_DB::read_results($wpdb->prepare("SELECT * FROM %i WHERE run_id=%d AND status='CALCULATED' ORDER BY id",Stockland_People_Replacement::table('people_payroll_lines'),$id),ARRAY_A);
+			if(!is_array($lines)||!$lines)throw new RuntimeException('No calculated recipient lines were found.');
+			foreach($lines as $line)if($line['net_amount']===null||Stockland_Money::minor($line['net_amount'])<0)throw new RuntimeException('Invalid recipient net amount blocks payment batch.');
+			$now=current_time('mysql');$code='PB-'.gmdate('Ymd').'-'.strtoupper(wp_generate_password(8,false,false));
+			$wpdb->insert($table,array('record_uuid'=>wp_generate_uuid4(),'status'=>'PREPARED','version_no'=>1,'created_by'=>get_current_user_id(),'created_at'=>$now,'batch_code'=>$code,'payment_purpose'=>'PAYROLL','source_type'=>'PAYROLL_RUN','source_id'=>$id,'total_amount'=>$run['net_total'],'currency'=>'ETB','payment_method'=>$method,'external_batch_reference'=>$reference,'idempotency_key'=>$idem));
+			if(!$wpdb->insert_id||$wpdb->last_error)throw new RuntimeException('Payment batch insert failed.');
+			$batch=(int)$wpdb->insert_id;
+			foreach($lines as $line){
+				$wpdb->insert(Stockland_People_Replacement::table('people_payment_items'),array('record_uuid'=>wp_generate_uuid4(),'status'=>'PENDING','version_no'=>1,'created_by'=>get_current_user_id(),'created_at'=>$now,'batch_id'=>$batch,'payment_item_code'=>'PI-'.$batch.'-'.$line['id'],'payee_type'=>'EMPLOYMENT','payee_id'=>(int)$line['employment_id'],'amount'=>$line['net_amount']));
+				if(!$wpdb->insert_id||$wpdb->last_error)throw new RuntimeException('Recipient payment item insert failed.');
+			}
+			if(!Stockland_People_Replacement::event('payment-batch',$batch,'PAYMENT_BATCH_PREPARED',null,'PREPARED','',array('run_id'=>$id,'recipient_count'=>count($lines),'external_batch_reference_recorded'=>true)))throw new RuntimeException('Payment batch audit event failed.');
+			if(false===$wpdb->query('COMMIT'))throw new RuntimeException('Payment batch commit failed.');
+			return rest_ensure_response(array('id'=>$batch,'batch_code'=>$code,'status'=>'PREPARED','recipients'=>count($lines),'paid'=>false,'message'=>'Payment instructions prepared; external recipient confirmation is still required.'));
+		}catch(Throwable $x){$wpdb->query('ROLLBACK');return new WP_Error('people_payment_batch_failed',$x->getMessage(),array('status'=>409));}
+	}
+	public function update_payment_result($r) {
+		global $wpdb; $id=absint($r['id']); $b=$r->get_json_params(); $outcome=strtoupper(sanitize_key((string)($b['outcome']??''))); $ref=sanitize_text_field((string)($b['external_payment_reference']??'')); $reason=sanitize_text_field((string)($b['failure_reason']??''));
+		if(!in_array($outcome,array('CONFIRMED','FAILED','RETURNED','REVERSED'),true)||($outcome==='CONFIRMED'&&strlen($ref)<4)||($outcome==='FAILED'&&strlen($reason)<5))return new WP_Error('people_payment_result_invalid','Confirmed payment requires external reference; failed payment requires a reason.',array('status'=>400));
+		$wpdb->query('START TRANSACTION');
+		try{
+			$t=Stockland_People_Replacement::table('people_payment_items');$item=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',$t,$id),ARRAY_A);if(!$item)throw new RuntimeException('Payment item not found.');
+			if(in_array($item['status'],array('CONFIRMED','RECONCILED'),true))throw new RuntimeException('Confirmed payments are immutable. Use a separately linked reversal/return record.');
+			if($outcome==='CONFIRMED'){$dupe=Stockland_DB::read_var($wpdb->prepare('SELECT id FROM %i WHERE external_payment_reference=%s AND id<>%d',$t,$ref,$id));if($dupe)throw new RuntimeException('External payment reference already belongs to another recipient.');}
+			$n=$wpdb->update($t,array('status'=>$outcome,'external_payment_reference'=>$ref?:null,'paid_at'=>$outcome==='CONFIRMED'?current_time('mysql'):null,'failure_reason'=>$reason?:null,'version_no'=>(int)$item['version_no']+1,'updated_by'=>get_current_user_id(),'updated_at'=>current_time('mysql')),array('id'=>$id,'version_no'=>(int)$item['version_no']));if(false===$n||$n===0)throw new RuntimeException('Payment result changed concurrently.');
+			if(!Stockland_People_Replacement::event('payment-item',$id,'PAYMENT_'.$outcome,$item['status'],$outcome,$reason,array('external_reference_recorded'=>(bool)$ref)))throw new RuntimeException('Payment audit event failed.');
+			$batch=(int)$item['batch_id'];$counts=Stockland_DB::read_row($wpdb->prepare("SELECT COUNT(*) AS total, SUM(CASE WHEN status='CONFIRMED' THEN 1 ELSE 0 END) AS confirmed, SUM(CASE WHEN status IN ('FAILED','RETURNED','REVERSED') THEN 1 ELSE 0 END) AS failed FROM %i WHERE batch_id=%d",$t,$batch),ARRAY_A);
+			if(!$counts||(int)$counts['total']===0)throw new RuntimeException('Payment batch recipient items are missing.');
+			$state=(int)$counts['confirmed']===(int)$counts['total']?'CONFIRMED':((int)$counts['confirmed']>0|| (int)$counts['failed']>0?'PARTIAL':'SUBMITTED');
+			$wpdb->update(Stockland_People_Replacement::table('people_payment_batches'),array('status'=>$state,'version_no'=>1,'updated_by'=>get_current_user_id(),'updated_at'=>current_time('mysql')),array('id'=>$batch));
+			if(false===$wpdb->query('COMMIT'))throw new RuntimeException('Payment result commit failed.');
+			return rest_ensure_response(array('id'=>$id,'status'=>$outcome,'batch_status'=>$state,'message'=>'Recipient payment outcome recorded. Batch reconciliation and statutory remittance remain separate.'));
+		}catch(Throwable $x){$wpdb->query('ROLLBACK');return new WP_Error('people_payment_result_failed',$x->getMessage(),array('status'=>409));}
+	}
 	public function calculate_exit($r) { return new WP_Error('people_exit_gate_pending','Final-settlement calculation remains blocked until legal rules and leave/time source reconciliation are approved.',array('status'=>409)); }
 	public function approve_exit($r) { return new WP_Error('people_exit_gate_pending','Final settlement approval remains blocked until calculation and payment workflow tests pass.',array('status'=>409)); }
 }
