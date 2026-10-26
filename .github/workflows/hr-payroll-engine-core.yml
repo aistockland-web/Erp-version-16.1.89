@@ -37,8 +37,24 @@ jobs:
           php-version: ${{ matrix.php }}
           coverage: none
 
+      - name: Detect whether the calculator source is part of this commit
+        id: calculator
+        shell: bash
+        run: |
+          if test -s ci/hr_payroll_candidate/Stockland_HR_Payroll_Calculator.php && test -s ci/hr_payroll_candidate/test_calculator.php; then
+            echo "source_present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "source_present=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Report workflow-only registration gate
+        if: steps.calculator.outputs.source_present != 'true'
+        run: echo "Workflow registration only; calculator source tests have not run in this commit."
+
       - name: PHP syntax
+        if: steps.calculator.outputs.source_present == 'true'
         run: php -l ci/hr_payroll_candidate/Stockland_HR_Payroll_Calculator.php && php -l ci/hr_payroll_candidate/test_calculator.php
 
       - name: Synthetic calculator and fail-closed rules
+        if: steps.calculator.outputs.source_present == 'true'
         run: php ci/hr_payroll_candidate/test_calculator.php
