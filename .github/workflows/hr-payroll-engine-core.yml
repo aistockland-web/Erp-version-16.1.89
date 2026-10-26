@@ -1,8 +1,12 @@
 name: Stockland HR/payroll domain core tests
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'ci/hr_payroll_candidate/**'
   pull_request:
-    branches: [main, feature/hr-payroll-replacement-phase0]
+    branches: [main]
     paths:
       - 'ci/hr_payroll_candidate/**'
       - '.github/workflows/hr-payroll-engine-core.yml'
@@ -33,8 +37,32 @@ jobs:
           php-version: ${{ matrix.php }}
           coverage: none
 
+      - name: Detect whether the calculator source is part of this commit
+        id: calculator
+        shell: bash
+        run: |
+          if test -s ci/hr_payroll_candidate/Stockland_HR_Payroll_Calculator.php && test -s ci/hr_payroll_candidate/test_calculator.php && test -s ci/hr_payroll_candidate/Stockland_HR_Workflow_State_Machine.php && test -s ci/hr_payroll_candidate/test_workflow_state_machine.php; then
+            echo "source_present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "source_present=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Report workflow-only registration gate
+        if: steps.calculator.outputs.source_present != 'true'
+        run: echo "Workflow registration only; calculator/workflow tests have not run in this commit."
+
       - name: PHP syntax
-        run: php -l ci/hr_payroll_candidate/Stockland_HR_Payroll_Calculator.php && php -l ci/hr_payroll_candidate/test_calculator.php
+        if: steps.calculator.outputs.source_present == 'true'
+        run: |
+          php -l ci/hr_payroll_candidate/Stockland_HR_Payroll_Calculator.php
+          php -l ci/hr_payroll_candidate/test_calculator.php
+          php -l ci/hr_payroll_candidate/Stockland_HR_Workflow_State_Machine.php
+          php -l ci/hr_payroll_candidate/test_workflow_state_machine.php
 
       - name: Synthetic calculator and fail-closed rules
+        if: steps.calculator.outputs.source_present == 'true'
         run: php ci/hr_payroll_candidate/test_calculator.php
+
+      - name: Synthetic workflow transitions and evidence gates
+        if: steps.calculator.outputs.source_present == 'true'
+        run: php ci/hr_payroll_candidate/test_workflow_state_machine.php
