@@ -26,6 +26,7 @@ ALLOWED_CHANGED = {
     ROOT_IN_ZIP + "assets/app.js",
     ROOT_IN_ZIP + "README.md",
     ROOT_IN_ZIP + "RELEASE_MANIFEST.json",
+    ROOT_IN_ZIP + "assets/css/modules.json",
 }
 EXPECTED_NEW = {
     ROOT_IN_ZIP + "includes/class-stockland-hr-resources.php",
@@ -120,6 +121,8 @@ def main():
     require("* Version:           " + TARGET in main and "define( 'STOCKLAND_VERSION', '" + TARGET + "' );" in main,
             "plugin header and runtime version mismatch")
     require("const ROUTE_VERSION      = '" + TARGET + "';" in front, "route/cache version mismatch")
+    css_manifest = json.loads(new[ROOT_IN_ZIP + "assets/css/modules.json"].decode())
+    require(css_manifest.get("release") == TARGET and len(css_manifest.get("modules", [])) == 6, "CSS module cache manifest release/inventory mismatch")
     require("require_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-hr-resources.php';" in main,
             "download handler is not loaded by plugin bootstrap")
     require("'hr_resources'  => Stockland_HR_Resources::downloads()" in front,
