@@ -315,6 +315,10 @@ def patch_health(files):
             m["release_label"] = "Stockland Ethiopia ERP — full HR/payroll-cycle candidate 16.2.0 (provisional schema inventory)"
             m["schema_contract"] = {"total":86,"core_operations":29,"accounting_procurement":16,"hr_payroll":41}
             m["schema_contract_status"] = "PROVISIONAL_CANDIDATE_NOT_ARCHITECTURE_APPROVAL"
+            m["statutory_rates_or_exemption_caps_seeded"] = False
+            m["private_vault_required_outside_webroot"] = True
+            m["full_cycle_api_enabled"] = True
+            m["social_reporting_mode"] = "MANUAL_EXPORT_TIMESTAMPED_NOT_REALTIME"
             m["classification"] = "Cumulative 16.1.95 source/package plus additive full HRIS lifecycle. No production or employee data changed by build."
             m["release_changes"] = list(m.get("release_changes", [])) + [
                 "Adds workforce planning, recruitment/selection, contract/onboarding, attendance/shifts/leave, effective-dated compensation, approved legal rules, payroll events/payments/adjustments and final settlement handlers.",
