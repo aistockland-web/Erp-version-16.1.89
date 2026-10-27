@@ -434,7 +434,7 @@ final class Stockland_HR_Replacement_Workforce_Service {
 	}
 
 	public function submit_position( $id, $expected_version, $key ) {
-		return $this->transition_record( 'positions', $id, $expected_version, $key, 'POSITION', 'SUBMITTED', 'POSITION_SUBMITTED', null, null );
+		return $this->transition_record( 'positions', $id, $expected_version, $key, 'POSITION', 'SUBMITTED', 'POSITION_SUBMITTED', 'Submitted by authorized HR preparer for independent review', null );
 	}
 
 	public function decide_position( $id, $expected_version, $decision, $reason, $key ) {
