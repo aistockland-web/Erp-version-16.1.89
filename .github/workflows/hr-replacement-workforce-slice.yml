@@ -60,12 +60,13 @@ jobs:
           php ci/hr_payroll_candidate/test_calculator.php
           php ci/hr_payroll_candidate/test_workflow_state_machine.php
           php ci/hr_payroll_candidate/test_time_leave_engine.php
-      - name: Verify the isolated slice is not wired into production bootstrap
+      - name: Verify candidate changes remain outside the installable package
         shell: bash
         run: |
           set -euo pipefail
-          if grep -R -n -E 'Stockland_HR_Replacement_Workforce_(Schema|Service|WPDB_Repository)' stockland-erp-app/stockland-inventory.php 2>/dev/null; then
-            echo "::error::Replacement workforce code must remain isolated until a separately approved integration and migration gate."
+          git diff --name-only origin/main...HEAD | tee "$RUNNER_TEMP/hrx-changed-files.txt"
+          if grep -E '(^STOCKLAND_ERP_.*\.zip$|^stockland-erp-app/)' "$RUNNER_TEMP/hrx-changed-files.txt"; then
+            echo "::error::Workforce slice must not modify the existing installer; integration requires a separately reviewed release builder."
             exit 1
           fi
-          echo "PASS: workforce replacement candidate remains outside the production plugin bootstrap."
+          echo "PASS: this branch changes CI/source candidates only; no installable ZIP or packaged plugin source was changed."
