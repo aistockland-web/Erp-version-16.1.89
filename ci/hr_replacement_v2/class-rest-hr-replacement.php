@@ -601,6 +601,264 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		$this->commit();return rest_ensure_response(array('id'=>$id,'status'=>$outcome,'message'=>'External payment result recorded; reconciliation and statutory remittances remain outstanding.'));
 	}
 
+
+	public function activate_employment( $request ) {
+		global $wpdb;
+		$ready=$this->require_schema(); if(is_wp_error($ready)) return $ready;
+		$id=(int)$request['id']; $body=$this->body($request);
+		$note=sanitize_textarea_field((string)($body['approval_note']??'')); $key=sanitize_text_field((string)($body['idempotency_key']??''));
+		if(strlen(trim($note))<30||''===$key)return $this->error('hrx_activation_evidence_required','Owner activation needs a documented decision (30+ characters) and an idempotency key.',422);
+		$emp=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',Stockland_HR_Replacement::table('hrx_employments'),$id),ARRAY_A);
+		if(!$emp)return $this->error('hrx_employment_not_found','Employment relationship not found.',404);
+		if('PENDING_ACTIVATION'!==strtoupper((string)$emp['status']))return $this->error('hrx_employment_state_invalid','Only a pending employment relationship may be activated.',409);
+		if((int)$emp['created_by']===get_current_user_id())return $this->error('hrx_no_self_approval','The person who prepared the hire cannot approve activation.',403);
+		$contract=Stockland_DB::read_row($wpdb->prepare("SELECT * FROM %i WHERE employment_id=%d AND status='APPROVED' AND signed_by_person_at IS NOT NULL ORDER BY contract_version DESC LIMIT 1",Stockland_HR_Replacement::table('hrx_contracts'),$id),ARRAY_A);
+		if(!$contract||empty($contract['private_document_ref_id']))return $this->error('hrx_contract_not_signed_approved','A signed, independently approved employment contract is required before activation.',409);
+		$doc=Stockland_DB::read_row($wpdb->prepare("SELECT id FROM %i WHERE id=%d AND entity_type='CONTRACT' AND entity_id=%d AND document_type='EMPLOYMENT_CONTRACT' AND approval_status='APPROVED'",Stockland_HR_Replacement::table('hrx_document_refs'),(int)$contract['private_document_ref_id'],(int)$contract['id']),ARRAY_A);
+		if(!$doc)return $this->error('hrx_private_contract_missing','The signed contract must be stored as a verified private document.',409);
+		$pending=(int)Stockland_DB::read_var($wpdb->prepare("SELECT COUNT(*) FROM %i WHERE employment_id=%d AND status<>'COMPLETE'",Stockland_HR_Replacement::table('hrx_onboarding_tasks'),$id));
+		if($pending>0)return $this->error('hrx_onboarding_incomplete','Complete required contract, personnel-document, compensation setup and induction tasks before activation.',409);
+		$assignment=Stockland_DB::read_row($wpdb->prepare("SELECT * FROM %i WHERE employment_id=%d AND approval_status='APPROVED' AND effective_from<=%s AND (effective_to IS NULL OR effective_to>=%s) ORDER BY effective_from DESC,id DESC LIMIT 1",Stockland_HR_Replacement::table('hrx_assignments'),$id,$emp['start_date'],$emp['start_date']),ARRAY_A);
+		if(!$assignment)return $this->error('hrx_assignment_missing','An approved effective-dated position/org/location assignment is required before activation.',409);
+		if(!empty($assignment['location_id'])&&!Stockland_Authority::can_access_location((int)$assignment['location_id']))return $this->error('hrx_location_forbidden','The assignment location is outside your authorized scope.',403);
+		$comp=Stockland_DB::read_row($wpdb->prepare("SELECT * FROM %i WHERE employment_id=%d AND status='APPROVED' AND effective_from<=%s AND (effective_to IS NULL OR effective_to>=%s) ORDER BY effective_from DESC,id DESC LIMIT 1",Stockland_HR_Replacement::table('hrx_compensation_assignments'),$id,$emp['start_date'],$emp['start_date']),ARRAY_A);
+		if(!$comp)return $this->error('hrx_compensation_missing','An approved effective-dated compensation assignment must exist before activation. The system will not invent a salary.',409);
+		$items=Stockland_DB::read_results($wpdb->prepare("SELECT * FROM %i WHERE compensation_assignment_id=%d AND status='APPROVED'",Stockland_HR_Replacement::table('hrx_compensation_items'),(int)$comp['id']),ARRAY_A);
+		foreach((array)$items as $item){
+			if(!in_array($item['taxable_status'],array('TAXABLE','EXEMPT'),true)||!in_array($item['pensionable_status'],array('PENSIONABLE','NON_PENSIONABLE'),true))return $this->error('hrx_compensation_classification','Compensation includes an unresolved tax/pension classification and cannot be activated.',409);
+		}
+		$wp_user_id=isset($body['wp_user_id'])?(int)$body['wp_user_id']:(int)($emp['wp_user_id']??0);
+		if($wp_user_id>0){
+			$target=get_userdata($wp_user_id);
+			if(!$target)return $this->error('hrx_wp_user_not_found','Selected WordPress/ERP account does not exist.',404);
+			if(user_can($wp_user_id,'manage_options')||Stockland_Authority::is_owner($wp_user_id))return $this->error('hrx_protected_user','An employee record cannot take ownership of a WordPress administrator or ERP Owner account.',403);
+			$existing=Stockland_DB::read_row($wpdb->prepare('SELECT id FROM %i WHERE wp_user_id=%d AND status="ACTIVE" AND id<>%d LIMIT 1',Stockland_HR_Replacement::table('hrx_employments'),$wp_user_id,$id),ARRAY_A);
+			if($existing)return $this->error('hrx_wp_user_already_linked','This account is already linked to another active employment record.',409);
+		}
+		$active_same_person=(int)Stockland_DB::read_var($wpdb->prepare("SELECT COUNT(*) FROM %i WHERE person_id=%d AND status='ACTIVE' AND (end_date IS NULL OR end_date>=%s)",Stockland_HR_Replacement::table('hrx_employments'),(int)$emp['person_id'],$emp['start_date']));
+		if($active_same_person>0)return $this->error('hrx_duplicate_active_employment','This person already has an active overlapping employment relationship; resolve identity/contract scope first.',409);
+		if(false===$this->begin())return $this->error('hrx_tx_begin_failed','Could not start activation transaction.',500);
+		$ok=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_employments'),array('status'=>'ACTIVE','current_assignment_id'=>(int)$assignment['id'],'wp_user_id'=>$wp_user_id?:null,'approved_by'=>get_current_user_id(),'activated_at'=>Stockland_HR_Replacement::now(),'updated_at'=>Stockland_HR_Replacement::now(),'version_no'=>(int)$emp['version_no']+1),array('id'=>$id,'status'=>'PENDING_ACTIVATION'));
+		$evt=Stockland_HR_Replacement::approval_event('employment',$id,'EMPLOYMENT_ACTIVATED','PENDING_ACTIVATION','ACTIVE',$note,$key,(int)$contract['private_document_ref_id'],get_current_user_id());
+		$audit=Stockland_HR_Replacement::audit('employment_activated','employment',$id,'Activated after verified contract, onboarding, assignment and approved compensation.',(int)($assignment['location_id']??0)?:null,get_current_user_id());
+		if(false===$ok||is_wp_error($evt)||is_wp_error($audit)||false===$audit){$this->rollback();return $this->error('hrx_activation_failed','Activation and audit were rolled back.',500);}
+		$this->commit();
+		return rest_ensure_response(array('id'=>$id,'status'=>'ACTIVE','assignment_id'=>(int)$assignment['id'],'contract_id'=>(int)$contract['id'],'wp_user_linked'=>$wp_user_id>0,'message'=>'Employment activated. Compensation and legal rule values remain as approved records; none were generated or inferred.'));
+	}
+
+	public function revoke_employment_access( $request ) {
+		global $wpdb;
+		$ready=$this->require_schema();if(is_wp_error($ready))return $ready;
+		$id=(int)$request['id'];$body=$this->body($request);$reason=sanitize_textarea_field((string)($body['reason']??''));$key=sanitize_text_field((string)($body['idempotency_key']??''));
+		if(strlen(trim($reason))<30||''===$key)return $this->error('hrx_access_revocation_evidence','Owner access revocation needs a reason (30+ characters) and idempotency key.',422);
+		$emp=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',Stockland_HR_Replacement::table('hrx_employments'),$id),ARRAY_A);
+		if(!$emp)return $this->error('hrx_employment_not_found','Employment relationship not found.',404);
+		$uid=(int)($emp['wp_user_id']??0);
+		if(!$uid)return $this->error('hrx_no_linked_erp_user','No linked ERP account exists for this employment. There is no user account to revoke.',409);
+		if($uid===get_current_user_id())return $this->error('hrx_self_revocation_blocked','The current Owner account cannot revoke itself through an employee exit.',409);
+		if(Stockland_Authority::is_owner($uid)||user_can($uid,'manage_options'))return $this->error('hrx_protected_user','Protected WordPress administrator/ERP Owner accounts cannot be revoked through an employee exit. Use the separately controlled administrator procedure.',403);
+		$users=Stockland_DB::table('users');$locations=Stockland_DB::table('user_locations');
+		$user=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE wp_user_id=%d', $users,$uid),ARRAY_A);
+		if(!$user)return $this->error('hrx_erp_user_profile_missing','The linked WordPress account has no Stockland ERP user profile.',409);
+		if(false===$this->begin())return $this->error('hrx_tx_begin_failed','Could not start access-revocation transaction.',500);
+		$deactivated=Stockland_DB::update_record($users,array('is_active'=>0),array('wp_user_id'=>$uid));
+		$scope=Stockland_DB::update_record($locations,array('is_active'=>0,'effective_to'=>current_time('Y-m-d')),array('wp_user_id'=>$uid,'is_active'=>1));
+		$employment=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_employments'),array('access_revoked_at'=>Stockland_HR_Replacement::now(),'access_revoked_by'=>get_current_user_id(),'updated_at'=>Stockland_HR_Replacement::now()),array('id'=>$id,'wp_user_id'=>$uid));
+		$evt=Stockland_HR_Replacement::approval_event('employment',$id,'ERP_ACCESS_REVOKED',strtoupper((string)$emp['status']),strtoupper((string)$emp['status']),$reason,$key,null,get_current_user_id());
+		$audit=Stockland_HR_Replacement::audit('erp_access_revoked','employment',$id,'ERP profile disabled and location scopes deactivated; WordPress account retained.');
+		if(false===$deactivated||false===$scope||false===$employment||is_wp_error($evt)||is_wp_error($audit)||false===$audit){$this->rollback();return $this->error('hrx_access_revocation_failed','Access revocation was rolled back due to failed persistence/audit.',500);}
+		$this->commit();
+		$wp_user=get_userdata($uid);
+		if($wp_user){
+			foreach((array)$wp_user->roles as $role){if(in_array($role,Stockland_Roles::supported_roles(),true))$wp_user->remove_role($role);}
+			foreach(array('stockland_owner','stockland_install_schema','stockland_approve_purchase_orders','stockland_manage_users','stockland_view_hr','stockland_manage_hr','stockland_view_payroll','stockland_manage_payroll','stockland_view_all_branches','stockland_view_reports','stockland_operate_pos','stockland_manage_inventory') as $cap){$wp_user->remove_cap($cap);}
+		}
+		return rest_ensure_response(array('id'=>$id,'access_revoked'=>true,'wp_user_id'=>$uid,'account_deleted'=>false,'message'=>'Stockland ERP profile disabled and location assignments deactivated. The WordPress identity remains for retention/audit; confirm the separate account/SSO policy with IT.'));
+	}
+
+	public function reconcile_payout_batch( $request ) {
+		global $wpdb;
+		$ready=$this->require_schema();if(is_wp_error($ready))return $ready;
+		$id=(int)$request['id'];$body=$this->body($request);$ref=sanitize_text_field((string)($body['external_batch_reference']??''));$key=sanitize_text_field((string)($body['idempotency_key']??''));$note=sanitize_textarea_field((string)($body['reconciliation_note']??''));
+		if(strlen(trim($ref))<4||strlen(trim($note))<30||''===$key)return $this->error('hrx_payout_reconciliation_evidence','Batch reconciliation requires bank/cash reference, note (30+ characters) and idempotency key.',422);
+		$batch=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',Stockland_HR_Replacement::table('hrx_payout_batches'),$id),ARRAY_A);
+		if(!$batch)return $this->error('hrx_payout_batch_not_found','Payout batch not found.',404);
+		if('READY'!==strtoupper((string)$batch['status']))return $this->error('hrx_payout_batch_state_invalid','Only a READY payout batch can be reconciled once.',409);
+		$summary=Stockland_DB::read_row($wpdb->prepare("SELECT COUNT(*) total,SUM(CASE WHEN status='SETTLED' THEN 1 ELSE 0 END) settled,SUM(CASE WHEN status IN('FAILED','RETURNED') THEN 1 ELSE 0 END) failed,COALESCE(SUM(CASE WHEN status='SETTLED' THEN amount ELSE 0 END),0) amount FROM %i WHERE payout_batch_id=%d",Stockland_HR_Replacement::table('hrx_payout_items'),$id),ARRAY_A);
+		if(!$summary||(int)$summary['total']<1||(int)$summary['settled']!==(int)$summary['total']||(int)$summary['failed']>0||Stockland_Money::minor($summary['amount'])!==Stockland_Money::minor($batch['batch_total']))return $this->error('hrx_payout_items_unreconciled','Every individual payout must be SETTLED and the total must equal the approved batch amount.',409);
+		$run=$this->run_row((int)$batch['payroll_run_id']);if(is_wp_error($run))return $run;
+		$config=Stockland_DB::read_row($wpdb->prepare("SELECT * FROM %i WHERE status='APPROVED' AND effective_from<=%s AND (effective_to IS NULL OR effective_to>=%s) ORDER BY effective_from DESC,id DESC LIMIT 1",Stockland_HR_Replacement::table('hrx_accounting_config'),$run['period_end'],$run['period_start']),ARRAY_A);
+		if(!$config)return $this->error('hrx_gl_mapping_missing','Approved effective-dated GL account mapping is required to reconcile payout.',409);
+		$journal_lines=array(
+			array('account_code'=>$config['net_payable_account'],'debit'=>$batch['batch_total'],'credit'=>'0.00','memo'=>'Settlement of HRX payroll '.$run['run_code']),
+			array('account_code'=>$config['cash_account_code'],'debit'=>'0.00','credit'=>$batch['batch_total'],'memo'=>'Bank/cash payout '.$ref)
+		);
+		if(false===$this->begin())return $this->error('hrx_tx_begin_failed','Could not start payout reconciliation transaction.',500);
+		$journal=Stockland_Accounting::post_journal($run['period_end'],'HRX_PAYOUT_BATCH',$id,'HRX payroll payout '.$batch['batch_code'],$journal_lines,get_current_user_id());
+		if(!$journal){$this->rollback();return $this->error('hrx_payout_journal_failed','Payout settlement journal was not posted; batch remains unreconciled.',500);}
+		$link=Stockland_DB::insert_record(Stockland_HR_Replacement::table('hrx_accounting_links'),array('source_type'=>'HRX_PAYOUT_BATCH','source_id'=>$id,'journal_id'=>(int)$journal,'journal_hash'=>hash('sha256',wp_json_encode($journal_lines)),'posted_at'=>Stockland_HR_Replacement::now(),'posted_by'=>get_current_user_id()));
+		$ok=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_payout_batches'),array('status'=>'RECONCILED','external_batch_reference'=>$ref,'reconciled_at'=>Stockland_HR_Replacement::now()),array('id'=>$id,'status'=>'READY'));
+		$ok2=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_payroll_runs'),array('status'=>'SETTLED','payout_state'=>'SETTLED','updated_at'=>Stockland_HR_Replacement::now()),array('id'=>(int)$batch['payroll_run_id'],'status'=>'SETTLEMENT_PENDING','payout_state'=>'PENDING'));
+		$evt=Stockland_HR_Replacement::approval_event('payout-batch',$id,'PAYOUT_BATCH_RECONCILED','READY','RECONCILED',$note,$key,null,get_current_user_id());
+		$audit=Stockland_HR_Replacement::audit('payout_batch_reconciled','payout-batch',$id,'Bank/cash evidence confirmed; payout journal posted.');
+		if(false===$link||false===$ok||false===$ok2||is_wp_error($evt)||is_wp_error($audit)||false===$audit){$this->rollback();return $this->error('hrx_payout_reconciliation_failed','Payout reconciliation was rolled back.',500);}
+		$this->commit();return rest_ensure_response(array('batch_id'=>$id,'status'=>'RECONCILED','journal_id'=>(int)$journal,'message'=>'Payout batch reconciled to bank/cash and net-payable GL account.'));
+	}
+
+	public function create_remittance( $request ) {
+		global $wpdb;
+		$ready=$this->require_schema();if(is_wp_error($ready))return $ready;
+		$run_id=(int)$request['id'];$body=$this->body($request);$obligation_id=(int)($body['obligation_id']??0);
+		$amount=$body['amount']??null;$date=Stockland_HR_Replacement::valid_date($body['payment_date']??'');$gov=sanitize_text_field((string)($body['government_reference']??''));
+		if($obligation_id<1||null===$amount||!$date||strlen(trim($gov))<4)return $this->error('hrx_remittance_input_invalid','Obligation, amount, payment date and government reference are required.',422);
+		try{$money=Stockland_Money::decimal(Stockland_Money::minor($amount));}catch(Throwable $e){return $this->error('hrx_remittance_amount_invalid','Remittance amount is invalid.',422);}
+		if(Stockland_Money::minor($money)<=0)return $this->error('hrx_remittance_amount_invalid','Remittance amount must be greater than zero.',422);
+		$run=$this->run_row($run_id);if(is_wp_error($run))return $run;
+		$obligation=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d AND payroll_run_id=%d',Stockland_HR_Replacement::table('hrx_statutory_obligations'),$obligation_id,$run_id),ARRAY_A);
+		if(!$obligation)return $this->error('hrx_obligation_not_found','Statutory obligation does not belong to this payroll run.',404);
+		if(!in_array($obligation['status'],array('OPEN','PARTIALLY_SETTLED'),true))return $this->error('hrx_obligation_state_invalid','This statutory obligation is not open for remittance.',409);
+		$paid=Stockland_DB::read_var($wpdb->prepare("SELECT COALESCE(SUM(amount),0) FROM %i WHERE obligation_id=%d AND status='RECONCILED'",Stockland_HR_Replacement::table('hrx_remittances'),$obligation_id));
+		$remaining=Stockland_Money::subtract($obligation['amount_due'],$paid);
+		if(Stockland_Money::minor($money)>Stockland_Money::minor($remaining))return $this->error('hrx_remittance_overpay','Remittance amount exceeds the remaining statutory obligation.',409);
+		$code='RMX-'.gmdate('Ymd').'-'.strtoupper(wp_generate_password(10,false,false));
+		$row=array('remittance_code'=>$code,'obligation_id'=>$obligation_id,'amount'=>$money,'payment_date'=>$date,'government_reference'=>$gov,'status'=>'SUBMITTED','prepared_by'=>get_current_user_id(),'created_at'=>Stockland_HR_Replacement::now());
+		if(false===$this->begin())return $this->error('hrx_tx_begin_failed','Could not start remittance transaction.',500);
+		if(false===Stockland_DB::insert_record(Stockland_HR_Replacement::table('hrx_remittances'),$row)){$this->rollback();return $this->error('hrx_remittance_create_failed','Remittance record could not be created.',409);}
+		$id=(int)$wpdb->insert_id;
+		$evt=Stockland_HR_Replacement::approval_event('remittance',$id,'REMITTANCE_SUBMITTED',null,'SUBMITTED','Remittance evidence submitted for independent verification',$code);
+		$audit=Stockland_HR_Replacement::audit('remittance_submitted','remittance',$id,'Remittance pending receipt verification and accounting reconciliation.');
+		if(is_wp_error($evt)||is_wp_error($audit)||false===$audit){$this->rollback();return $this->error('hrx_remittance_audit_failed','Remittance creation was rolled back due to audit failure.',500);}
+		$this->commit();return rest_ensure_response(array('id'=>$id,'remittance_code'=>$code,'status'=>'SUBMITTED','message'=>'Upload the official tax/pension receipt to this remittance record, have it independently reviewed, then run Verify & Post.'));
+	}
+
+	public function verify_remittance( $request ) {
+		global $wpdb;
+		$ready=$this->require_schema();if(is_wp_error($ready))return $ready;
+		$id=(int)$request['id'];$body=$this->body($request);$key=sanitize_text_field((string)($body['idempotency_key']??''));$note=sanitize_textarea_field((string)($body['verification_note']??''));
+		if(!$key||strlen(trim($note))<30)return $this->error('hrx_remittance_verification_evidence','Independent remittance verification requires a note (30+ characters) and idempotency key.',422);
+		$rem=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',Stockland_HR_Replacement::table('hrx_remittances'),$id),ARRAY_A);if(!$rem)return $this->error('hrx_remittance_not_found','Remittance not found.',404);
+		if('SUBMITTED'!==strtoupper((string)$rem['status']))return $this->error('hrx_remittance_state_invalid','Only a submitted remittance can be verified.',409);
+		if((int)$rem['prepared_by']===get_current_user_id())return $this->error('hrx_no_self_approval','The preparer cannot verify their own statutory remittance.',403);
+		$obligation=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d',Stockland_HR_Replacement::table('hrx_statutory_obligations'),(int)$rem['obligation_id']),ARRAY_A);if(!$obligation)return $this->error('hrx_obligation_not_found','Statutory obligation no longer exists.',409);
+		$expected='PAYE'===$obligation['obligation_type']?'TAX_REMITTANCE_RECEIPT':'PENSION_REMITTANCE_RECEIPT';
+		$doc_id=(int)($rem['receipt_document_ref_id']??0);
+		$doc=$doc_id?Stockland_DB::read_row($wpdb->prepare("SELECT * FROM %i WHERE id=%d AND entity_type='REMITTANCE' AND entity_id=%d AND document_type=%s AND approval_status='APPROVED'",Stockland_HR_Replacement::table('hrx_document_refs'),$doc_id,$id,$expected),ARRAY_A):null;
+		if(!$doc)return $this->error('hrx_remittance_receipt_missing','An independently approved private official remittance receipt is required.',409);
+		$run=$this->run_row((int)$obligation['payroll_run_id']);if(is_wp_error($run))return $run;
+		$config=Stockland_DB::read_row($wpdb->prepare("SELECT * FROM %i WHERE status='APPROVED' AND effective_from<=%s AND (effective_to IS NULL OR effective_to>=%s) ORDER BY effective_from DESC,id DESC LIMIT 1",Stockland_HR_Replacement::table('hrx_accounting_config'),$rem['payment_date'],$rem['payment_date']),ARRAY_A);if(!$config)return $this->error('hrx_gl_mapping_missing','Approved effective-dated GL mapping is required for remittance posting.',409);
+		$type=strtoupper((string)$obligation['obligation_type']);
+		$payable=array('PAYE'=>$config['paye_payable_account'],'EMPLOYEE_PENSION'=>$config['employee_pension_payable_account'],'EMPLOYER_PENSION'=>$config['employer_pension_payable_account']);
+		if(empty($payable[$type]))return $this->error('hrx_obligation_type_unsupported','This statutory obligation has no reviewed GL mapping.',409);
+		$lines=array(
+			array('account_code'=>$payable[$type],'debit'=>$rem['amount'],'credit'=>'0.00','memo'=>'Remittance '.$rem['remittance_code'].' clearing payable'),
+			array('account_code'=>$config['cash_account_code'],'debit'=>'0.00','credit'=>$rem['amount'],'memo'=>'Statutory payment '.$rem['government_reference'])
+		);
+		if(false===$this->begin())return $this->error('hrx_tx_begin_failed','Could not start remittance verification transaction.',500);
+		$journal=Stockland_Accounting::post_journal($rem['payment_date'],'HRX_REMITTANCE',$id,'HRX remittance '.$rem['remittance_code'],$lines,get_current_user_id());
+		if(!$journal){$this->rollback();return $this->error('hrx_remittance_journal_failed','Remittance accounting journal did not post.',500);}
+		$link=Stockland_DB::insert_record(Stockland_HR_Replacement::table('hrx_accounting_links'),array('source_type'=>'HRX_REMITTANCE','source_id'=>$id,'journal_id'=>(int)$journal,'journal_hash'=>hash('sha256',wp_json_encode($lines)),'posted_at'=>Stockland_HR_Replacement::now(),'posted_by'=>get_current_user_id()));
+		$ok=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_remittances'),array('status'=>'RECONCILED','verified_by'=>get_current_user_id(),'verified_at'=>Stockland_HR_Replacement::now(),'journal_id'=>(int)$journal,'payment_reference'=>sanitize_text_field((string)($body['payment_reference']??$rem['government_reference'])), 'receipt_document_ref_id'=>$doc_id),array('id'=>$id,'status'=>'SUBMITTED','prepared_by'=>(int)$rem['prepared_by']));
+		$paid=Stockland_Money::add(Stockland_DB::read_var($wpdb->prepare("SELECT COALESCE(SUM(amount),0) FROM %i WHERE obligation_id=%d AND status='RECONCILED'",Stockland_HR_Replacement::table('hrx_remittances'),(int)$rem['obligation_id'])),$rem['amount']);
+		$ob_status=Stockland_Money::minor($paid)>=Stockland_Money::minor($obligation['amount_due'])?'RECONCILED':'PARTIALLY_SETTLED';
+		$ok2=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_statutory_obligations'),array('status'=>$ob_status),array('id'=>(int)$rem['obligation_id']));
+		$evt=Stockland_HR_Replacement::approval_event('remittance',$id,'REMITTANCE_RECONCILED','SUBMITTED','RECONCILED',$note,$key,$doc_id,get_current_user_id());
+		$audit=Stockland_HR_Replacement::audit('remittance_reconciled','remittance',$id,'Official receipt verified and statutory payable cleared to bank/cash.');
+		if(false===$link||false===$ok||false===$ok2||is_wp_error($evt)||is_wp_error($audit)||false===$audit){$this->rollback();return $this->error('hrx_remittance_verify_failed','Verification and posting were rolled back.',500);}
+		$this->commit();return rest_ensure_response(array('id'=>$id,'status'=>'RECONCILED','journal_id'=>(int)$journal,'obligation_status'=>$ob_status));
+	}
+
+	public function calculate_payee_request( $request ) {
+		global $wpdb;
+		$ready=$this->require_schema();if(is_wp_error($ready))return $ready;
+		$id=(int)$request['id'];$body=$this->body($request);
+		$req=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',Stockland_HR_Replacement::table('hrx_payee_requests'),$id),ARRAY_A);if(!$req)return $this->error('hrx_payee_request_not_found','Payee request not found.',404);
+		if(!in_array($req['status'],array('DRAFT','LEGAL_TAX_REVIEW','NEEDS_INFORMATION'),true))return $this->error('hrx_payee_state_invalid','Only an editable payee request may be calculated.',409);
+		$class=Stockland_DB::read_row($wpdb->prepare("SELECT * FROM %i WHERE payee_request_id=%d AND status='APPROVED' ORDER BY id DESC LIMIT 1",Stockland_HR_Replacement::table('hrx_payee_classifications'),$id),ARRAY_A);
+		if(!$class||empty($class['rule_id']))return $this->error('hrx_payee_classification_required','An independently approved legal/tax classification is required before calculation.',409);
+		$rule=Stockland_DB::read_row($wpdb->prepare("SELECT * FROM %i WHERE id=%d AND review_status='APPROVED' AND effective_from<=%s AND (effective_to IS NULL OR effective_to>=%s)",Stockland_HR_Replacement::table('hrx_legal_rules'),(int)$class['rule_id'],$req['service_period_end']?:current_time('Y-m-d'),$req['service_period_start']?:current_time('Y-m-d')),ARRAY_A);
+		if(!$rule||'PAYEE_WITHHOLDING'!==strtoupper((string)$rule['rule_family'])||'RATE_ON_TOTAL_CONSIDERATION'!==strtoupper((string)$rule['formula_key']))return $this->error('hrx_payee_rule_invalid','A currently effective approved PAYEE_WITHHOLDING rule is required.',409);
+		$params=json_decode((string)$rule['formula_parameters'],true);if(!is_array($params)||!isset($params['rate'])||'HALF_AWAY_FROM_ZERO_CENT'!==($params['rounding_method']??''))return $this->error('hrx_payee_rule_parameters','Approved payee rule lacks a valid rate/rounding method.',409);
+		if(!empty($req['in_kind_value'])&&((int)$req['in_kind_posting_verified']!==1||empty($req['in_kind_stock_reference'])))return $this->error('hrx_in_kind_stock_evidence_missing','In-kind consideration requires verified Stockland stock-transaction source evidence before tax calculation.',409);
+		$deliverables=Stockland_DB::read_row($wpdb->prepare("SELECT COUNT(*) total,SUM(CASE WHEN status='ACCEPTED' THEN 1 ELSE 0 END) accepted FROM %i WHERE payee_request_id=%d",Stockland_HR_Replacement::table('hrx_payee_deliverables'),$id),ARRAY_A);
+		if(!$deliverables||(int)$deliverables['total']<1||(int)$deliverables['accepted']!==(int)$deliverables['total'])return $this->error('hrx_payee_deliverables_missing','All contract deliverables must be accepted by authorized staff before payment approval.',409);
+		$cash=Stockland_Money::decimal(Stockland_Money::minor($req['cash_amount']));$inkind=Stockland_Money::decimal(Stockland_Money::minor($req['in_kind_value']));
+		$gross=Stockland_Money::add($cash,$inkind);
+		try{$withholding=Stockland_HR_Replacement_Calculator::percentage($gross,$params['rate']);}catch(Throwable $e){return $this->error('hrx_payee_rate_invalid','The approved payee withholding rate is malformed.',409);}
+		if(Stockland_Money::minor($withholding)>Stockland_Money::minor($cash))return $this->error('hrx_payee_withholding_exceeds_cash','Withholding exceeds the cash consideration. Hold for qualified tax review; do not create negative cash payment.',409);
+		$net=Stockland_Money::subtract($cash,$withholding);
+		$update=array('gross_amount'=>$gross,'withholding_amount'=>$withholding,'net_amount'=>$net,'withholding_rule_id'=>(int)$rule['id'],'status'=>'SUBMITTED','classification_status'=>'APPROVED','updated_at'=>Stockland_HR_Replacement::now(),'version_no'=>(int)$req['version_no']+1);
+		if(false===$this->begin())return $this->error('hrx_tx_begin_failed','Could not start payee calculation transaction.',500);
+		$ok=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_payee_requests'),$update,array('id'=>$id,'status'=>$req['status'],'classification_status'=>'APPROVED'));
+		$evt=Stockland_HR_Replacement::approval_event('payee-request',$id,'PAYEE_CALCULATED',$req['status'],'SUBMITTED','Rule ID '.$rule['id'].'; source hash '.$rule['source_sha256'],wp_generate_uuid4());
+		$audit=Stockland_HR_Replacement::audit('payee_calculated','payee-request',$id,'Cash and in-kind consideration calculated with approved rule; no payment was made.');
+		if(false===$ok||is_wp_error($evt)||is_wp_error($audit)||false===$audit){$this->rollback();return $this->error('hrx_payee_calculation_failed','Payee calculation/audit was rolled back.',500);}
+		$this->commit();return rest_ensure_response(array('id'=>$id,'status'=>'SUBMITTED','cash_amount'=>$cash,'in_kind_value'=>$inkind,'gross_consideration'=>$gross,'withholding_amount'=>$withholding,'net_cash_payable'=>$net,'rule_code'=>$rule['rule_code'],'rule_version'=>(int)$rule['version_no'],'rule_source_sha256'=>$rule['source_sha256']));
+	}
+
+	public function pay_payee_request( $request ) {
+		global $wpdb;
+		$ready=$this->require_schema();if(is_wp_error($ready))return $ready;
+		$id=(int)$request['id'];$body=$this->body($request);$ref=sanitize_text_field((string)($body['external_reference']??''));$key=sanitize_text_field((string)($body['idempotency_key']??''));$note=sanitize_textarea_field((string)($body['payment_note']??''));$doc_id=(int)($body['evidence_document_id']??0);
+		if(strlen(trim($ref))<4||!$key||strlen(trim($note))<20)return $this->error('hrx_payee_payment_evidence','Payee settlement requires a unique external payment ref, note and idempotency key.',422);
+		$req=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',Stockland_HR_Replacement::table('hrx_payee_requests'),$id),ARRAY_A);if(!$req)return $this->error('hrx_payee_request_not_found','Payee request not found.',404);
+		if('APPROVED'!==strtoupper((string)$req['status']))return $this->error('hrx_payee_not_approved','Only an independently approved AP request can be paid.',409);
+		if((int)$req['approved_by']===get_current_user_id())return $this->error('hrx_no_self_payment','The AP approver cannot record the payout as an independent settlement.',403);
+		$doc=$doc_id?Stockland_DB::read_row($wpdb->prepare("SELECT id FROM %i WHERE id=%d AND entity_type='PAYEE_REQUEST' AND entity_id=%d AND approval_status='APPROVED' AND document_type IN('PAYEE_DELIVERABLE','OTHER_HR')",Stockland_HR_Replacement::table('hrx_document_refs'),$doc_id,$id),ARRAY_A):null;
+		if(!$doc)return $this->error('hrx_payee_payment_receipt_missing','An independently approved private payout receipt or accepted deliverable reference is required.',409);
+		if(Stockland_Money::minor($req['net_amount'])<=0)return $this->error('hrx_payee_net_invalid','Net payee amount must be greater than zero to record a payout.',409);
+		$config=Stockland_DB::read_row($wpdb->prepare("SELECT * FROM %i WHERE status='APPROVED' AND effective_from<=%s AND (effective_to IS NULL OR effective_to>=%s) ORDER BY effective_from DESC,id DESC LIMIT 1",Stockland_HR_Replacement::table('hrx_accounting_config'),$req['service_period_end']?:current_time('Y-m-d'),$req['service_period_start']?:current_time('Y-m-d')),ARRAY_A);if(!$config)return $this->error('hrx_gl_mapping_missing','Approved effective-dated central AP GL mapping is required.',409);
+		$code='PAYX-'.gmdate('Ymd').'-'.strtoupper(wp_generate_password(10,false,false));
+		if(false===$this->begin())return $this->error('hrx_tx_begin_failed','Could not start payee settlement transaction.',500);
+		$payment=array('payment_code'=>$code,'payee_request_id'=>$id,'amount'=>$req['net_amount'],'method'=>strtoupper(sanitize_key($body['method']??'BANK_TRANSFER')),'external_reference'=>$ref,'evidence_ref_id'=>$doc_id,'status'=>'SETTLED','idempotency_key'=>$key,'created_by'=>(int)$req['created_by'],'paid_by'=>get_current_user_id(),'paid_at'=>Stockland_HR_Replacement::now(),'created_at'=>Stockland_HR_Replacement::now());
+		if(false===Stockland_DB::insert_record(Stockland_HR_Replacement::table('hrx_payee_payments'),$payment)){$this->rollback();return $this->error('hrx_payee_payment_duplicate','A payment for this request/reference already exists. No duplicate payment was recorded.',409);}
+		$payment_id=(int)$wpdb->insert_id;
+		$lines=array(
+			array('account_code'=>$config['payee_payable_account'],'debit'=>$req['net_amount'],'credit'=>'0.00','memo'=>'Payee settlement '.$code),
+			array('account_code'=>$config['cash_account_code'],'debit'=>'0.00','credit'=>$req['net_amount'],'memo'=>'Payee payment '.$ref)
+		);
+		$journal=Stockland_Accounting::post_journal(current_time('Y-m-d'),'HRX_PAYEE_PAYMENT',$payment_id,'Central payee payment '.$code,$lines,get_current_user_id());
+		if(!$journal){$this->rollback();return $this->error('hrx_payee_payment_journal_failed','Payee payment journal failed; settlement rolled back.',500);}
+		$link=Stockland_DB::insert_record(Stockland_HR_Replacement::table('hrx_accounting_links'),array('source_type'=>'HRX_PAYEE_PAYMENT','source_id'=>$payment_id,'journal_id'=>(int)$journal,'journal_hash'=>hash('sha256',wp_json_encode($lines)),'posted_at'=>Stockland_HR_Replacement::now(),'posted_by'=>get_current_user_id()));
+		$ok=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_payee_payments'),array('journal_id'=>(int)$journal),array('id'=>$payment_id,'status'=>'SETTLED'));
+		$ok2=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_payee_requests'),array('status'=>'PAID','updated_at'=>Stockland_HR_Replacement::now()),array('id'=>$id,'status'=>'APPROVED'));
+		$evt=Stockland_HR_Replacement::approval_event('payee-request',$id,'PAYEE_PAID','APPROVED','PAID',$note,$key,$doc_id,get_current_user_id());
+		$audit=Stockland_HR_Replacement::audit('payee_paid','payee-request',$id,'Central AP payment, receipt and GL journal linked.');
+		if(false===$link||false===$ok||false===$ok2||is_wp_error($evt)||is_wp_error($audit)||false===$audit){$this->rollback();return $this->error('hrx_payee_payment_failed','Payee payment and journal link were rolled back.',500);}
+		$this->commit();return rest_ensure_response(array('id'=>$id,'payment_id'=>$payment_id,'status'=>'PAID','journal_id'=>(int)$journal));
+	}
+
+	public function pay_exit_settlement( $request ) {
+		global $wpdb;
+		$ready=$this->require_schema();if(is_wp_error($ready))return $ready;
+		$id=(int)$request['id'];$body=$this->body($request);$ref=sanitize_text_field((string)($body['external_reference']??''));$method=strtoupper(sanitize_key($body['method']??'BANK_TRANSFER'));$key=sanitize_text_field((string)($body['idempotency_key']??''));$note=sanitize_textarea_field((string)($body['payment_note']??''));$doc_id=(int)($body['evidence_document_id']??0);
+		if(strlen(trim($ref))<4||!in_array($method,array('BANK_TRANSFER','CASH','CHEQUE'),true)||!$key||strlen(trim($note))<30)return $this->error('hrx_exit_payment_evidence','Final settlement payout requires method, external reference, note and idempotency key.',422);
+		$exit=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',Stockland_HR_Replacement::table('hrx_exit_settlements'),$id),ARRAY_A);if(!$exit)return $this->error('hrx_exit_not_found','Final settlement not found.',404);
+		if('APPROVED'!==strtoupper((string)$exit['status']))return $this->error('hrx_exit_not_approved','Only an approved final settlement may be paid.',409);
+		if((int)$exit['approved_by']===get_current_user_id())return $this->error('hrx_no_self_payment','The settlement approver cannot record the payment as the independent payer.',403);
+		$doc=$doc_id?Stockland_DB::read_row($wpdb->prepare("SELECT id FROM %i WHERE id=%d AND entity_type='EXIT_SETTLEMENT' AND entity_id=%d AND document_type='FINAL_SETTLEMENT' AND approval_status='APPROVED'",Stockland_HR_Replacement::table('hrx_document_refs'),$doc_id,$id),ARRAY_A):null;
+		if(!$doc)return $this->error('hrx_exit_payment_receipt_missing','An independently reviewed private final-settlement payment receipt is required.',409);
+		$tasks=(int)Stockland_DB::read_var($wpdb->prepare("SELECT COUNT(*) FROM %i WHERE settlement_id=%d AND status<>'COMPLETE'",Stockland_HR_Replacement::table('hrx_exit_clearance_tasks'),$id));if($tasks>0)return $this->error('hrx_exit_clearance_incomplete','Complete all handover, equipment, stock/finance, archive and access-revocation tasks before final settlement payout.',409);
+		$emp=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d',Stockland_HR_Replacement::table('hrx_employments'),(int)$exit['employment_id']),ARRAY_A);if(!$emp)return $this->error('hrx_employment_not_found','Employment relationship not found.',404);
+		if('ACTIVE'!==strtoupper((string)$emp['status'])&&'EXIT_PENDING'!==strtoupper((string)$emp['status']))return $this->error('hrx_employment_exit_state','Employment must be active or approved for exit before final settlement payment.',409);
+		$config=Stockland_DB::read_row($wpdb->prepare("SELECT * FROM %i WHERE status='APPROVED' AND effective_from<=%s AND (effective_to IS NULL OR effective_to>=%s) ORDER BY effective_from DESC,id DESC LIMIT 1",Stockland_HR_Replacement::table('hrx_accounting_config'),$exit['effective_end_date'],$exit['effective_end_date']),ARRAY_A);if(!$config)return $this->error('hrx_gl_mapping_missing','Approved GL account mapping is required to settle final pay.',409);
+		$code='EXPPX-'.gmdate('Ymd').'-'.strtoupper(wp_generate_password(10,false,false));
+		if(false=== $this->begin())return $this->error('hrx_tx_begin_failed','Could not start exit payout transaction.',500);
+		$pay=array('payout_code'=>$code,'settlement_id'=>$id,'amount'=>$exit['net_final_amount'],'method'=>$method,'external_reference'=>$ref,'evidence_ref_id'=>$doc_id,'status'=>'SETTLED','idempotency_key'=>$key,'created_by'=>(int)$exit['created_by'],'paid_by'=>get_current_user_id(),'paid_at'=>Stockland_HR_Replacement::now(),'created_at'=>Stockland_HR_Replacement::now());
+		if(false===Stockland_DB::insert_record(Stockland_HR_Replacement::table('hrx_exit_payouts'),$pay)){$this->rollback();return $this->error('hrx_exit_payout_duplicate','An exit payment with this reference/idempotency key already exists.',409);}
+		$pay_id=(int)$wpdb->insert_id;
+		$lines=array(array('account_code'=>$config['net_payable_account'],'debit'=>$exit['net_final_amount'],'credit'=>'0.00','memo'=>'Final settlement '.$exit['settlement_code']),array('account_code'=>$config['cash_account_code'],'debit'=>'0.00','credit'=>$exit['net_final_amount'],'memo'=>'Final settlement payout '.$ref));
+		$journal=Stockland_Accounting::post_journal($exit['effective_end_date'],'HRX_EXIT_PAYOUT',$pay_id,'Final settlement payment '.$code,$lines,get_current_user_id());
+		if(!$journal){$this->rollback();return $this->error('hrx_exit_payout_journal_failed','Final payout journal failed; no termination status was committed.',500);}
+		$link=Stockland_DB::insert_record(Stockland_HR_Replacement::table('hrx_accounting_links'),array('source_type'=>'HRX_EXIT_PAYOUT','source_id'=>$pay_id,'journal_id'=>(int)$journal,'journal_hash'=>hash('sha256',wp_json_encode($lines)),'posted_at'=>Stockland_HR_Replacement::now(),'posted_by'=>get_current_user_id()));
+		$ok=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_exit_payouts'),array('journal_id'=>(int)$journal),array('id'=>$pay_id,'status'=>'SETTLED'));
+		$ok2=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_exit_settlements'),array('status'=>'SETTLED','journal_id'=>(int)($exit['journal_id']??0),'settled_by'=>get_current_user_id(),'settled_at'=>Stockland_HR_Replacement::now(),'updated_at'=>Stockland_HR_Replacement::now()),array('id'=>$id,'status'=>'APPROVED'));
+		$ok3=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_employments'),array('status'=>'TERMINATED','end_date'=>$exit['effective_end_date'],'updated_at'=>Stockland_HR_Replacement::now()),array('id'=>(int)$emp['id'],'status'=>$emp['status']));
+		$evt=Stockland_HR_Replacement::approval_event('exit-settlement',$id,'EXIT_PAYOUT_SETTLED','APPROVED','SETTLED',$note,$key,$doc_id,get_current_user_id());
+		$audit=Stockland_HR_Replacement::audit('exit_payout_settled','exit-settlement',$id,'Final settlement payment posted and employment termination date applied.');
+		if(false===$link||false===$ok||false===$ok2||false===$ok3||is_wp_error($evt)||is_wp_error($audit)||false===$audit){$this->rollback();return $this->error('hrx_exit_payout_failed','Exit payout and finalization were rolled back.',500);}
+		$this->commit();return rest_ensure_response(array('id'=>$id,'payout_id'=>$pay_id,'status'=>'SETTLED','journal_id'=>(int)$journal,'message'=>'Final settlement paid and employment ended. ERP account access revocation must be separately confirmed.'));
+	}
+
 	public function close_payroll_run( $request ) {
 		global $wpdb;
 		$ready=$this->require_schema();if(is_wp_error($ready))return $ready;$id=(int)$request['id'];$run=$this->run_row($id);if(is_wp_error($run))return $run;
