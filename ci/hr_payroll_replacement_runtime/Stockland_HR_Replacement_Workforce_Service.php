@@ -496,7 +496,12 @@ final class Stockland_HR_Replacement_Workforce_Service {
 	}
 
 	private function transition_record( $entity, $id, $expected_version, $key, $aggregate, $decision, $event_type, $reason, $extra ) {
-		$this->require_approve();
+		$intent = strtoupper( (string) $decision );
+		if ( in_array( $intent, array( 'APPROVE', 'APPROVED', 'REJECT', 'REJECTED', 'NEEDS_INFORMATION', 'ACTIVE', 'INACTIVE' ), true ) ) {
+			$this->require_approve();
+		} else {
+			$this->require_prepare();
+		}
 		$key = $this->idempotency( $key );
 		$id  = Stockland_HR_Replacement_Workforce_Contract::positive_int( $id, 'record_id' );
 		$expected_version = Stockland_HR_Replacement_Workforce_Contract::positive_int( $expected_version, 'version_no' );
@@ -532,7 +537,7 @@ final class Stockland_HR_Replacement_Workforce_Service {
 			}
 			if ( 'positions' === $entity && 'APPROVED' === $to ) {
 				$context['position_justification'] = (string) $record['position_justification'];
-				$context['org_unit_active']        = true;
+				$context['org_unit_active']        = $this->repo->org_unit_exists( (int) $record['org_unit_id'] );
 			}
 			if ( 'requisitions' === $entity && 'APPROVED' === $to ) {
 				$context['budget_reference'] = Stockland_HR_Replacement_Workforce_Contract::text( $extra['budget_reference'] ?? null, 'budget_reference', 3, 190 );
@@ -544,6 +549,9 @@ final class Stockland_HR_Replacement_Workforce_Service {
 				$position = $this->get_or_404( 'positions', (int) $line['position_id'], true );
 				if ( 'APPROVED' !== $plan['status'] || ! in_array( $position['status'], array( 'ACTIVE', 'APPROVED' ), true ) ) {
 					Stockland_HR_Replacement_Workforce_Contract::deny( 'HRX_REQUISITION_PREREQUISITE_FAILED', 'An approved plan and approved position are required.', 409 );
+				}
+				if ( ! hash_equals( (string) $plan['budget_reference'], (string) $context['budget_reference'] ) ) {
+					Stockland_HR_Replacement_Workforce_Contract::deny( 'HRX_BUDGET_REFERENCE_MISMATCH', 'The requisition must cite the approved budget reference on its workforce plan.', 409 );
 				}
 				$reserved = $this->repo->count_reserved_openings( (int) $line['id'], (int) $record['id'] );
 				$context['headcount_capacity_verified'] = ( $reserved + (int) $record['openings'] ) <= (int) $line['budgeted_headcount'];
@@ -578,6 +586,27 @@ final class Stockland_HR_Replacement_Workforce_Service {
 			$this->write_event( $key, $hash, strtoupper( $entity ), $updated, $event_type, $from, $to, $reason, array( 'decision' => $to, 'decision_reason_sha256' => hash( 'sha256', $reason ) ) );
 			return array( 'record' => $updated, 'replayed' => false );
 		} );
+	}
+
+	public function list_requisitions( $filters = array(), $limit = 50 ) {
+		$this->require_view();
+		if ( isset( $filters['location_id'] ) && '' !== $filters['location_id'] ) {
+			$filters['location_id'] = $this->location( $filters['location_id'] );
+		}
+		if ( isset( $filters['plan_line_id'] ) && '' !== $filters['plan_line_id'] ) {
+			$line = $this->get_or_404( 'plan_lines', (int) $filters['plan_line_id'] );
+			$this->get_or_404( 'workforce_plans', (int) $line['plan_id'] );
+		}
+		return $this->repo->list_records( 'requisitions', $filters, $limit );
+	}
+
+	public function decide_requisition( $id, $expected_version, $decision, $reason, $budget_reference, $key ) {
+		$decision = Stockland_HR_Replacement_Workforce_Contract::decode_decision( $decision );
+		$extra = array();
+		if ( 'APPROVE' === $decision ) {
+			$extra['budget_reference'] = Stockland_HR_Replacement_Workforce_Contract::text( (string) $budget_reference, 'budget_reference', 3, 190 );
+		}
+		return $this->transition_record( 'requisitions', $id, $expected_version, $key, 'REQUISITION', $decision, 'REQUISITION_DECISION', $reason, $extra );
 	}
 
 	public function create_requisition( $input, $key ) {
