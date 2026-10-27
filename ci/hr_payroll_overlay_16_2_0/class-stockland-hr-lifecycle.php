@@ -645,6 +645,7 @@ final class Stockland_HR_Lifecycle {
 			withholding_amount DECIMAL(14,2) NULL,
 			net_payable_amount DECIMAL(14,2) NULL,
 			expense_account_code VARCHAR(20) NULL,
+			payable_account_code VARCHAR(20) NULL,
 			payable_journal_id BIGINT UNSIGNED NULL,
 			status VARCHAR(24) NOT NULL DEFAULT 'DRAFT',
 			created_by BIGINT UNSIGNED NOT NULL,
