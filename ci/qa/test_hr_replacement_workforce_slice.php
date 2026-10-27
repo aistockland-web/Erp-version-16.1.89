@@ -265,8 +265,147 @@ $submitted_position = $service->submit_position( $position_id, 1, 'position.subm
 hrx_ok( 'SUBMITTED' === $submitted_position['record']['status'] && 2 === (int) $submitted_position['record']['version_no'], 'position submission advances state and version' ); $checks++;
 
 $access->actor = 100; $access->can_approve_flag = true; $access->can_prepare_flag = true;
-hrx_expect( 'HRX_SELF_APPROVAL_BLOCKED', function () use ( $service, $position_id ) {
-	// The next call uses another maker only after the owner-created case below; this
-	// assertion is exercised against the manager-created position via the live service.
-	$service->decide_position( $position_id, 2, 'APPROVE', 'Position approved after independent business review.', 'position.approve.0001' );
-} );
+$approved_position = $service->decide_position(
+	$position_id, 2, 'APPROVE', 'Position approved after independent business review.', 'position.approve.0001'
+);
+hrx_ok( 'APPROVED' === $approved_position['record']['status'] && 3 === (int) $approved_position['record']['version_no'], 'independent Owner approval is recorded with a version increment' ); $checks++;
+
+// Maker cannot approve a position created by the same actor, even when that actor
+// has the Owner approval capability.
+$access->actor = 100; $access->can_approve_flag = true; $access->can_prepare_flag = true;
+$self_position = $service->create_position(
+	array(
+		'position_code' => 'POS-SELF-CHECK',
+		'org_unit_id' => $org_id,
+		'title' => 'Self Approval Test Position',
+		'grade_code' => null,
+		'parent_position_id' => null,
+		'location_id' => 1,
+		'position_justification' => 'Synthetic position used to confirm maker checker enforcement.',
+	),
+	'position.self.create1'
+);
+$self_position_id = (int) $self_position['record']['id'];
+$self_submitted = $service->submit_position( $self_position_id, 1, 'position.self.submit1' );
+hrx_ok( 'SUBMITTED' === $self_submitted['record']['status'], 'owner-created synthetic position can be submitted for independent review' ); $checks++;
+hrx_expect( 'HRX_SELF_APPROVAL_BLOCKED', function () use ( $service, $self_position_id ) {
+	$service->decide_position( $self_position_id, 2, 'APPROVE', 'This approval attempt must be blocked as self approval.', 'position.self.approve1' );
+} ); $checks++;
+
+// Continue with the manager as maker. Only the independent Owner can approve the
+// position plan and budget reference.
+$access->actor = 200; $access->can_approve_flag = false; $access->can_manage_org_flag = false; $access->can_prepare_flag = true;
+$line = $service->add_plan_line(
+	$plan_id,
+	array(
+		'position_id' => $position_id,
+		'budgeted_headcount' => 3,
+		'budget_amount' => '100000.00',
+		'currency' => 'ETB',
+		'justification' => 'Approved headcount and budget to support retail operations.',
+	),
+	'plan.line.create1'
+);
+$line_id = (int) $line['record']['id'];
+hrx_ok( 1 === (int) $line['record']['version_no'], 'plan line begins at version one' ); $checks++;
+
+$updated_line = $service->update_plan_line(
+	$plan_id, $line_id,
+	array(
+		'budgeted_headcount' => 3,
+		'budget_amount' => '120000.00',
+		'currency' => 'ETB',
+		'justification' => 'Revised budget approved for the defined staffing period.',
+	),
+	1,
+	'plan.line.update1'
+);
+hrx_ok( 2 === (int) $updated_line['record']['version_no'] && '120000.00' === (string) $updated_line['record']['budget_amount'], 'optimistic update preserves decimal budget and increments version' ); $checks++;
+hrx_expect( 'HRX_STALE_VERSION', function () use ( $service, $plan_id, $line_id ) {
+	$service->update_plan_line(
+		$plan_id, $line_id,
+		array(
+			'budgeted_headcount' => 4,
+			'budget_amount' => '125000.00',
+			'currency' => 'ETB',
+			'justification' => 'This stale update must not overwrite a more recent budget line.',
+		),
+		1,
+		'plan.line.update.stale1'
+	);
+} ); $checks++;
+
+$submitted_plan = $service->submit_plan( $plan_id, 1, 'plan.submit.0001' );
+hrx_ok(
+	'SUBMITTED' === $submitted_plan['record']['status'] &&
+	3 === (int) $submitted_plan['record']['requested_headcount_total'] &&
+	'120000.00' === (string) $submitted_plan['record']['requested_budget_total'],
+	'plan submission freezes expected headcount and decimal budget totals'
+); $checks++;
+
+$access->actor = 100; $access->can_approve_flag = true; $access->can_prepare_flag = true;
+$approved_plan = $service->decide_plan(
+	$plan_id, 2, 'APPROVE', 'Budget and headcount approved for the defined fiscal cycle.',
+	'BUD-2026-RETAIL-01', 'plan.approve.0001'
+);
+hrx_ok(
+	'APPROVED' === $approved_plan['record']['status'] &&
+	3 === (int) $approved_plan['record']['version_no'] &&
+	'BUD-2026-RETAIL-01' === $approved_plan['record']['budget_reference'],
+	'Owner approval pins the workforce plan budget reference'
+); $checks++;
+
+$access->actor = 200; $access->can_approve_flag = false;
+$requisition = $service->create_requisition(
+	array(
+		'requisition_code' => 'REQ-RETAIL-001',
+		'plan_line_id' => $line_id,
+		'openings' => 2,
+		'priority' => 'HIGH',
+		'requested_start_date' => '2026-11-15',
+		'justification' => 'Two vacancies are required to sustain approved retail service coverage.',
+		'location_id' => 1,
+	),
+	'requisition.create.0001'
+);
+$requisition_id = (int) $requisition['record']['id'];
+$submitted_req = $service->submit_requisition( $requisition_id, 1, 'requisition.submit.0001' );
+hrx_ok( 'SUBMITTED' === $submitted_req['record']['status'], 'vacancy requisition requires and follows an approved plan' ); $checks++;
+
+$access->actor = 100; $access->can_approve_flag = true;
+$approved_req = $service->decide_requisition(
+	$requisition_id, 2, 'APPROVE', 'Openings and funding confirmed against the approved plan.',
+	'BUD-2026-RETAIL-01', 'requisition.approve.0001'
+);
+hrx_ok( 'APPROVED' === $approved_req['record']['status'], 'requisition approval verifies exact approved budget reference' ); $checks++;
+
+$access->actor = 200; $access->can_approve_flag = false;
+$opened_req = $service->open_requisition( $requisition_id, 3, 'requisition.open.0001' );
+hrx_ok( 'OPEN' === $opened_req['record']['status'] && 4 === (int) $opened_req['record']['version_no'], 'approved vacancy can be opened for human-led recruitment' ); $checks++;
+hrx_ok( 2 === $repo->count_reserved_openings( $line_id ), 'opened vacancies reserve against approved headcount' ); $checks++;
+
+hrx_expect( 'HRX_LOCATION_FORBIDDEN', function () use ( $service ) {
+	$service->list_positions( array( 'location_id' => 2 ) );
+} ); $checks++;
+
+$access->can_prepare_flag = false;
+hrx_expect( 'HRX_FORBIDDEN', function () use ( $service, $org_id ) {
+	$service->create_plan(
+		array(
+			'plan_code' => 'WF-FORBIDDEN',
+			'fiscal_cycle' => '2026-2027',
+			'org_unit_id' => $org_id,
+			'location_id' => 1,
+			'title' => 'Unauthorized plan',
+			'justification' => 'This request must be rejected without create permission.',
+		),
+		'plan.forbidden.01'
+	);
+} ); $checks++;
+
+$repo->ready = false;
+hrx_expect( 'HRX_SCHEMA_NOT_READY', function () use ( $service ) {
+	$service->list_org_units();
+} ); $checks++;
+
+echo 'PASS workforce slice synthetic contract: ' . $checks . " assertions; in-memory only; no WordPress or database connection; no production writes.\n";
