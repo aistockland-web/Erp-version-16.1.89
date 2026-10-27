@@ -205,22 +205,6 @@ final class Stockland_REST_HR_Replacement_Workforce {
 					},
 					'permission_callback' => array( $this, 'can_prepare' ),
 				),
-				array(
-					'methods' => 'PATCH',
-					'callback' => function ( $request ) {
-						return $this->invoke( function () use ( $request ) {
-							$payload = $this->payload( $request );
-							return $this->service()->update_plan_line(
-								(int) $request['id'],
-								(int) $request['line_id'],
-								$payload,
-								(int) ( $payload['version_no'] ?? 0 ),
-								$this->idempotency_key( $request )
-							);
-						} );
-					},
-					'permission_callback' => array( $this, 'can_prepare' ),
-				),
 			)
 		);
 
