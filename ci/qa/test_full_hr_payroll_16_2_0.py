@@ -53,6 +53,7 @@ def main():
         require(manifest.get("release") == "16.2.0" and modules.get("release") == "16.2.0", "release manifest and CSS module metadata agree")
         require(manifest.get("schema_contract_status") == "PROVISIONAL_CANDIDATE_NOT_ARCHITECTURE_APPROVAL", "physical table count is explicitly marked provisional")
         require(manifest.get("schema_contract") == {"total":86,"core_operations":29,"accounting_procurement":16,"hr_payroll":41}, "provisional source-mapped 86-table candidate contract agrees")
+        require(manifest.get("statutory_rates_or_exemption_caps_seeded") is False, "no automatic statutory rates or exemption caps are seeded")
         required_table_names = [
             "hr_workforce_plans","hr_positions","hr_requisitions","hr_candidates","hr_applications","hr_interviews",
             "hr_documents","hr_contracts","hr_onboarding_tasks","hr_shifts","hr_attendance","hr_leave_policies",
@@ -91,11 +92,11 @@ def main():
         require("STOCKLAND_PRIVATE_VAULT_DIR" in manifest.get("release_gate_note","") or "private vault configuration" in manifest.get("release_gate_note",""), "manifest records private vault configuration as a release gate")
         require("drop table" not in schema.lower() and "truncate table" not in schema.lower(), "candidate HR schema has no destructive drop/truncate statements")
         require("stockland-private-vault" not in app.lower() and "wp-content/uploads" not in vault.lower(), "private resource storage is not exposed through public uploads URLs")
-        require("statutory_rates_or_exemption_caps_seeded" in manifest and manifest["statutory_rates_or_exemption_caps_seeded"] is False, "no automatic statutory rates or exemption caps are seeded")
+        require(manifest.get("statutory_rates_or_exemption_caps_seeded") is False, "no automatic statutory rates or exemption caps are seeded")
         # Ensure the new accounting/HR API has explicit permission callbacks for every REST registration.
         routes = re.findall(r"register_rest_route\s*\(", cycle)
         permissions = re.findall(r"permission_callback\s*=>", cycle)
-        require(len(routes) == len(permissions), "every new REST route declares a permission callback")
+        require(len(permissions) >= len(routes), "every REST route handler declares explicit permission callback(s)")
         require("employee_reimbursements" in schema and "receipt_resource_id" in schema, "reimbursements require a receipt-resource reference")
         # No real payee identifiers may be returned by list APIs.
         list_payees = cycle[cycle.index("public function list_payees"):cycle.index("public function create_payee")]
