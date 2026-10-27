@@ -52,7 +52,7 @@ final class Stockland_HR_Replacement_Workforce_Schema {
 				PRIMARY KEY  (id),
 				UNIQUE KEY migration_key (migration_key),
 				KEY status_version (status, schema_version)
-			) {$charset_collate}",
+			) ENGINE=InnoDB {$charset_collate}",
 			'org_units' => "CREATE TABLE {$p}org_units (
 				id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 				org_code VARCHAR(48) NOT NULL,
@@ -68,7 +68,7 @@ final class Stockland_HR_Replacement_Workforce_Schema {
 				UNIQUE KEY org_code (org_code),
 				KEY parent_status (parent_id, status),
 				KEY status_id (status, id)
-			) {$charset_collate}",
+			) ENGINE=InnoDB {$charset_collate}",
 			'positions' => "CREATE TABLE {$p}positions (
 				id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 				position_code VARCHAR(48) NOT NULL,
@@ -95,7 +95,7 @@ final class Stockland_HR_Replacement_Workforce_Schema {
 				KEY location_status (location_id, status),
 				KEY parent_position (parent_position_id),
 				KEY approval_queue (status, submitted_at)
-			) {$charset_collate}",
+			) ENGINE=InnoDB {$charset_collate}",
 			'workforce_plans' => "CREATE TABLE {$p}workforce_plans (
 				id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 				plan_code VARCHAR(48) NOT NULL,
@@ -126,7 +126,7 @@ final class Stockland_HR_Replacement_Workforce_Schema {
 				KEY fiscal_status (fiscal_cycle, status),
 				KEY org_location (org_unit_id, location_id),
 				KEY approval_queue (status, submitted_at)
-			) {$charset_collate}",
+			) ENGINE=InnoDB {$charset_collate}",
 			'plan_lines' => "CREATE TABLE {$p}workforce_plan_lines (
 				id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 				plan_id BIGINT UNSIGNED NOT NULL,
@@ -143,7 +143,7 @@ final class Stockland_HR_Replacement_Workforce_Schema {
 				PRIMARY KEY  (id),
 				UNIQUE KEY plan_position (plan_id, position_id),
 				KEY position_plan (position_id, plan_id)
-			) {$charset_collate}",
+			) ENGINE=InnoDB {$charset_collate}",
 			'requisitions' => "CREATE TABLE {$p}requisitions (
 				id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 				requisition_code VARCHAR(48) NOT NULL,
@@ -171,7 +171,7 @@ final class Stockland_HR_Replacement_Workforce_Schema {
 				KEY plan_line_status (plan_line_id, status),
 				KEY location_status (location_id, status),
 				KEY approval_queue (status, submitted_at)
-			) {$charset_collate}",
+			) ENGINE=InnoDB {$charset_collate}",
 			'events' => "CREATE TABLE {$p}events (
 				id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 				idempotency_key VARCHAR(120) NOT NULL,
@@ -193,7 +193,7 @@ final class Stockland_HR_Replacement_Workforce_Schema {
 				KEY entity_timeline (entity_type, entity_id, id),
 				KEY actor_time (actor_id, occurred_at),
 				KEY event_type_time (event_type, occurred_at)
-			) {$charset_collate}",
+			) ENGINE=InnoDB {$charset_collate}",
 		);
 	}
 
