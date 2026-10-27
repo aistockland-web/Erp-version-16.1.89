@@ -771,9 +771,9 @@ final class Stockland_HR_Lifecycle {
 		return strtoupper( (string) ( $q['decision'] ?? '' ) ) === 'APPROVED'
 			&& ! empty( $q['independence_confirmed'] )
 			&& strlen( trim( (string) ( $q['reviewer_name'] ?? '' ) ) ) >= 3
-			&& strlen( trim( (string) ( $q['professional_basis'] ?? '' ) ) >= 8
+			&& strlen( trim( (string) ( $q['professional_basis'] ?? '' ) ) ) >= 8
 			&& preg_match( '/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/D', (string) ( $q['review_date'] ?? '' ) )
-			&& strlen( trim( (string) ( $q['opinion_reference'] ?? '' ) ) >= 6
+			&& strlen( trim( (string) ( $q['opinion_reference'] ?? '' ) ) ) >= 6
 			&& preg_match( '/^[a-f0-9]{64}$/', $sha )
 			&& is_array( $clauses ) && count( $clauses ) > 0;
 	}
