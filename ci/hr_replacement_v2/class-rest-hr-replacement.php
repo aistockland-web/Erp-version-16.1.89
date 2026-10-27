@@ -537,10 +537,24 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		return $row?$row:$this->error('hrx_run_not_found','Payroll run not found.',404);
 	}
 
+	private function remittance_due_date_from_rule( $rule, $period_end ) {
+		$params=json_decode((string)($rule['formula_parameters']??''),true);
+		$offset=isset($params['remittance_due_month_offset'])?(int)$params['remittance_due_month_offset']:-1;
+		$day=isset($params['remittance_due_day_of_month'])?(int)$params['remittance_due_day_of_month']:0;
+		if($offset<0||$offset>12||$day<1||$day>31)return null;
+		$month_start=substr((string)$period_end,0,7).'-01';
+		$base=DateTimeImmutable::createFromFormat('!Y-m-d',$month_start);
+		if(!$base)return null;
+		$due_month=$base->modify(($offset>=0?'+':'').$offset.' months');
+		$last_day=(int)$due_month->format('t');$due_day=min($day,$last_day);
+		return $due_month->setDate((int)$due_month->format('Y'),(int)$due_month->format('m'),$due_day)->format('Y-m-d');
+	}
+
 	public function approve_payroll_run( $request ) {
 		global $wpdb;
 		$ready=$this->require_schema();if(is_wp_error($ready))return $ready;$id=(int)$request['id'];$run=$this->run_row($id);if(is_wp_error($run))return $run;
 		if('SUBMITTED'!==$run['status'])return $this->error('hrx_run_not_submitted','Only a submitted payroll run can be approved.',409);
+		if(Stockland_Money::minor($run['net_total'])<=0||Stockland_Money::minor($run['gross_total'])<=0)return $this->error('hrx_payroll_zero_payable','A payroll run must contain positive gross and net payable totals to proceed to approval and settlement.',409);
 		if((int)$run['submitted_by']===get_current_user_id())return $this->error('hrx_no_self_approval','The payroll preparer cannot approve the same payroll run.',403);
 		$body=$this->body($request);$note=sanitize_textarea_field((string)($body['approval_note']??''));$key=sanitize_text_field((string)($body['idempotency_key']??''));
 		if(strlen(trim($note))<30||!$key)return $this->error('hrx_approval_evidence_required','Owner approval note (30+ characters) and idempotency key are required.',422);
@@ -554,6 +568,22 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		$credit=Stockland_Money::add($run['net_total'],Stockland_Money::add($run['paye_total'],Stockland_Money::add($run['employee_pension_total'],Stockland_Money::add($run['employer_pension_total'],$run['deduction_total']))));
 		$delta=Stockland_Money::subtract($debit_base,$credit);
 		if(Stockland_Money::minor($delta)!==0)return $this->error('hrx_journal_unbalanced','Payroll journal preview does not balance; fix supported earning/deduction mappings before approval.',409);
+		$obligation_specs=array(
+			array('type'=>'PAYE','amount'=>$run['paye_total'],'rule_family'=>'PAYE'),
+			array('type'=>'EMPLOYEE_PENSION','amount'=>$run['employee_pension_total'],'rule_family'=>'EMPLOYEE_PENSION'),
+			array('type'=>'EMPLOYER_PENSION','amount'=>$run['employer_pension_total'],'rule_family'=>'EMPLOYER_PENSION')
+		);
+		$obligations=array();
+		foreach($obligation_specs as $spec){
+			$amt=Stockland_Money::decimal(Stockland_Money::minor($spec['amount']));
+			$rule=$this->active_rule($spec['rule_family'],$run['period_start'],$run['period_end']);
+			if(!$rule)return $this->error('hrx_obligation_rule_missing','Each statutory obligation needs an approved rule effective for the full payroll period.',409);
+			$due=Stockland_Money::minor($amt)>0?$this->remittance_due_date_from_rule($rule,$run['period_end']):null;
+			if(Stockland_Money::minor($amt)>0&&!$due)return $this->error('hrx_obligation_due_date_rule_missing','Approved statutory rule must include remittance_due_month_offset and remittance_due_day_of_month. No statutory deadline is guessed.',409);
+			$obligations[]=array('obligation_code'=>'OBX-'.$run['run_code'].'-'.$spec['type'],'payroll_run_id'=>$id,'obligation_type'=>$spec['type'],'rule_id'=>(int)$rule['id'],'amount_due'=>$amt,'due_date'=>$due,'status'=>Stockland_Money::minor($amt)>0?'OPEN':'NOT_REQUIRED','created_at'=>Stockland_HR_Replacement::now());
+		}
+		$existing_obligations=(int)Stockland_DB::read_var($wpdb->prepare('SELECT COUNT(*) FROM %i WHERE payroll_run_id=%d',Stockland_HR_Replacement::table('hrx_statutory_obligations'),$id));
+		if($existing_obligations>0)return $this->error('hrx_obligation_duplicate','Statutory obligations already exist for this run. Stop and reconcile the prior approval attempt before retrying.',409);
 		$lines=array(
 			array('account_code'=>$config['wage_expense_account'],'debit'=>$run['gross_total'],'credit'=>'0.00','memo'=>'HRX payroll gross '.$run['run_code']),
 			array('account_code'=>$config['employer_pension_expense_account'],'debit'=>$run['employer_pension_total'],'credit'=>'0.00','memo'=>'HRX employer pension '.$run['run_code']),
@@ -568,6 +598,8 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		if(false===$this->begin())return $this->error('hrx_tx_begin_failed','Could not start payroll posting transaction.',500);
 		$journal=Stockland_Accounting::post_journal($run['period_end'],'HRX_PAYROLL_RUN',$id,'Payroll '.$run['run_code'],$lines,get_current_user_id());
 		if(!$journal){$this->rollback();return $this->error('hrx_gl_post_failed','GL posting failed. Payroll remains unapproved and no payout was marked settled.',500);}
+		$obligation_failed=false;foreach($obligations as $obligation){if(false===Stockland_DB::insert_record(Stockland_HR_Replacement::table('hrx_statutory_obligations'),$obligation)){$obligation_failed=true;break;}}
+		if($obligation_failed){$this->rollback();return $this->error('hrx_obligation_persist_failed','Payroll was not approved because statutory obligation records could not be created atomically.',500);}
 		$link=array('source_type'=>'HRX_PAYROLL_RUN','source_id'=>$id,'journal_id'=>(int)$journal,'posted_at'=>Stockland_HR_Replacement::now(),'posted_by'=>get_current_user_id());
 		if(false===Stockland_DB::insert_record(Stockland_HR_Replacement::table('hrx_accounting_links'),$link)){$this->rollback();return $this->error('hrx_gl_link_failed','Could not link payroll run to its journal; transaction rolled back.',500);}
 		$ok=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_payroll_runs'),array('status'=>'APPROVED','approved_by'=>get_current_user_id(),'approved_at'=>Stockland_HR_Replacement::now(),'journal_id'=>(int)$journal,'payout_state'=>'NOT_STARTED','updated_at'=>Stockland_HR_Replacement::now()),array('id'=>$id,'status'=>'SUBMITTED'));
@@ -905,7 +937,7 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		if(!in_array($run['status'],array('SETTLEMENT_PENDING','SETTLED'),true)||strlen(trim($note))<30||!$key)return $this->error('hrx_close_evidence_required','Close requires settlement state, bank/payout and remittance reconciliation evidence, and an idempotency key.',422);
 		$payout=Stockland_DB::read_row($wpdb->prepare("SELECT COUNT(*) total,SUM(CASE WHEN status='SETTLED' THEN 1 ELSE 0 END) settled,SUM(CASE WHEN status IN ('FAILED','RETURNED') THEN 1 ELSE 0 END) failed FROM %i WHERE payout_batch_id IN (SELECT id FROM %i WHERE payroll_run_id=%d)",Stockland_HR_Replacement::table('hrx_payout_items'),Stockland_HR_Replacement::table('hrx_payout_batches'),$id),ARRAY_A);
 		if(!$payout||(int)$payout['total']===0||(int)$payout['settled']!==(int)$payout['total']||(int)$payout['failed']>0)return $this->error('hrx_payout_reconciliation_incomplete','Every employee payout must be individually settled. Failed/returned payments need a resolved recovery workflow before close.',409);
-		$open= (int)Stockland_DB::read_var($wpdb->prepare("SELECT COUNT(*) FROM %i WHERE payroll_run_id=%d AND status<>'RECONCILED'",Stockland_HR_Replacement::table('hrx_statutory_obligations'),$id));
+		$open= (int)Stockland_DB::read_var($wpdb->prepare("SELECT COUNT(*) FROM %i WHERE payroll_run_id=%d AND status NOT IN('RECONCILED','NOT_REQUIRED')",Stockland_HR_Replacement::table('hrx_statutory_obligations'),$id));
 		if($open>0)return $this->error('hrx_remittance_unreconciled','All statutory obligations must have verified, reconciled remittance evidence before period close.',409);
 		if(false===$this->begin())return $this->error('hrx_tx_begin_failed','Could not start close transaction.',500);
 		$ok=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_payroll_runs'),array('status'=>'CLOSED','payout_state'=>'RECONCILED','closed_by'=>get_current_user_id(),'closed_at'=>Stockland_HR_Replacement::now(),'updated_at'=>Stockland_HR_Replacement::now()),array('id'=>$id,'status'=>$run['status']));
