@@ -496,13 +496,7 @@ final class Stockland_HR_Replacement_Workforce_Service {
 	}
 
 	private function transition_record( $entity, $id, $expected_version, $key, $aggregate, $decision, $event_type, $reason, $extra ) {
-		if ( 'APPROVED' === strtoupper( (string) $decision ) || 'ACTIVE' === strtoupper( (string) $decision ) ) {
-			$this->require_approve();
-		} elseif ( 'REJECTED' === strtoupper( (string) $decision ) ) {
-			$this->require_approve();
-		} else {
-			$this->require_prepare();
-		}
+		$this->require_approve();
 		$key = $this->idempotency( $key );
 		$id  = Stockland_HR_Replacement_Workforce_Contract::positive_int( $id, 'record_id' );
 		$expected_version = Stockland_HR_Replacement_Workforce_Contract::positive_int( $expected_version, 'version_no' );
@@ -511,6 +505,10 @@ final class Stockland_HR_Replacement_Workforce_Service {
 		$hash_data = array_merge( $extra, array( 'id' => $id, 'version_no' => $expected_version, 'decision' => $decision, 'reason' => $reason ) );
 		$hash = Stockland_HR_Replacement_Workforce_Contract::request_hash( $event_type, $hash_data );
 		return $this->repo->transaction( function () use ( $entity, $id, $expected_version, $key, $aggregate, $decision, $event_type, $reason, $extra, $hash ) {
+			$prior = $this->replay( $key, $hash, $entity, $event_type );
+			if ( $prior ) {
+				return $prior;
+			}
 			$record = $this->get_or_404( $entity, $id, true );
 			$this->expected_version( $record, $expected_version );
 			$from = strtoupper( (string) $record['status'] );
@@ -521,10 +519,6 @@ final class Stockland_HR_Replacement_Workforce_Service {
 				$to = 'REJECTED';
 			} elseif ( 'NEEDS_INFORMATION' === $to ) {
 				$to = 'NEEDS_INFORMATION';
-			}
-			$prior = $this->replay( $key, $hash, $entity, $event_type );
-			if ( $prior ) {
-				return $prior;
 			}
 			if ( in_array( $to, array( 'APPROVED', 'ACTIVE' ), true ) && (int) $record['created_by'] === $this->actor() ) {
 				Stockland_HR_Replacement_Workforce_Contract::deny( 'HRX_SELF_APPROVAL_BLOCKED', 'The maker cannot approve or activate their own record.', 403 );
