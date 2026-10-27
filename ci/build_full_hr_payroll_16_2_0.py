@@ -273,6 +273,19 @@ def patch_hr_rest(files):
         "'Payroll ' . $p['period_key'] . ' / ' . Stockland_Payroll_Statutory::RULE_VERSION",
         "'Payroll ' . $p['period_key'] . ' / ' . (string) ( $p['statutory_rule_version'] ?? 'UNPINNED' )",
         "journal memo rule version")
+    # Retire every mutative legacy period/line endpoint. Legacy payroll remains available for read-only history;
+    # all new payroll operations must pass through the frozen-run API and per-recipient settlement ledger.
+    retired_methods = (
+        ("public function payroll_create( WP_REST_Request $r ) {", "create legacy payroll period"),
+        ("public function payroll_generate( WP_REST_Request $r ) {", "generate legacy payroll"),
+        ("public function payroll_line_update( WP_REST_Request $r ) {", "edit legacy payroll line"),
+        ("public function payroll_line_classification_update( WP_REST_Request $r ) {", "reclassify legacy payroll line"),
+        ("public function payroll_submit( WP_REST_Request $r ) {", "submit legacy payroll"),
+        ("public function payroll_approve( WP_REST_Request $r ) {", "approve legacy payroll"),
+        ("public function payroll_pay( WP_REST_Request $r ) {", "pay legacy payroll"),
+    )
+    for signature, label in retired_methods:
+        p = once(p, signature, signature + "\n\t\treturn new WP_Error( 'hr_legacy_payroll_retired', 'Legacy payroll mutations are retired. Use the frozen payroll-run API, qualified legal-review gate, independent Owner approval, recipient settlement and statutory reconciliation.', array( 'status' => 409 ) );", label)
     put(files, "includes/rest/class-rest-hr.php", p)
 
 def patch_health(files):
@@ -286,7 +299,7 @@ def patch_health(files):
         t = t.replace("total'] ?? 86", "total'] ?? 86")
         t = t.replace("total:86", "total:86")
         t = t.replace("total||86", "total||86")
-        t = t.replace("total||41", "total||28")
+        t = t.replace("total||41", "total||41")
         t = t.replace("86-table candidate setup", "86-table candidate setup")
         t = t.replace("86/86", "86/86")
         if path == "includes/rest/class-rest-app.php":
@@ -306,7 +319,7 @@ def patch_health(files):
             m["release_changes"] = list(m.get("release_changes", [])) + [
                 "Adds workforce planning, recruitment/selection, contract/onboarding, attendance/shifts/leave, effective-dated compensation, approved legal rules, payroll events/payments/adjustments and final settlement handlers.",
                 "Adds effective-dated law-backed allowance split. Unknown categories remain taxable; no exemption caps or statutory rates are seeded.",
-                "Adds 24 HR lifecycle tables to the prior 86-table candidate contract (new total 73); old 49 were not removed and schema changes are additive.",
+                "Adds 37 candidate HR/payroll domain tables to the 49-table source baseline; the resulting 86-table physical count is provisional, not an architecture decision.",
                 "New payroll runs require an approved rule set covering the full payroll period and pin the exact rule-set ID/version to each line and period.",
                 "No live WordPress activation, production deployment or employee data mutation was performed by the builder."
             ]
@@ -363,10 +376,10 @@ def patch_app_js(files):
     end = app.find("function slPayrollMinor(value)", start)
     if start < 0 or end < 0 or end <= start:
         raise ValueError("Could not locate exact existing HR dashboard JS boundary.")
-    wrapper = """function hr(){if(!state.hrLifecycleLoaded){return title('HR & People Operations','Loading the full employee lifecycle, legal rule registry and payroll workflow…','')+'<div id=\"hrPage\"><div class=\"sl-panel\"><div class=\"sl-skeleton\"><div class=\"sl-skeleton-line w85\"></div><div class=\"sl-skeleton-line w60\"></div><div class=\"sl-skeleton-line w40\"></div></div></div></div>';}return hrlcLifecycleLists(state.hrLifecycle||{});}\n"""
+    wrapper = """function hr(){if(!state.hrLifecycleLoaded){return title('HR & People Operations','Loading the full employee lifecycle, legal rule registry and payroll workflow…','')+'<div id=\"hrPage\"><div class=\"sl-panel\"><div class=\"sl-skeleton\"><div class=\"sl-skeleton-line w85\"></div><div class=\"sl-skeleton-line w60\"></div><div class=\"sl-skeleton-line w40\"></div></div></div></div>';}return hrlcLifecycleLists(state.hrLifecycle||{})+hrlcPayrollCyclePanel(state.hrLifecycle||{});}\n"""
     app = app[:start] + wrapper + overlay.strip() + "\n" + app[end:]
     old_bind = "if($('#usersTable')){loadUsers();loadAvailableWPUsers();}if($('#locationsRegistry'))loadLocationsRegistry();if($('#hrPage'))loadHR();if($('#refreshHR'))$('#refreshHR').onclick=loadHR;"
-    new_bind = "if($('#usersTable')){loadUsers();loadAvailableWPUsers();}if($('#locationsRegistry'))loadLocationsRegistry();if($('#hrPage')&&!state.hrLifecycleLoaded&&!state.hrLifecycleLoading)loadHRLifecycle();bindHRLifecycleForms();"
+    new_bind = "if($('#usersTable')){loadUsers();loadAvailableWPUsers();}if($('#locationsRegistry'))loadLocationsRegistry();if($('#hrPage')&&!state.hrLifecycleLoaded&&!state.hrLifecycleLoading)loadHRLifecycle();bindHRLifecycleForms();bindHRPayrollCycleForms();"
     app = once(app, old_bind, new_bind, "replace legacy HR dashboard event binding")
     app = app.replace("16.1.95", RELEASE)
     put(files, "assets/app.js", app)
