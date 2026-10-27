@@ -968,17 +968,30 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 	public function classify_payee_request( $request ) {
 		global $wpdb;$id=(int)$request['id'];$body=$this->body($request);
 		$req=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d',Stockland_HR_Replacement::table('hrx_payee_requests'),$id),ARRAY_A);if(!$req)return $this->error('hrx_payee_request_not_found','Payee request not found.',404);
-		$classification=sanitize_key($body['classification']??'');$status=strtoupper(sanitize_key($body['status']??'LEGAL_REVIEW'));$reason=sanitize_textarea_field((string)($body['reason']??''));$rule_id=(int)($body['rule_id']??0);$rate=$body['withholding_rate']??null;
-		if(strlen(trim($reason))<40||!in_array($status,array('APPROVED','LEGAL_REVIEW','NEEDS_INFORMATION','REJECTED'),true))return $this->error('hrx_payee_classification_invalid','Classification decision requires a reason and valid review state.',422);
-		if('APPROVED'===$status){$rule=$rule_id?Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d AND review_status="APPROVED"',Stockland_HR_Replacement::table('hrx_legal_rules'),$rule_id),ARRAY_A):null;if(!$rule)return $this->error('hrx_payee_rule_unapproved','An approved effective-dated legal rule is required to clear tax classification.',409);}
-		$ok=Stockland_DB::insert_record(Stockland_HR_Replacement::table('hrx_payee_classifications'),array('payee_request_id'=>$id,'rule_id'=>$rule_id?:null,'classification'=>$classification,'withholding_required'=>'APPROVED'===$status?'RULE_DECIDED':'LEGAL_REVIEW','withholding_rate'=>null===$rate?null:(string)$rate,'reason'=>$reason,'reviewer_user_id'=>get_current_user_id(),'reviewed_at'=>Stockland_HR_Replacement::now(),'status'=>$status,'created_by'=>get_current_user_id(),'created_at'=>Stockland_HR_Replacement::now()));
-		if(false===$ok)return $this->error('hrx_payee_classification_save_failed','Classification record could not be saved.',500);
-		Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_payee_requests'),array('classification_status'=>$status,'withholding_rule_id'=>$rule_id?:null,'updated_at'=>Stockland_HR_Replacement::now()),array('id'=>$id));
-		Stockland_HR_Replacement::audit('payee_classified','payee-request',$id,'Payee classification recorded; no payment was made.');
-		return rest_ensure_response(array('id'=>$id,'classification_status'=>$status,'payment_allowed'=>'APPROVED'===$status));
+		if((int)$req['created_by']===get_current_user_id())return $this->error('hrx_no_self_approval','Request creator cannot independently classify its tax treatment.',403);
+		if(!in_array($req['status'],array('DRAFT','LEGAL_TAX_REVIEW','NEEDS_INFORMATION'),true))return $this->error('hrx_payee_request_locked','Classification cannot be changed after request submission/calculation.',409);
+		$classification=sanitize_key($body['classification']??'');$status=strtoupper(sanitize_key($body['status']??'LEGAL_REVIEW'));$reason=sanitize_textarea_field((string)($body['reason']??''));$rule_id=(int)($body['rule_id']??0);
+		if(strlen(trim($reason))<40||!in_array($status,array('APPROVED','LEGAL_REVIEW','NEEDS_INFORMATION','REJECTED'),true))return $this->error('hrx_payee_classification_invalid','Classification decision requires detailed basis and valid review state.',422);
+		$rate=null;
+		if('APPROVED'===$status){
+			$start=Stockland_HR_Replacement::valid_date($req['service_period_start']??'')?:current_time('Y-m-d');
+			$end=Stockland_HR_Replacement::valid_date($req['service_period_end']??'')?:$start;
+			$rule=Stockland_DB::read_row($wpdb->prepare("SELECT * FROM %i WHERE id=%d AND review_status='APPROVED' AND rule_family='PAYEE_WITHHOLDING' AND effective_from<=%s AND (effective_to IS NULL OR effective_to>=%s)",Stockland_HR_Replacement::table('hrx_legal_rules'),$rule_id,$start,$end),ARRAY_A);
+			if(!$rule||empty($rule['source_sha256'])||empty($rule['test_vectors_sha256'])||empty($rule['reviewer_qualification']))return $this->error('hrx_payee_rule_unapproved','Payee classification must reference an effective approved PAYEE_WITHHOLDING legal rule with source/test evidence and qualified review.',409);
+			$source=json_decode((string)$rule['formula_parameters'],true);
+			if(!is_array($source)||!isset($source['rate'])||'HALF_AWAY_FROM_ZERO_CENT'!==($source['rounding_method']??''))return $this->error('hrx_payee_rule_parameters','Approved legal rule does not contain a supported rate and rounding method.',409);
+			$rate=(string)$source['rate'];
+		}
+		if(false===$this->begin())return $this->error('hrx_tx_begin_failed','Could not start payee classification transaction.',500);
+		$ok=Stockland_DB::insert_record(Stockland_HR_Replacement::table('hrx_payee_classifications'),array('payee_request_id'=>$id,'rule_id'=>$rule_id?:null,'classification'=>$classification,'withholding_required'=>'APPROVED'===$status?'RULE_DECIDED':'LEGAL_REVIEW','withholding_rate'=>$rate,'reason'=>$reason,'reviewer_user_id'=>get_current_user_id(),'reviewed_at'=>Stockland_HR_Replacement::now(),'status'=>$status,'created_by'=>get_current_user_id(),'created_at'=>Stockland_HR_Replacement::now()));
+		if(false===$ok){$this->rollback();return $this->error('hrx_payee_classification_save_failed','Classification record could not be saved.',500);}
+		$ok2=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_payee_requests'),array('classification_status'=>$status,'withholding_rule_id'=>$rule_id?:null,'status'=>'APPROVED'===$status?'DRAFT':('NEEDS_INFORMATION'===$status?'NEEDS_INFORMATION':'LEGAL_TAX_REVIEW'),'updated_at'=>Stockland_HR_Replacement::now()),array('id'=>$id,'created_by'=>(int)$req['created_by']));
+		$evt=Stockland_HR_Replacement::approval_event('payee-request',$id,'PAYEE_CLASSIFICATION_'.$status,$req['classification_status'],$status,$reason,wp_generate_uuid4(),null,get_current_user_id());
+		$audit=Stockland_HR_Replacement::audit('payee_classified','payee-request',$id,'Payee classification captured; request remains unpaid until calculation, Owner approval and central AP settlement.');
+		if(false===$ok2||is_wp_error($evt)||is_wp_error($audit)||false===$audit){$this->rollback();return $this->error('hrx_payee_classification_failed','Classification and request state were rolled back.',500);}
+		$this->commit();return rest_ensure_response(array('id'=>$id,'classification_status'=>$status,'rule_id'=>$rule_id?:null,'withholding_rate'=>$rate,'payment_allowed'=>false,'message'=>'Classification review captured. Calculation, Owner AP approval and independently evidenced payment remain separate steps.'));
 	}
-
-	public function approve_payee_request( $request ) {
+public function approve_payee_request( $request ) {
 		global $wpdb;
 		$ready=$this->require_schema();if(is_wp_error($ready))return $ready;
 		$id=(int)$request['id'];$body=$this->body($request);
