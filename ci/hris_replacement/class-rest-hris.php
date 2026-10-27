@@ -416,7 +416,7 @@ final class Stockland_REST_HRIS {
 		}
 		if(in_array($type,array('FINAL_SETTLEMENT','PAYEE_WITHHOLDING'),true)&&strlen((string)$r['reviewer_note'])<30) { /* note is supplied in decision and audited separately */ }
 	}
-	private function create_pending_hire(WP_REST_Request $r) {
+	private function do_create_pending_hire(WP_REST_Request $r) {
 		$ready=$this->require_ready();if(is_wp_error($ready))return $ready;
 		$id=(int)$r['id'];global $wpdb;$p=$r->get_json_params();$note=sanitize_textarea_field((string)($p['selection_rationale']??''));
 		if(strlen($note)<20)return $this->err('Selection rationale must be documented (20+ characters).');
@@ -441,7 +441,7 @@ final class Stockland_REST_HRIS {
 		Stockland_DB::update_record($this->table('hris_applications'),array('stage'=>'OFFER','selection_rationale'=>$note,'selected_employment_id'=>$empid),array('id'=>$id));
 		return rest_ensure_response(array('id'=>$empid,'employee_code'=>$employee_code,'status'=>'PENDING_ACTIVATION','message'=>'Pending hire created in new HRIS. Legacy employees table was not written.'));
 	}
-	public function create_pending_hire(WP_REST_Request $r){return $this->create_pending_hire($r);}
+	public function create_pending_hire(WP_REST_Request $r){return $this->do_create_pending_hire($r);}
 	public function activate_hire(WP_REST_Request $r) {
 		$ready=$this->require_ready();if(is_wp_error($ready))return $ready;
 		$id=(int)$r['id'];global $wpdb;
@@ -459,7 +459,7 @@ final class Stockland_REST_HRIS {
 		Stockland_DB::update_record($this->table('hris_employments'),array('status'=>'ACTIVE'),array('id'=>$id,'status'=>'PENDING_ACTIVATION'));
 		return rest_ensure_response(array('id'=>$id,'status'=>'ACTIVE','message'=>'Hire activated after contract, private document, onboarding and approved compensation checks.'));
 	}
-	private function create_payroll_run(WP_REST_Request $r) {
+	private function do_create_payroll_run(WP_REST_Request $r) {
 		$ready=$this->require_ready();if(is_wp_error($ready))return $ready;
 		$p=$r->get_json_params();$month=sanitize_text_field((string)($p['period_key']??''));if(!preg_match('/^\d{4}-\d{2}$/',$month))return $this->err('Payroll period key must be YYYY-MM.');
 		$start=$month.'-01';$date=DateTimeImmutable::createFromFormat('!Y-m-d',$start);if(!$date||$date->format('Y-m')!==$month)return $this->err('Invalid payroll month.');
@@ -471,7 +471,7 @@ final class Stockland_REST_HRIS {
 		$id=(int)$wpdb->insert_id;Stockland_HRIS::log_event('payroll-run',$id,'RUN_CREATED',null,'DRAFT',array('period_key'=>$month,'version'=>$version));
 		return rest_ensure_response(array('id'=>$id,'period_key'=>$month,'version_no'=>$version,'status'=>'DRAFT'));
 	}
-	public function create_payroll_run(WP_REST_Request $r){return $this->create_payroll_run($r);}
+	public function create_payroll_run(WP_REST_Request $r){return $this->do_create_payroll_run($r);}
 
 	public function calculate_payroll_run(WP_REST_Request $r) {
 		$ready=$this->require_ready();if(is_wp_error($ready))return $ready;
@@ -480,13 +480,13 @@ final class Stockland_REST_HRIS {
 		try {
 			$run=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',$this->table('hris_payroll_runs'),$id),ARRAY_A);
 			if(!$run||!in_array($run['status'],array('DRAFT','CALCULATION_FAILED'),true))throw new RuntimeException('Only a new draft run can be calculated; calculated/posted runs are frozen.');
-			$paye=Stockland_HRIS::approved_rule('PAYE',$run['end_date']);if(is_wp_error($paye))throw new RuntimeException($paye->get_error_message());
+			$payeRule=Stockland_HRIS::approved_rule('PAYE',$run['end_date']);if(is_wp_error($payeRule))throw new RuntimeException($payeRule->get_error_message());
 			$pension=Stockland_HRIS::approved_rule('PENSION',$run['end_date']);if(is_wp_error($pension))throw new RuntimeException($pension->get_error_message());
-			$payeParams=json_decode($paye['rules_json'],true);$pensionParams=json_decode($pension['rules_json'],true);
+			$payeParams=json_decode($payeRule['rules_json'],true);$pensionParams=json_decode($pension['rules_json'],true);
 			if(!is_array($payeParams)||!is_array($pensionParams))throw new RuntimeException('Approved PAYE/Pension rule payload is invalid.');
 			if(!in_array($payeParams['tax_base_method']??'',array('TAXABLE_GROSS','TAXABLE_GROSS_LESS_EMPLOYEE_PENSION'),true))throw new RuntimeException('PAYE rule lacks an explicitly approved tax base method.');
 			if(!in_array($pensionParams['pensionable_base_method']??'',array('BASE_ONLY','TAXABLE_EARNINGS','GROSS_EARNINGS'),true))throw new RuntimeException('Pension rule lacks an explicitly approved pensionable base method.');
-			$bands=array_values(array_filter(Stockland_HRIS::rule_components((int)$paye['id']),function($c){return strtoupper($c['category'])==='PAYE_BAND';}));
+			$bands=array_values(array_filter(Stockland_HRIS::rule_components((int)$payeRule['id']),function($c){return strtoupper($c['category'])==='PAYE_BAND';}));
 			if(!$bands)throw new RuntimeException('PAYE rule has no explicit progressive tax bands.');
 			$allowRule=Stockland_HRIS::approved_rule('ALLOWANCE',$run['end_date']);
 			$allowComponents=is_wp_error($allowRule)?array():Stockland_HRIS::rule_components((int)$allowRule['id']);
@@ -544,15 +544,15 @@ final class Stockland_REST_HRIS {
 				// An explicit approved PAYE tax-base method controls treatment; the engine does not infer the rule.
 				$taxBase=$payeParams['tax_base_method']==='TAXABLE_GROSS_LESS_EMPLOYEE_PENSION'?Stockland_Money::subtract($taxable,Stockland_Money::percentage($pensionable,(string)$pensionParams['employee_rate'])):$taxable;
 				$empPen=Stockland_Money::percentage($pensionable,(string)$pensionParams['employee_rate']);$erPen=Stockland_Money::percentage($pensionable,(string)$pensionParams['employer_rate']);
-				$paye=Stockland_HRIS::progressive_tax($taxBase,$bands);if(is_wp_error($paye))throw new RuntimeException($paye->get_error_message());
-				$net=Stockland_Money::subtract(Stockland_Money::subtract(Stockland_Money::subtract($gross,$paye),$empPen),$deductions);
+				$payeAmount=Stockland_HRIS::progressive_tax($taxBase,$bands);if(is_wp_error($payeAmount))throw new RuntimeException($payeAmount->get_error_message());
+				$net=Stockland_Money::subtract(Stockland_Money::subtract(Stockland_Money::subtract($gross,$payeAmount),$empPen),$deductions);
 				if(Stockland_Money::minor($net)<0)throw new RuntimeException('Calculated net pay is negative for '.$emp['employee_code'].'.');
 				$cost=Stockland_Money::add($gross,$erPen);
 				$lineId=null;
 				if(Stockland_DB::insert_record($this->table('hris_payroll_lines'),array('run_id'=>$id,'employment_id'=>(int)$emp['id'],'person_id'=>(int)$emp['person_id'],'employee_code'=>$emp['employee_code'],'employee_name_snapshot'=>$emp['legal_name'],'location_id'=>$emp['location_id'],'base_pay'=>$basePay,'earnings_total'=>Stockland_Money::subtract($earnings,$basePay),'gross_pay'=>$gross,'taxable_base'=>$taxBase,'paye'=>$paye,'pensionable_base'=>$pensionable,'employee_pension'=>$empPen,'employer_pension'=>$erPen,'other_deductions'=>$deductions,'net_pay'=>$net,'employer_cost'=>$cost,'status'=>'CALCULATED'))===false)throw new RuntimeException('Could not save payroll line for '.$emp['employee_code'].'.');
-				$lineId=(int)$wpdb->insert_id;$calculation=array('run_id'=>$id,'employment_id'=>(int)$emp['id'],'base_pay'=>$basePay,'gross_pay'=>$gross,'taxable_base'=>$taxBase,'paye'=>$paye,'employee_pension'=>$empPen,'employer_pension'=>$erPen,'other_deductions'=>$deductions,'net_pay'=>$net,'employer_cost'=>$cost,'paye_rule'=>$paye['version_label']??null);
+				$lineId=(int)$wpdb->insert_id;$calculation=array('run_id'=>$id,'employment_id'=>(int)$emp['id'],'base_pay'=>$basePay,'gross_pay'=>$gross,'taxable_base'=>$taxBase,'paye'=>$payeAmount,'employee_pension'=>$empPen,'employer_pension'=>$erPen,'other_deductions'=>$deductions,'net_pay'=>$net,'employer_cost'=>$cost,'paye_rule'=>$paye['version_label']??null);
 				foreach($lineItems as $li){$li['run_id']=$id;$li['line_id']=$lineId; if(Stockland_DB::insert_record($this->table('hris_payroll_line_items'),$li)===false)throw new RuntimeException('Could not save itemized payroll calculation.');}
-				foreach(array(array('PAYE','TAX',$paye,(int)$paye['id'],$paye['version_label']),array('EMPLOYEE_PENSION','PENSION',$empPen,(int)$pension['id'],$pension['version_label']),array('EMPLOYER_PENSION','PENSION',$erPen,(int)$pension['id'],$pension['version_label'])) as $x){
+				foreach(array(array('PAYE','TAX',$payeAmount,(int)$payeRule['id'],$payeRule['version_label']),array('EMPLOYEE_PENSION','PENSION',$empPen,(int)$pension['id'],$pension['version_label']),array('EMPLOYER_PENSION','PENSION',$erPen,(int)$pension['id'],$pension['version_label'])) as $x){
 					$snap[]=array('employment_id'=>(int)$emp['id'],'component'=>$x[0],'amount'=>$x[2],'rule_id'=>$x[3],'rule_version'=>$x[4]);
 				}
 				$grossTotal=Stockland_Money::add($grossTotal,$gross);$payeTotal=Stockland_Money::add($payeTotal,$paye);$empPenTotal=Stockland_Money::add($empPenTotal,$empPen);$erPenTotal=Stockland_Money::add($erPenTotal,$erPen);$dedTotal=Stockland_Money::add($dedTotal,$deductions);$netTotal=Stockland_Money::add($netTotal,$net);$employerCost=Stockland_Money::add($employerCost,$cost);
@@ -562,7 +562,7 @@ final class Stockland_REST_HRIS {
 			$recon=Stockland_Money::add(Stockland_Money::add($payeTotal,$empPenTotal),$dedTotal);
 			if(Stockland_Money::minor(Stockland_Money::subtract($grossTotal,Stockland_Money::add($netTotal,$recon)))!==0)throw new RuntimeException('Gross-to-net payroll reconciliation failed.');
 			$inputHash=hash('sha256',wp_json_encode(array('period'=>$run['period_key'],'rules'=>array($paye['id'],$paye['version_label'],$pension['id'],$pension['version_label']),'lines'=>$createdLines,'totals'=>array($grossTotal,$payeTotal,$empPenTotal,$erPenTotal,$dedTotal,$netTotal),'snapshot'=>$snap)));
-			$updated=Stockland_DB::update_record($this->table('hris_payroll_runs'),array('status'=>'CALCULATED','input_sha256'=>$inputHash,'paye_rule_id'=>(int)$paye['id'],'paye_rule_version'=>$paye['version_label'],'pension_rule_id'=>(int)$pension['id'],'pension_rule_version'=>$pension['version_label'],'employee_count'=>count($createdLines),'gross_total'=>$grossTotal,'paye_total'=>$payeTotal,'employee_pension_total'=>$empPenTotal,'employer_pension_total'=>$erPenTotal,'other_deduction_total'=>$dedTotal,'net_total'=>$netTotal,'employer_cost_total'=>$employerCost),array('id'=>$id,'status'=>$run['status']));
+			$updated=Stockland_DB::update_record($this->table('hris_payroll_runs'),array('status'=>'CALCULATED','input_sha256'=>$inputHash,'paye_rule_id'=>(int)$payeRule['id'],'paye_rule_version'=>$payeRule['version_label'],'pension_rule_id'=>(int)$pension['id'],'pension_rule_version'=>$pension['version_label'],'employee_count'=>count($createdLines),'gross_total'=>$grossTotal,'paye_total'=>$payeTotal,'employee_pension_total'=>$empPenTotal,'employer_pension_total'=>$erPenTotal,'other_deduction_total'=>$dedTotal,'net_total'=>$netTotal,'employer_cost_total'=>$employerCost),array('id'=>$id,'status'=>$run['status']));
 			if(false===$updated)throw new RuntimeException('Payroll run could not be frozen.');
 			if(!Stockland_HRIS::log_event('payroll-run',$id,'RUN_CALCULATED',$run['status'],'CALCULATED',array('input_sha256'=>$inputHash,'line_count'=>count($createdLines))))throw new RuntimeException('Audit-chain event failed.');
 			if(Stockland_DB::execute_query('COMMIT')===false)throw new RuntimeException('Payroll calculation transaction commit failed.');
