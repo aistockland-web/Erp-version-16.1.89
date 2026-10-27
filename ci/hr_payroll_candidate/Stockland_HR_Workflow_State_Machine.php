@@ -25,6 +25,9 @@ final class Stockland_HR_Workflow_State_Machine {
 
         $map = [
             'WORKFORCE_REQUEST' => ['DRAFT'=>['SUBMITTED'], 'SUBMITTED'=>['APPROVED','REJECTED'], 'APPROVED'=>['OPEN'], 'OPEN'=>['FILLED','CANCELLED']],
+            'WORKFORCE_PLAN' => ['DRAFT'=>['SUBMITTED'], 'SUBMITTED'=>['APPROVED','REJECTED','NEEDS_INFORMATION'], 'NEEDS_INFORMATION'=>['SUBMITTED'], 'REJECTED'=>['DRAFT'], 'APPROVED'=>['CLOSED']],
+            'POSITION' => ['DRAFT'=>['SUBMITTED'], 'SUBMITTED'=>['APPROVED','REJECTED','NEEDS_INFORMATION'], 'NEEDS_INFORMATION'=>['SUBMITTED'], 'REJECTED'=>['DRAFT'], 'APPROVED'=>['ACTIVE','INACTIVE'], 'ACTIVE'=>['INACTIVE']],
+            'REQUISITION' => ['DRAFT'=>['SUBMITTED'], 'SUBMITTED'=>['APPROVED','REJECTED','NEEDS_INFORMATION'], 'NEEDS_INFORMATION'=>['SUBMITTED'], 'REJECTED'=>['DRAFT'], 'APPROVED'=>['OPEN','CANCELLED'], 'OPEN'=>['FILLED','CANCELLED']],
             'APPLICATION' => ['DRAFT'=>['SUBMITTED'], 'SUBMITTED'=>['SCREENING','REJECTED'], 'SCREENING'=>['INTERVIEW','REJECTED'], 'INTERVIEW'=>['RECOMMENDED','REJECTED'], 'RECOMMENDED'=>['SELECTED','REJECTED'], 'SELECTED'=>['OFFERED'], 'OFFERED'=>['ACCEPTED','DECLINED']],
             'CONTRACT' => ['DRAFT'=>['SUBMITTED'], 'SUBMITTED'=>['SIGNED','REJECTED'], 'SIGNED'=>['APPROVED'], 'APPROVED'=>['ONBOARDING'], 'ONBOARDING'=>['READY_FOR_ACTIVATION'], 'READY_FOR_ACTIVATION'=>['ACTIVE']],
             'ATTENDANCE_EXCEPTION' => ['DRAFT'=>['SUBMITTED'], 'SUBMITTED'=>['APPROVED','REJECTED'], 'APPROVED'=>['LOCKED']],
@@ -45,6 +48,18 @@ final class Stockland_HR_Workflow_State_Machine {
             self::deny('self_approval_blocked', 'Maker cannot approve or finalize their own high-impact record');
         }
         if ($aggregate === 'WORKFORCE_REQUEST' && $to === 'APPROVED') self::textRequired($context, 'budget_reference');
+        if ($aggregate === 'WORKFORCE_PLAN' && $to === 'APPROVED') {
+            self::textRequired($context, 'budget_reference');
+            if (($context['budget_positive'] ?? false) !== true || ($context['headcount_valid'] ?? false) !== true) self::deny('workforce_plan_approval_blocked', 'Positive budget and valid headcount are required');
+        }
+        if ($aggregate === 'POSITION' && $to === 'APPROVED') {
+            self::textRequired($context, 'position_justification');
+            if (($context['plan_budget_approved'] ?? false) !== true) self::deny('position_plan_not_approved', 'An approved workforce plan is required');
+        }
+        if ($aggregate === 'REQUISITION' && $to === 'APPROVED') {
+            self::textRequired($context, 'budget_reference');
+            if (($context['headcount_capacity_verified'] ?? false) !== true) self::deny('requisition_capacity_exceeded', 'Approved plan headcount must cover this requisition');
+        }
         if ($aggregate === 'APPLICATION' && $to === 'SELECTED') self::textRequired($context, 'human_selection_rationale');
         if ($aggregate === 'CONTRACT' && $to === 'SIGNED') {
             self::textRequired($context, 'private_contract_ref'); self::textRequired($context, 'signed_date');
