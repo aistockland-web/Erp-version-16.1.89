@@ -82,18 +82,33 @@ final class Stockland_HR_Replacement {
 	/** Read-only schema state; this function never tries to repair or alter existing tables. */
 	public static function schema_status() {
 		global $wpdb;
-		$present = array(); $missing = array();
+		$present = array(); $missing = array(); $drift = array();
+		$expected = array();
+		foreach ( self::ddl() as $sql ) {
+			if ( ! preg_match( '/CREATE TABLE IF NOT EXISTS ([A-Za-z0-9_]+)\\s*\\((.*)\\) ENGINE=InnoDB/s', $sql, $match ) ) { continue; }
+			$name = $match[1]; $key = substr( $name, strlen( $wpdb->prefix . 'stock_' ) ); $cols = array();
+			foreach ( explode( ',', $match[2] ) as $part ) {
+				if ( preg_match( '/^\\s*([a-z][a-z0-9_]*)\\s+(?:BIGINT|VARCHAR|TEXT|LONGTEXT|MEDIUMBLOB|CHAR|DATE|DATETIME|DECIMAL|INT|TINYINT)\\b/i', $part, $cm ) ) { $cols[] = strtolower( $cm[1] ); }
+			}
+			$expected[$key] = $cols;
+		}
 		foreach ( self::table_keys() as $key ) {
 			$name = Stockland_DB::table( $key );
 			$exists = Stockland_DB::read_var( $wpdb->prepare( 'SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=%s AND TABLE_NAME=%s', DB_NAME, $name ) );
-			if ( empty( $wpdb->last_error ) && (int) $exists === 1 ) { $present[] = $key; } else { $missing[] = $key; }
+			if ( ! empty( $wpdb->last_error ) || (int) $exists !== 1 ) { $missing[] = $key; continue; }
+			$present[] = $key;
+			$actual_rows = Stockland_DB::read_results( $wpdb->prepare( 'SHOW COLUMNS FROM %i', $name ), ARRAY_A );
+			if ( ! empty( $wpdb->last_error ) || ! is_array( $actual_rows ) ) { $drift[$key] = array( 'missing_columns'=>$expected[$key] ?? array(), 'unexpected_columns'=>array(), 'reason'=>'Could not inspect column metadata.' ); continue; }
+			$actual = array_map( 'strtolower', array_column( $actual_rows, 'Field' ) ); $wanted = $expected[$key] ?? array();
+			$miss = array_values( array_diff( $wanted, $actual ) ); $extra = array_values( array_diff( $actual, $wanted ) );
+			if ( $miss || $extra ) { $drift[$key] = array( 'missing_columns'=>$miss, 'unexpected_columns'=>$extra, 'reason'=>'Physical schema does not exactly match the candidate contract. No automatic ALTER is attempted.' ); }
 		}
 		$recorded = (string) get_option( self::OPTION_SCHEMA_VERSION, '' );
 		return array(
 			'version' => self::SCHEMA_VERSION, 'recorded_version' => $recorded,
 			'total' => count( self::table_keys() ), 'present' => count( $present ),
-			'present_tables' => $present, 'missing_tables' => $missing,
-			'ready' => empty( $missing ) && self::SCHEMA_VERSION === $recorded,
+			'present_tables' => $present, 'missing_tables' => $missing, 'schema_drift' => $drift,
+			'ready' => empty( $missing ) && empty( $drift ) && self::SCHEMA_VERSION === $recorded,
 			'legacy_tables_read_only_sources' => array( 'employees','employee_compensation','payroll_periods','payroll_lines' ),
 			'schema_changes_to_legacy_tables' => false,
 		);
@@ -102,7 +117,7 @@ final class Stockland_HR_Replacement {
 	/** Explicit CREATE only; no ALTER/DROP. Existing schema mismatches are reported, never auto-repaired. */
 	public static function install_schema_batch( $limit = 5 ) {
 		global $wpdb;
-		if ( ! is_user_logged_in() || ! ( current_user_can( 'manage_options' ) || current_user_can( 'stockland_install_schema' ) ) ) {
+		if ( ! is_user_logged_in() || ! ( current_user_can( 'manage_options' ) || ( class_exists( 'Stockland_Authority' ) && Stockland_Authority::can_approve_payroll() && current_user_can( 'stockland_manage_hr' ) ) || current_user_can( 'stockland_install_schema' ) ) ) {
 			return new WP_Error( 'hrx_schema_forbidden', 'Only an authorized schema administrator may create the new HR replacement tables.', array( 'status' => 403 ) );
 		}
 		$limit = max( 1, min( 8, (int) $limit ) );
@@ -119,7 +134,7 @@ final class Stockland_HR_Replacement {
 			$created[] = $key; ++$checked;
 		}
 		$after = self::schema_status();
-		if ( empty( $after['missing_tables'] ) ) { update_option( self::OPTION_SCHEMA_VERSION, self::SCHEMA_VERSION, false ); }
+		if ( empty( $after['missing_tables'] ) && empty( $after['schema_drift'] ) ) { update_option( self::OPTION_SCHEMA_VERSION, self::SCHEMA_VERSION, false ); }
 		return array( 'created_or_verified' => $created, 'status' => $after, 'message' => empty( $after['missing_tables'] ) ? 'New HR replacement schema is present. Legacy HR data remains unchanged.' : 'Schema batch completed; continue with the next bounded batch.' );
 	}
 
