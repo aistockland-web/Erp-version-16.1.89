@@ -11,14 +11,17 @@ final class Stockland_HR_Replacement_Calculator {
 
 	private static function fail( $code, $message ) { return new WP_Error( $code, $message, array( 'status' => 422 ) ); }
 
-	private static function rate_units( $value ) {
+	private static function decimal_units( $value, $max_units, $label ) {
 		$s = trim( (string) $value );
-		if ( ! preg_match( '/^(0|1)(?:\.(\d{1,6}))?$/', $s, $m ) ) { throw new InvalidArgumentException( 'Rate must be an unsigned decimal between 0 and 1 with at most six decimal places.' ); }
+		if ( ! preg_match( '/^(0|[1-9][0-9]{0,2})(?:\.(\d{1,6}))?$/', $s, $m ) ) { throw new InvalidArgumentException( $label . ' must be a non-negative decimal with at most six places.' ); }
 		$whole = (int) $m[1];
 		$fraction = isset( $m[2] ) ? str_pad( $m[2], 6, '0', STR_PAD_RIGHT ) : '000000';
 		$units = ( $whole * self::RATE_SCALE ) + (int) $fraction;
-		if ( $units < 0 || $units > self::RATE_SCALE ) { throw new InvalidArgumentException( 'Rate is outside 0..1.' ); }
+		if ( $units < 0 || $units > (int) $max_units ) { throw new InvalidArgumentException( $label . ' is outside the approved range.' ); }
 		return $units;
+	}
+	private static function rate_units( $value ) {
+		return self::decimal_units( $value, self::RATE_SCALE, 'Rate' );
 	}
 
 	private static function round_div( $numerator, $denominator ) {
@@ -51,7 +54,7 @@ final class Stockland_HR_Replacement_Calculator {
 		$minutes = (int) $minutes;
 		$hours = (int) $monthly_hours_basis;
 		if ( $minutes < 0 || $hours <= 0 || $minutes > 100000 ) { return self::fail( 'hrx_overtime_inputs_invalid', 'Overtime minutes or the approved monthly-hours divisor is invalid.' ); }
-		try { $rate_units = self::rate_units( $multiplier ); } catch ( Throwable $e ) { return self::fail( 'hrx_overtime_multiplier_invalid', 'Approved overtime multiplier is invalid.' ); }
+		try { $rate_units = self::decimal_units( $multiplier, 10000000, 'Overtime multiplier' ); } catch ( Throwable $e ) { return self::fail( 'hrx_overtime_multiplier_invalid', 'Approved overtime multiplier is invalid.' ); }
 		$denominator = $hours * 60 * self::RATE_SCALE;
 		return Stockland_Money::decimal( self::round_div( Stockland_Money::minor( $monthly_salary ) * $minutes * $rate_units, $denominator ) );
 	}
