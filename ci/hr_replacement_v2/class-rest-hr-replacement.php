@@ -768,6 +768,28 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		$this->commit();return rest_ensure_response(array('id'=>$id,'status'=>'RECONCILED','journal_id'=>(int)$journal,'obligation_status'=>$ob_status));
 	}
 
+		public function verify_payee_in_kind( $request ) {
+		global $wpdb;
+		$ready=$this->require_schema();if(is_wp_error($ready))return $ready;
+		$id=(int)$request['id'];$body=$this->body($request);
+		$ref=sanitize_text_field((string)($body['stock_transaction_reference']??''));$doc_id=(int)($body['valuation_document_id']??0);$note=sanitize_textarea_field((string)($body['verification_note']??''));$key=sanitize_text_field((string)($body['idempotency_key']??''));
+		if(!preg_match('/^[A-Za-z0-9_\-]{2,30}:[A-Za-z0-9_\-]{1,80}$/',$ref)||$doc_id<1||strlen(trim($note))<30||!$key)return $this->error('hrx_in_kind_evidence_required','Provide a posted Stockland stock transaction reference in TYPE:REFERENCE format, approved valuation evidence, a verification note and idempotency key.',422);
+		$req=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d',Stockland_HR_Replacement::table('hrx_payee_requests'),$id),ARRAY_A);if(!$req)return $this->error('hrx_payee_request_not_found','Payee request not found.',404);
+		if(Stockland_Money::minor($req['in_kind_value'])<=0)return $this->error('hrx_in_kind_not_present','This payee request does not have a positive in-kind component.',409);
+		if(!in_array($req['status'],array('DRAFT','LEGAL_TAX_REVIEW','NEEDS_INFORMATION'),true))return $this->error('hrx_payee_locked','In-kind consideration cannot be changed after submission.',409);
+		$parts=explode(':',$ref,2);
+		$stock_ref=Stockland_DB::read_row($wpdb->prepare("SELECT COUNT(*) movements,COALESCE(SUM(quantity_signed),0) quantity_delta FROM %i WHERE reference_type=%s AND reference_id=%s AND quantity_signed<0",Stockland_DB::table('transactions'),$parts[0],$parts[1]),ARRAY_A);
+		if(!$stock_ref||(int)$stock_ref['movements']<1||Stockland_Money::minor($stock_ref['quantity_delta'])>=0)return $this->error('hrx_stock_issue_not_found','The reference does not resolve to posted negative stock movements in the authoritative Stockland transaction ledger.',409);
+		$valuation=Stockland_DB::read_row($wpdb->prepare("SELECT id FROM %i WHERE id=%d AND entity_type='PAYEE_REQUEST' AND entity_id=%d AND document_type='COMPENSATION_APPROVAL' AND approval_status='APPROVED'",Stockland_HR_Replacement::table('hrx_document_refs'),$doc_id,$id),ARRAY_A);
+		if(!$valuation)return $this->error('hrx_in_kind_valuation_missing','Attach an independently approved private valuation/approval record to this payee request.',409);
+		$ok=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_payee_requests'),array('in_kind_stock_reference'=>$ref,'in_kind_posting_verified'=>1,'updated_at'=>Stockland_HR_Replacement::now()),array('id'=>$id,'status'=>$req['status']));
+		if(false===$ok)return $this->error('hrx_in_kind_verify_failed','Stock issue reference could not be bound to the payee request.',500);
+		$evt=Stockland_HR_Replacement::approval_event('payee-request',$id,'IN_KIND_VERIFIED',$req['status'],$req['status'],$note,$key,$doc_id,get_current_user_id());
+		$audit=Stockland_HR_Replacement::audit('payee_in_kind_verified','payee-request',$id,'Verified existing negative stock transaction and approved valuation evidence; no inventory was issued by this endpoint.');
+		if(is_wp_error($evt)||is_wp_error($audit)||false===$audit)return $this->error('hrx_in_kind_audit_failed','In-kind evidence changed but audit failed; block payee payment pending investigation.',500);
+		return rest_ensure_response(array('id'=>$id,'in_kind_posting_verified'=>true,'stock_reference'=>$ref,'valuation_document_id'=>$doc_id,'message'=>'Existing inventory ledger evidence and approved valuation were linked; this endpoint did not mutate stock.'));
+	}
+
 	public function calculate_payee_request( $request ) {
 		global $wpdb;
 		$ready=$this->require_schema();if(is_wp_error($ready))return $ready;
@@ -928,8 +950,26 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		$code='EXITX-'.gmdate('Ymd').'-'.wp_generate_password(8,false,false);
 		$row=array('settlement_code'=>$code,'employment_id'=>$employment_id,'exit_type'=>$exit_type,'exit_reason'=>$reason,'notice_date'=>Stockland_HR_Replacement::valid_date($body['notice_date']??'')?:null,'final_working_date'=>$last,'effective_end_date'=>$effective,'status'=>'DRAFT','created_by'=>get_current_user_id(),'created_at'=>Stockland_HR_Replacement::now(),'version_no'=>1);
 		if(false===Stockland_DB::insert_record(Stockland_HR_Replacement::table('hrx_exit_settlements'),$row))return $this->error('hrx_exit_insert_failed','Final settlement request could not be created.',409);
-		$id=(int)$wpdb->insert_id;Stockland_HR_Replacement::approval_event('exit-settlement',$id,'EXIT_DRAFT_CREATED',null,'DRAFT','Exit request created',$code);Stockland_HR_Replacement::audit('exit_draft_created','exit-settlement',$id,'Exit initiated; employee remains active until required approvals.');
-		return rest_ensure_response(array('id'=>$id,'settlement_code'=>$code,'status'=>'DRAFT','message'=>'Draft created. The settlement remains blocked until every earning/deduction has qualified legal-rule evidence.'));
+		$id=(int)$wpdb->insert_id;
+		$tasks=array(
+			array('HANDOVER','Complete role handover and return operational responsibilities'),
+			array('EQUIPMENT_RETURN','Return issued equipment, keys and access tokens'),
+			array('STOCK_FINANCE_CLEARANCE','Resolve stock custody, advances and finance exceptions'),
+			array('DOCUMENT_ARCHIVE','Archive required documents under approved retention rules'),
+			array('ACCESS_REVOKED','Revoke linked Stockland ERP profile and location scope')
+		);
+		$task_failed=false;
+		foreach($tasks as $task){
+			$task_status=('ACCESS_REVOKED'===$task[0]&&!empty($emp['wp_user_id']))?'OPEN':'OPEN';
+			if('ACCESS_REVOKED'===$task[0]&&empty($emp['wp_user_id']))$task_status='COMPLETE';
+			$taskrow=array('settlement_id'=>$id,'employment_id'=>$employment_id,'task_code'=>$task[0],'task_title'=>$task[1],'responsible_role'=>'MANAGEMENT','status'=>$task_status,'resolution_note'=>('COMPLETE'===$task_status?'No linked Stockland ERP account exists.':null),'created_by'=>get_current_user_id(),'created_at'=>Stockland_HR_Replacement::now());
+			if(false===Stockland_DB::insert_record(Stockland_HR_Replacement::table('hrx_exit_clearance_tasks'),$taskrow)){$task_failed=true;break;}
+		}
+		if($task_failed){return $this->error('hrx_exit_tasks_create_failed','Exit request created but clearance tasks could not all be created. Keep this settlement blocked and repair the task record through the audited admin workflow.',500);}
+		$evt=Stockland_HR_Replacement::approval_event('exit-settlement',$id,'EXIT_DRAFT_CREATED',null,'DRAFT','Exit request created',$code);
+		$audit=Stockland_HR_Replacement::audit('exit_draft_created','exit-settlement',$id,'Exit initiated; employment remains active until approved settlement and clearance.');
+		if(is_wp_error($evt)||is_wp_error($audit)||false===$audit)return $this->error('hrx_exit_audit_failed','Exit request exists but audit failed; do not approve or pay until reconciled.',500);
+		return rest_ensure_response(array('id'=>$id,'settlement_code'=>$code,'status'=>'DRAFT','clearance_tasks'=>count($tasks),'message'=>'Draft created. The settlement remains blocked until every earning/deduction has qualified legal-rule evidence and all exit clearances are complete.'));
 	}
 
 	public function add_exit_item( $request ) {
