@@ -76,7 +76,7 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		register_rest_route( $ns, '/hr/replacement/payroll/runs/(?P<id>\d+)/approve', array( 'methods'=>'POST','callback'=>array( $this,'approve_payroll_run' ),'permission_callback'=>array( $this,'permission_approve_payroll' ) ) );
 		register_rest_route( $ns, '/hr/replacement/payroll/runs/(?P<id>\d+)/payout-batch', array( 'methods'=>'POST','callback'=>array( $this,'create_payout_batch' ),'permission_callback'=>array( $this,'permission_approve_payroll' ) ) );
 		register_rest_route( $ns, '/hr/replacement/payout-batches/(?P<id>\d+)/reconcile', array( 'methods'=>'POST','callback'=>array( $this,'reconcile_payout_batch' ),'permission_callback'=>array( $this,'permission_approve_payroll' ) ) );
-		register_rest_route( $ns, '/hr/replacement/payroll/runs/(?P<id>\d+)/remittances', array( 'methods'=>'POST','callback'=>array( $this,'create_remittance' ),'permission_callback'=>array( $this,'permission_approve_payroll' ) ) );
+		register_rest_route( $ns, '/hr/replacement/payroll/runs/(?P<id>\d+)/remittances', array( 'methods'=>'POST','callback'=>array( $this,'create_remittance' ),'permission_callback'=>array( $this,'permission_manage_payroll' ) ) );
 		register_rest_route( $ns, '/hr/replacement/remittances/(?P<id>\d+)/verify', array( 'methods'=>'POST','callback'=>array( $this,'verify_remittance' ),'permission_callback'=>array( $this,'permission_approve_payroll' ) ) );
 		register_rest_route( $ns, '/hr/replacement/exits/(?P<id>\d+)/payout', array( 'methods'=>'POST','callback'=>array( $this,'pay_exit_settlement' ),'permission_callback'=>array( $this,'permission_manage_payroll' ) ) );
 		register_rest_route( $ns, '/hr/replacement/payee-requests/(?P<id>\d+)/calculate', array( 'methods'=>'POST','callback'=>array( $this,'calculate_payee_request' ),'permission_callback'=>array( $this,'permission_manage_payroll' ) ) );
@@ -790,7 +790,7 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		if((int)$rem['prepared_by']===get_current_user_id())return $this->error('hrx_no_self_approval','The preparer cannot verify their own statutory remittance.',403);
 		$obligation=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d',Stockland_HR_Replacement::table('hrx_statutory_obligations'),(int)$rem['obligation_id']),ARRAY_A);if(!$obligation)return $this->error('hrx_obligation_not_found','Statutory obligation no longer exists.',409);
 		$expected='PAYE'===$obligation['obligation_type']?'TAX_REMITTANCE_RECEIPT':'PENSION_REMITTANCE_RECEIPT';
-		$doc_id=(int)($rem['receipt_document_ref_id']??0);
+		$doc_id=(int)($body['receipt_document_ref_id']??$rem['receipt_document_ref_id']??0);
 		$doc=$doc_id?Stockland_DB::read_row($wpdb->prepare("SELECT * FROM %i WHERE id=%d AND entity_type='REMITTANCE' AND entity_id=%d AND document_type=%s AND approval_status='APPROVED'",Stockland_HR_Replacement::table('hrx_document_refs'),$doc_id,$id,$expected),ARRAY_A):null;
 		if(!$doc)return $this->error('hrx_remittance_receipt_missing','An independently approved private official remittance receipt is required.',409);
 		$run=$this->run_row((int)$obligation['payroll_run_id']);if(is_wp_error($run))return $run;
@@ -905,6 +905,7 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		if(strlen(trim($ref))<4||!in_array($method,array('BANK_TRANSFER','CASH','CHEQUE'),true)||!$key||strlen(trim($note))<30)return $this->error('hrx_exit_payment_evidence','Final settlement payout requires method, external reference, note and idempotency key.',422);
 		$exit=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',Stockland_HR_Replacement::table('hrx_exit_settlements'),$id),ARRAY_A);if(!$exit)return $this->error('hrx_exit_not_found','Final settlement not found.',404);
 		if('APPROVED'!==strtoupper((string)$exit['status']))return $this->error('hrx_exit_not_approved','Only an approved final settlement may be paid.',409);
+		if(empty($exit['journal_id']))return $this->error('hrx_exit_accrual_missing','A final settlement accrual journal must exist before payment.',409);
 		if((int)$exit['approved_by']===get_current_user_id())return $this->error('hrx_no_self_payment','The settlement approver cannot record the payment as the independent payer.',403);
 		$doc=$doc_id?Stockland_DB::read_row($wpdb->prepare("SELECT id FROM %i WHERE id=%d AND entity_type='EXIT_SETTLEMENT' AND entity_id=%d AND document_type='FINAL_SETTLEMENT' AND approval_status='APPROVED'",Stockland_HR_Replacement::table('hrx_document_refs'),$doc_id,$id),ARRAY_A):null;
 		if(!$doc)return $this->error('hrx_exit_payment_receipt_missing','An independently reviewed private final-settlement payment receipt is required.',409);
@@ -922,11 +923,12 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		if(!$journal){$this->rollback();return $this->error('hrx_exit_payout_journal_failed','Final payout journal failed; no termination status was committed.',500);}
 		$link=Stockland_DB::insert_record(Stockland_HR_Replacement::table('hrx_accounting_links'),array('source_type'=>'HRX_EXIT_PAYOUT','source_id'=>$pay_id,'journal_id'=>(int)$journal,'journal_hash'=>hash('sha256',wp_json_encode($lines)),'posted_at'=>Stockland_HR_Replacement::now(),'posted_by'=>get_current_user_id()));
 		$ok=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_exit_payouts'),array('journal_id'=>(int)$journal),array('id'=>$pay_id,'status'=>'SETTLED'));
-		$ok2=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_exit_settlements'),array('status'=>'SETTLED','journal_id'=>(int)($exit['journal_id']??0),'settled_by'=>get_current_user_id(),'settled_at'=>Stockland_HR_Replacement::now(),'updated_at'=>Stockland_HR_Replacement::now()),array('id'=>$id,'status'=>'APPROVED'));
+		$attempt=Stockland_DB::insert_record(Stockland_HR_Replacement::table('hrx_exit_payout_attempts'),array('payout_id'=>$pay_id,'attempt_no'=>1,'attempt_status'=>'SETTLED','external_reference'=>$ref,'evidence_ref_id'=>$doc_id,'attempted_at'=>Stockland_HR_Replacement::now(),'outcome_at'=>Stockland_HR_Replacement::now(),'created_by'=>get_current_user_id()));
+		$ok2=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_exit_settlements'),array('status'=>'SETTLED','payout_journal_id'=>(int)$journal,'settled_by'=>get_current_user_id(),'settled_at'=>Stockland_HR_Replacement::now(),'updated_at'=>Stockland_HR_Replacement::now()),array('id'=>$id,'status'=>'APPROVED'));
 		$ok3=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_employments'),array('status'=>'TERMINATED','end_date'=>$exit['effective_end_date'],'updated_at'=>Stockland_HR_Replacement::now()),array('id'=>(int)$emp['id'],'status'=>$emp['status']));
 		$evt=Stockland_HR_Replacement::approval_event('exit-settlement',$id,'EXIT_PAYOUT_SETTLED','APPROVED','SETTLED',$note,$key,$doc_id,get_current_user_id());
 		$audit=Stockland_HR_Replacement::audit('exit_payout_settled','exit-settlement',$id,'Final settlement payment posted and employment termination date applied.');
-		if(false===$link||false===$ok||false===$ok2||false===$ok3||is_wp_error($evt)||is_wp_error($audit)||false===$audit){$this->rollback();return $this->error('hrx_exit_payout_failed','Exit payout and finalization were rolled back.',500);}
+		if(false===$link||false===$ok||false===$attempt||false===$ok2||false===$ok3||is_wp_error($evt)||is_wp_error($audit)||false===$audit){$this->rollback();return $this->error('hrx_exit_payout_failed','Exit payout and finalization were rolled back.',500);}
 		$this->commit();return rest_ensure_response(array('id'=>$id,'payout_id'=>$pay_id,'status'=>'SETTLED','journal_id'=>(int)$journal,'message'=>'Final settlement paid and employment ended. ERP account access revocation must be separately confirmed.'));
 	}
 
