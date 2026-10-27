@@ -1,0 +1,62 @@
+name: Stockland HR replacement baseline source audit
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'ci/qa/audit_hr_replacement_baseline.py'
+      - 'ci/qa/test_hr_replacement_baseline.py'
+      - 'docs/hr-replacement/**'
+      - '.github/workflows/hr-replacement-baseline-audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+concurrency:
+  group: stockland-hr-source-audit-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  baseline-inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout audited source and tests
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Download checksum-locked 16.1.95 source artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: STOCKLAND-ERP-16.1.95-Cumulative-WordPress-Update
+          repository: aistockland-web/Erp-version-16.1.89
+          run-id: 40036018031
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/stockland-16.1.95-source
+
+      - name: Confirm exact artifact and run source inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP="$RUNNER_TEMP/stockland-16.1.95-source/STOCKLAND_ERP_16.1.95_CANONICAL_WORDPRESS_UPDATE.zip"
+          test -s "$ZIP"
+          mkdir -p build/hr-replacement-baseline
+          python ci/qa/audit_hr_replacement_baseline.py --package "$ZIP" --out-dir build/hr-replacement-baseline
+          python ci/qa/test_hr_replacement_baseline.py build/hr-replacement-baseline
+
+      - name: Upload source inventory receipt
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: STOCKLAND-HR-REPLACEMENT-BASELINE-AUDIT
+          path: |
+            build/hr-replacement-baseline/hr_replacement_baseline_inventory.json
+            build/hr-replacement-baseline/hr_replacement_49_table_inventory.csv
+          if-no-files-found: error
+          retention-days: 90
