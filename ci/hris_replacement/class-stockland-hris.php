@@ -45,7 +45,7 @@ final class Stockland_HRIS {
 			'hris_positions' => array('id','position_code','title','department','status'),
 			'hris_workforce_plans' => array('id','plan_code','fiscal_year','headcount_budget','status'),
 			'hris_requisitions' => array('id','requisition_code','position_id','openings','status'),
-			'hris_applications' => array('id','application_code','requisition_id','person_id','stage','decision'),
+			'hris_applications' => array('id','application_code','requisition_id','person_id','stage','decision','selected_employment_id'),
 			'hris_assessments' => array('id','application_id','assessment_type','recommendation','created_by'),
 			'hris_contracts' => array('id','contract_code','record_type','status','version_no'),
 			'hris_documents' => array('id','subject_type','subject_id','document_type','vault_reference','status'),
@@ -185,6 +185,7 @@ final class Stockland_HRIS {
 			screening_score DECIMAL(7,2) NULL,
 			selection_rationale VARCHAR(1200) NULL,
 			consent_or_privacy_reference VARCHAR(190) NULL,
+			selected_employment_id BIGINT UNSIGNED NULL,
 			decided_by BIGINT UNSIGNED NULL,
 			decided_at DATETIME NULL,
 			created_by BIGINT UNSIGNED NOT NULL,
@@ -806,23 +807,25 @@ final class Stockland_HRIS {
 
 	/** Progressive marginal band calculation; rounding/edge behavior is covered by test vectors. */
 	public static function progressive_tax($taxable,$components) {
-		$taxable=Stockland_Money::decimal(Stockland_Money::minor($taxable));$sum='0.00';$seen=false;
+		$taxable=Stockland_Money::decimal(Stockland_Money::minor($taxable));$sum='0.00';$seen=false;$credit='0.00';
+		$base=Stockland_Money::minor($taxable);
 		foreach((array)$components as $b){
 			if(!is_numeric($b['rate']??null))continue;
 			$lower=isset($b['lower_bound'])?Stockland_Money::minor($b['lower_bound']):0;
 			$upper=isset($b['upper_bound'])&&$b['upper_bound']!==null?Stockland_Money::minor($b['upper_bound']):null;
-			$base=Stockland_Money::minor($taxable);
 			$portionMinor=max(0,$base-$lower);
 			if($upper!==null)$portionMinor=min($portionMinor,max(0,$upper-$lower));
 			if($portionMinor<=0)continue;
 			$portion=Stockland_Money::decimal($portionMinor);
-			$part=Stockland_Money::percentage($portion,(string)$b['rate']);
-			$credit=isset($b['fixed_credit'])&&$b['fixed_credit']!==null?Stockland_Money::decimal(Stockland_Money::minor($b['fixed_credit'])):'0.00';
-			$part=Stockland_Money::subtract($part,$credit);
-			if(Stockland_Money::minor($part)<0)$part='0.00';
-			$sum=Stockland_Money::add($sum,$part);$seen=true;
+			$sum=Stockland_Money::add($sum,Stockland_Money::percentage($portion,(string)$b['rate']));
+			$seen=true;
+			// A fixed credit belongs to the selected marginal schedule; never subtract it once per band.
+			if($base>=$lower && ($upper===null || $base<=$upper) && isset($b['fixed_credit'])&&$b['fixed_credit']!==null) {
+				$credit=Stockland_Money::decimal(Stockland_Money::minor($b['fixed_credit']));
+			}
 		}
-		if(!$seen&&Stockland_Money::minor($taxable)>0)return new WP_Error('hris_tax_band_gap','Approved PAYE rules contain no applicable band for taxable income.',array('status'=>409));
-		return $sum;
+		if(!$seen&&$base>0)return new WP_Error('hris_tax_band_gap','Approved PAYE rules contain no applicable band for taxable income.',array('status'=>409));
+		$sum=Stockland_Money::subtract($sum,$credit);
+		return Stockland_Money::minor($sum)<0?'0.00':$sum;
 	}
 }
