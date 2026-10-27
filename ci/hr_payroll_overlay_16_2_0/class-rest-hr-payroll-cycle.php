@@ -519,6 +519,66 @@ final class Stockland_REST_HR_Payroll_Cycle extends Stockland_REST_Base {
 		readfile($f['path']);exit;
 	}
 
+	public function list_reimbursements( WP_REST_Request $req ) {
+		global $wpdb;
+		$user_id=get_current_user_id();
+		if(Stockland_Authority::can_manage_hr()||$this->is_owner()){
+			$rows=Stockland_DB::read_results($wpdb->prepare('SELECT id,claim_code,employee_id,location_id,expense_category,description,business_purpose,incurred_date,amount,currency,receipt_resource_id,status,submitted_at,approved_at,expense_account_code,payable_account_code,payment_method,payment_reference,bank_statement_reference,paid_at,created_by,created_at FROM %i ORDER BY id DESC LIMIT 200',$this->table('hr_employee_reimbursements')),ARRAY_A);
+		}else{
+			$emp=Stockland_DB::read_row($wpdb->prepare('SELECT id FROM %i WHERE wp_user_id=%d LIMIT 1',$this->table('employees'),$user_id),ARRAY_A);
+			if(!$emp)return rest_ensure_response(array());
+			$rows=Stockland_DB::read_results($wpdb->prepare('SELECT id,claim_code,employee_id,location_id,expense_category,description,business_purpose,incurred_date,amount,currency,receipt_resource_id,status,submitted_at,approved_at,payment_reference,paid_at,created_by,created_at FROM %i WHERE employee_id=%d ORDER BY id DESC LIMIT 100',$this->table('hr_employee_reimbursements'),(int)$emp['id']),ARRAY_A);
+		}
+		return rest_ensure_response(is_array($rows)?$rows:array());
+	}
+	public function create_reimbursement( WP_REST_Request $req ) {
+		$p=$req->get_json_params();$employee_id=(int)($p['employee_id']??0);$resource_id=(int)($p['receipt_resource_id']??0);$amount=Stockland_Money::decimal(Stockland_Money::minor($p['amount']??'0.00'));$date=$this->date_value($p['incurred_date']??'');
+		if($employee_id<1||$resource_id<1||false===$date||Stockland_Money::minor($amount)<=0)return $this->bad('hr_reimbursement_input_invalid','Employee, approved receipt resource, incurred date and positive amount are mandatory.',400);
+		global $wpdb;
+		$emp=Stockland_DB::read_row($wpdb->prepare('SELECT id,employee_id,wp_user_id,branch_location_id,status FROM %i WHERE id=%d',$this->table('employees'),$employee_id),ARRAY_A);
+		if(!$emp||strtoupper((string)$emp['status'])!=='ACTIVE')return $this->bad('hr_reimbursement_employee_invalid','Reimbursement requires an active employee.',409);
+		if(!Stockland_Authority::can_manage_hr()&&!$this->is_owner()&&(int)$emp['wp_user_id']!==(int)get_current_user_id())return $this->bad('hr_reimbursement_self_only','Employees may submit only their own claim; HR can submit on behalf of an employee.',403);
+		if(!empty($emp['branch_location_id'])&&!Stockland_Authority::can_access_location((int)$emp['branch_location_id']))return $this->bad('hr_location_forbidden','Employee is outside the authenticated location scope.',403);
+		$receipt=Stockland_DB::read_row($wpdb->prepare("SELECT id,status,resource_type,file_sha256 FROM %i WHERE id=%d",$this->table('hr_resources'),$resource_id),ARRAY_A);
+		if(!$receipt||$receipt['status']!=='APPROVED'||$receipt['resource_type']!=='EXPENSE_RECEIPT')return $this->bad('hr_reimbursement_receipt_required','An approved private EXPENSE_RECEIPT resource is required.',409);
+		$category=strtoupper(sanitize_key((string)($p['expense_category']??'')));$categories=array('TRAVEL','TRANSPORT','MEALS_BUSINESS','ACCOMMODATION','SUPPLIES','REPAIRS','TELEPHONE_DATA','DELIVERY','OTHER_APPROVED_BUSINESS');
+		if(!in_array($category,$categories,true))return $this->bad('hr_reimbursement_category_invalid','Select a documented business-expense category.',400);
+		$purpose=sanitize_textarea_field((string)($p['business_purpose']??''));$description=sanitize_textarea_field((string)($p['description']??''));
+		if(strlen(trim($purpose))<10||strlen(trim($description))<5)return $this->bad('hr_reimbursement_purpose_required','Describe the business purpose and expense in enough detail for independent review.',400);
+		$code=sanitize_text_field((string)($p['claim_code']??('EXP-'.strtoupper(bin2hex(random_bytes(5))))));
+		$row=array('claim_code'=>$code,'employee_id'=>$employee_id,'location_id'=>!empty($emp['branch_location_id'])?(int)$emp['branch_location_id']:null,'expense_category'=>$category,'description'=>$description,'business_purpose'=>$purpose,'incurred_date'=>$date,'amount'=>$amount,'currency'=>sanitize_text_field((string)($p['currency']??'ETB')),'receipt_resource_id'=>$resource_id,'status'=>'SUBMITTED','submitted_by'=>get_current_user_id(),'submitted_at'=>current_time('mysql'),'created_by'=>get_current_user_id());
+		if(Stockland_DB::insert_record($this->table('hr_employee_reimbursements'),$row)===false)return $this->bad('hr_reimbursement_save_failed','Could not save employee reimbursement claim.',409);
+		$id=(int)$wpdb->insert_id;if(!$this->event('employee-reimbursement',$id,'REIMBURSEMENT_SUBMITTED',null,'SUBMITTED',array('employee_id'=>$employee_id,'category'=>$category,'amount'=>$amount,'receipt_sha256'=>$receipt['file_sha256'])))return $this->bad('hr_reimbursement_audit_failed','Claim saved but its audit event failed; it must not be approved until reviewed.',500);
+		return rest_ensure_response(array('id'=>$id,'claim_code'=>$code,'status'=>'SUBMITTED','message'=>'Receipt-backed business expense claim created. It remains separate from salary, allowances and statutory payroll.'));
+	}
+	public function approve_reimbursement( WP_REST_Request $req ) {
+		$id=(int)$req['id'];$p=$req->get_json_params();$note=sanitize_textarea_field((string)($p['reviewer_note']??''));$expense=sanitize_text_field((string)($p['expense_account_code']??''));$payable=sanitize_text_field((string)($p['payable_account_code']??''));
+		if(strlen(trim($note))<15||!ctype_digit($expense)||!ctype_digit($payable))return $this->bad('hr_reimbursement_approval_fields','Independent review note and explicit existing expense/AP account codes are required.',400);
+		global $wpdb;if(false===Stockland_DB::execute_query('START TRANSACTION'))return $this->bad('hr_transaction_failed','Could not begin reimbursement approval.',500);
+		try{$r=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',$this->table('hr_employee_reimbursements'),$id),ARRAY_A);if(!$r||$r['status']!=='SUBMITTED')throw new RuntimeException('Only a submitted claim can be approved.');if((int)$r['created_by']===(int)get_current_user_id())throw new RuntimeException('Maker-checker: claim creator cannot approve their own claim.');
+			$receipt=Stockland_DB::read_row($wpdb->prepare("SELECT id,status,resource_type,file_sha256 FROM %i WHERE id=%d",$this->table('hr_resources'),(int)$r['receipt_resource_id']),ARRAY_A);if(!$receipt||$receipt['status']!=='APPROVED'||$receipt['resource_type']!=='EXPENSE_RECEIPT')throw new RuntimeException('Claim receipt is not an approved private expense receipt.');
+			$j=array(array('account_code'=>$expense,'debit'=>$r['amount'],'credit'=>'0.00','description'=>'Employee business-expense reimbursement '.$r['claim_code'],'location_id'=>$r['location_id']),array('account_code'=>$payable,'debit'=>'0.00','credit'=>$r['amount'],'description'=>'Employee reimbursement payable '.$r['claim_code'],'location_id'=>$r['location_id']));
+			$jid=Stockland_Accounting::post_journal($r['incurred_date'],'HR_EMPLOYEE_REIMBURSEMENT',$id,'Employee reimbursement '.$r['claim_code'],$j,get_current_user_id());if(!$jid)throw new RuntimeException('Reimbursement accrual journal was rejected by GL/PLEDGER.');
+			if(Stockland_DB::update_record($this->table('hr_employee_reimbursements'),array('status'=>'APPROVED','approved_by'=>get_current_user_id(),'approved_at'=>current_time('mysql'),'expense_account_code'=>$expense,'payable_account_code'=>$payable,'accrual_journal_id'=>(int)$jid,'reviewer_note'=>$note),array('id'=>$id,'status'=>'SUBMITTED'))===false)throw new RuntimeException('Could not persist reimbursement approval.');
+			if(!$this->event('employee-reimbursement',$id,'REIMBURSEMENT_APPROVED','SUBMITTED','APPROVED',array('expense_account_code'=>$expense,'payable_account_code'=>$payable,'accrual_journal_id'=>(int)$jid,'amount'=>$r['amount'],'receipt_sha256'=>$receipt['file_sha256'])))throw new RuntimeException('Reimbursement approval audit failed.');
+			if(false===Stockland_DB::execute_query('COMMIT'))throw new RuntimeException('Reimbursement approval commit failed.');
+			return rest_ensure_response(array('id'=>$id,'status'=>'APPROVED','accrual_journal_id'=>(int)$jid,'message'=>'Expense/payable posted. Actual settlement is still separate.'));
+		}catch(Throwable $e){Stockland_DB::execute_query('ROLLBACK');return $this->bad('hr_reimbursement_approval_failed',$e->getMessage(),409);}
+	}
+	public function pay_reimbursement( WP_REST_Request $req ) {
+		$id=(int)$req['id'];$p=$req->get_json_params();$method=strtoupper(sanitize_key((string)($p['payment_method']??'')));$reference=sanitize_text_field((string)($p['payment_reference']??''));$statement=sanitize_text_field((string)($p['bank_statement_reference']??''));
+		if(!in_array($method,array('BANK','CASH'),true)||$reference===''||($method==='BANK'&&$statement===''))return $this->bad('hr_reimbursement_payment_evidence','Payment method/reference is required, plus bank-statement reference for a bank transfer.',400);
+		global $wpdb;if(false===Stockland_DB::execute_query('START TRANSACTION'))return $this->bad('hr_transaction_failed','Could not begin reimbursement settlement.',500);
+		try{$r=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',$this->table('hr_employee_reimbursements'),$id),ARRAY_A);if(!$r||$r['status']!=='APPROVED')throw new RuntimeException('Only an approved unpaid reimbursement can be settled.');if((int)$r['created_by']===(int)get_current_user_id())throw new RuntimeException('Maker-checker: claim creator cannot settle their own reimbursement.');
+			$bank='BANK'===$method?'1010':'1000';$j=array(array('account_code'=>$r['payable_account_code'],'debit'=>$r['amount'],'credit'=>'0.00','description'=>'Clear employee reimbursement payable '.$r['claim_code'],'location_id'=>$r['location_id']),array('account_code'=>$bank,'debit'=>'0.00','credit'=>$r['amount'],'description'=>'Reimbursement cash/bank settlement '.$r['claim_code'],'location_id'=>$r['location_id']));
+			$jid=Stockland_Accounting::post_journal(current_time('Y-m-d'),'HR_EMPLOYEE_REIMBURSEMENT_PAYMENT',$id,'Employee reimbursement settlement '.$r['claim_code'],$j,get_current_user_id());if(!$jid)throw new RuntimeException('Reimbursement settlement journal failed.');
+			if(Stockland_DB::update_record($this->table('hr_employee_reimbursements'),array('status'=>'PAID','payment_method'=>$method,'payment_reference'=>$reference,'bank_statement_reference'=>$statement?:null,'payment_journal_id'=>(int)$jid,'paid_by'=>get_current_user_id(),'paid_at'=>current_time('mysql')),array('id'=>$id,'status'=>'APPROVED'))===false)throw new RuntimeException('Could not persist reimbursement settlement.');
+			if(!$this->event('employee-reimbursement',$id,'REIMBURSEMENT_PAID','APPROVED','PAID',array('payment_method'=>$method,'payment_reference'=>$reference,'bank_statement_reference'=>$statement?:null,'journal_id'=>(int)$jid,'amount'=>$r['amount'])))throw new RuntimeException('Reimbursement settlement audit failed.');
+			if(false===Stockland_DB::execute_query('COMMIT'))throw new RuntimeException('Reimbursement settlement commit failed.');
+			return rest_ensure_response(array('id'=>$id,'status'=>'PAID','journal_id'=>(int)$jid,'payment_reference'=>$reference));
+		}catch(Throwable $e){Stockland_DB::execute_query('ROLLBACK');return $this->bad('hr_reimbursement_payment_failed',$e->getMessage(),409);}
+	}
+
 	public function list_social( WP_REST_Request $req ) {
 		global $wpdb;
 		$c=Stockland_DB::read_results($wpdb->prepare('SELECT id,campaign_code,title,platform,account_label,manager_user_id,start_date,end_date,budget,status,approved_by,approved_at,created_at FROM %i ORDER BY id DESC LIMIT 100',$this->table('hr_social_campaigns')),ARRAY_A);
