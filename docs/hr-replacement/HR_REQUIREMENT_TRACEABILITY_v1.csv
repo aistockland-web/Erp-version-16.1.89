@@ -1,0 +1,34 @@
+ID,Domain,Workflow requirement,Data owner,Permission/control,Required proof,Legal/acceptance gate
+REQ-001,Source boundary,New HR becomes target authority; legacy four tables read-only migration sources,HR replacement module,No writes to legacy HR tables in new workflow,Schema/source grep and mutation tests,Owner/HR/Finance sign-off
+REQ-002,Workforce planning,Create/version plans and positions/headcount by department and location,HR/Management,Maker-checker budget approval,Plan-to-requisition E2E,Company budget policy
+REQ-003,Recruitment,Requisition sourcing application screening interview rubric human selection rationale,HR/Management,Least-privilege candidate PII; human selection,Reject/hold/select tests; cross-location denial,Labour/privacy review
+REQ-004,Offer/contract,Offer review signed contract effective dates probation and renewal,HR/Management + Owner,Separate offer approval and private immutable files,Missing contract blocks activation,Labour Proclamation 1156/2019
+REQ-005,Onboarding,Versioned tasks and access provisioning separate from hire selection,HR + IT,Owner-authorized activation,Incomplete tasks prevent activation,Privacy/access policy
+REQ-006,People master,Canonical candidate-to-employee identity and duplicate resolution,HR,Strict field-level access,Duplicate collision and retention test,Personal Data Protection Proclamation 1321/2024
+REQ-007,Lifecycle,Transfers promotions increments status changes and append-only events,HR,No silent overwrite; maker-checker,Event ordering/history test,Labour/contracts review
+REQ-008,Attendance,Shift roster punch/time evidence correction and exception approval,Line manager/HR,Location scope and concurrency,Correction supersedes original; cutoff test,Working time rules review
+REQ-009,Leave,Policies requests accrual balance and append-only ledger,HR/Line manager,Manager sees assigned staff only,Concurrent leave approval and ledger reconciliation,Leave entitlements review
+REQ-010,Compensation,Effective-dated base pay/components/benefit enrollment and approvals,HR/Owner,No self approval; amount not inferred,Effective-date and duplicate-assignment tests,Tax/pension review
+REQ-011,Rules register,Source-backed rule set with clause/effective dates/version/hash/test cases/review,Tax/Payroll reviewer + Owner,Unknown/expired/ambiguous rules fail closed,Rule approval negative tests,Qualified Ethiopian legal/tax/pension sign-off
+REQ-012,PAYE calculator,Progressive or supported formula from versioned rule components with explanation,Payroll,No arbitrary dynamic code; fixed point money,Band edge fixtures ±0.01/rounding tests,Written PAYE base and effective-band interpretation
+REQ-013,Pension,Employee/employer calculation based on approved basis and effective rule,Payroll,Rate not hard-coded fallback,Golden cases and rule-version trace,Directive 1087/2025/current rule confirmation
+REQ-014,Payroll periods,Calendar/cutoff/open/lock and unique run identity,Payroll,Row locks/version and no double submit,Repeat/concurrent run tests,Accounting close policy
+REQ-015,Payroll run,Freeze inputs and rule hashes; immutable run snapshots/line details,Payroll,Missing data blocks submission,Re-run produces new version; no mutation of posted lines,Owner/Finance acceptance
+REQ-016,Approval,Management review then independent Owner approval,Management/Owner,Maker != approver; stale version rejection,Self-approval and concurrency tests,Delegation policy
+REQ-017,Payslips,Private per-employee slip and payroll register,Payroll,Employee can see own only if portal enabled,PDF/print output access tests,Privacy review
+REQ-018,Disbursement,External payment batch reference per-worker result partial failure and safe retry,Finance,Unique idempotency keys and masked destination,Repeat/retry does not double pay or post,Bank/payment provider acceptance
+REQ-019,Statutory remittance,Tax/pension return periods due dates payment/receipt reconciliation,Finance,Separate approved liabilities and evidence,Remittance not equated with journal post,Qualified reviewer
+REQ-020,GL/PLEDGER,Balanced journal with unique source id and closed period guards,Finance,Transactional or reliable compensating rollback,Force journal error/no duplicate tests,Accounting Owner sign-off
+REQ-021,Correction,Retro adjustment/reversal and linked original,Payroll/Finance,Posted history immutable,Reversal/repost tests,Period close policy
+REQ-022,Separation,Notice/exit approval/clearance/handover/access revoke/final calculations,HR/Owner/Finance,Sensitive exit reason restrictions,Incomplete clearance blocks close,Labour/legal review
+REQ-023,Final settlement,Final pay/leave/notice/severance only if supported by approved facts/rules,Payroll/Owner,Separate final run,Final run → payment/remittance/GL reconciliation,Professional legal decision on entitlement
+REQ-024,Individual payee,Creator/freelancer/service supplier profile separate from employee,Finance,Central queue,No fabricated employee/supplier; type separation tests,Article 22 vs Article 97 review
+REQ-025,Deliverable acceptance,Contract/campaign/deliverable/in-kind valuation approval,Requestor/Finance,One central queue across branches,Non-cash value and unaccepted deliverable block tests,Tax source review
+REQ-026,Withholding,Versioned decision source/effective date/exception/approver and non-stacking rules,Finance/Tax reviewer,Fail closed if ambiguous,Creator/service golden scenario and hold behavior,Qualified tax adviser
+REQ-027,Resource library,Approved version/language/function/role/hash and authenticated downloads,HR,Nonce/capability/scope/audit/private storage,Real download binary/MIME/hash/mobile button test,Owner/legal template approval
+REQ-028,Reports,Headcount cost leave/attendance payroll liabilities payment and campaign reports,Management/Finance,Parameter and row scope; query errors fail closed,Aggregate reconciliation/export tests,Data freshness visible
+REQ-029,Security/privacy,PII minimization access audit retention and redacted logs,Security/HR,Server-side capability and location on every route,IDOR/CSRF/cross-branch/unauthenticated tests,Privacy Proclamation review
+REQ-030,Migration,Copy-only mapping and immutable legacy preservation,Engineering/Finance,Versioned idempotent migrations,Schema fingerprints and row/amount reconciliation,Separate migration approval
+REQ-031,Parallel payroll,At least two full periods compared and variances signed,Owner/HR/Finance,Read-only baseline; exact run IDs,Variance report and repeatability proof,Qualified rule sign-off
+REQ-032,Restore/rollback,Backup checksums restore into disposable staging and rollback verified,Platform owner,No destructive live migration,Restore hashes and deep-integrity receipts,Owner approval
+REQ-033,Exact release,Final ZIP hash/build receipt and all tests against same ZIP,Release engineering,Fail closed; no skipped check is pass,Archive identity/source parity/tests artifact,Owner + HR + Finance acceptance
