@@ -35,6 +35,11 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		'social-snapshots' => array( 'table'=>'hrx_social_snapshots', 'state'=>'freshness_status', 'create'=>true, 'update'=>false ),
 		'exit-settlements' => array( 'table'=>'hrx_exit_settlements', 'state'=>'status', 'create'=>false, 'update'=>false ),
 		'exit-items' => array( 'table'=>'hrx_exit_items', 'state'=>'', 'create'=>false, 'update'=>false ),
+		'exit-clearance-tasks' => array( 'table'=>'hrx_exit_clearance_tasks', 'state'=>'status', 'create'=>false, 'update'=>false ),
+		'exit-payouts' => array( 'table'=>'hrx_exit_payouts', 'state'=>'status', 'create'=>false, 'update'=>false ),
+		'payee-payments' => array( 'table'=>'hrx_payee_payments', 'state'=>'status', 'create'=>false, 'update'=>false ),
+		'payee-payment-attempts' => array( 'table'=>'hrx_payee_payment_attempts', 'state'=>'attempt_status', 'create'=>false, 'update'=>false ),
+		'accounting-config' => array( 'table'=>'hrx_accounting_config', 'state'=>'status', 'create'=>true, 'update'=>true ),
 		'payroll-runs' => array( 'table'=>'hrx_payroll_runs', 'state'=>'status', 'create'=>false, 'update'=>false ),
 		'payroll-lines' => array( 'table'=>'hrx_payroll_lines', 'state'=>'line_status', 'create'=>false, 'update'=>false ),
 		'payout-batches' => array( 'table'=>'hrx_payout_batches', 'state'=>'status', 'create'=>false, 'update'=>false ),
@@ -70,6 +75,13 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		register_rest_route( $ns, '/hr/replacement/payroll/runs/(?P<id>\d+)/submit', array( 'methods'=>'POST','callback'=>array( $this,'submit_payroll' ),'permission_callback'=>array( $this,'permission_manage_payroll' ) ) );
 		register_rest_route( $ns, '/hr/replacement/payroll/runs/(?P<id>\d+)/approve', array( 'methods'=>'POST','callback'=>array( $this,'approve_payroll_run' ),'permission_callback'=>array( $this,'permission_approve_payroll' ) ) );
 		register_rest_route( $ns, '/hr/replacement/payroll/runs/(?P<id>\d+)/payout-batch', array( 'methods'=>'POST','callback'=>array( $this,'create_payout_batch' ),'permission_callback'=>array( $this,'permission_approve_payroll' ) ) );
+		register_rest_route( $ns, '/hr/replacement/payout-batches/(?P<id>\d+)/reconcile', array( 'methods'=>'POST','callback'=>array( $this,'reconcile_payout_batch' ),'permission_callback'=>array( $this,'permission_approve_payroll' ) ) );
+		register_rest_route( $ns, '/hr/replacement/payroll/runs/(?P<id>\d+)/remittances', array( 'methods'=>'POST','callback'=>array( $this,'create_remittance' ),'permission_callback'=>array( $this,'permission_approve_payroll' ) ) );
+		register_rest_route( $ns, '/hr/replacement/remittances/(?P<id>\d+)/verify', array( 'methods'=>'POST','callback'=>array( $this,'verify_remittance' ),'permission_callback'=>array( $this,'permission_approve_payroll' ) ) );
+		register_rest_route( $ns, '/hr/replacement/exits/(?P<id>\d+)/payout', array( 'methods'=>'POST','callback'=>array( $this,'pay_exit_settlement' ),'permission_callback'=>array( $this,'permission_approve_payroll' ) ) );
+		register_rest_route( $ns, '/hr/replacement/payee-requests/(?P<id>\d+)/calculate', array( 'methods'=>'POST','callback'=>array( $this,'calculate_payee_request' ),'permission_callback'=>array( $this,'permission_manage_payroll' ) ) );
+		register_rest_route( $ns, '/hr/replacement/payee-requests/(?P<id>\d+)/pay', array( 'methods'=>'POST','callback'=>array( $this,'pay_payee_request' ),'permission_callback'=>array( $this,'permission_approve_payroll' ) ) );
+		register_rest_route( $ns, '/hr/replacement/employments/(?P<id>\d+)/activate', array( 'methods'=>'POST','callback'=>array( $this,'activate_employment' ),'permission_callback'=>array( $this,'permission_approve_hr' ) ) );
 		register_rest_route( $ns, '/hr/replacement/payout-items/(?P<id>\d+)/outcome', array( 'methods'=>'POST','callback'=>array( $this,'record_payout_outcome' ),'permission_callback'=>array( $this,'permission_approve_payroll' ) ) );
 		register_rest_route( $ns, '/hr/replacement/payroll/runs/(?P<id>\d+)/close', array( 'methods'=>'POST','callback'=>array( $this,'close_payroll_run' ),'permission_callback'=>array( $this,'permission_approve_hr' ) ) );
 		register_rest_route( $ns, '/hr/replacement/legal-rules/(?P<id>\d+)/review', array( 'methods'=>'POST','callback'=>array( $this,'review_legal_rule' ),'permission_callback'=>array( $this,'permission_approve_hr' ) ) );
@@ -143,9 +155,9 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 			'positions'=>array('position_code','title','org_unit_id','grade_code','band_min','band_max','openings_planned','status','effective_from','effective_to'),
 			'workforce-plans'=>array('plan_code','fiscal_year','org_unit_id','position_id','headcount_requested','budget_amount','justification','status'),
 			'requisitions'=>array('requisition_code','workforce_plan_id','position_id','location_id','openings','requested_start','budget_amount','business_reason','status'),
-			'applications'=>array('application_code','requisition_id','person_id','privacy_notice_version','consent_or_lawful_basis','applied_at','stage','screening_score','recommendation','selection_rationale','retention_until','status'),
+			'applications'=>array('application_code','requisition_id','person_id','privacy_notice_version','consent_or_lawful_basis','applied_at','stage','screening_score','retention_until','status'),
 			'interviews'=>array('application_id','interview_round','interview_at','interviewer_user_id','rubric_version','score','recommendation','evidence_ref','notes_redacted'),
-			'offers'=>array('offer_code','application_id','employment_type','proposed_start','proposed_end','position_id','location_id','compensation_assignment_id','terms_version','contract_ref_id','status','accepted_at'),
+			'offers'=>array('offer_code','application_id','employment_type','proposed_start','proposed_end','position_id','location_id','compensation_assignment_id','terms_version','contract_ref_id','status'),
 			'contracts'=>array('employment_id','contract_code','contract_version','contract_type','start_date','end_date','probation_end','terms_hash','private_document_ref_id','signed_by_person_at','status'),
 			'onboarding-tasks'=>array('employment_id','task_code','task_title','owner_role','due_date','evidence_ref_id','status'),
 			'assignments'=>array('employment_id','position_id','org_unit_id','location_id','manager_employment_id','effective_from','effective_to','reason_code','approval_status'),
@@ -155,7 +167,8 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 			'leave-transactions'=>array('transaction_code','employment_id','leave_policy_id','transaction_type','start_date','end_date','quantity_days','source_transaction_id','reason','evidence_ref_id','status'),
 			'compensation-assignments'=>array('assignment_code','employment_id','currency','base_salary','effective_from','effective_to','reason_code','reason_text','source_type','source_reference'),
 			'compensation-items'=>array('compensation_assignment_id','component_code','component_name','component_type','amount','frequency','cash_payable','taxable_status','pensionable_status','legal_rule_id','evidence_ref_id'),
-			'legal-rules'=>array('rule_code','rule_family','jurisdiction','source_title','source_article','source_url','source_sha256','publication_date','effective_from','effective_to','formula_key','formula_parameters','applicability','exceptions','review_status','reviewer_name','reviewer_qualification','test_vectors_sha256'),
+			'legal-rules'=>array('rule_code','rule_family','jurisdiction','source_title','source_article','source_url','source_sha256','publication_date','effective_from','effective_to','formula_key','formula_parameters','applicability','exceptions','review_status','test_vectors_sha256'),
+			'accounting-config'=>array('config_code','wage_expense_account','employer_pension_expense_account','net_payable_account','paye_payable_account','employee_pension_payable_account','employer_pension_payable_account','other_deductions_payable_account','cash_account_code','payee_expense_account','payee_payable_account','payee_withholding_account','effective_from','effective_to'),
 			'legal-rule-bands'=>array('legal_rule_id','band_order','lower_bound','upper_bound','rate','constant_credit','calculation_method'),
 			'payee-engagements'=>array('engagement_code','payee_person_id','engagement_type','campaign_or_service','start_date','end_date','contract_ref_id','deliverable_terms','status'),
 			'payee-requests'=>array('request_code','engagement_id','request_type','service_period_start','service_period_end','cash_amount','in_kind_value','currency','invoice_or_receipt_ref'),
@@ -224,6 +237,7 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		if(empty($row))return $this->error('hrx_payload_empty','No allowed fields supplied.',422);
 		if(isset($row['location_id'])&&!empty($row['location_id'])&&!Stockland_Authority::can_access_location((int)$row['location_id']))return $this->error('hrx_location_forbidden','This record is outside your authorized location scope.',403);
 		if(in_array($entity,array('legal-rules','leave-policies'),true))$row[$entity==='legal-rules'?'review_status':'approval_status']='LEGAL_REVIEW';
+		if('accounting-config'===$entity)$row['status']='DRAFT';
 		if(in_array($entity,array('compensation-assignments','compensation-items'),true))$row['status']='DRAFT';
 		if('payee-requests'===$entity){$row['status']='DRAFT';$row['classification_status']='LEGAL_REVIEW';}
 		if(isset($map['state'])&&'active'!==$map['state']&&isset($row[$map['state']]))$row[$map['state']]='DRAFT';
@@ -279,6 +293,7 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 			'offers'=>array('SUBMIT'=>array('DRAFT','SUBMITTED'),'APPROVE'=>array('SUBMITTED','APPROVED'),'REJECT'=>array('SUBMITTED','REJECTED'),'ACCEPT'=>array('APPROVED','ACCEPTED'),'DECLINE'=>array('APPROVED','DECLINED')),
 			'contracts'=>array('SUBMIT'=>array('DRAFT','SUBMITTED'),'APPROVE'=>array('SUBMITTED','APPROVED'),'REJECT'=>array('SUBMITTED','REJECTED')),
 			'onboarding-tasks'=>array('COMPLETE'=>array('OPEN','COMPLETE'),'REOPEN'=>array('COMPLETE','OPEN')),
+			'exit-clearance-tasks'=>array('COMPLETE'=>array('OPEN','COMPLETE'),'REOPEN'=>array('COMPLETE','OPEN')),
 			'assignments'=>array('SUBMIT'=>array('DRAFT','SUBMITTED'),'APPROVE'=>array('SUBMITTED','APPROVED'),'REJECT'=>array('SUBMITTED','REJECTED')),
 			'schedules'=>array('SUBMIT'=>array('DRAFT','SUBMITTED'),'APPROVE'=>array('SUBMITTED','APPROVED'),'REJECT'=>array('SUBMITTED','REJECTED')),
 			'time-events'=>array('SUBMIT'=>array('DRAFT','SUBMITTED'),'APPROVE'=>array('SUBMITTED','APPROVED'),'REJECT'=>array('SUBMITTED','REJECTED')),
@@ -302,9 +317,11 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		$rule=$this->transitions($entity)[$action]??null;if(!$rule)return $this->error('hrx_transition_invalid','Unknown action for this workflow.',422);
 		$current=$this->entity_row($entity,$id);if(is_wp_error($current))return $current;
 		$state_field=$map['state'];$from=strtoupper((string)($current[$state_field]??''));if($from!==strtoupper((string)$rule[0]))return $this->error('hrx_transition_conflict','This action is not allowed from the current status.',409);
-		$is_approval=in_array($action,array('APPROVE','ACCEPT','ACTIVATE','COMPLETE','CLOSE','RETIRE'),true);
-		if($is_approval&&!$this->approve_payroll())return $this->error('hrx_owner_required','Owner approval is required for this transition.',403);
-		if(in_array($action,array('APPROVE','RETIRE'),true)&&isset($current['created_by'])&&(int)$current['created_by']===get_current_user_id())return $this->error('hrx_no_self_approval','The maker may not approve their own HR/payroll record.',403);
+		$is_approval=in_array($action,array('APPROVE','ACCEPT','ACTIVATE','CLOSE','RETIRE'),true);
+		$owner_required=$is_approval&&!in_array($entity,array('time-events','leave-transactions','onboarding-tasks','interviews','applications'),true);
+		if($owner_required&&!$this->approve_payroll())return $this->error('hrx_owner_required','Owner approval is required for this transition.',403);
+		if($is_approval&&isset($current['created_by'])&&(int)$current['created_by']===get_current_user_id())return $this->error('hrx_no_self_approval','The preparer cannot approve their own HR/payroll record.',403);
+		
 		if(in_array($entity,array('legal-rules','leave-policies'),true)&&'APPROVE'===$action){
 			$extra=$body['review_attestation']??'';if(strlen(trim((string)$extra))<30)return $this->error('hrx_legal_review_required','Qualified review attestation and official-source effective-date confirmation are required.',422);
 			if('legal-rules'===$entity){
