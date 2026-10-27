@@ -131,11 +131,11 @@ final class Stockland_HR_Replacement {
 				'keys' => 'UNIQUE KEY approval_uuid (approval_uuid), UNIQUE KEY request_key (request_key), KEY run_stage (run_id,stage), KEY actor_time (actor_user_id,created_at)',
 			),
 			'payroll_disbursements' => array(
-				'fields' => "disbursement_uuid char(36) NOT NULL, run_id bigint unsigned NOT NULL, person_id bigint unsigned NOT NULL, amount decimal(14,2) NOT NULL, currency char(3) NOT NULL DEFAULT 'ETB', payment_method varchar(20) NOT NULL, external_batch_ref varchar(120) NULL, external_payment_ref varchar(120) NULL, masked_destination varchar(100) NULL, idempotency_key varchar(120) NOT NULL, submitted_at datetime NULL, settled_at datetime NULL, failure_code varchar(80) NULL, reconciliation_ref varchar(120) NULL, journal_id bigint unsigned NULL",
+				'fields' => "disbursement_uuid char(36) NOT NULL, run_id bigint unsigned NOT NULL, person_id bigint unsigned NOT NULL, amount decimal(14,2) NOT NULL, currency char(3) NOT NULL DEFAULT 'ETB', payment_method varchar(20) NOT NULL, external_batch_ref varchar(120) NULL, external_payment_ref varchar(120) NULL, masked_destination varchar(100) NULL, idempotency_key varchar(120) NOT NULL, submitted_at datetime NULL, settled_at datetime NULL, failure_code varchar(80) NULL, reconciliation_ref varchar(120) NULL, journal_id bigint unsigned NULL, status varchar(24) NOT NULL DEFAULT 'PENDING'",
 				'keys' => 'UNIQUE KEY disbursement_uuid (disbursement_uuid), UNIQUE KEY idempotency_key (idempotency_key), UNIQUE KEY external_payment_ref (external_payment_ref), KEY run_status (run_id,status), KEY person_run (person_id,run_id)',
 			),
 			'remittances' => array(
-				'fields' => "remittance_uuid char(36) NOT NULL, run_id bigint unsigned NULL, remittance_kind varchar(30) NOT NULL, liability_period varchar(30) NOT NULL, amount decimal(14,2) NOT NULL, currency char(3) NOT NULL DEFAULT 'ETB', due_date date NULL, external_return_ref varchar(120) NULL, payment_ref varchar(120) NULL, evidence_ref varchar(255) NULL, reconciled_by bigint unsigned NULL, reconciled_at datetime NULL",
+				'fields' => "remittance_uuid char(36) NOT NULL, run_id bigint unsigned NULL, remittance_kind varchar(30) NOT NULL, liability_period varchar(30) NOT NULL, amount decimal(14,2) NOT NULL, currency char(3) NOT NULL DEFAULT 'ETB', due_date date NULL, external_return_ref varchar(120) NULL, payment_ref varchar(120) NULL, evidence_ref varchar(255) NULL, reconciled_by bigint unsigned NULL, reconciled_at datetime NULL, status varchar(24) NOT NULL DEFAULT 'PENDING'",
 				'keys' => 'UNIQUE KEY remittance_uuid (remittance_uuid), KEY kind_period (remittance_kind,liability_period), KEY due_status (due_date,status)',
 			),
 			'separation_cases' => array(
@@ -227,7 +227,6 @@ final class Stockland_HR_Replacement {
 		return "CREATE TABLE {$table} (
 id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
 {$fields},
-status varchar(24) NOT NULL DEFAULT 'ACTIVE',
 row_version int(10) unsigned NOT NULL DEFAULT 1,
 created_by bigint(20) unsigned NOT NULL DEFAULT 0,
 created_at datetime NOT NULL,
