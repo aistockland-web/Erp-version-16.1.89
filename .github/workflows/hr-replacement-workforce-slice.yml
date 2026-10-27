@@ -51,7 +51,10 @@ jobs:
           php -l ci/hr_payroll_replacement_runtime/Stockland_HR_Replacement_Workforce_Service.php
           php -l ci/hr_payroll_replacement_runtime/Stockland_HR_Replacement_Workforce_WPDB_Repository.php
           php -l ci/hr_payroll_replacement_runtime/Stockland_HR_Replacement_Workforce_Schema.php
+          php -l ci/hr_payroll_replacement_runtime/Stockland_HR_Replacement_Workforce_WP_Access.php
+          php -l ci/hr_payroll_replacement_runtime/class-rest-hr-replacement-workforce.php
           php -l ci/qa/test_hr_replacement_workforce_slice.php
+          python ci/qa/test_hr_replacement_workforce_rest_contract.py
           php -l ci/hr_payroll_candidate/Stockland_HR_Workflow_State_Machine.php
           php -l ci/hr_payroll_candidate/Stockland_HR_Payroll_Calculator.php
           php -l ci/hr_payroll_candidate/Stockland_HR_Time_Leave_Engine.php
