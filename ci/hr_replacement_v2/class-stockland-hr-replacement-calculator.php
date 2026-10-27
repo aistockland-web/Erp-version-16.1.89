@@ -38,6 +38,24 @@ final class Stockland_HR_Replacement_Calculator {
 		return Stockland_Money::decimal( self::round_div( $minor * $units, self::RATE_SCALE ) );
 	}
 
+	/** Rule-driven daily salary proration. The rule caller supplies payable and basis units. */
+	public static function prorate_salary( $monthly_salary, $payable_units, $basis_units ) {
+		$payable_units = (int) $payable_units;
+		$basis_units = (int) $basis_units;
+		if ( $payable_units < 0 || $basis_units <= 0 || $payable_units > $basis_units ) { return self::fail( 'hrx_proration_inputs_invalid', 'Salary proration units must be valid and payable units cannot exceed basis units.' ); }
+		return Stockland_Money::decimal( self::round_div( Stockland_Money::minor( $monthly_salary ) * $payable_units, $basis_units ) );
+	}
+
+	/** Rule-driven overtime formula in cents: base cents × minutes × multiplier / (monthly hours × 60). */
+	public static function overtime_amount( $monthly_salary, $minutes, $monthly_hours_basis, $multiplier ) {
+		$minutes = (int) $minutes;
+		$hours = (int) $monthly_hours_basis;
+		if ( $minutes < 0 || $hours <= 0 || $minutes > 100000 ) { return self::fail( 'hrx_overtime_inputs_invalid', 'Overtime minutes or the approved monthly-hours divisor is invalid.' ); }
+		try { $rate_units = self::rate_units( $multiplier ); } catch ( Throwable $e ) { return self::fail( 'hrx_overtime_multiplier_invalid', 'Approved overtime multiplier is invalid.' ); }
+		$denominator = $hours * 60 * self::RATE_SCALE;
+		return Stockland_Money::decimal( self::round_div( Stockland_Money::minor( $monthly_salary ) * $minutes * $rate_units, $denominator ) );
+	}
+
 	/**
 	 * Progressive marginal-band PAYE calculation. Bands are half-open [lower, upper), last upper is null.
 	 * All bounds/rates must come from an APPROVED, effective-dated legal rule.
@@ -153,7 +171,7 @@ final class Stockland_HR_Replacement_Calculator {
 			'base_salary'=>$base,'taxable_earnings'=>$taxable_earnings,'exempt_earnings'=>Stockland_Money::decimal($exempt_minor),
 			'gross_pay'=>$gross,'taxable_base'=>$taxable_base,'paye'=>$paye,'employee_pension'=>$employee_pension,
 			'employer_pension'=>$employer_pension,'other_deductions'=>$deductions,'net_pay'=>$net,
-			'employer_cost'=>$employer_cost,'pensionable_base'=>$pensionable_base,'line_items'=>$line_items,
+			'employer_cost'=>$employer_cost,'noncash_benefits'=>Stockland_Money::decimal($noncash_benefit_minor),'pensionable_base'=>$pensionable_base,'line_items'=>$line_items,
 			'calculation' => array('paye_base_rule_id'=>(int)($rules['paye_base']['id']??0),'paye_rule_id'=>(int)($rules['paye']['id']??0),'employee_pension_rule_id'=>(int)($rules['employee_pension']['id']??0),'employer_pension_rule_id'=>(int)($rules['employer_pension']['id']??0),'rounding'=>'HALF_AWAY_FROM_ZERO_CENT')
 		);
 	}
