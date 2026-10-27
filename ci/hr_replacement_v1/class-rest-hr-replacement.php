@@ -50,7 +50,7 @@ final class Stockland_REST_HR_Replacement {
 			'social-accounts' => array( 'table'=>'social_accounts', 'fields'=>array('account_code','platform','display_label','official_url','owner_user_id','manager_user_id','permitted_scopes_json'), 'required'=>array('account_code','platform','display_label','official_url'), 'edit'=>array('display_label','official_url','manager_user_id','permitted_scopes_json'), 'group'=>'hr', 'location'=>false ),
 			'campaigns' => array( 'table'=>'campaigns', 'fields'=>array('campaign_code','title','account_id','payee_id','engagement_id','start_date','end_date','cash_budget','gifted_stock_cost','currency','owner_user_id'), 'required'=>array('campaign_code','title','start_date','owner_user_id'), 'edit'=>array('end_date','cash_budget','gifted_stock_cost'), 'group'=>'payroll', 'location'=>false ),
 			'campaign-snapshots' => array( 'table'=>'campaign_snapshots', 'fields'=>array('campaign_id','period_start','period_end','captured_at','source_platform','source_ref','metrics_json'), 'required'=>array('campaign_id','period_start','period_end','captured_at','source_platform','metrics_json'), 'edit'=>array(), 'group'=>'hr', 'location'=>false, 'immutable'=>true ),
-			'resource-documents' => array( 'table'=>'resource_documents', 'fields'=>array('document_code','function_name','role_code','language_code','document_type','version_label','title','private_file_ref','file_sha256','mime_type','size_bytes','effective_on','supersedes_id','legal_source_ref'), 'required'=>array('document_code','function_name','language_code','document_type','version_label','title','private_file_ref','file_sha256','mime_type','size_bytes'), 'edit'=>array(), 'group'=>'hr', 'location'=>false, 'immutable'=>true ),
+			'resource-documents' => array( 'table'=>'resource_documents', 'fields'=>array('document_code','function_name','role_code','language_code','document_type','version_label','title','state','private_file_ref','file_sha256','mime_type','size_bytes','effective_on','supersedes_id','legal_source_ref'), 'required'=>array('document_code','function_name','language_code','document_type','version_label','title','private_file_ref','file_sha256','mime_type','size_bytes'), 'edit'=>array(), 'group'=>'hr', 'location'=>false, 'immutable'=>true ),
 		);
 	}
 
@@ -181,7 +181,7 @@ final class Stockland_REST_HR_Replacement {
 		if ( ! Stockland_HR_Replacement::schema_status()['schema_ready'] ) { return new WP_Error('hrx_schema_pending','Replacement schema is not installed.',array('status'=>503)); }
 		$entity=$this->entity_for_request($request); if(!$entity)return new WP_Error('hrx_entity_unknown','Unknown HR entity.',array('status'=>404));
 		$meta=self::entities()[$entity];
-		if ( ! empty($meta['immutable']) || in_array($meta['table'],array('payroll-runs'),true) ) { return new WP_Error('hrx_append_only','This entity is created only by its controlled workflow.',array('status'=>409)); }
+		if ( in_array($entity,array('payroll-runs','payee-payments'),true) ) { return new WP_Error('hrx_append_only','This entity is created only by its controlled workflow.',array('status'=>409)); }
 		$payload=$request->get_json_params(); if(!is_array($payload))return new WP_Error('hrx_json_required','A JSON object is required.',array('status'=>400));
 		$data=$this->clean_payload($payload,$meta['fields']);
 		if(is_wp_error($data))return $data;
@@ -194,7 +194,7 @@ final class Stockland_REST_HR_Replacement {
 		if('payee-tax-decisions'===$entity){$data['status']='LEGAL_REVIEW';$data['reviewer_user_id']=get_current_user_id();$data['decided_at']=current_time('mysql');}
 		if('payee-payments'===$entity){$data['status']='REQUESTED';}
 		if('employment-contracts'===$entity){if(isset($payload['signed_document_ref'])||isset($payload['signed_document_sha256'])||isset($payload['signed_at']))return new WP_Error('hrx_contract_sign_route','A contract cannot be marked signed during creation. Use the controlled signing workflow.',array('status'=>400));}
-		$data['status'] = $data['status'] ?? $this->default_status($entity);
+		if('resource-documents'!==$entity){$data['status'] = $data['status'] ?? $this->default_status($entity);}
 		$data['created_by']=get_current_user_id();$data['created_at']=current_time('mysql');$data['updated_at']=$data['created_at'];$data['row_version']=1;
 		if(isset($data['location_id'])&&!$this->location_access($data['location_id']))return new WP_Error('hrx_location_denied','Location is outside your authorized scope.',array('status'=>403));
 		if(!$this->validate_relationships($entity,$data))return new WP_Error('hrx_reference_invalid','One or more related records do not exist or are not accessible.',array('status'=>422));
@@ -235,7 +235,12 @@ final class Stockland_REST_HR_Replacement {
 		if(!$this->row_access($meta,$row))return new WP_Error('hrx_scope_denied','The record is outside your authorized scope.',array('status'=>403));
 		$p=$request->get_json_params();$action=strtoupper(sanitize_key((string)($p['action']??'')));$reason=sanitize_textarea_field((string)($p['reason']??''));$actor=get_current_user_id();
 		if('rule-sets'===$entity)return $this->transition_rule($row,$action,$reason);
+		if('employment-contracts'===$entity&&'SIGN'===$action)return $this->sign_contract($row,$p);
 		if('employment-contracts'===$entity&&'ACTIVATE'===$action)return $this->activate_contract($row,$reason);
+		if('employee-documents'===$entity&&'VERIFY'===$action)return $this->verify_document($row,$reason);
+		if('payroll-periods'===$entity&&'CREATE_RUN'===$action)return $this->create_payroll_run($row,$p);
+		if('resource-documents'===$entity&&'APPROVE_RESOURCE'===$action)return $this->transition_resource($row,'APPROVED',$reason);
+		if('resource-documents'===$entity&&'RETIRE'===$action)return $this->transition_resource($row,'RETIRED',$reason);
 		if('leave-requests'===$entity&&'APPROVE'===$action)return $this->approve_leave($row,$reason);
 		$map=$this->transitions();
 		if(!isset($map[$entity][$action]))return new WP_Error('hrx_transition_invalid','Unsupported transition for this record type.',array('status'=>400));
@@ -357,8 +362,8 @@ final class Stockland_REST_HR_Replacement {
 		if(!$period||!$rules)return new WP_Error('hrx_run_reference','Payroll period or rule set is missing.',array('status'=>409));
 		if('OPEN'!==strtoupper($period['status']))return new WP_Error('hrx_period_locked','Payroll period is not open.',array('status'=>409));
 		$ruleError=$this->validate_active_rules($rules,$period['period_start'],$period['period_end']);if(is_wp_error($ruleError))return $ruleError;
-		$ruleComponents=Stockland_DB::read_results($this->prep("SELECT * FROM %i WHERE rule_set_id=%d AND status IN ('APPROVED','ACTIVE','DRAFT') ORDER BY sort_order,id",Stockland_HR_Replacement::table('rule_components'),(int)$rules['id']),ARRAY_A);
-		$ruleMap=array();foreach((array)$ruleComponents as $rc){$params=json_decode((string)$rc['parameters_json'],true);if(!is_array($params))return new WP_Error('hrx_rule_json','A rule component contains invalid JSON.',array('status'=>409));$ruleMap[strtoupper($rc['component_kind'])]=$params;}
+		$ruleComponents=Stockland_DB::read_results($this->prep("SELECT * FROM %i WHERE rule_set_id=%d ORDER BY sort_order,id",Stockland_HR_Replacement::table('rule_components'),(int)$rules['id']),ARRAY_A);
+		$ruleMap=array();foreach((array)$ruleComponents as $rc){if('APPROVED'!==strtoupper((string)$rc['status']))return new WP_Error('hrx_rule_component_not_approved','Every rule component must be individually approved before use.',array('status'=>409));$params=json_decode((string)$rc['parameters_json'],true);if(!is_array($params))return new WP_Error('hrx_rule_json','A rule component contains invalid JSON.',array('status'=>409));$ruleMap[strtoupper($rc['component_kind'])]=$params;}
 		if(empty($ruleMap['PAYE_SCHEDULE']['bands'])||empty($ruleMap['PENSION'])||empty($ruleMap['ITEM_CLASSIFICATION'])||empty($ruleMap['PRORATION']))return new WP_Error('hrx_rule_components_missing','Approved rules must contain PAYE_SCHEDULE, PENSION, ITEM_CLASSIFICATION and PRORATION components.',array('status'=>409));
 		$classification=$ruleMap['ITEM_CLASSIFICATION']['mapping']??array();$bands=$ruleMap['PAYE_SCHEDULE']['bands'];$pension=$ruleMap['PENSION'];$proration=strtoupper((string)($ruleMap['PRORATION']['method']??''));
 		if(!in_array(strtoupper((string)$rules['tax_base_basis']),array('TAXABLE_GROSS','TAXABLE_GROSS_LESS_EMPLOYEE_PENSION'),true))return new WP_Error('hrx_tax_base_unapproved','PAYE base formula is not explicitly approved in the rule set.',array('status'=>409));
@@ -441,7 +446,7 @@ final class Stockland_REST_HR_Replacement {
 	public function submit_run($request) {
 		$id=absint($request['id']);$run=$this->read_one('payroll_runs',$id);if(!$run)return new WP_Error('hrx_run_not_found','Payroll run not found.',array('status'=>404));
 		if('CALCULATED'!==strtoupper($run['status'])||(int)$run['exception_count']>0||empty($run['source_snapshot_sha256']))return new WP_Error('hrx_run_not_ready','Only an exception-free calculated run can be submitted.',array('status'=>409));
-		if((int)$run['created_by']===get_current_user_id())return new WP_Error('hrx_maker_submit','A different authorized Management reviewer must submit the run prepared by another user only if policy requires; the current run creator may submit to Owner approval.',array('status'=>409));
+		if(!Stockland_Authority::can_manage_payroll())return new WP_Error('hrx_maker_submit','Only authorized Management/Payroll can submit the run for independent Owner approval.',array('status'=>403));
 		$hash=hash('sha256',(string)$run['source_snapshot_json']);if(!hash_equals((string)$run['source_snapshot_sha256'],$hash))return new WP_Error('hrx_snapshot_hash','Payroll snapshot integrity check failed.',array('status'=>409));
 		global $wpdb;$wpdb->query('START TRANSACTION');$ok=$wpdb->update(Stockland_HR_Replacement::table('payroll_runs'),array('status'=>'SUBMITTED','submitted_by'=>get_current_user_id(),'row_version'=>(int)$run['row_version']+1,'updated_at'=>current_time('mysql')),array('id'=>$id,'row_version'=>(int)$run['row_version'],'status'=>'CALCULATED'));
 		$approval=$wpdb->insert(Stockland_HR_Replacement::table('payroll_approvals'),array('approval_uuid'=>wp_generate_uuid4(),'run_id'=>$id,'stage'=>'SUBMISSION','decision'=>'SUBMITTED','actor_user_id'=>get_current_user_id(),'reason'=>'Submitted for independent Owner approval.','run_hash'=>$hash,'request_key'=>'HRX-SUBMIT-'.$id.'-'.$hash,'created_by'=>get_current_user_id(),'created_at'=>current_time('mysql'),'updated_at'=>current_time('mysql'),'row_version'=>1));
