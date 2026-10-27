@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/Stockland_HR_Payroll_Calculator.php';
+require_once __DIR__ . '/class-stockland-hr-payroll-calculator.php';
 
 function assertSameValue($expected, $actual, $message) {
     if ($expected !== $actual) {
