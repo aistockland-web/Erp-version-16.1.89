@@ -294,21 +294,21 @@ def patch_health(files):
             continue
         t = text(files, path)
         t = t.replace("schema_contract_exact_49", "schema_contract_expected")
-        t = t.replace("86-table candidate contract", "86-table candidate contract")
-        t = t.replace("86/86", "86/86")
-        t = t.replace("total'] ?? 86", "total'] ?? 86")
-        t = t.replace("total:86", "total:86")
-        t = t.replace("total||86", "total||86")
-        t = t.replace("total||41", "total||41")
-        t = t.replace("86-table candidate setup", "86-table candidate setup")
-        t = t.replace("86/86", "86/86")
+t = t.replace("49-table contract", "86-table candidate contract")
+t = t.replace("49/49", "86/86")
+t = t.replace("total'] ?? 49", "total'] ?? 86")
+t = t.replace("total:49", "total:86")
+t = t.replace("total||49", "total||86")
+t = t.replace("total||4", "total||41")
+t = t.replace("49-table setup", "86-table candidate setup")
+t = t.replace("49/49", "86/86")
         if path == "includes/rest/class-rest-app.php":
             old = "$hr_expected         = array( 'employees', 'employee_compensation', 'payroll_periods', 'payroll_lines' );"
             new = "$hr_expected         = array_values( array_unique( array_merge( array( 'employees', 'employee_compensation', 'payroll_periods', 'payroll_lines' ), Stockland_HR_Lifecycle::table_keys() ) ) );"
             t = many(t, old, new, 2, "dynamic HR expected set")
-            t = many(t, "count( $found_keys ) === 86", "count( $found_keys ) === 86", 2, "73-table health contract")
+t = many(t, "count( $found_keys ) === 49", "count( $found_keys ) === 86", 2, "86-table health contract")
         if path == "includes/rest/class-rest-setup.php":
-            t = t.replace("(int) ( $snapshot['total']['total'] ?? 86 )", "(int) ( $snapshot['total']['total'] ?? 86 )")
+t = t.replace("(int) ( $snapshot['total']['total'] ?? 49 )", "(int) ( $snapshot['total']['total'] ?? 86 )")
         if path == "RELEASE_MANIFEST.json":
             m = json.loads(t)
             m["release"] = RELEASE
@@ -343,7 +343,7 @@ def patch_health(files):
             t = json.dumps(m, ensure_ascii=False, indent=2) + "\n"
         elif path == "README.md":
             t = t.replace("16.1.95", "16.2.0", 1)
-            t += "\n\n## HRIS/Payroll lifecycle (16.2.0 candidate)\n\nThe current candidate extends the prior four HR/payroll tables to a 28-table HR/payroll subsystem and 73 total ERP tables. It includes workforce plans, positions/vacancies, candidate/application/interview stages, contracts, document metadata, onboarding, shifts, attendance, leave policies/balances/requests, compensation components, rule-set versions, audit events, payroll payments/adjustments, training/performance and settlement calculation. The private document vault itself must be integrated and security-tested before document handling can be certified. Payroll uses an effective-dated, approved ruleset; no tax rates or exemption caps are populated by this build. Do not upload this candidate to production until CI, legal review and staging acceptance pass.\n"
+            t += "\\n\\n## HRIS/Payroll lifecycle (16.2.0 candidate)\\n\\nThe isolated candidate adds lifecycle, frozen payroll-run, per-recipient settlement, statutory-remittance, individual-payee, employee-reimbursement, private-resource and social-reporting domains. Its physical schema inventory is provisional and must not be read as approval of an 86-table architecture. Payroll requires an independently reviewed, effective-dated statutory rule bundle; this build seeds no tax rates or exemption caps. Private personnel files require STOCKLAND_PRIVATE_VAULT_DIR outside the web root and an encryption key for TIN/licence data. Manual social snapshots are timestamped and are not real-time API reporting. Do not deploy until exact-candidate CI, isolated WordPress/MariaDB lifecycle tests, backup/restore, rollback, source parity, qualified legal review, and Owner/HR/Finance acceptance pass.\\n"
         put(files, path, t)
     return
 
