@@ -1,6 +1,6 @@
 <?php
 require __DIR__ . '/../hris_overlay_v0_6/class-stockland-hris-domain.php';
-function check( $condition, $message ) { if ( ! $condition ) { fwrite( STDERR, "FAIL: {$message}\n" ); exit( 1 ); } }
+function check( $condition, $message ) { $GLOBALS['assertions'] = ( $GLOBALS['assertions'] ?? 0 ) + 1; if ( ! $condition ) { fwrite( STDERR, "FAIL: {$message}\n" ); exit( 1 ); } }
 function rule( $type = 'PAYE' ) {
 	return array(
 		'id' => 7, 'rule_type' => $type, 'status' => 'APPROVED',
@@ -77,4 +77,4 @@ $badExit=$exit; $badExit['owner_approved']=false;
 check( empty( Stockland_HRIS_Domain::validate_exit_settlement( $badExit, true )['ok'] ), 'final settlement blocked without Owner approval' );
 check( Stockland_HRIS_Domain::decimal_to_minor( '123.45' ) === 12345, 'decimal string uses integer cents' );
 try { Stockland_HRIS_Domain::decimal_to_minor( '12.345' ); check( false, 'too many decimals must throw' ); } catch ( InvalidArgumentException $e ) { }
-echo "Stockland HRIS domain-kernel tests PASS: 35 assertions. Rule schedule uses synthetic QA-only data and is not an approved Ethiopian tax rule.\n";
+echo "Stockland HRIS domain-kernel tests PASS: " . ( $GLOBALS['assertions'] ?? 0 ) . " assertions. Rule schedule uses synthetic QA-only data and is not an approved Ethiopian tax rule.\n";
