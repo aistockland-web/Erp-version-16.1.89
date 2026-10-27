@@ -182,6 +182,7 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 	private function entity_row( $entity, $id ) {
 		global $wpdb;
 		if ( ! isset(self::ENTITY_MAP[$entity]) ) return $this->error('hrx_unknown_entity','Unknown HR replacement entity.',404);
+		if(in_array($entity,array('payroll-runs','payroll-lines','payout-batches','payout-items','statutory-obligations','remittances','payee-payments','payee-payment-attempts','exit-payouts'),true)&&!$this->view_payroll())return $this->error('hrx_payroll_forbidden','This entity requires payroll access.',403);
 		$table=$this->table($entity);
 		$row=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d LIMIT 1',$table,(int)$id),ARRAY_A);
 		if($wpdb->last_error)return $this->error('hrx_read_failed','Could not read HR record.',500);
@@ -197,6 +198,7 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		$ready=$this->require_schema(); if(is_wp_error($ready))return $ready;
 		$entity=sanitize_key($request['entity']);
 		if(!isset(self::ENTITY_MAP[$entity]))return $this->error('hrx_unknown_entity','Unknown HR replacement entity.',404);
+		if(in_array($entity,array('payroll-runs','payroll-lines','payout-batches','payout-items','statutory-obligations','remittances','payee-payments','payee-payment-attempts','exit-payouts'),true)&&!$this->view_payroll())return $this->error('hrx_payroll_forbidden','This entity requires payroll access.',403);
 		$limit=max(1,min(100,(int)$request->get_param('limit')?:50));$offset=max(0,min(50000,(int)$request->get_param('offset')));
 		$table=$this->table($entity);
 		$where='1=1';$args=array();
@@ -226,7 +228,7 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		$ready=$this->require_schema();if(is_wp_error($ready))return $ready;
 		$entity=sanitize_key($request['entity']);$map=self::ENTITY_MAP[$entity]??null;
 		if(!$map||empty($map['create']))return $this->error('hrx_create_forbidden','This entity must be created through its controlled workflow.',403);
-		if(in_array($entity,array('legal-rules','legal-rule-bands','leave-policies','compensation-assignments','compensation-items','payee-requests','payee-classifications'),true)&&!$this->manage_hr())return $this->error('hrx_sensitive_write_forbidden','Sensitive HR/payroll writes require HR Management.',403);
+		if(in_array($entity,array('legal-rules','legal-rule-bands','leave-policies','compensation-assignments','compensation-items','payee-requests','payee-classifications','accounting-config'),true)&&!$this->manage_hr())return $this->error('hrx_sensitive_write_forbidden','Sensitive HR/payroll writes require HR Management.',403);
 		$payload=$this->body($request);$allowed=$this->allowed_fields($entity);$row=array();
 		foreach($payload as $key=>$value){
 			if(!in_array($key,$allowed,true))continue;
@@ -241,6 +243,8 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		if(in_array($entity,array('compensation-assignments','compensation-items'),true))$row['status']='DRAFT';
 		if('payee-requests'===$entity){$row['status']='DRAFT';$row['classification_status']='LEGAL_REVIEW';}
 		if(isset($map['state'])&&'active'!==$map['state']&&isset($row[$map['state']]))$row[$map['state']]='DRAFT';
+		if('legal-rules'===$entity)$row['review_status']='LEGAL_REVIEW';
+		if('leave-policies'===$entity)$row['approval_status']='LEGAL_REVIEW';
 		if('people'===$entity)$row['privacy_state']='ACTIVE';
 		if('interviews'===$entity)$row['recommendation']='PENDING';
 		if('payee-classifications'===$entity){$row['status']='LEGAL_REVIEW';}
@@ -302,6 +306,7 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 			'compensation-assignments'=>array('SUBMIT'=>array('DRAFT','SUBMITTED'),'APPROVE'=>array('SUBMITTED','APPROVED'),'REJECT'=>array('SUBMITTED','REJECTED')),
 			'compensation-items'=>array('SUBMIT'=>array('DRAFT','SUBMITTED'),'APPROVE'=>array('SUBMITTED','APPROVED'),'REJECT'=>array('SUBMITTED','REJECTED')),
 			'legal-rules'=>array('SUBMIT_LEGAL_REVIEW'=>array('DRAFT','LEGAL_REVIEW'),'APPROVE'=>array('LEGAL_REVIEW','APPROVED'),'RETIRE'=>array('APPROVED','RETIRED')),
+			'accounting-config'=>array('SUBMIT'=>array('DRAFT','SUBMITTED'),'APPROVE'=>array('SUBMITTED','APPROVED'),'REJECT'=>array('SUBMITTED','REJECTED')),
 			'payee-engagements'=>array('SUBMIT'=>array('DRAFT','SUBMITTED'),'APPROVE'=>array('SUBMITTED','APPROVED'),'REJECT'=>array('SUBMITTED','REJECTED')),
 			'payee-requests'=>array('SUBMIT'=>array('DRAFT','SUBMITTED'),'HOLD'=>array('SUBMITTED','LEGAL_TAX_REVIEW'),'REJECT'=>array('SUBMITTED','REJECTED')),
 			'payee-deliverables'=>array('SUBMIT'=>array('PENDING','SUBMITTED'),'ACCEPT'=>array('SUBMITTED','ACCEPTED'),'REJECT'=>array('SUBMITTED','REJECTED'))
@@ -317,15 +322,24 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		$rule=$this->transitions($entity)[$action]??null;if(!$rule)return $this->error('hrx_transition_invalid','Unknown action for this workflow.',422);
 		$current=$this->entity_row($entity,$id);if(is_wp_error($current))return $current;
 		$state_field=$map['state'];$from=strtoupper((string)($current[$state_field]??''));if($from!==strtoupper((string)$rule[0]))return $this->error('hrx_transition_conflict','This action is not allowed from the current status.',409);
-		$is_approval=in_array($action,array('APPROVE','ACCEPT','ACTIVATE','CLOSE','RETIRE'),true);
+		$is_approval=in_array($action,array('APPROVE','ACCEPT','ACTIVATE','SELECT','CLOSE','RETIRE'),true);
 		$owner_required=$is_approval&&!in_array($entity,array('time-events','leave-transactions','onboarding-tasks','interviews','applications'),true);
 		if($owner_required&&!$this->approve_payroll())return $this->error('hrx_owner_required','Owner approval is required for this transition.',403);
 		if($is_approval&&isset($current['created_by'])&&(int)$current['created_by']===get_current_user_id())return $this->error('hrx_no_self_approval','The preparer cannot approve their own HR/payroll record.',403);
 		
+		if('accounting-config'===$entity&&'APPROVE'===$action){
+			$accounts=array('wage_expense_account','employer_pension_expense_account','net_payable_account','paye_payable_account','employee_pension_payable_account','employer_pension_payable_account','other_deductions_payable_account','cash_account_code','payee_expense_account','payee_payable_account','payee_withholding_account');
+			foreach($accounts as $account){if(empty($current[$account])||!Stockland_Accounting::account_exists($current[$account]))return $this->error('hrx_accounting_config_account_invalid','Every configured payroll/AP account must exist and be active in the Stockland General Ledger.',422);}
+			$from=Stockland_HR_Replacement::valid_date($current['effective_from']??'');$to=!empty($current['effective_to'])?Stockland_HR_Replacement::valid_date($current['effective_to']):null;
+			if(!$from||($to&&$to<$from))return $this->error('hrx_accounting_config_dates_invalid','Accounting mapping requires valid effective dates.',422);
+			global $wpdb;$overlap=Stockland_DB::read_row($wpdb->prepare("SELECT id FROM %i WHERE status='APPROVED' AND id<>%d AND effective_from<=%s AND (effective_to IS NULL OR effective_to>=%s) LIMIT 1",Stockland_HR_Replacement::table('hrx_accounting_config'),(int)$request['id'],$to?:'9999-12-31',$from),ARRAY_A);
+			if($overlap)return $this->error('hrx_accounting_config_overlap','An approved accounting mapping already overlaps the requested effective period.',409);
+		}
 		if(in_array($entity,array('legal-rules','leave-policies'),true)&&'APPROVE'===$action){
 			$extra=$body['review_attestation']??'';if(strlen(trim((string)$extra))<30)return $this->error('hrx_legal_review_required','Qualified review attestation and official-source effective-date confirmation are required.',422);
 			if('legal-rules'===$entity){
-				if(empty($current['source_sha256'])||!preg_match('/^[a-f0-9]{64}$/i',(string)$current['source_sha256'])||empty($current['test_vectors_sha256'])||!preg_match('/^[a-f0-9]{64}$/i',(string)$current['test_vectors_sha256'])||empty($current['reviewer_qualification']))return $this->error('hrx_legal_evidence_missing','Legal rule requires original-source hash, test-vector hash and reviewer qualification before approval.',422);
+				$evidence_id=(int)($current['review_evidence_ref_id']??0);$evidence=$evidence_id?Stockland_DB::read_row($wpdb->prepare("SELECT id FROM %i WHERE id=%d AND entity_type='LEGAL_RULE' AND entity_id=%d AND document_type='LEGAL_REVIEW_OPINION' AND approval_status='APPROVED'",Stockland_HR_Replacement::table('hrx_document_refs'),$evidence_id,(int)$request['id']),ARRAY_A):null;
+				if(empty($current['source_sha256'])||!preg_match('/^[a-f0-9]{64}$/i',(string)$current['source_sha256'])||empty($current['test_vectors_sha256'])||!preg_match('/^[a-f0-9]{64}$/i',(string)$current['test_vectors_sha256'])||empty($current['reviewer_qualification'])||!$evidence)return $this->error('hrx_legal_evidence_missing','Legal rule requires original-source hash, test-vector hash, reviewer qualification and an independently approved private legal opinion/review reference before activation.',422);
 			}
 		}
 		if(in_array($entity,array('contracts'),true)&&'APPROVE'===$action&&empty($current['signed_by_person_at']))return $this->error('hrx_signed_contract_required','A signed contract record is required before approval.',409);
@@ -380,7 +394,7 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		$lastday=gmdate('Y-m-t',strtotime($start));
 		if($lastday!==$end)return $this->error('hrx_period_invalid','Payroll period must end on the final calendar day of the month.',422);
 		$existing=Stockland_DB::read_row($wpdb->prepare('SELECT id,status,run_version FROM %i WHERE period_start=%s AND period_end=%s ORDER BY run_version DESC LIMIT 1',Stockland_HR_Replacement::table('hrx_payroll_runs'),$start,$end),ARRAY_A);
-		if($existing&&in_array(strtoupper((string)$existing['status']),array('APPROVED','POSTED','SETTLEMENT_PENDING','SETTLED','RECONCILED','CLOSED'),true))return $this->error('hrx_period_already_committed','This pay period already has a committed run. Create a linked correction/reversal workflow; do not create a duplicate run.',409);
+		if($existing)return $this->error('hrx_period_already_exists','This calendar month already has a payroll run. Do not create a second run to bypass a failed/closed run; any correction must be linked to the original and use a reviewed adjustment/reversal.',409);
 		$version=$existing?(int)$existing['run_version']+1:1;$code='PRX-'.str_replace('-','',substr($start,0,7)).'-V'.$version;
 		$row=array('run_code'=>$code,'period_start'=>$start,'period_end'=>$end,'business_cutoff'=>$end.' 23:59:59','run_version'=>$version,'status'=>'DRAFT','currency'=>'ETB','created_by'=>get_current_user_id(),'created_at'=>Stockland_HR_Replacement::now(),'version_no'=>1);
 		if(false===$this->begin())return $this->error('hrx_tx_begin_failed','Could not start payroll transaction.',500);
