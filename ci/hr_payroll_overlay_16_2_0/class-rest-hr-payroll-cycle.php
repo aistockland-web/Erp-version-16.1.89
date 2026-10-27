@@ -49,6 +49,8 @@ final class Stockland_REST_HR_Payroll_Cycle extends Stockland_REST_Base {
 		register_rest_route( $ns, '/hr/payroll-runs/(?P<id>\d+)/submit', array( 'methods'=>'POST', 'callback'=>array( $this, 'submit_run' ), 'permission_callback'=>function(){ return Stockland_Authority::can_manage_payroll(); } ) );
 		register_rest_route( $ns, '/hr/payroll-runs/(?P<id>\d+)/approve', array( 'methods'=>'POST', 'callback'=>array( $this, 'approve_run' ), 'permission_callback'=>function(){ return Stockland_Authority::can_approve_payroll(); } ) );
 		register_rest_route( $ns, '/hr/payroll-runs/(?P<id>\d+)/payment-batches', array( 'methods'=>'POST', 'callback'=>array( $this, 'create_payment_batch' ), 'permission_callback'=>function(){ return $this->can_finance(); } ) );
+		register_rest_route( $ns, '/hr/payroll-payment-batches', array( 'methods'=>'GET', 'callback'=>array( $this, 'list_payment_batches' ), 'permission_callback'=>function(){ return Stockland_Authority::can_view_payroll(); } ) );
+		register_rest_route( $ns, '/hr/statutory-remittances', array( 'methods'=>'GET', 'callback'=>array( $this, 'list_remittances' ), 'permission_callback'=>function(){ return Stockland_Authority::can_view_payroll(); } ) );
 		register_rest_route( $ns, '/hr/payroll-payment-batches/(?P<id>\d+)/items/(?P<item_id>\d+)/result', array( 'methods'=>'POST', 'callback'=>array( $this, 'record_payment_result' ), 'permission_callback'=>function(){ return $this->can_finance(); } ) );
 		register_rest_route( $ns, '/hr/payroll-payment-batches/(?P<id>\d+)/reconcile', array( 'methods'=>'POST', 'callback'=>array( $this, 'reconcile_payment_batch' ), 'permission_callback'=>function(){ return Stockland_Authority::can_approve_payroll(); } ) );
 		register_rest_route( $ns, '/hr/statutory-remittances/(?P<id>\d+)/reconcile', array( 'methods'=>'POST', 'callback'=>array( $this, 'reconcile_remittance' ), 'permission_callback'=>function(){ return $this->can_finance(); } ) );
@@ -62,8 +64,10 @@ final class Stockland_REST_HR_Payroll_Cycle extends Stockland_REST_Base {
 		) );
 		register_rest_route( $ns, '/hr/individual-payees/(?P<id>\d+)/approve', array( 'methods'=>'POST', 'callback'=>array( $this, 'approve_payee' ), 'permission_callback'=>function(){ return Stockland_Authority::can_approve_payroll(); } ) );
 		register_rest_route( $ns, '/hr/individual-payees/(?P<id>\d+)/obligations', array( 'methods'=>'POST', 'callback'=>array( $this, 'create_payee_obligation' ), 'permission_callback'=>function(){ return Stockland_Authority::can_manage_hr(); } ) );
+		register_rest_route( $ns, '/hr/individual-payee-obligations', array( 'methods'=>'GET', 'callback'=>array( $this, 'list_payee_obligations' ), 'permission_callback'=>function(){ return Stockland_Authority::can_view_hr(); } ) );
 		register_rest_route( $ns, '/hr/individual-payee-obligations/(?P<id>\d+)/decision', array( 'methods'=>'POST', 'callback'=>array( $this, 'decide_payee_obligation' ), 'permission_callback'=>function(){ return Stockland_Authority::can_approve_payroll(); } ) );
 		register_rest_route( $ns, '/hr/individual-payee-obligations/(?P<id>\d+)/pay', array( 'methods'=>'POST', 'callback'=>array( $this, 'pay_payee_obligation' ), 'permission_callback'=>function(){ return Stockland_Authority::can_approve_payroll(); } ) );
+		register_rest_route( $ns, '/hr/individual-payee-obligations/(?P<id>\d+)/settle-in-kind', array( 'methods'=>'POST', 'callback'=>array( $this, 'settle_payee_in_kind' ), 'permission_callback'=>function(){ return Stockland_Authority::can_approve_payroll(); } ) );
 
 		register_rest_route( $ns, '/hr/resources', array(
 			array( 'methods'=>'GET', 'callback'=>array( $this, 'list_resources' ), 'permission_callback'=>function(){ return Stockland_Authority::can_view_hr(); } ),
@@ -109,6 +113,20 @@ final class Stockland_REST_HR_Payroll_Cycle extends Stockland_REST_Base {
 		return $bundle;
 	}
 
+	public function list_payment_batches( WP_REST_Request $req ) {
+		global $wpdb;
+		$rows=Stockland_DB::read_results($wpdb->prepare('SELECT b.id,b.batch_code,b.run_id,b.payment_method,b.total_requested,b.total_paid,b.external_batch_reference,b.bank_statement_reference,b.status,b.payment_journal_id,b.created_by,b.reconciled_by,b.reconciled_at,b.created_at FROM %i b ORDER BY b.id DESC LIMIT 100',$this->table('hr_payroll_payment_batches')),ARRAY_A);
+		foreach((array)$rows as &$b){$items=Stockland_DB::read_results($wpdb->prepare('SELECT id,run_line_id,employee_id,employee_code,amount,status,external_payment_reference,failure_reason,settled_at FROM %i WHERE batch_id=%d ORDER BY employee_code',$this->table('hr_payroll_payment_items'),(int)$b['id']),ARRAY_A);$b['items']=is_array($items)?$items:array();}
+		return rest_ensure_response(is_array($rows)?$rows:array());
+	}
+	public function list_remittances( WP_REST_Request $req ) {
+		global $wpdb;$rows=Stockland_DB::read_results($wpdb->prepare('SELECT id,remittance_code,run_id,statutory_type,amount_due,due_date,status,filing_reference,payment_reference,receipt_resource_id,confirmed_amount,rule_set_id,rule_version,reconciled_by,reconciled_at,created_at FROM %i ORDER BY id DESC LIMIT 100',$this->table('hr_statutory_remittances')),ARRAY_A);
+		return rest_ensure_response(is_array($rows)?$rows:array());
+	}
+	public function list_payee_obligations( WP_REST_Request $req ) {
+		global $wpdb;$rows=Stockland_DB::read_results($wpdb->prepare('SELECT o.id,o.obligation_code,o.payee_id,p.payee_code,p.full_name,p.payee_type,o.obligation_type,o.contract_reference,o.campaign_reference,o.deliverables_json,o.content_url,o.cash_amount,o.in_kind_value,o.currency,o.tax_decision_status,o.tax_rule_set_id,o.tax_rule_version,o.withholding_amount,o.net_payable_amount,o.status,o.payable_journal_id,o.created_by,o.approved_by,o.approved_at,o.created_at FROM %i o INNER JOIN %i p ON p.id=o.payee_id ORDER BY o.id DESC LIMIT 200',$this->table('hr_individual_payee_obligations'),$this->table('hr_individual_payees')),ARRAY_A);
+		return rest_ensure_response(is_array($rows)?$rows:array());
+	}
 	public function list_runs( WP_REST_Request $req ) {
 		global $wpdb;
 		$rows = Stockland_DB::read_results( $wpdb->prepare( 'SELECT id,run_code,run_kind,parent_run_id,period_key,start_date,end_date,status,rule_version,exception_count,employee_count,gross_total,taxable_total,exempt_total,paye_total,employee_pension_total,employer_pension_total,net_total,posted_journal_id,created_by,created_at,approved_by,approved_at FROM %i ORDER BY id DESC LIMIT 100', $this->table( 'hr_payroll_runs' ) ), ARRAY_A );
@@ -365,6 +383,19 @@ final class Stockland_REST_HR_Payroll_Cycle extends Stockland_REST_Base {
 		}catch(Throwable $e){Stockland_DB::execute_query('ROLLBACK');return $this->bad('hr_payment_result_failed',$e->getMessage(),409);}
 	}
 
+	private function refresh_run_completion( $run_id ) {
+		global $wpdb;
+		$run=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d',$this->table('hr_payroll_runs'),(int)$run_id),ARRAY_A);if(!$run)return false;
+		$unpaid=Stockland_DB::read_var($wpdb->prepare("SELECT COUNT(*) FROM %i l WHERE l.run_id=%d AND NOT EXISTS (SELECT 1 FROM %i i INNER JOIN %i b ON b.id=i.batch_id WHERE i.run_line_id=l.id AND i.status='PAID' AND b.status IN ('RECONCILED','PARTIAL_RECONCILED'))",$this->table('hr_payroll_run_lines'),(int)$run_id,$this->table('hr_payroll_payment_items'),$this->table('hr_payroll_payment_batches'));
+		$unreconciled_batches=Stockland_DB::read_var($wpdb->prepare("SELECT COUNT(*) FROM %i WHERE run_id=%d AND status NOT IN ('RECONCILED','PARTIAL_RECONCILED')",$this->table('hr_payroll_payment_batches'),(int)$run_id));
+		$unreconciled_remits=Stockland_DB::read_var($wpdb->prepare("SELECT COUNT(*) FROM %i WHERE run_id=%d AND status<>'RECONCILED'",$this->table('hr_statutory_remittances'),(int)$run_id));
+		$target=((int)$unpaid===0&&(int)$unreconciled_batches===0&&(int)$unreconciled_remits===0)?'SETTLED':'PAYMENT_PARTIAL';
+		if(in_array($run['status'],array('POSTED','PAYMENT_PARTIAL','SETTLED'),true)&&$run['status']!==$target){
+			$data=array('status'=>$target);if('SETTLED'===$target){$data['closed_by']=get_current_user_id();$data['closed_at']=current_time('mysql');}
+			Stockland_DB::update_record($this->table('hr_payroll_runs'),$data,array('id'=>(int)$run_id,'status'=>$run['status']));
+		}
+		return $target;
+	}
 	public function reconcile_payment_batch( WP_REST_Request $req ) {
 		$id=(int)$req['id'];$p=$req->get_json_params();$statement=sanitize_text_field((string)($p['bank_statement_reference']??''));$ref=sanitize_text_field((string)($p['external_batch_reference']??''));$confirmed=isset($p['confirmed_paid_total'])?Stockland_Money::decimal(Stockland_Money::minor($p['confirmed_paid_total'])):null;
 		if($statement===''||$ref===''||null===$confirmed)return $this->bad('hr_payment_reconciliation_evidence_required','Bank statement/cash voucher reference, batch reference and confirmed amount are mandatory.');
@@ -376,10 +407,8 @@ final class Stockland_REST_HR_Payroll_Cycle extends Stockland_REST_Base {
 			$jid=null;if(Stockland_Money::minor($sum)>0){$bank='BANK'===$b['payment_method']?'1010':'1000';$journal=array(array('account_code'=>'2020','debit'=>$sum,'credit'=>'0.00','description'=>'Clear paid employee net-pay liability','location_id'=>null),array('account_code'=>$bank,'debit'=>'0.00','credit'=>$sum,'description'=>'Verified payroll payout batch','location_id'=>null));$jid=Stockland_Accounting::post_journal(current_time('Y-m-d'),'HR_PAYROLL_BATCH_PAYMENT',(string)$id,'Payroll payment batch '.$b['batch_code'],$journal,get_current_user_id());if(!$jid)throw new RuntimeException('GL/PLEDGER payment liability clearing failed or was not idempotent.');}
 			$state=Stockland_Money::minor($sum)===Stockland_Money::minor($b['total_requested'])?'RECONCILED':'PARTIAL_RECONCILED';
 			Stockland_DB::update_record($this->table('hr_payroll_payment_batches'),array('status'=>$state,'bank_statement_reference'=>$statement,'payment_journal_id'=>$jid?(int)$jid:null,'reconciled_by'=>get_current_user_id(),'reconciled_at'=>current_time('mysql')),array('id'=>$id));
-			$all=Stockland_DB::read_var($wpdb->prepare("SELECT COUNT(*) FROM %i WHERE run_id=%d AND status NOT IN ('RECONCILED')",$this->table('hr_payroll_payment_batches'),(int)$b['run_id']));
-			$notPaid=Stockland_DB::read_var($wpdb->prepare("SELECT COUNT(*) FROM %i l WHERE l.run_id=%d AND NOT EXISTS (SELECT 1 FROM %i i INNER JOIN %i b ON b.id=i.batch_id WHERE i.run_line_id=l.id AND i.status='PAID' AND b.status IN ('RECONCILED','PARTIAL_RECONCILED'))",$this->table('hr_payroll_run_lines'),(int)$b['run_id'],$this->table('hr_payroll_payment_items'),$this->table('hr_payroll_payment_batches')));
-			if((int)$notPaid===0&&(int)$all===0)Stockland_DB::update_record($this->table('hr_payroll_runs'),array('status'=>'SETTLED','closed_by'=>get_current_user_id(),'closed_at'=>current_time('mysql')),array('id'=>(int)$b['run_id'],'status'=>'POSTED'));
-			else { $runNow=Stockland_DB::read_row($wpdb->prepare('SELECT status FROM %i WHERE id=%d FOR UPDATE',$this->table('hr_payroll_runs'),(int)$b['run_id']),ARRAY_A); if($runNow&&in_array($runNow['status'],array('POSTED','PAYMENT_PARTIAL'),true))Stockland_DB::update_record($this->table('hr_payroll_runs'),array('status'=>'PAYMENT_PARTIAL'),array('id'=>(int)$b['run_id'],'status'=>$runNow['status'])); }
+			$all=Stockland_DB::read_var($wpdb->prepare("SELECT COUNT(*) FROM %i WHERE run_id=%d AND status NOT IN ('RECONCILED','PARTIAL_RECONCILED')",$this->table('hr_payroll_payment_batches'),(int)$b['run_id']));
+			$this->refresh_run_completion((int)$b['run_id']);
 			if(!$this->event('payroll-payment-batch',$id,'PAYMENT_BATCH_RECONCILED',$b['status'],$state,array('paid_total'=>$sum,'requested_total'=>$b['total_requested'],'statement_reference'=>$statement,'journal_id'=>$jid?:null)))throw new RuntimeException('Payment reconciliation audit failed.');
 			if(false===Stockland_DB::execute_query('COMMIT'))throw new RuntimeException('Payout reconciliation commit failed.');
 			return rest_ensure_response(array('id'=>$id,'status'=>$state,'paid_total'=>$sum,'journal_id'=>$jid,'message'=>'GL liability clearing recorded separately from the payroll accrual. Failed recipients remain payable and require a new idempotent retry batch.'));
@@ -398,7 +427,8 @@ final class Stockland_REST_HR_Payroll_Cycle extends Stockland_REST_Base {
 			if(Stockland_DB::update_record($this->table('hr_statutory_remittances'),$data,array('id'=>$id,'status'=>'DRAFT'))===false)throw new RuntimeException('Could not reconcile statutory obligation.');
 			if(!$this->event('statutory-remittance',$id,'REMITTANCE_RECONCILED',$r['status'],'RECONCILED',array('type'=>$r['statutory_type'],'amount'=>$confirmed,'receipt_sha256'=>$doc['file_sha256']??null)))throw new RuntimeException('Remittance audit failed.');
 			if(false===Stockland_DB::execute_query('COMMIT'))throw new RuntimeException('Remittance commit failed.');
-			return rest_ensure_response(array('id'=>$id,'status'=>'RECONCILED','confirmed_amount'=>$confirmed));
+			$runState=$this->refresh_run_completion((int)$r['run_id']);
+			return rest_ensure_response(array('id'=>$id,'status'=>'RECONCILED','confirmed_amount'=>$confirmed)),'payroll_run_status'=>$runState));
 		}catch(Throwable $e){Stockland_DB::execute_query('ROLLBACK');return $this->bad('hr_remittance_reconciliation_failed',$e->getMessage(),409);}
 	}
 
@@ -473,17 +503,33 @@ final class Stockland_REST_HR_Payroll_Cycle extends Stockland_REST_Base {
 			return rest_ensure_response(array('id'=>$id,'status'=>'APPROVED','tax_decision_status'=>'APPROVED','gross_obligation'=>$total,'withholding'=>$withholding,'net_cash_payable'=>$net,'journal_id'=>(int)$jid,'message'=>'AP/GL accrual saved. Payout and statutory remittance are separate.');
 		}catch(Throwable $e){Stockland_DB::execute_query('ROLLBACK');return $this->bad('hr_payee_obligation_approval_failed',$e->getMessage(),409);}
 	}
+	public function settle_payee_in_kind( WP_REST_Request $req ) {
+		$id=(int)$req['id'];$p=$req->get_json_params();$reference=sanitize_text_field((string)($p['in_kind_settlement_reference']??''));$account=sanitize_text_field((string)($p['in_kind_settlement_account_code']??''));$resource=(int)($p['evidence_resource_id']??0);$note=sanitize_textarea_field((string)($p['review_note']??''));
+		if($reference===''||!ctype_digit($account)||$resource<1||strlen(trim($note))<20)return $this->bad('hr_payee_in_kind_evidence_required','In-kind delivery reference, explicit accounting settlement account, approved private evidence resource and independent review note are required.',400);
+		global $wpdb;if(false===Stockland_DB::execute_query('START TRANSACTION'))return $this->bad('hr_transaction_failed','Could not begin in-kind settlement.',500);
+		try{$o=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',$this->table('hr_individual_payee_obligations'),$id),ARRAY_A);if(!$o||$o['status']!=='CASH_PAID_IN_KIND_OPEN')throw new RuntimeException('Only a cash-paid obligation with an outstanding in-kind component can be settled this way.');
+			$r=Stockland_DB::read_row($wpdb->prepare('SELECT id,status,resource_type,file_sha256 FROM %i WHERE id=%d',$this->table('hr_resources'),$resource),ARRAY_A);if(!$r||$r['status']!=='APPROVED'||!in_array($r['resource_type'],array('IN_KIND_SETTLEMENT_EVIDENCE','AGREEMENT','OTHER'),true))throw new RuntimeException('In-kind delivery evidence resource is not approved.');
+			$amount=Stockland_Money::decimal(Stockland_Money::minor($o['in_kind_value']));if(Stockland_Money::minor($amount)<=0)throw new RuntimeException('No outstanding in-kind value is recorded.');
+			$lines=array(array('account_code'=>$o['payable_account_code'],'debit'=>$amount,'credit'=>'0.00','description'=>'Clear approved in-kind payee obligation '.$o['obligation_code'],'location_id'=>null),array('account_code'=>$account,'debit'=>'0.00','credit'=>$amount,'description'=>'Recorded in-kind settlement '.$reference,'location_id'=>null));
+			$jid=Stockland_Accounting::post_journal(current_time('Y-m-d'),'HR_PAYEE_IN_KIND_SETTLEMENT',$id,'In-kind settlement '.$o['obligation_code'],$lines,get_current_user_id());if(!$jid)throw new RuntimeException('In-kind settlement journal rejected.');
+			$settled='PAID';if(Stockland_DB::update_record($this->table('hr_individual_payee_obligations'),array('status'=>$settled),array('id'=>$id,'status'=>'CASH_PAID_IN_KIND_OPEN'))===false)throw new RuntimeException('Could not close the in-kind obligation.');
+			if(!$this->event('individual-payee-obligation',$id,'OBLIGATION_IN_KIND_SETTLED','CASH_PAID_IN_KIND_OPEN','PAID',array('reference'=>$reference,'account_code'=>$account,'amount'=>$amount,'resource_id'=>$resource,'resource_sha256'=>$r['file_sha256']??null,'journal_id'=>(int)$jid,'review_note'=>$note)))throw new RuntimeException('In-kind settlement audit failed.');
+			if(false===Stockland_DB::execute_query('COMMIT'))throw new RuntimeException('In-kind settlement commit failed.');
+			return rest_ensure_response(array('id'=>$id,'status'=>'PAID','in_kind_settlement_reference'=>$reference,'journal_id'=>(int)$jid));
+		}catch(Throwable $e){Stockland_DB::execute_query('ROLLBACK');return $this->bad('hr_payee_in_kind_settlement_failed',$e->getMessage(),409);}
+	}
+
 	public function pay_payee_obligation( WP_REST_Request $req ) {
 		$id=(int)$req['id'];$p=$req->get_json_params();$reference=sanitize_text_field((string)($p['external_payment_reference']??''));$method=strtoupper(sanitize_key((string)($p['payment_method']??'')));$bankRef=sanitize_text_field((string)($p['bank_statement_reference']??''));$withholdingReceipt=sanitize_text_field((string)($p['withholding_receipt_reference']??''));
 		if($reference===''||!in_array($method,array('BANK','CASH'),true))return $this->bad('hr_payee_payment_input_invalid','External payment reference and BANK/CASH method are required.',400);
 		global $wpdb;if(false===Stockland_DB::execute_query('START TRANSACTION'))return $this->bad('hr_transaction_failed','Could not begin individual payment transaction.',500);
 		try{$o=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',$this->table('hr_individual_payee_obligations'),$id),ARRAY_A);if(!$o||$o['status']!=='APPROVED'||$o['tax_decision_status']!=='APPROVED')throw new RuntimeException('Only an approved obligation with approved legal/tax decision can be paid.');
-			if(Stockland_Money::minor($o['withholding_amount']??0)>0&&$withholdingReceipt==='')throw new RuntimeException('A statutory withholding receipt/remittance reference is required before closing a withheld payee payment.');
+			if(Stockland_Money::minor($o['withholding_amount']??0)>0){if(!preg_match('/^HR_RESOURCE:([0-9]+)$/D',$withholdingReceipt,$wm))throw new RuntimeException('Withholding requires an approved private statutory receipt resource reference in the form HR_RESOURCE:<id>.');$wr=Stockland_DB::read_row($wpdb->prepare('SELECT id,status,resource_type FROM %i WHERE id=%d',$this->table('hr_resources'),(int)$wm[1]),ARRAY_A);if(!$wr||$wr['status']!=='APPROVED'||!in_array($wr['resource_type'],array('TAX_RECEIPT','STATUTORY_RECEIPT'),true))throw new RuntimeException('Withholding receipt resource is not approved or is not a tax/statutory receipt.');}
 			$net=Stockland_Money::decimal(Stockland_Money::minor($o['net_payable_amount']));$cashAcc='BANK'===$method?'1010':'1000';$journal=array(array('account_code'=>$o['payable_account_code'],'debit'=>$net,'credit'=>'0.00','description'=>'Clear individual payee net cash payable','location_id'=>null),array('account_code'=>$cashAcc,'debit'=>'0.00','credit'=>$net,'description'=>'Individual payee payment','location_id'=>null));
 			if(Stockland_Money::minor($o['withholding_amount']??0)>0){$withholdingAccount=sanitize_text_field((string)($p['withholding_payable_account_code']??''));if($withholdingAccount===''||!ctype_digit($withholdingAccount))throw new RuntimeException('Finance must select the existing statutory withholding payable account code; no account is guessed.');$journal[]=array('account_code'=>$o['payable_account_code'],'debit'=>(string)$o['withholding_amount'],'credit'=>'0.00','description'=>'Clear withheld portion of payee payable','location_id'=>null);$journal[]=array('account_code'=>$withholdingAccount,'debit'=>'0.00','credit'=>(string)$o['withholding_amount'],'description'=>'Statutory withholding liability','location_id'=>null);}
 			$jid=Stockland_Accounting::post_journal(current_time('Y-m-d'),'HR_INDIVIDUAL_PAYEE_PAYMENT',$id,'Individual payee payment '.$o['obligation_code'],$journal,get_current_user_id());if(!$jid)throw new RuntimeException('Payee cash payment journal was rejected.');
 			$payee=(int)$o['payee_id'];$code='IPP-'.$o['obligation_code'];if(Stockland_DB::insert_record($this->table('hr_individual_payee_payments'),array('payment_code'=>$code,'obligation_id'=>$id,'payee_id'=>$payee,'gross_cash_amount'=>$o['cash_amount'],'withholding_amount'=>$o['withholding_amount']??'0.00','net_paid_amount'=>$net,'payment_method'=>$method,'external_payment_reference'=>$reference,'bank_statement_reference'=>$bankRef?:null,'withholding_receipt_reference'=>$withholdingReceipt?:null,'payment_journal_id'=>(int)$jid,'status'=>'RECORDED','recorded_by'=>get_current_user_id()))===false)throw new RuntimeException('Payee payment reference already exists or could not be saved.');
-			if(Stockland_DB::update_record($this->table('hr_individual_payee_obligations'),array('status'=>'PAID'),array('id'=>$id,'status'=>'APPROVED'))===false)throw new RuntimeException('Could not close approved payee obligation.');
+			if(Stockland_DB::update_record($this->table('hr_individual_payee_obligations'),array('status'=>Stockland_Money::minor($o['in_kind_value']??'0.00')>0?'CASH_PAID_IN_KIND_OPEN':'PAID'),array('id'=>$id,'status'=>'APPROVED'))===false)throw new RuntimeException('Could not save payee cash settlement result.');
 			if(!$this->event('individual-payee-obligation',$id,'OBLIGATION_PAID','APPROVED','PAID',array('payment_reference'=>$reference,'payment_method'=>$method,'journal_id'=>(int)$jid,'net_paid'=>$net,'withholding_receipt'=>$withholdingReceipt?:null),$o['tax_rule_set_id'],$o['tax_rule_version']))throw new RuntimeException('Payee payment audit failed.');
 			if(false===Stockland_DB::execute_query('COMMIT'))throw new RuntimeException('Individual payment commit failed.');
 			return rest_ensure_response(array('id'=>$id,'status'=>'PAID','net_paid'=>$net,'journal_id'=>(int)$jid,'payment_reference'=>$reference));
