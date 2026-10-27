@@ -36,7 +36,7 @@ required_routes = [
 for route in required_routes:
     must(route in s, "missing REST route: " + route)
 must(s.count("register_rest_route(") == len(required_routes), "unexpected or duplicate route registration")
-must(s.count("idempotency_key( $request )") == 14, "every mutating route must pass an idempotency key to the service")
+must(len(re.findall(r"(?<!function )idempotency_key\\( \\$request \\)", s)) == 14, "every mutating route must pass an idempotency key to the service")
 must(s.count("permission_callback") >= 18, "all route variants must have server-side permission callbacks")
 for role_method in ("can_view", "can_prepare", "can_approve", "can_manage_structure"):
     must("array( $this, '" + role_method + "' )" in s, "route must use authority method " + role_method)
