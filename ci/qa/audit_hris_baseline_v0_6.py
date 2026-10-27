@@ -116,8 +116,11 @@ def main() -> int:
     required_reference_paths = REFERENCE_FILES - {"README.md"}
     require(required_reference_paths.issubset(referenced_paths), "legacy-reference scan did not locate every known source caller")
     ddl = "\n".join(texts.get(path, "") for path in ("includes/class-stockland-hr.php", "includes/class-stockland-activator.php", "includes/class-stockland-accounting.php"))
-    foreign_key_count = len(re.findall(r"\bFOREIGN\s+KEY\b", ddl, re.I))
-    require(foreign_key_count == 0, f"static source DDL now contains {foreign_key_count} FK declarations; review audit assumptions")
+    # Strip PHP block and line comments first: the canonical installer contains a comment explaining that dbDelta does not reliably parse FKs.
+    ddl_for_constraints = re.sub(r"/\*.*?\*/", "", ddl, flags=re.S)
+    ddl_for_constraints = re.sub(r"(?m)^[ \t]*//.*$", "", ddl_for_constraints)
+    foreign_key_count = len(re.findall(r"\bFOREIGN\s+KEY\s*\(", ddl_for_constraints, re.I))
+    require(foreign_key_count == 0, f"static source DDL contains {foreign_key_count} explicit FK constraint declarations; review schema assumptions")
 
     result = {
         "audit": "HRIS_LEGACY_SOURCE_BASELINE_AUDIT",
