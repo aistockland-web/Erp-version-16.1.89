@@ -52,6 +52,8 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 
 	public function __construct() {
 		add_action( 'stockland_register_rest_routes', array( $this, 'register_routes' ) );
+		add_action( 'admin_post_stockland_hrx_document_download', array( $this, 'download_document' ) );
+		add_action( 'admin_post_nopriv_stockland_hrx_document_download', array( $this, 'deny_document_download' ) );
 	}
 
 	public function register_routes() {
@@ -77,7 +79,9 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		register_rest_route( $ns, '/hr/replacement/exits/(?P<id>\d+)/items', array( 'methods'=>'POST','callback'=>array( $this,'add_exit_item' ),'permission_callback'=>array( $this,'permission_manage_hr' ) ) );
 		register_rest_route( $ns, '/hr/replacement/exits/(?P<id>\d+)/calculate', array( 'methods'=>'POST','callback'=>array( $this,'calculate_exit_settlement' ),'permission_callback'=>array( $this,'permission_manage_hr' ) ) );
 		register_rest_route( $ns, '/hr/replacement/exits/(?P<id>\d+)/approve', array( 'methods'=>'POST','callback'=>array( $this,'approve_exit_settlement' ),'permission_callback'=>array( $this,'permission_approve_hr' ) ) );
-		register_rest_route( $ns, '/hr/replacement/documents/(?P<id>\d+)/authorize', array( 'methods'=>'POST','callback'=>array( $this,'document_authorize' ),'permission_callback'=>array( $this,'permission_manage_hr' ) ) );
+		register_rest_route( $ns, '/hr/replacement/documents', array( array( 'methods'=>'GET','callback'=>array( $this,'list_documents' ),'permission_callback'=>array( $this,'permission_view_hr' ) ), array( 'methods'=>'POST','callback'=>array( $this,'upload_document' ),'permission_callback'=>array( $this,'permission_manage_hr' ) ) ) );
+		register_rest_route( $ns, '/hr/replacement/documents/(?P<id>\d+)/review', array( 'methods'=>'POST','callback'=>array( $this,'review_document' ),'permission_callback'=>array( $this,'permission_approve_hr' ) ) );
+		register_rest_route( $ns, '/hr/replacement/contracts/(?P<id>\d+)/sign', array( 'methods'=>'POST','callback'=>array( $this,'sign_contract' ),'permission_callback'=>array( $this,'permission_manage_hr' ) ) );
 	}
 
 	public function permission_view_hr() { return $this->view_hr() ? true : new WP_Error( 'hrx_forbidden','HR access required.',array('status'=>403) ); }
@@ -317,6 +321,7 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		elseif('interviews'===$entity)$extra[$state_field]=$to;
 		else $extra[$state_field]=$to;
 		if($is_approval){$extra['approved_by']=get_current_user_id();if(in_array($state_field,array('status','approval_status','review_status'),true))$extra['approved_at']=Stockland_HR_Replacement::now();}
+		if('offers'===$entity&&'ACCEPT'===$action){$evidence=sanitize_textarea_field((string)($body['acceptance_evidence']??''));if(strlen(trim($evidence))<15)return $this->error('hrx_offer_acceptance_evidence_required','Record the applicant offer-acceptance evidence reference or verified note.',422);$extra['accepted_at']=Stockland_HR_Replacement::now();}
 		if('applications'===$entity&&'SELECT'===$action){$selection=sanitize_textarea_field((string)($body['selection_rationale']??''));if(strlen(trim($selection))<20)return $this->error('hrx_selection_rationale_required','Document the human selection rationale (minimum 20 characters).',422);$extra['selection_rationale']=$selection;}
 		if('applications'===$entity&&'REJECT'===$action){$extra['status']='REJECTED';$extra['retention_until']=Stockland_HR_Replacement::valid_date($body['retention_until']??'')?:null;}
 		if(false===$this->begin())return $this->error('hrx_tx_begin_failed','Could not start HR transaction.',500);
@@ -343,10 +348,11 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		$eid=(int)$wpdb->insert_id;
 		$contract=array('employment_id'=>$eid,'contract_code'=>'CTX-'.wp_generate_password(12,false,false),'contract_version'=>1,'contract_type'=>$row['employment_type'],'start_date'=>$row['start_date'],'end_date'=>$row['end_date'],'probation_end'=>null,'terms_hash'=>hash('sha256',(string)$offer['terms_version']),'status'=>'DRAFT','created_by'=>get_current_user_id(),'created_at'=>Stockland_HR_Replacement::now());
 		$ok2=Stockland_DB::insert_record(Stockland_HR_Replacement::table('hrx_contracts'),$contract);
+		$contract_id=(int)$wpdb->insert_id;
 		$evt=Stockland_HR_Replacement::approval_event('employment',$eid,'PENDING_HIRE_CREATED',null,'PENDING_ACTIVATION','From accepted offer',$employment_code);
 		$audit=Stockland_HR_Replacement::audit('pending_hire_created','employment',$eid,'From approved offer');
 		if(false===$ok2||is_wp_error($evt)||is_wp_error($audit)||false===$audit){$this->rollback();return $this->error('hrx_hire_transaction_failed','Hire creation was rolled back because contract/audit did not complete.',500);}
-		$this->commit();return rest_ensure_response(array('employment_id'=>$eid,'employment_code'=>$employment_code,'status'=>'PENDING_ACTIVATION','contract_id'=>(int)$wpdb->insert_id,'message'=>'Pending hire created; signed contract, verified documents, onboarding and approved compensation must be completed before activation.'));
+		$this->commit();return rest_ensure_response(array('employment_id'=>$eid,'employment_code'=>$employment_code,'status'=>'PENDING_ACTIVATION','contract_id'=>$contract_id,'message'=>'Pending hire created; signed contract, verified documents, onboarding and approved compensation must be completed before activation.'));
 	}
 
 	public function create_payroll_run( $request ) {
@@ -666,11 +672,137 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		return rest_ensure_response(array('id'=>$id,'status'=>'APPROVED','message'=>'Approved settlement; employee status and access are not changed by this endpoint.'));
 	}
 
-	public function document_authorize( $request ) {
-		// Private storage adapter is deliberately fail-closed until a host-approved private vault exists.
-		$id=(int)$request['id'];
-		return $this->error('hrx_private_vault_not_configured','Secure private document storage is not configured in this candidate. No public media URL or document bytes are returned.',409);
+	public function list_documents( $request ) {
+		global $wpdb;
+		$ready=$this->require_schema();if(is_wp_error($ready))return $ready;
+		$entity_type=strtoupper(sanitize_key((string)$request->get_param('entity_type')));
+		$entity_id=(int)$request->get_param('entity_id');
+		$where='1=1';$args=array();
+		if($entity_type){$where.=' AND entity_type=%s';$args[]=$entity_type;}
+		if($entity_id>0){$where.=' AND entity_id=%d';$args[]=$entity_id;}
+		$sql='SELECT id,document_code,entity_type,entity_id,document_type,content_sha256,mime_type,size_bytes,version_no,approval_status,effective_date,uploaded_by,verified_by,verified_at,retention_until,created_at FROM %i WHERE '.$where.' ORDER BY id DESC LIMIT 100';
+		array_unshift($args,Stockland_HR_Replacement::table('hrx_document_refs'));
+		$rows=Stockland_DB::read_results($wpdb->prepare($sql,$args),ARRAY_A);
+		if($wpdb->last_error)return $this->error('hrx_document_list_failed','Could not list private document metadata.',500);
+		foreach((array)$rows as &$row){
+			$row['download_url']=('APPROVED'===$row['approval_status']&&$this->document_accessible($row))?wp_nonce_url(add_query_arg(array('action'=>'stockland_hrx_document_download','document_id'=>(int)$row['id']),admin_url('admin-post.php')),'stockland_hrx_document_download_'.(int)$row['id'],'_wpnonce'):'';
+		}
+		return rest_ensure_response(array('documents'=>$rows,'storage'=>'private-database-vault','limit'=>100));
 	}
+
+	public function upload_document( $request ) {
+		global $wpdb;
+		$ready=$this->require_schema();if(is_wp_error($ready))return $ready;
+		if(empty($_FILES['file'])||!is_array($_FILES['file'])||!empty($_FILES['file']['error']))return $this->error('hrx_document_upload_missing','Select a document file that completed uploading successfully.',422);
+		$file=$_FILES['file'];$max=8*1024*1024;
+		if(!isset($file['tmp_name'],$file['size'])||!is_uploaded_file($file['tmp_name'])||(int)$file['size']<1||(int)$file['size']>$max)return $this->error('hrx_document_size_invalid','Private document size must be between 1 byte and 8 MiB.',413);
+		$entity_type=strtoupper(sanitize_key((string)$request->get_param('entity_type')));$entity_id=(int)$request->get_param('entity_id');$type=strtoupper(sanitize_key((string)$request->get_param('document_type')));
+		$allowed_types=array('APPLICATION','EMPLOYMENT_CONTRACT','IDENTITY_VERIFICATION','ONBOARDING','TRAINING','TIME_EVIDENCE','LEAVE_EVIDENCE','COMPENSATION_APPROVAL','PAYROLL_EVIDENCE','PAYSLIP','EXIT_CLEARANCE','FINAL_SETTLEMENT','PAYEE_CONTRACT','PAYEE_DELIVERABLE','TAX_REMITTANCE_RECEIPT','PENSION_REMITTANCE_RECEIPT','LEGAL_REVIEW_OPINION','SOP_ACKNOWLEDGEMENT','OTHER_HR');
+		if(!$entity_id||!in_array($entity_type,array('APPLICATION','EMPLOYMENT','CONTRACT','PAYROLL_RUN','PAYROLL_LINE','EXIT_SETTLEMENT','PAYEE_REQUEST','LEGAL_RULE'),true)||!in_array($type,$allowed_types,true))return $this->error('hrx_document_target_invalid','Document owner or document type is not in the approved allow-list.',422);
+		$target=$this->document_target($entity_type,$entity_id);if(is_wp_error($target))return $target;
+		$mime='';if(class_exists('finfo')){$fi=new finfo(FILEINFO_MIME_TYPE);$mime=(string)$fi->file($file['tmp_name']);}
+		$ext=strtolower(pathinfo((string)($file['name']??''),PATHINFO_EXTENSION));
+		$mime_map=array('pdf'=>'application/pdf','docx'=>'application/vnd.openxmlformats-officedocument.wordprocessingml.document','xlsx'=>'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','jpg'=>'image/jpeg','jpeg'=>'image/jpeg','png'=>'image/png');
+		if(!isset($mime_map[$ext])||$mime_map[$ext]!==$mime)return $this->error('hrx_document_type_invalid','Only verified PDF, DOCX, XLSX, JPEG or PNG files are accepted and the extension must match the detected MIME type.',415);
+		$bytes=file_get_contents($file['tmp_name']);if(false===$bytes||strlen($bytes)!==(int)$file['size'])return $this->error('hrx_document_read_failed','Uploaded document could not be read safely.',500);
+		if('docx'===$ext||'xlsx'===$ext){if(0!==substr_compare($bytes,"PK\x03\x04",0,4)||false===strpos($bytes,'[Content_Types].xml'))return $this->error('hrx_office_package_invalid','Office file did not pass ZIP/OOXML signature validation.',415);}
+		$hash=hash('sha256',$bytes);$code='DOCX-'.gmdate('Ymd').'-'.strtoupper(wp_generate_password(10,false,false));
+		if(false===$this->begin())return $this->error('hrx_tx_begin_failed','Could not start private document transaction.',500);
+		$meta=array('document_code'=>$code,'entity_type'=>$entity_type,'entity_id'=>$entity_id,'document_type'=>$type,'private_storage_key'=>'dbblob:pending','content_sha256'=>$hash,'mime_type'=>$mime,'size_bytes'=>strlen($bytes),'version_no'=>1,'approval_status'=>'DRAFT','effective_date'=>Stockland_HR_Replacement::valid_date($request->get_param('effective_date')??'')?:null,'uploaded_by'=>get_current_user_id(),'retention_until'=>Stockland_HR_Replacement::valid_date($request->get_param('retention_until')??'')?:null,'created_at'=>Stockland_HR_Replacement::now());
+		if(false===Stockland_DB::insert_record(Stockland_HR_Replacement::table('hrx_document_refs'),$meta)){$this->rollback();return $this->error('hrx_document_meta_failed','Document metadata could not be saved.',500);}
+		$doc_id=(int)$wpdb->insert_id;
+		Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_document_refs'),array('private_storage_key'=>'dbblob:'.$doc_id),array('id'=>$doc_id));
+		$blob=Stockland_DB::insert_record(Stockland_HR_Replacement::table('hrx_document_blobs'),array('document_ref_id'=>$doc_id,'payload'=>$bytes,'created_at'=>Stockland_HR_Replacement::now()),array('%d','%s','%s'));
+		$evt=Stockland_HR_Replacement::approval_event('document',$doc_id,'DOCUMENT_UPLOADED',null,'DRAFT','Private document metadata and content hash recorded',$code);
+		$audit=Stockland_HR_Replacement::audit('document_uploaded','document',$doc_id,'Private document uploaded; content remains pending independent verification.');
+		if(false===$blob||is_wp_error($evt)||is_wp_error($audit)||false===$audit){$this->rollback();return $this->error('hrx_document_storage_failed','Private document upload was rolled back because blob or audit persistence failed.',500);}
+		$this->commit();
+		return rest_ensure_response(array('id'=>$doc_id,'document_code'=>$code,'document_type'=>$type,'content_sha256'=>$hash,'size_bytes'=>strlen($bytes),'approval_status'=>'DRAFT','download_url'=>'','message'=>'File is in private database storage. An independent Owner must verify and approve it before download/signing is enabled.'));
+	}
+
+	private function document_target( $entity_type, $entity_id ) {
+		global $wpdb;
+		$tables=array('APPLICATION'=>'hrx_applications','EMPLOYMENT'=>'hrx_employments','CONTRACT'=>'hrx_contracts','PAYROLL_RUN'=>'hrx_payroll_runs','PAYROLL_LINE'=>'hrx_payroll_lines','EXIT_SETTLEMENT'=>'hrx_exit_settlements','PAYEE_REQUEST'=>'hrx_payee_requests','LEGAL_RULE'=>'hrx_legal_rules');
+		if(!isset($tables[$entity_type]))return $this->error('hrx_document_owner_type_invalid','Unknown document owner type.',422);
+		$row=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d',Stockland_HR_Replacement::table($tables[$entity_type]),$entity_id),ARRAY_A);
+		if(!$row)return $this->error('hrx_document_owner_missing','The target record does not exist.',404);
+		if(in_array($entity_type,array('PAYROLL_RUN','PAYROLL_LINE'),true)&&!$this->view_payroll())return $this->error('hrx_document_forbidden','Payroll document access is restricted.',403);
+		return $row;
+	}
+
+	private function document_accessible( $document ) {
+		global $wpdb;
+		if(!is_array($document)||!is_user_logged_in())return false;
+		$type=strtoupper((string)$document['entity_type']);$id=(int)$document['entity_id'];
+		$target=$this->document_target($type,$id);if(is_wp_error($target))return false;
+		if(in_array($type,array('PAYROLL_RUN','PAYROLL_LINE','PAYEE_REQUEST'),true)&&!$this->view_payroll())return false;
+		$employment_id=0;
+		if('EMPLOYMENT'===$type)$employment_id=$id;
+		elseif('CONTRACT'===$type)$employment_id=(int)$target['employment_id'];
+		elseif('EXIT_SETTLEMENT'===$type)$employment_id=(int)$target['employment_id'];
+		if($employment_id){
+			$assignment=Stockland_DB::read_row($wpdb->prepare("SELECT location_id FROM %i WHERE employment_id=%d AND approval_status='APPROVED' AND effective_from<=%s AND (effective_to IS NULL OR effective_to>=%s) ORDER BY effective_from DESC LIMIT 1",Stockland_HR_Replacement::table('hrx_assignments'),$employment_id,current_time('Y-m-d'),current_time('Y-m-d')),ARRAY_A);
+			if($assignment&&!Stockland_Authority::can_access_location((int)$assignment['location_id']))return false;
+		}
+		return $this->view_hr();
+	}
+
+	public function review_document( $request ) {
+		global $wpdb;$id=(int)$request['id'];$body=$this->body($request);
+		$doc=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d',Stockland_HR_Replacement::table('hrx_document_refs'),$id),ARRAY_A);
+		if(!$doc)return $this->error('hrx_document_not_found','Private document not found.',404);
+		if('DRAFT'!==$doc['approval_status'])return $this->error('hrx_document_state_invalid','Only pending document metadata may be independently reviewed.',409);
+		if((int)$doc['uploaded_by']===get_current_user_id())return $this->error('hrx_document_no_self_review','The document uploader cannot approve their own document.',403);
+		$note=sanitize_textarea_field((string)($body['review_note']??''));$decision=strtoupper(sanitize_key($body['decision']??''));$key=sanitize_text_field((string)($body['idempotency_key']??''));
+		if(!in_array($decision,array('APPROVE','REJECT'),true)||strlen(trim($note))<30||!$key)return $this->error('hrx_document_review_evidence_required','Review decision, rationale and idempotency key are required.',422);
+		$blob=Stockland_DB::read_row($wpdb->prepare('SELECT payload FROM %i WHERE document_ref_id=%d',Stockland_HR_Replacement::table('hrx_document_blobs'),$id),ARRAY_A);
+		if(!$blob||hash('sha256',(string)$blob['payload'])!==$doc['content_sha256'])return $this->error('hrx_document_hash_mismatch','Stored document does not match its SHA-256 metadata; download and signing are blocked.',409);
+		$to='APPROVE'===$decision?'APPROVED':'REJECTED';
+		if(false===$this->begin())return $this->error('hrx_tx_begin_failed','Could not start document review transaction.',500);
+		$ok=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_document_refs'),array('approval_status'=>$to,'verified_by'=>get_current_user_id(),'verified_at'=>Stockland_HR_Replacement::now()),array('id'=>$id,'approval_status'=>'DRAFT','uploaded_by'=>(int)$doc['uploaded_by']));
+		$evt=Stockland_HR_Replacement::approval_event('document',$id,'DOCUMENT_'.$to,'DRAFT',$to,$note,$key,null,get_current_user_id());
+		$audit=Stockland_HR_Replacement::audit('document_'.$to,'document',$id,'Private document review recorded.');
+		if(false===$ok||is_wp_error($evt)||is_wp_error($audit)||false===$audit){$this->rollback();return $this->error('hrx_document_review_failed','Document approval/audit failed and was rolled back.',500);}
+		$this->commit();return rest_ensure_response(array('id'=>$id,'approval_status'=>$to,'content_sha256'=>$doc['content_sha256']));
+	}
+
+	public function sign_contract( $request ) {
+		global $wpdb;$id=(int)$request['id'];$body=$this->body($request);
+		$contract=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d',Stockland_HR_Replacement::table('hrx_contracts'),$id),ARRAY_A);
+		if(!$contract)return $this->error('hrx_contract_not_found','Contract not found.',404);
+		if(!in_array($contract['status'],array('DRAFT','SUBMITTED'),true)||!empty($contract['signed_by_person_at']))return $this->error('hrx_contract_sign_state','Only an unsigned draft/submitted contract may record a signature.',409);
+		$doc_id=(int)($body['document_id']??0);$signed=Stockland_HR_Replacement::valid_date($body['signed_date']??'');$key=sanitize_text_field((string)($body['idempotency_key']??''));
+		$doc=$doc_id?Stockland_DB::read_row($wpdb->prepare("SELECT * FROM %i WHERE id=%d AND entity_type='CONTRACT' AND entity_id=%d AND document_type='EMPLOYMENT_CONTRACT' AND approval_status='APPROVED'",Stockland_HR_Replacement::table('hrx_document_refs'),$doc_id,$id),ARRAY_A):null;
+		if(!$signed||!$key||!$doc)return $this->error('hrx_contract_signature_evidence','A valid signature date, idempotency key, and independently verified private employment-contract document are required.',422);
+		if(false===$this->begin())return $this->error('hrx_tx_begin_failed','Could not start signature transaction.',500);
+		$ok=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_contracts'),array('signed_by_person_at'=>$signed.' 00:00:00','private_document_ref_id'=>$doc_id),array('id'=>$id,'status'=>$contract['status'],'signed_by_person_at'=>null));
+		$evt=Stockland_HR_Replacement::approval_event('contract',$id,'CONTRACT_SIGNED',$contract['status'],$contract['status'],'Signed document reference recorded',$key,$doc_id);
+		$audit=Stockland_HR_Replacement::audit('contract_signed','contract',$id,'Signed contract remains subject to independent Owner approval.');
+		if(false===$ok||is_wp_error($evt)||is_wp_error($audit)||false===$audit){$this->rollback();return $this->error('hrx_contract_sign_audit_failed','Signature record/audit failed and was rolled back.',500);}
+		$this->commit();return rest_ensure_response(array('id'=>$id,'signed'=>true,'document_ref_id'=>$doc_id,'status'=>$contract['status']));
+	}
+
+	public function download_document() {
+		global $wpdb;
+		$id=isset($_GET['document_id'])?(int)$_GET['document_id']:0;
+		if(!$id||!is_user_logged_in()){status_header(401);wp_die(esc_html__('Sign in to access private HR documents.','stockland-erp'),'',array('response'=>401));}
+		check_admin_referer('stockland_hrx_document_download_'.$id,'_wpnonce');
+		$doc=Stockland_DB::read_row($wpdb->prepare("SELECT * FROM %i WHERE id=%d AND approval_status='APPROVED'",Stockland_HR_Replacement::table('hrx_document_refs'),$id),ARRAY_A);
+		if(!$doc||!$this->document_accessible($doc)){status_header(403);wp_die(esc_html__('You do not have access to this private HR document.','stockland-erp'),'',array('response'=>403));}
+		$blob=Stockland_DB::read_row($wpdb->prepare('SELECT payload FROM %i WHERE document_ref_id=%d',Stockland_HR_Replacement::table('hrx_document_blobs'),$id),ARRAY_A);
+		$bytes=$blob['payload']??'';
+		if(!is_string($bytes)||hash('sha256',$bytes)!==$doc['content_sha256']){status_header(500);wp_die(esc_html__('Private document integrity check failed.','stockland-erp'),'',array('response'=>500));}
+		$audit=Stockland_HR_Replacement::audit('document_download','document',$id,'Private document download served to authorized user.');
+		if(false===$audit){status_header(500);wp_die(esc_html__('Download audit could not be recorded. Access was denied.','stockland-erp'),'',array('response'=>500));}
+		if(ob_get_level()){while(ob_get_level())ob_end_clean();}
+		$ext=array('application/pdf'=>'pdf','application/vnd.openxmlformats-officedocument.wordprocessingml.document'=>'docx','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'=>'xlsx','image/jpeg'=>'jpg','image/png'=>'png')[$doc['mime_type']]??'bin';
+		$filename='Stockland-HR-'.$doc['document_code'].'.'.$ext;
+		nocache_headers();header('Content-Type: '.$doc['mime_type']);header('Content-Disposition: attachment; filename="'.$filename.'"');header('Content-Length: '.strlen($bytes));header('X-Content-Type-Options: nosniff');header('Cache-Control: private, no-store, max-age=0, must-revalidate');
+		echo $bytes; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Private binary document is intentionally streamed.
+		exit;
+	}
+
+	public function deny_document_download() { status_header(401);wp_die(esc_html__('Sign in with an authorized Stockland HR account to access this private document.','stockland-erp'),'',array('response'=>401)); }
 
 	private function begin() {
 		$ok=Stockland_DB::execute_query('START TRANSACTION');
