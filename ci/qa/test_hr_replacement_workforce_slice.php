@@ -8,10 +8,10 @@
  */
 define( 'STOCKLAND_HR_REPLACEMENT_TESTING', true );
 require_once __DIR__ . '/../../ci/hr_payroll_candidate/Stockland_HR_Workflow_State_Machine.php';
-require_once __DIR__ . '/Stockland_HR_Replacement_Workforce_Contract.php';
-require_once __DIR__ . '/Stockland_HR_Replacement_Workforce_Repository.php';
-require_once __DIR__ . '/Stockland_HR_Replacement_Workforce_Service.php';
-require_once __DIR__ . '/Stockland_HR_Replacement_Workforce_Schema.php';
+require_once __DIR__ . '/../hr_payroll_replacement_runtime/Stockland_HR_Replacement_Workforce_Contract.php';
+require_once __DIR__ . '/../hr_payroll_replacement_runtime/Stockland_HR_Replacement_Workforce_Repository.php';
+require_once __DIR__ . '/../hr_payroll_replacement_runtime/Stockland_HR_Replacement_Workforce_Service.php';
+require_once __DIR__ . '/../hr_payroll_replacement_runtime/Stockland_HR_Replacement_Workforce_Schema.php';
 
 if ( ! function_exists( 'wp_json_encode' ) ) {
 	function wp_json_encode( $value, $flags = 0 ) { return json_encode( $value, $flags ); }
