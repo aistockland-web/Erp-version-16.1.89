@@ -22,7 +22,7 @@ final class Stockland_HR_Lifecycle {
 			'hr_payroll_runs','hr_payroll_run_lines','hr_payroll_run_exceptions',
 			'hr_payroll_payment_batches','hr_payroll_payment_items','hr_statutory_remittances',
 			'hr_individual_payees','hr_individual_payee_obligations','hr_individual_payee_payments',
-			'hr_resources','hr_social_campaigns','hr_social_snapshots'
+			'hr_resources','hr_social_campaigns','hr_social_snapshots','hr_employee_reimbursements'
 		);
 	}
 
@@ -709,6 +709,38 @@ final class Stockland_HR_Lifecycle {
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (id), UNIQUE KEY campaign_code (campaign_code), KEY platform_dates (platform,start_date,end_date), KEY manager_status (manager_user_id,status)
 		) ENGINE=InnoDB {$cc};";
+		$t[] = "CREATE TABLE {$p}hr_employee_reimbursements (
+			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+			claim_code VARCHAR(60) NOT NULL,
+			employee_id BIGINT UNSIGNED NOT NULL,
+			location_id BIGINT UNSIGNED NULL,
+			expense_category VARCHAR(60) NOT NULL,
+			description VARCHAR(1000) NOT NULL,
+			business_purpose VARCHAR(1000) NOT NULL,
+			incurred_date DATE NOT NULL,
+			amount DECIMAL(14,2) NOT NULL,
+			currency VARCHAR(10) NOT NULL DEFAULT 'ETB',
+			receipt_resource_id BIGINT UNSIGNED NOT NULL,
+			status VARCHAR(24) NOT NULL DEFAULT 'DRAFT',
+			submitted_by BIGINT UNSIGNED NULL,
+			submitted_at DATETIME NULL,
+			approved_by BIGINT UNSIGNED NULL,
+			approved_at DATETIME NULL,
+			expense_account_code VARCHAR(20) NULL,
+			payable_account_code VARCHAR(20) NULL,
+			accrual_journal_id BIGINT UNSIGNED NULL,
+			payment_method VARCHAR(16) NULL,
+			payment_reference VARCHAR(190) NULL,
+			bank_statement_reference VARCHAR(190) NULL,
+			payment_journal_id BIGINT UNSIGNED NULL,
+			paid_by BIGINT UNSIGNED NULL,
+			paid_at DATETIME NULL,
+			reviewer_note VARCHAR(1000) NULL,
+			created_by BIGINT UNSIGNED NOT NULL,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			PRIMARY KEY (id), UNIQUE KEY claim_code (claim_code), KEY employee_status (employee_id,status), KEY location_status (location_id,status), KEY incurred_date (incurred_date)
+		) ENGINE=InnoDB {$cc};";
 		$t[] = "CREATE TABLE {$p}hr_social_snapshots (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			snapshot_code VARCHAR(60) NOT NULL,
@@ -768,6 +800,7 @@ final class Stockland_HR_Lifecycle {
 		$q = $payload['qualified_legal_review'];
 		$sha = strtolower( (string) ( $q['opinion_sha256'] ?? '' ) );
 		$clauses = $q['clauses_reviewed'] ?? array();
+		$params = $q['approved_parameters'] ?? array();
 		return strtoupper( (string) ( $q['decision'] ?? '' ) ) === 'APPROVED'
 			&& ! empty( $q['independence_confirmed'] )
 			&& strlen( trim( (string) ( $q['reviewer_name'] ?? '' ) ) ) >= 3
@@ -775,7 +808,14 @@ final class Stockland_HR_Lifecycle {
 			&& preg_match( '/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/D', (string) ( $q['review_date'] ?? '' ) )
 			&& strlen( trim( (string) ( $q['opinion_reference'] ?? '' ) ) ) >= 6
 			&& preg_match( '/^[a-f0-9]{64}$/', $sha )
-			&& is_array( $clauses ) && count( $clauses ) > 0;
+			&& is_array( $clauses ) && count( $clauses ) > 0
+			&& is_array( $params ) && in_array( 'paye_bands', $params, true )
+			&& in_array( 'paye_tax_base_method', $params, true )
+			&& in_array( 'pensionable_base_method', $params, true )
+			&& in_array( 'employee_pension_rate', $params, true )
+			&& in_array( 'employer_pension_rate', $params, true )
+			&& in_array( 'component_treatments', $params, true )
+			&& in_array( 'rounding_method', $params, true );
 	}
 
 	/** The PAYE rules are not guessed: payroll is blocked unless one approved rule version covers the entire month. */
