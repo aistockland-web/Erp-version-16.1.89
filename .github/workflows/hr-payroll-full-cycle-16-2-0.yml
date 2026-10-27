@@ -23,12 +23,12 @@ permissions:
   actions: read
 
 concurrency:
-  group: stockland-hr-payroll-16-2-0-\${{ github.event.pull_request.number || github.ref }}
+  group: stockland-hr-payroll-16-2-0-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   package-and-php:
-    name: Build exact 16.2.0 source-locked candidate (PHP \${{ matrix.php-version }})
+    name: Build exact 16.2.0 source-locked candidate (PHP ${{ matrix.php-version }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -45,7 +45,7 @@ jobs:
       - name: Set up PHP
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
         with:
-          php-version: \${{ matrix.php-version }}
+          php-version: ${{ matrix.php-version }}
           coverage: none
           tools: none
       - name: Set up Node.js
@@ -58,8 +58,8 @@ jobs:
           name: STOCKLAND-ERP-16.1.95-Cumulative-WordPress-Update
           repository: aistockland-web/Erp-version-16.1.89
           run-id: 40036018031
-          github-token: \${{ secrets.GITHUB_TOKEN }}
-          path: \${{ runner.temp }}/stockland-16.1.95-source
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/stockland-16.1.95-source
       - name: Verify source archive SHA and structure
         shell: bash
         run: |
@@ -111,8 +111,8 @@ jobs:
         with:
           name: STOCKLAND-ERP-16.2.0-HR-PAYROLL-CANDIDATE
           path: |
-            \${{ runner.temp }}/stockland-16.2.0/STOCKLAND_ERP_16.2.0_HR_PAYROLL_CANDIDATE.zip
-            \${{ runner.temp }}/stockland-16.2.0/STOCKLAND_ERP_16.2.0_HR_PAYROLL_CANDIDATE.sha256
-            \${{ runner.temp }}/stockland-16.2.0/STOCKLAND_ERP_16.2.0_HR_PAYROLL_CANDIDATE.receipt.json
+            ${{ runner.temp }}/stockland-16.2.0/STOCKLAND_ERP_16.2.0_HR_PAYROLL_CANDIDATE.zip
+            ${{ runner.temp }}/stockland-16.2.0/STOCKLAND_ERP_16.2.0_HR_PAYROLL_CANDIDATE.sha256
+            ${{ runner.temp }}/stockland-16.2.0/STOCKLAND_ERP_16.2.0_HR_PAYROLL_CANDIDATE.receipt.json
           if-no-files-found: error
           retention-days: 30
