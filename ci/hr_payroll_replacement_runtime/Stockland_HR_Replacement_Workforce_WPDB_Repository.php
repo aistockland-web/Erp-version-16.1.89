@@ -67,31 +67,41 @@ final class Stockland_HR_Replacement_Workforce_WPDB_Repository implements Stockl
 	}
 
 	public function transaction( callable $callback ) {
-		$savepoint = 'stockland_hrx_sp_' . (int) $this->depth;
-		if ( 0 === $this->depth ) {
+		$depth_before = (int) $this->depth;
+		$savepoint = 'stockland_hrx_sp_' . $depth_before;
+		if ( 0 === $depth_before ) {
 			$this->query( 'START TRANSACTION', 'HRX_TRANSACTION_START_FAILED' );
 		} else {
 			$this->query( 'SAVEPOINT ' . $savepoint, 'HRX_SAVEPOINT_FAILED' );
 		}
-		++$this->depth;
+		$this->depth = $depth_before + 1;
 		try {
 			$result = $callback();
-			--$this->depth;
-			if ( 0 === $this->depth ) {
-				$this->query( 'COMMIT', 'HRX_TRANSACTION_COMMIT_FAILED' );
-			} else {
-				$this->query( 'RELEASE SAVEPOINT ' . $savepoint, 'HRX_SAVEPOINT_RELEASE_FAILED' );
-			}
-			return $result;
 		} catch ( Throwable $e ) {
-			--$this->depth;
-			if ( 0 === $this->depth ) {
+			$this->depth = $depth_before;
+			if ( 0 === $depth_before ) {
 				$this->wpdb->query( 'ROLLBACK' );
 			} else {
 				$this->wpdb->query( 'ROLLBACK TO SAVEPOINT ' . $savepoint );
 			}
 			throw $e;
 		}
+		$this->depth = $depth_before;
+		try {
+			if ( 0 === $depth_before ) {
+				$this->query( 'COMMIT', 'HRX_TRANSACTION_COMMIT_FAILED' );
+			} else {
+				$this->query( 'RELEASE SAVEPOINT ' . $savepoint, 'HRX_SAVEPOINT_RELEASE_FAILED' );
+			}
+		} catch ( Throwable $e ) {
+			if ( 0 === $depth_before ) {
+				$this->wpdb->query( 'ROLLBACK' );
+			} else {
+				$this->wpdb->query( 'ROLLBACK TO SAVEPOINT ' . $savepoint );
+			}
+			throw $e;
+		}
+		return $result;
 	}
 
 	public function find( $entity, $id, $for_update = false ) {
@@ -290,7 +300,7 @@ final class Stockland_HR_Replacement_Workforce_WPDB_Repository implements Stockl
 		return array(
 			'line_count'      => (int) $row['line_count'],
 			'headcount_total' => (int) $row['headcount_total'],
-			'budget_total'    => number_format( (float) $row['budget_total'], 2, '.', '' ),
+			'budget_total'    => (string) $row['budget_total'],
 			'currency_count'  => (int) $row['currency_count'],
 			'currency'        => (string) $row['currency'],
 		);
