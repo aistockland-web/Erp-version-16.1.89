@@ -54,7 +54,7 @@ final class Stockland_HR_Workflow_State_Machine {
         }
         if ($aggregate === 'POSITION' && $to === 'APPROVED') {
             self::textRequired($context, 'position_justification');
-            if (($context['plan_budget_approved'] ?? false) !== true) self::deny('position_plan_not_approved', 'An approved workforce plan is required');
+            if (($context['org_unit_active'] ?? false) !== true) self::deny('position_org_unit_not_active', 'An active organization unit is required');
         }
         if ($aggregate === 'REQUISITION' && $to === 'APPROVED') {
             self::textRequired($context, 'budget_reference');
