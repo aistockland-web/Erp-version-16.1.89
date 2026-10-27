@@ -263,6 +263,137 @@ final class Stockland_REST_HR_Replacement {
 		return rest_ensure_response(array('id'=>$id,'entity'=>$entity,'status'=>$to,'message'=>'Transition recorded.'));
 	}
 
+
+	private function sign_contract($contract,$payload) {
+		if(!Stockland_Authority::can_manage_hr())return new WP_Error('hrx_contract_sign_permission','HR management permission is required to register a signed contract.',array('status'=>403));
+		if('APPROVED'!==strtoupper((string)$contract['status']))return new WP_Error('hrx_contract_not_approved','Only an approved offer/contract can be signed.',array('status'=>409));
+		$reason=sanitize_textarea_field((string)($payload['reason']??''));if(strlen(trim($reason))<20)return new WP_Error('hrx_signature_reason','Record the contract signing verification details (at least 20 characters).',array('status'=>400));
+		$docId=absint($payload['document_id']??0);$signed= sanitize_text_field((string)($payload['signed_on']??''));
+		if(!$docId||!$this->valid_date($signed))return new WP_Error('hrx_signature_fields','A verified signed contract document ID and valid signing date are required.',array('status'=>400));
+		$doc=$this->read_one('employee_documents',$docId);
+		if(!$doc||(int)$doc['subject_id']!==(int)$contract['person_id']||'PERSON'!==strtoupper((string)$doc['subject_type'])||'EMPLOYMENT_CONTRACT'!==strtoupper((string)$doc['document_type'])||'VERIFIED'!==strtoupper((string)$doc['status'])||!preg_match('/^[a-f0-9]{64}$/i',(string)$doc['file_sha256']))return new WP_Error('hrx_signed_document_invalid','A verified private-vault EMPLOYMENT_CONTRACT file linked to this person is required.',array('status'=>409));
+		global $wpdb;$wpdb->query('START TRANSACTION');
+		$ok=$wpdb->update(Stockland_HR_Replacement::table('employment_contracts'),array('signed_document_ref'=>$doc['private_file_ref'],'signed_document_sha256'=>$doc['file_sha256'],'signed_at'=>$signed.' 00:00:00','status'=>'SIGNED','row_version'=>(int)$contract['row_version']+1,'updated_at'=>current_time('mysql')),array('id'=>(int)$contract['id'],'row_version'=>(int)$contract['row_version'],'status'=>'APPROVED'));
+		if(false===$ok||0===$ok||!$this->audit_event('HRX_CONTRACT_SIGNED',(int)$contract['id'],'employment-contracts','APPROVED','SIGNED')){$wpdb->query('ROLLBACK');return new WP_Error('hrx_contract_sign_failed','Contract signature evidence could not be recorded; transaction rolled back.',array('status'=>500));}
+		$wpdb->query('COMMIT');return rest_ensure_response(array('id'=>(int)$contract['id'],'status'=>'SIGNED','signed_on'=>$signed,'document_sha256'=>$doc['file_sha256']));
+	}
+
+	private function verify_document($doc,$reason) {
+		if(!Stockland_Authority::can_manage_hr())return new WP_Error('hrx_document_verify_permission','HR management permission is required to verify documents.',array('status'=>403));
+		if((int)$doc['created_by']===get_current_user_id())return new WP_Error('hrx_document_self_verification','The document uploader cannot independently verify the same document.',array('status'=>403));
+		if(!in_array(strtoupper((string)$doc['status']),array('PENDING_REVIEW','REVIEW_REQUIRED'),true))return new WP_Error('hrx_document_state','Only pending documents can be verified.',array('status'=>409));
+		if(strlen(trim($reason))<20||!preg_match('/^[a-f0-9]{64}$/i',(string)$doc['file_sha256'])||preg_match('~^https?://~i',(string)$doc['private_file_ref']))return new WP_Error('hrx_document_evidence','Document SHA-256, private storage reference and a verification note are required.',array('status'=>409));
+		if(!class_exists('Stockland_HR_Private_Vault'))return new WP_Error('hrx_vault_not_loaded','The private document vault adapter is not loaded; document verification is disabled.',array('status'=>503));
+		$verified=Stockland_HR_Private_Vault::verify((string)$doc['private_file_ref'],(string)$doc['file_sha256']);
+		if(is_wp_error($verified))return $verified;
+		global $wpdb;$wpdb->query('START TRANSACTION');
+		$ok=$wpdb->update(Stockland_HR_Replacement::table('employee_documents'),array('status'=>'VERIFIED','verified_by'=>get_current_user_id(),'verified_at'=>current_time('mysql'),'row_version'=>(int)$doc['row_version']+1,'updated_at'=>current_time('mysql')),array('id'=>(int)$doc['id'],'row_version'=>(int)$doc['row_version'],'status'=>$doc['status']));
+		if(false===$ok||0===$ok||!$this->audit_event('HRX_DOCUMENT_VERIFIED',(int)$doc['id'],'employee-documents',$doc['status'],'VERIFIED')){$wpdb->query('ROLLBACK');return new WP_Error('hrx_document_verify_failed','Document verification was rolled back because audit/persistence failed.',array('status'=>500));}
+		$wpdb->query('COMMIT');return rest_ensure_response(array('id'=>(int)$doc['id'],'status'=>'VERIFIED','verified_by'=>get_current_user_id()));
+	}
+
+	private function transition_resource($row,$state,$reason) {
+		if(!$this->can_approve_payroll())return new WP_Error('hrx_resource_approval','Independent Owner approval is required to approve or retire a resource.',array('status'=>403));
+		if(strlen(trim($reason))<20)return new WP_Error('hrx_resource_reason','Provide the approval/retirement rationale (at least 20 characters).',array('status'=>400));
+		$current=strtoupper((string)($row['state']??''));
+		$allowed=('APPROVED'===$state&&in_array($current,array('DRAFT','LEGAL_REVIEW'),true))||('RETIRED'===$state&&'APPROVED'===$current);
+		if(!$allowed)return new WP_Error('hrx_resource_state','Resource state transition is not allowed.',array('status'=>409));
+		global $wpdb;$ok=$wpdb->update(Stockland_HR_Replacement::table('resource_documents'),array('state'=>$state,'row_version'=>(int)$row['row_version']+1,'updated_at'=>current_time('mysql')),array('id'=>(int)$row['id'],'row_version'=>(int)$row['row_version'],'state'=>$row['state']));
+		if(false===$ok||0===$ok||!$this->audit_event('HRX_RESOURCE_'.$state,(int)$row['id'],'resource-documents',$current,$state))return new WP_Error('hrx_resource_audit','Resource state update or audit was not confirmed; reconcile before relying on the approval.',array('status'=>500));
+		return rest_ensure_response(array('id'=>(int)$row['id'],'state'=>$state,'message'=>'Resource state recorded.'));
+	}
+
+	private function create_payroll_run($period,$payload) {
+		if(!$this->can_manage_payroll())return new WP_Error('hrx_payroll_permission','Payroll preparation permission is required.',array('status'=>403));
+		if('OPEN'!==strtoupper((string)$period['status']))return new WP_Error('hrx_period_not_open','A payroll run can only be created for an open period.',array('status'=>409));
+		$kind=strtoupper(sanitize_key((string)($payload['run_kind']??'REGULAR')));
+		if(!in_array($kind,array('REGULAR','OFF_CYCLE','CORRECTION'),true))return new WP_Error('hrx_run_kind','Only regular, off-cycle, or correction runs may be created here; final settlement has a separate controlled route.',array('status'=>400));
+		$ruleId=absint($payload['rule_set_id']??0);$rule=$this->read_one('rule_sets',$ruleId);if(!$rule)return new WP_Error('hrx_rule_missing','Select an approved statutory rule set.',array('status'=>400));
+		$valid=$this->validate_active_rules($rule,(string)$period['period_start'],(string)$period['period_end']);if(is_wp_error($valid))return $valid;
+		$max=(int)Stockland_DB::read_var($this->prep('SELECT COALESCE(MAX(run_version),0) FROM %i WHERE period_id=%d',Stockland_HR_Replacement::table('payroll_runs'),(int)$period['id']));
+		$version=$max+1;$code=sanitize_text_field((string)($payload['run_code']??($period['period_code'].'-'.$kind.'-V'.$version)));
+		if(''===$code||strlen($code)>70)return new WP_Error('hrx_run_code','A payroll run code up to 70 characters is required.',array('status'=>400));
+		if((int)Stockland_DB::read_var($this->prep('SELECT COUNT(*) FROM %i WHERE period_id=%d AND run_version=%d',Stockland_HR_Replacement::table('payroll_runs'),(int)$period['id'],$version))>0)return new WP_Error('hrx_run_version_conflict','A run already exists at this version; refresh before retrying.',array('status'=>409));
+		global $wpdb;$wpdb->query('START TRANSACTION');
+		$ok=$wpdb->insert(Stockland_HR_Replacement::table('payroll_runs'),array('run_code'=>$code,'period_id'=>(int)$period['id'],'run_version'=>$version,'run_kind'=>$kind,'calculator_version'=>self::CALCULATOR_VERSION,'rule_set_id'=>$ruleId,'gross_total'=>'0.00','taxable_total'=>'0.00','tax_total'=>'0.00','employee_pension_total'=>'0.00','employer_pension_total'=>'0.00','deductions_total'=>'0.00','net_total'=>'0.00','employer_cost_total'=>'0.00','exception_count'=>0,'status'=>'DRAFT','created_by'=>get_current_user_id(),'created_at'=>current_time('mysql'),'updated_at'=>current_time('mysql'),'row_version'=>1));
+		if(false===$ok){$wpdb->query('ROLLBACK');return new WP_Error('hrx_run_create_failed','Payroll run creation failed. No data was changed.',array('status'=>409));}
+		$id=(int)$wpdb->insert_id;
+		if(!$this->audit_event('HRX_PAYROLL_RUN_CREATED',$id,'payroll-runs',null,'DRAFT')){$wpdb->query('ROLLBACK');return new WP_Error('hrx_run_audit_failed','Payroll run creation could not be audited; transaction rolled back.',array('status'=>500));}
+		$wpdb->query('COMMIT');return new WP_REST_Response(array('id'=>$id,'run_code'=>$code,'run_version'=>$version,'status'=>'DRAFT','message'=>'Draft payroll run created; calculation remains blocked until all approved inputs and rules are complete.'),201);
+	}
+
+	private function transition_remittance($row,$action,$payload,$reason) {
+		$current=strtoupper((string)$row['status']);
+		if('SUBMIT_RETURN'===$action){
+			if(!in_array($current,array('DRAFT','PENDING_REVIEW'),true))return new WP_Error('hrx_remittance_state','Only a draft remittance can be submitted.',array('status'=>409));
+			if(empty($payload['external_return_ref'])||empty($payload['evidence_ref']))return new WP_Error('hrx_remittance_evidence','External return reference and evidence reference are required.',array('status'=>400));
+			$to='SUBMITTED';$changes=array('status'=>$to,'external_return_ref'=>sanitize_text_field((string)$payload['external_return_ref']),'evidence_ref'=>sanitize_text_field((string)$payload['evidence_ref']));
+		}elseif('MARK_PAID'===$action){
+			if('SUBMITTED'!==$current||empty($payload['payment_ref'])||empty($payload['evidence_ref']))return new WP_Error('hrx_remittance_payment_evidence','A submitted remittance requires actual payment reference and evidence before marking paid.',array('status'=>409));
+			$to='PAID';$changes=array('status'=>$to,'payment_ref'=>sanitize_text_field((string)$payload['payment_ref']),'evidence_ref'=>sanitize_text_field((string)$payload['evidence_ref']));
+		}else{
+			if('PAID'!==$current||strlen(trim($reason))<15)return new WP_Error('hrx_remittance_reconcile','Paid remittance and a reconciliation note are required.',array('status'=>409));
+			$to='RECONCILED';$changes=array('status'=>$to,'reconciled_by'=>get_current_user_id(),'reconciled_at'=>current_time('mysql'));
+			if(empty($row['payment_ref'])||empty($row['evidence_ref']))return new WP_Error('hrx_remittance_evidence','Payment and evidence references must be present before reconciliation.',array('status'=>409));
+		}
+		$changes['row_version']=(int)$row['row_version']+1;$changes['updated_at']=current_time('mysql');
+		global $wpdb;$ok=$wpdb->update(Stockland_HR_Replacement::table('remittances'),$changes,array('id'=>(int)$row['id'],'row_version'=>(int)$row['row_version'],'status'=>$row['status']));
+		if(false===$ok||0===$ok||!$this->audit_event('HRX_REMITTANCE_'.$to,(int)$row['id'],'remittances',$current,$to))return new WP_Error('hrx_remittance_update_failed','Remittance transition or audit was not confirmed.',array('status'=>500));
+		return rest_ensure_response(array('id'=>(int)$row['id'],'status'=>$to));
+	}
+
+	public function create_payee_payment($request) {
+		if(!$this->can_manage_payroll())return new WP_Error('hrx_payee_payment_permission','Central Finance/Payroll permission is required.',array('status'=>403));
+		$engId=absint($request['id']);$eng=$this->read_one('payee_engagements',$engId);
+		if(!$eng||!in_array(strtoupper((string)$eng['status']),array('CONTRACTED','ACCEPTED'),true))return new WP_Error('hrx_engagement_not_ready','Engagement must be contracted and accepted before a payment request can be created.',array('status'=>409));
+		$p=$request->get_json_params();$deliverableId=absint($p['deliverable_id']??0);$taxId=absint($p['tax_decision_id']??0);
+		$d=$deliverableId?$this->read_one('payee_deliverables',$deliverableId):false;
+		if(!empty($eng['acceptance_required'])&&(!$d||(int)$d['engagement_id']!==$engId||'ACCEPTED'!==strtoupper((string)$d['status'])))return new WP_Error('hrx_deliverable_required','An independently accepted deliverable linked to this engagement is required.',array('status'=>409));
+		$tax=$taxId?$this->read_one('payee_tax_decisions',$taxId):false;
+		if(!$tax||(int)$tax['engagement_id']!==$engId||'APPROVED'!==strtoupper((string)$tax['status'])||empty($tax['professional_signoff_ref'])||empty($tax['rule_set_id'])||empty($tax['source_clause']))return new WP_Error('hrx_tax_decision_pending','A source-backed, professionally reviewed tax decision is required before payment.',array('status'=>409));
+		$cash=Stockland_Money::minor($eng['cash_fee']);$noncash=Stockland_Money::minor($eng['noncash_value']);$taxBase=Stockland_Money::minor($tax['base_amount']);$withholding=Stockland_Money::minor($tax['withholding_amount']);
+		if($cash<=0||$withholding<0||$withholding>$cash||$taxBase<$cash+$noncash)return new WP_Error('hrx_payee_amounts','Payment is held: verify cash amount, withholding not greater than cash disbursement, and tax base including all applicable noncash consideration.',array('status'=>409));
+		$net=Stockland_Money::subtract($eng['cash_fee'],$tax['withholding_amount']);$method=strtoupper(sanitize_key((string)($p['payment_method']??'')));
+		if(!in_array($method,array('BANK','CASH','CHEQUE'),true))return new WP_Error('hrx_payment_method','Choose the actual payment method from the allowed list.',array('status'=>400));
+		$refCode='PAYEE-'.$eng['engagement_code'].'-'.wp_generate_password(8,false,false);$key='HRX-PAYEE-'.$engId.'-'.$deliverableId.'-'.$taxId;
+		if((int)Stockland_DB::read_var($this->prep('SELECT COUNT(*) FROM %i WHERE idempotency_key=%s',Stockland_HR_Replacement::table('payee_payments'),$key))>0)return new WP_Error('hrx_duplicate_payment','A payment request already exists for this engagement/deliverable/rule decision.',array('status'=>409));
+		global $wpdb;$wpdb->query('START TRANSACTION');
+		$ok=$wpdb->insert(Stockland_HR_Replacement::table('payee_payments'),array('payment_code'=>$refCode,'engagement_id'=>$engId,'payee_id'=>(int)$eng['payee_id'],'deliverable_id'=>$deliverableId?:null,'tax_decision_id'=>$taxId,'gross_amount'=>Stockland_Money::decimal($cash),'withholding_amount'=>Stockland_Money::decimal($withholding),'net_amount'=>$net,'currency'=>$eng['currency'],'payment_method'=>$method,'idempotency_key'=>$key,'status'=>'REQUESTED','created_by'=>get_current_user_id(),'created_at'=>current_time('mysql'),'updated_at'=>current_time('mysql'),'row_version'=>1));
+		if(false===$ok){$wpdb->query('ROLLBACK');return new WP_Error('hrx_payee_payment_create_failed','Payment request was not created.',array('status'=>409));}
+		$id=(int)$wpdb->insert_id;if(!$this->audit_event('HRX_PAYEE_PAYMENT_REQUESTED',$id,'payee-payments',null,'REQUESTED')){$wpdb->query('ROLLBACK');return new WP_Error('hrx_payee_payment_audit_failed','Payment request was rolled back because the audit record failed.',array('status'=>500));}
+		$wpdb->query('COMMIT');return new WP_REST_Response(array('id'=>$id,'payment_code'=>$refCode,'gross_amount'=>Stockland_Money::decimal($cash),'withholding_amount'=>Stockland_Money::decimal($withholding),'net_amount'=>$net,'status'=>'REQUESTED'),201);
+	}
+
+	private function submit_payee_payment($row,$payload) {
+		if(!$this->can_approve_payroll())return new WP_Error('hrx_payee_payment_approval','Owner approval is required to submit a payment.',array('status'=>403));
+		if('APPROVED'!==strtoupper((string)$row['status']))return new WP_Error('hrx_payee_payment_state','Only an approved payment can be submitted to the external payment process.',array('status'=>409));
+		$ref=sanitize_text_field((string)($payload['payment_ref']??''));$evidence=sanitize_text_field((string)($payload['evidence_ref']??''));
+		if(''===$ref||''===$evidence)return new WP_Error('hrx_external_payment_ref','A real payment/bank/cash reference and evidence reference are required.',array('status'=>400));
+		global $wpdb;$ok=$wpdb->update(Stockland_HR_Replacement::table('payee_payments'),array('status'=>'PAYMENT_SUBMITTED','payment_ref'=>$ref,'row_version'=>(int)$row['row_version']+1,'updated_at'=>current_time('mysql')),array('id'=>(int)$row['id'],'row_version'=>(int)$row['row_version'],'status'=>'APPROVED'));
+		if(false===$ok||0===$ok||!$this->audit_event('HRX_PAYEE_PAYMENT_SUBMITTED',(int)$row['id'],'payee-payments','APPROVED','PAYMENT_SUBMITTED'))return new WP_Error('hrx_payee_payment_submit_failed','Payment submission or audit was not confirmed.',array('status'=>500));
+		return rest_ensure_response(array('id'=>(int)$row['id'],'status'=>'PAYMENT_SUBMITTED','payment_ref'=>$ref,'evidence_ref'=>$evidence,'note'=>'The payment reference has been recorded. Reconcile only after matching the bank/cash evidence.'));
+	}
+
+	private function reconcile_payee_payment($row,$payload,$reason) {
+		if(!$this->can_approve_payroll())return new WP_Error('hrx_payee_payment_reconcile_permission','Owner approval is required for payment reconciliation.',array('status'=>403));
+		if('PAYMENT_SUBMITTED'!==strtoupper((string)$row['status']))return new WP_Error('hrx_payee_payment_state','Only a submitted payment can be reconciled.',array('status'=>409));
+		$evidence=sanitize_text_field((string)($payload['evidence_ref']??''));if(''===$evidence||strlen(trim($reason))<15)return new WP_Error('hrx_payee_payment_evidence','External settlement evidence and a reconciliation reason are required.',array('status'=>400));
+		$map=get_option('stockland_hrx_payee_account_map',array());$keys=array('expense','withholding_payable','cash_bank');foreach($keys as $k){if(empty($map[$k]))return new WP_Error('hrx_payee_accounts_missing','Configure the reviewed central individual-payee account map before reconciliation.',array('status'=>409,'missing_key'=>$k));$exists=(int)Stockland_DB::read_var($this->prep('SELECT COUNT(*) FROM %i WHERE account_code=%s AND is_active=1',Stockland_DB::table('gl_accounts'),sanitize_text_field($map[$k])));if(!$exists)return new WP_Error('hrx_payee_account_invalid','A configured individual-payee account is not active.',array('status'=>409,'account_key'=>$k));}
+		if(empty($row['payment_ref']))return new WP_Error('hrx_payee_payment_ref_missing','Actual external payment reference is missing.',array('status'=>409));
+		$gross=(string)$row['gross_amount'];$wh=(string)$row['withholding_amount'];$net=(string)$row['net_amount'];
+		if(Stockland_Money::minor($gross)!==Stockland_Money::minor(Stockland_Money::add($wh,$net)))return new WP_Error('hrx_payee_payment_unbalanced','Gross does not equal withholding plus net; reconciliation is blocked.',array('status'=>409));
+		global $wpdb;$wpdb->query('START TRANSACTION');
+		$jid=Stockland_Accounting::post_journal(current_time('Y-m-d'),'HRX_PAYEE_PAYMENT',(string)$row['id'],'Individual payee payment '.$row['payment_code'],array(
+			array('account_code'=>$map['expense'],'debit'=>$gross,'credit'=>'0.00','memo'=>'Approved individual payee gross fee'),
+			array('account_code'=>$map['withholding_payable'],'debit'=>'0.00','credit'=>$wh,'memo'=>'Approved withholding liability'),
+			array('account_code'=>$map['cash_bank'],'debit'=>'0.00','credit'=>$net,'memo'=>'Settled net individual payee payment'),
+		),get_current_user_id());
+		if(!$jid){$wpdb->query('ROLLBACK');return new WP_Error('hrx_payee_gl_failed','Individual payee GL journal failed or did not reconcile.',array('status'=>500));}
+		$ok=$wpdb->update(Stockland_HR_Replacement::table('payee_payments'),array('status'=>'RECONCILED','journal_id'=>(int)$jid,'paid_at'=>current_time('mysql'),'row_version'=>(int)$row['row_version']+1,'updated_at'=>current_time('mysql')),array('id'=>(int)$row['id'],'row_version'=>(int)$row['row_version'],'status'=>'PAYMENT_SUBMITTED'));
+		if(false===$ok||0===$ok||!$this->audit_event('HRX_PAYEE_PAYMENT_RECONCILED',(int)$row['id'],'payee-payments','PAYMENT_SUBMITTED','RECONCILED')){$wpdb->query('ROLLBACK');return new WP_Error('hrx_payee_reconcile_failed','Payee payment reconciliation/audit failed; transaction rolled back.',array('status'=>500));}
+		$wpdb->query('COMMIT');return rest_ensure_response(array('id'=>(int)$row['id'],'status'=>'RECONCILED','journal_id'=>(int)$jid,'payment_ref'=>$row['payment_ref']));
+	}
+
 	private function transitions() {
 		return array(
 			'requisitions'=>array('SUBMIT'=>array(array('DRAFT'),'PENDING_APPROVAL','hr'),'APPROVE'=>array(array('PENDING_APPROVAL'),'APPROVED','owner'),'REJECT'=>array(array('PENDING_APPROVAL'),'REJECTED','owner'),'OPEN'=>array(array('APPROVED'),'OPEN','owner'),'CLOSE'=>array(array('OPEN'),'CLOSED','hr')),
