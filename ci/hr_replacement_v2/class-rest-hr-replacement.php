@@ -357,6 +357,20 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		if('offers'===$entity&&'ACCEPT'===$action){$evidence=sanitize_textarea_field((string)($body['acceptance_evidence']??''));if(strlen(trim($evidence))<15)return $this->error('hrx_offer_acceptance_evidence_required','Record the applicant offer-acceptance evidence reference or verified note.',422);$extra['accepted_at']=Stockland_HR_Replacement::now();}
 		if('applications'===$entity&&'SELECT'===$action){$selection=sanitize_textarea_field((string)($body['selection_rationale']??''));if(strlen(trim($selection))<20)return $this->error('hrx_selection_rationale_required','Document the human selection rationale (minimum 20 characters).',422);$extra['selection_rationale']=$selection;}
 		if('applications'===$entity&&'REJECT'===$action){$extra['status']='REJECTED';$extra['retention_until']=Stockland_HR_Replacement::valid_date($body['retention_until']??'')?:null;}
+		if('exit-clearance-tasks'===$entity&&'COMPLETE'===$action){
+			$note=sanitize_textarea_field((string)($body['resolution_note']??$reason));
+			if(strlen(trim($note))<20)return $this->error('hrx_exit_clearance_evidence_required','Clearance completion needs a short evidence/resolution note.',422);
+			if('ACCESS_REVOKED'===$current['task_code']){
+				global $wpdb;$emp=Stockland_DB::read_row($wpdb->prepare('SELECT access_revoked_at FROM %i WHERE id=%d',Stockland_HR_Replacement::table('hrx_employments'),(int)$current['employment_id']),ARRAY_A);
+				if(!$emp||empty($emp['access_revoked_at']))return $this->error('hrx_access_not_revoked','Revoke the linked Stockland ERP profile and location scope before completing the access-clearance task.',409);
+			} else {
+				$evidence_id=(int)($body['evidence_ref_id']??0);
+				$doc=$evidence_id?Stockland_DB::read_row($wpdb->prepare("SELECT id FROM %i WHERE id=%d AND entity_type='EXIT_SETTLEMENT' AND entity_id=%d AND document_type='EXIT_CLEARANCE' AND approval_status='APPROVED'",Stockland_HR_Replacement::table('hrx_document_refs'),$evidence_id,(int)$current['settlement_id']),ARRAY_A):null;
+				if(!$doc)return $this->error('hrx_exit_clearance_document_missing','Clearance requires an independently approved private EXIT_CLEARANCE document linked to this settlement.',409);
+				$extra['evidence_ref_id']=$evidence_id;
+			}
+			$extra['completed_by']=get_current_user_id();$extra['completed_at']=Stockland_HR_Replacement::now();$extra['resolution_note']=$note;
+		}
 		if(false===$this->begin())return $this->error('hrx_tx_begin_failed','Could not start HR transaction.',500);
 		$ok=Stockland_DB::update_record($this->table($entity),$extra,array('id'=>$id,$state_field=>$current[$state_field]));
 		if(false===$ok){$this->rollback();return $this->error('hrx_transition_write_failed','Record state update failed; no transition was recorded.',500);}
@@ -668,6 +682,8 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		$evt=Stockland_HR_Replacement::approval_event('employment',$id,'ERP_ACCESS_REVOKED',strtoupper((string)$emp['status']),strtoupper((string)$emp['status']),$reason,$key,null,get_current_user_id());
 		$audit=Stockland_HR_Replacement::audit('erp_access_revoked','employment',$id,'ERP profile disabled and location scopes deactivated; WordPress account retained.');
 		if(false===$deactivated||false===$scope||false===$employment||is_wp_error($evt)||is_wp_error($audit)||false===$audit){$this->rollback();return $this->error('hrx_access_revocation_failed','Access revocation was rolled back due to failed persistence/audit.',500);}
+		$settlement=Stockland_DB::read_row($wpdb->prepare("SELECT id FROM %i WHERE employment_id=%d AND status IN('DRAFT','CALCULATED','APPROVED') ORDER BY id DESC LIMIT 1",Stockland_HR_Replacement::table('hrx_exit_settlements'),$id),ARRAY_A);
+		if($settlement){$task=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_exit_clearance_tasks'),array('status'=>'COMPLETE','completed_by'=>get_current_user_id(),'completed_at'=>Stockland_HR_Replacement::now(),'resolution_note'=>'ERP profile disabled and location scope deactivated under audited access-revocation workflow.'),array('settlement_id'=>(int)$settlement['id'],'task_code'=>'ACCESS_REVOKED','status'=>'OPEN'));if(false===$task){$this->rollback();return $this->error('hrx_access_task_failed','Access was deactivated but the exit clearance task update failed; investigate before settlement.',500);}}
 		$this->commit();
 		$wp_user=get_userdata($uid);
 		if($wp_user){
