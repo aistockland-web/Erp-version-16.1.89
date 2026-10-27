@@ -1071,15 +1071,45 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 	}
 
 	public function approve_exit_settlement( $request ) {
-		global $wpdb;$id=(int)$request['id'];$body=$this->body($request);$exit=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d',Stockland_HR_Replacement::table('hrx_exit_settlements'),$id),ARRAY_A);if(!$exit)return $this->error('hrx_exit_not_found','Final settlement not found.',404);
+		global $wpdb;
+		$ready=$this->require_schema();if(is_wp_error($ready))return $ready;
+		$id=(int)$request['id'];$body=$this->body($request);
+		$exit=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',Stockland_HR_Replacement::table('hrx_exit_settlements'),$id),ARRAY_A);
+		if(!$exit)return $this->error('hrx_exit_not_found','Final settlement not found.',404);
 		$note=sanitize_textarea_field((string)($body['approval_note']??''));$key=sanitize_text_field((string)($body['idempotency_key']??''));
-		if('CALCULATED'!==$exit['status']||strlen(trim($note))<40||!$key)return $this->error('hrx_exit_approval_evidence_required','Calculated settlement, independent approval note (40+ characters) and idempotency key are required.',409);
+		if('CALCULATED'!==strtoupper((string)$exit['status'])||strlen(trim($note))<40||!$key)return $this->error('hrx_exit_approval_evidence_required','Calculated settlement, independent approval note (40+ characters) and idempotency key are required.',422);
 		if((int)$exit['created_by']===get_current_user_id())return $this->error('hrx_no_self_approval','Settlement creator may not approve the final settlement.',403);
-		$ok=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_exit_settlements'),array('status'=>'APPROVED','approved_by'=>get_current_user_id(),'approved_at'=>Stockland_HR_Replacement::now()),array('id'=>$id,'status'=>'CALCULATED'));
-		if(false===$ok)return $this->error('hrx_exit_approval_failed','Final settlement approval failed.',409);
-		Stockland_HR_Replacement::approval_event('exit-settlement',$id,'EXIT_APPROVED','CALCULATED','APPROVED',$note,$key,null,get_current_user_id());Stockland_HR_Replacement::audit('exit_approved','exit-settlement',$id,'Owner approved rule-backed final settlement.');
-		// Employment is not deactivated here: only the separately evidenced payout/clearance path may finalize it.
-		return rest_ensure_response(array('id'=>$id,'status'=>'APPROVED','message'=>'Approved settlement; employee status and access are not changed by this endpoint.'));
+		$tasks=(int)Stockland_DB::read_var($wpdb->prepare("SELECT COUNT(*) FROM %i WHERE settlement_id=%d AND status<>'COMPLETE'",Stockland_HR_Replacement::table('hrx_exit_clearance_tasks'),$id));
+		if($tasks>0)return $this->error('hrx_exit_clearance_incomplete','Every handover, equipment, stock/finance, archive and account-access clearance must be complete before settlement approval.',409);
+		$items=Stockland_DB::read_results($wpdb->prepare("SELECT i.*,r.review_status,r.source_sha256 FROM %i i LEFT JOIN %i r ON r.id=i.rule_id WHERE i.settlement_id=%d",Stockland_HR_Replacement::table('hrx_exit_items'),Stockland_HR_Replacement::table('hrx_legal_rules'),$id),ARRAY_A);
+		if(empty($items))return $this->error('hrx_exit_items_missing','Settlement has no itemized earnings/deductions.',409);
+		$sum_gross=0;$sum_deductions=0;$by_account=array();
+		foreach($items as $item){
+			if('APPROVED'!==strtoupper((string)$item['review_status'])||!preg_match('/^[a-f0-9]{64}$/i',(string)$item['source_sha256']))return $this->error('hrx_exit_legal_rule_invalid','Every final settlement item requires a currently approved legal rule and source hash.',409);
+			if('EARNING'===strtoupper((string)$item['item_type'])){$sum_gross+=Stockland_Money::minor($item['amount']);}
+			elseif('DEDUCTION'===strtoupper((string)$item['item_type'])){
+				$account=sanitize_text_field((string)($item['payable_account_code']??''));
+				if(''===$account||!Stockland_Accounting::account_exists($account))return $this->error('hrx_exit_deduction_account_missing','Every final settlement deduction must map to an existing payable GL account.',409);
+				$by_account[$account]=($by_account[$account]??0)+Stockland_Money::minor($item['amount']);$sum_deductions+=Stockland_Money::minor($item['amount']);
+			}else return $this->error('hrx_exit_item_type_invalid','Settlement has an unsupported item type.',409);
+		}
+		if($sum_gross!==Stockland_Money::minor($exit['gross_final_amount'])||$sum_deductions!==Stockland_Money::minor($exit['deduction_total'])||$sum_gross-$sum_deductions!==Stockland_Money::minor($exit['net_final_amount']))return $this->error('hrx_exit_totals_mismatch','Recomputed item totals do not match the frozen final settlement. Recalculate after correcting items.',409);
+		$config=Stockland_DB::read_row($wpdb->prepare("SELECT * FROM %i WHERE status='APPROVED' AND effective_from<=%s AND (effective_to IS NULL OR effective_to>=%s) ORDER BY effective_from DESC,id DESC LIMIT 1",Stockland_HR_Replacement::table('hrx_accounting_config'),$exit['effective_end_date'],$exit['effective_end_date']),ARRAY_A);
+		if(!$config)return $this->error('hrx_gl_mapping_missing','Approved effective-dated GL mapping is required for exit settlement posting.',409);
+		$lines=array(array('account_code'=>$config['wage_expense_account'],'debit'=>$exit['gross_final_amount'],'credit'=>'0.00','memo'=>'Exit settlement gross '.$exit['settlement_code']));
+		if(Stockland_Money::minor($exit['net_final_amount'])>0)$lines[]=array('account_code'=>$config['net_payable_account'],'debit'=>'0.00','credit'=>$exit['net_final_amount'],'memo'=>'Exit settlement net payable '.$exit['settlement_code']);
+		foreach($by_account as $account=>$minor){if($minor>0)$lines[]=array('account_code'=>$account,'debit'=>'0.00','credit'=>Stockland_Money::decimal($minor),'memo'=>'Exit settlement deduction '.$exit['settlement_code']);}
+		$debits=Stockland_Money::minor($exit['gross_final_amount']);$credits=Stockland_Money::minor($exit['net_final_amount'])+$sum_deductions;
+		if($debits!==$credits)return $this->error('hrx_exit_journal_unbalanced','Exit settlement journal does not balance; approval is blocked.',409);
+		if(false===$this->begin())return $this->error('hrx_tx_begin_failed','Could not start exit approval transaction.',500);
+		$journal=Stockland_Accounting::post_journal($exit['effective_end_date'],'HRX_EXIT_SETTLEMENT',$id,'Final settlement accrual '.$exit['settlement_code'],$lines,get_current_user_id());
+		if(!$journal){$this->rollback();return $this->error('hrx_exit_journal_failed','Final settlement accrual journal did not post.',500);}
+		$link=Stockland_DB::insert_record(Stockland_HR_Replacement::table('hrx_accounting_links'),array('source_type'=>'HRX_EXIT_SETTLEMENT','source_id'=>$id,'journal_id'=>(int)$journal,'journal_hash'=>hash('sha256',wp_json_encode($lines)),'posted_at'=>Stockland_HR_Replacement::now(),'posted_by'=>get_current_user_id()));
+		$ok=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_exit_settlements'),array('status'=>'APPROVED','approved_by'=>get_current_user_id(),'approved_at'=>Stockland_HR_Replacement::now(),'journal_id'=>(int)$journal,'updated_at'=>Stockland_HR_Replacement::now()),array('id'=>$id,'status'=>'CALCULATED','created_by'=>(int)$exit['created_by']));
+		$evt=Stockland_HR_Replacement::approval_event('exit-settlement',$id,'EXIT_APPROVED','CALCULATED','APPROVED',$note,$key,null,get_current_user_id());
+		$audit=Stockland_HR_Replacement::audit('exit_approved','exit-settlement',$id,'Owner approved itemized rule-backed settlement and posted the accrual journal.');
+		if(false===$link||false===$ok||is_wp_error($evt)||is_wp_error($audit)||false===$audit){$this->rollback();return $this->error('hrx_exit_approval_failed','Final settlement approval, journal and audit were rolled back.',500);}
+		$this->commit();return rest_ensure_response(array('id'=>$id,'status'=>'APPROVED','journal_id'=>(int)$journal,'message'=>'Settlement accrual posted. Management must separately pay net amount with private receipt, and access must already be revoked.'));
 	}
 
 	public function list_documents( $request ) {
