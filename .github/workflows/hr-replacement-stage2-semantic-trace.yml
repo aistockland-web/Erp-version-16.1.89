@@ -1,0 +1,62 @@
+name: Stockland HR replacement Stage 2 semantic trace
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'ci/qa/trace_hr_replacement_semantic_dependencies.py'
+      - 'ci/qa/test_hr_semantic_dependency_trace.py'
+      - 'docs/hr-replacement/HR_SEMANTIC_DEPENDENCY_TRACE_v0.1.md'
+      - 'docs/hr-replacement/HR_TARGET_PHYSICAL_MODEL_OPTIONS_v0.1.md'
+      - '.github/workflows/hr-replacement-stage2-semantic-trace.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: stockland-hr-stage2-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  semantic-source-trace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact review commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Download checksum-locked baseline artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: STOCKLAND-ERP-16.1.95-Cumulative-WordPress-Update
+          repository: aistockland-web/Erp-version-16.1.89
+          run-id: 40036018031
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/stockland-16.1.95
+      - name: Verify exact baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASELINE="$RUNNER_TEMP/stockland-16.1.95/STOCKLAND_ERP_16.1.95_CANONICAL_WORDPRESS_UPDATE.zip"
+          test -s "$BASELINE"
+          echo "BASELINE=$BASELINE" >> "$GITHUB_ENV"
+          echo "494e777247508d009dfdb216c9607bb1bc96717197e94a0e8ad3459b7cc81625  $BASELINE" | sha256sum --check -
+          unzip -t "$BASELINE"
+      - name: Compile source trace
+        run: python -m py_compile ci/qa/trace_hr_replacement_semantic_dependencies.py ci/qa/test_hr_semantic_dependency_trace.py
+      - name: Run source trace and fail-closed regression tests
+        run: |
+          python ci/qa/trace_hr_replacement_semantic_dependencies.py --package "$BASELINE" --out-dir "$RUNNER_TEMP/hr-semantic-trace"
+          python ci/qa/test_hr_semantic_dependency_trace.py --package "$BASELINE"
+      - name: Upload exact trace receipt and CSVs
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: STOCKLAND-HR-SEMANTIC-DEPENDENCY-TRACE
+          path: ${{ runner.temp }}/hr-semantic-trace/
+          if-no-files-found: error
+          retention-days: 90
