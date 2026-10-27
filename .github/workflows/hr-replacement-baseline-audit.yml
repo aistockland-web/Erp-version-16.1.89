@@ -50,6 +50,8 @@ jobs:
           mkdir -p build/hr-replacement-baseline
           python ci/qa/audit_hr_replacement_baseline.py --package "$ZIP" --out-dir build/hr-replacement-baseline
           python ci/qa/test_hr_replacement_baseline.py build/hr-replacement-baseline
+          python ci/qa/trace_hr_legacy_consumers.py --package "$ZIP" --out-dir build/hr-replacement-baseline
+          python ci/qa/test_hr_legacy_consumers.py build/hr-replacement-baseline
 
       - name: Upload source inventory receipt
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -58,5 +60,7 @@ jobs:
           path: |
             build/hr-replacement-baseline/hr_replacement_baseline_inventory.json
             build/hr-replacement-baseline/hr_replacement_49_table_inventory.csv
+            build/hr-replacement-baseline/hr_legacy_direct_table_calls.json
+            build/hr-replacement-baseline/hr_legacy_direct_table_calls.csv
           if-no-files-found: error
           retention-days: 90
