@@ -80,6 +80,7 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		register_rest_route( $ns, '/hr/replacement/remittances/(?P<id>\d+)/verify', array( 'methods'=>'POST','callback'=>array( $this,'verify_remittance' ),'permission_callback'=>array( $this,'permission_approve_payroll' ) ) );
 		register_rest_route( $ns, '/hr/replacement/exits/(?P<id>\d+)/payout', array( 'methods'=>'POST','callback'=>array( $this,'pay_exit_settlement' ),'permission_callback'=>array( $this,'permission_approve_payroll' ) ) );
 		register_rest_route( $ns, '/hr/replacement/payee-requests/(?P<id>\d+)/calculate', array( 'methods'=>'POST','callback'=>array( $this,'calculate_payee_request' ),'permission_callback'=>array( $this,'permission_manage_payroll' ) ) );
+		register_rest_route( $ns, '/hr/replacement/payee-requests/(?P<id>\d+)/verify-in-kind', array( 'methods'=>'POST','callback'=>array( $this,'verify_payee_in_kind' ),'permission_callback'=>array( $this,'permission_approve_payroll' ) ) );
 		register_rest_route( $ns, '/hr/replacement/payee-requests/(?P<id>\d+)/pay', array( 'methods'=>'POST','callback'=>array( $this,'pay_payee_request' ),'permission_callback'=>array( $this,'permission_approve_payroll' ) ) );
 		register_rest_route( $ns, '/hr/replacement/employments/(?P<id>\d+)/activate', array( 'methods'=>'POST','callback'=>array( $this,'activate_employment' ),'permission_callback'=>array( $this,'permission_approve_hr' ) ) );
 		register_rest_route( $ns, '/hr/replacement/employments/(?P<id>\d+)/revoke-access', array( 'methods'=>'POST','callback'=>array( $this,'revoke_employment_access' ),'permission_callback'=>array( $this,'permission_approve_hr' ) ) );
@@ -882,8 +883,10 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		if(!in_array($decision,array('APPROVE','RETURN_FOR_REVIEW'),true)||strlen(trim($note))<40||!$key)return $this->error('hrx_rule_review_evidence_required','Decision, detailed qualified reviewer note (40+ characters), and idempotency key required.',422);
 		if((int)$rule['created_by']===get_current_user_id())return $this->error('hrx_no_self_approval','Legal rule creator cannot approve their own rule.',403);
 		if(empty($rule['reviewer_qualification'])||empty($rule['source_sha256'])||empty($rule['test_vectors_sha256']))return $this->error('hrx_rule_evidence_missing','Qualified reviewer, official-source SHA-256 and test-vector SHA-256 are required.',422);
+		$review_doc_id=(int)($body['review_evidence_document_id']??0);
+		if('APPROVE'===$decision){$review_doc=$review_doc_id?Stockland_DB::read_row($wpdb->prepare("SELECT id FROM %i WHERE id=%d AND entity_type='LEGAL_RULE' AND entity_id=%d AND document_type='LEGAL_REVIEW_OPINION' AND approval_status='APPROVED'",Stockland_HR_Replacement::table('hrx_document_refs'),$review_doc_id,$id),ARRAY_A):null;if(!$review_doc)return $this->error('hrx_legal_opinion_missing','An independently reviewed private legal opinion/source review is required before a statutory rule can be activated.',409);}
 		$to='APPROVE'===$decision?'APPROVED':'LEGAL_REVIEW';if('APPROVE'===$decision&&'LEGAL_REVIEW'!==$rule['review_status'])return $this->error('hrx_rule_state_invalid','Only a LEGAL_REVIEW rule can be approved.',409);
-		$ok=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_legal_rules'),array('review_status'=>$to,'reviewer_name'=>sanitize_text_field($body['reviewer_name']??''),'reviewer_qualification'=>sanitize_text_field($body['reviewer_qualification']??$rule['reviewer_qualification']),'reviewed_at'=>Stockland_HR_Replacement::now(),'approved_by'=>'APPROVE'===$decision?get_current_user_id():null,'approved_at'=>'APPROVE'===$decision?Stockland_HR_Replacement::now():null),array('id'=>$id,'review_status'=>$rule['review_status']));
+		$ok=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_legal_rules'),array('review_status'=>$to,'reviewer_name'=>sanitize_text_field($body['reviewer_name']??''),'reviewer_qualification'=>sanitize_text_field($body['reviewer_qualification']??$rule['reviewer_qualification']),'review_evidence_ref_id'=>'APPROVE'===$decision?$review_doc_id:null,'reviewed_at'=>Stockland_HR_Replacement::now(),'approved_by'=>'APPROVE'===$decision?get_current_user_id():null,'approved_at'=>'APPROVE'===$decision?Stockland_HR_Replacement::now():null),array('id'=>$id,'review_status'=>$rule['review_status']));
 		if(false===$ok)return $this->error('hrx_rule_update_failed','Rule review did not persist.',500);
 		$evt=Stockland_HR_Replacement::approval_event('legal-rule',$id,'LEGAL_RULE_'.$decision,$rule['review_status'],$to,$note,$key,null,get_current_user_id());$audit=Stockland_HR_Replacement::audit('legal_rule_'.$decision,'legal-rule',$id,'Legal rule review state changed.');
 		if(is_wp_error($evt)||is_wp_error($audit)||false===$audit)return $this->error('hrx_rule_audit_failed','Rule state changed but the audit write failed; investigate immediately and do not use this rule.');
@@ -995,7 +998,7 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		if(!isset($file['tmp_name'],$file['size'])||!is_uploaded_file($file['tmp_name'])||(int)$file['size']<1||(int)$file['size']>$max)return $this->error('hrx_document_size_invalid','Private document size must be between 1 byte and 8 MiB.',413);
 		$entity_type=strtoupper(sanitize_key((string)$request->get_param('entity_type')));$entity_id=(int)$request->get_param('entity_id');$type=strtoupper(sanitize_key((string)$request->get_param('document_type')));
 		$allowed_types=array('APPLICATION','EMPLOYMENT_CONTRACT','IDENTITY_VERIFICATION','ONBOARDING','TRAINING','TIME_EVIDENCE','LEAVE_EVIDENCE','COMPENSATION_APPROVAL','PAYROLL_EVIDENCE','PAYSLIP','EXIT_CLEARANCE','FINAL_SETTLEMENT','PAYEE_CONTRACT','PAYEE_DELIVERABLE','TAX_REMITTANCE_RECEIPT','PENSION_REMITTANCE_RECEIPT','LEGAL_REVIEW_OPINION','SOP_ACKNOWLEDGEMENT','OTHER_HR');
-		if(!$entity_id||!in_array($entity_type,array('APPLICATION','EMPLOYMENT','CONTRACT','PAYROLL_RUN','PAYROLL_LINE','EXIT_SETTLEMENT','PAYEE_REQUEST','LEGAL_RULE'),true)||!in_array($type,$allowed_types,true))return $this->error('hrx_document_target_invalid','Document owner or document type is not in the approved allow-list.',422);
+		if(!$entity_id||!in_array($entity_type,array('APPLICATION','EMPLOYMENT','CONTRACT','PAYROLL_RUN','PAYROLL_LINE','EXIT_SETTLEMENT','PAYEE_REQUEST','LEGAL_RULE','REMITTANCE'),true)||!in_array($type,$allowed_types,true))return $this->error('hrx_document_target_invalid','Document owner or document type is not in the approved allow-list.',422);
 		$target=$this->document_target($entity_type,$entity_id);if(is_wp_error($target))return $target;
 		$mime='';if(class_exists('finfo')){$fi=new finfo(FILEINFO_MIME_TYPE);$mime=(string)$fi->file($file['tmp_name']);}
 		$ext=strtolower(pathinfo((string)($file['name']??''),PATHINFO_EXTENSION));
@@ -1019,7 +1022,7 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 
 	private function document_target( $entity_type, $entity_id ) {
 		global $wpdb;
-		$tables=array('APPLICATION'=>'hrx_applications','EMPLOYMENT'=>'hrx_employments','CONTRACT'=>'hrx_contracts','PAYROLL_RUN'=>'hrx_payroll_runs','PAYROLL_LINE'=>'hrx_payroll_lines','EXIT_SETTLEMENT'=>'hrx_exit_settlements','PAYEE_REQUEST'=>'hrx_payee_requests','LEGAL_RULE'=>'hrx_legal_rules');
+		$tables=array('APPLICATION'=>'hrx_applications','EMPLOYMENT'=>'hrx_employments','CONTRACT'=>'hrx_contracts','PAYROLL_RUN'=>'hrx_payroll_runs','PAYROLL_LINE'=>'hrx_payroll_lines','EXIT_SETTLEMENT'=>'hrx_exit_settlements','PAYEE_REQUEST'=>'hrx_payee_requests','LEGAL_RULE'=>'hrx_legal_rules','REMITTANCE'=>'hrx_remittances');
 		if(!isset($tables[$entity_type]))return $this->error('hrx_document_owner_type_invalid','Unknown document owner type.',422);
 		$row=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d',Stockland_HR_Replacement::table($tables[$entity_type]),$entity_id),ARRAY_A);
 		if(!$row)return $this->error('hrx_document_owner_missing','The target record does not exist.',404);
@@ -1032,7 +1035,7 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		if(!is_array($document)||!is_user_logged_in())return false;
 		$type=strtoupper((string)$document['entity_type']);$id=(int)$document['entity_id'];
 		$target=$this->document_target($type,$id);if(is_wp_error($target))return false;
-		if(in_array($type,array('PAYROLL_RUN','PAYROLL_LINE','PAYEE_REQUEST'),true)&&!$this->view_payroll())return false;
+		if(in_array($type,array('PAYROLL_RUN','PAYROLL_LINE','PAYEE_REQUEST','REMITTANCE'),true)&&!$this->view_payroll())return false;
 		$employment_id=0;
 		if('EMPLOYMENT'===$type)$employment_id=$id;
 		elseif('CONTRACT'===$type)$employment_id=(int)$target['employment_id'];
