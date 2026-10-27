@@ -8,11 +8,12 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
  */
 final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 	const ENTITY_MAP = array(
+		'people' => array( 'table'=>'hrx_people', 'state'=>'privacy_state', 'create'=>true, 'update'=>true ),
 		'org-units' => array( 'table'=>'hrx_org_units', 'state'=>'active', 'create'=>true, 'update'=>true ),
 		'positions' => array( 'table'=>'hrx_positions', 'state'=>'status', 'create'=>true, 'update'=>true ),
 		'workforce-plans' => array( 'table'=>'hrx_workforce_plans', 'state'=>'status', 'create'=>true, 'update'=>true ),
 		'requisitions' => array( 'table'=>'hrx_requisitions', 'state'=>'status', 'create'=>true, 'update'=>true ),
-		'applications' => array( 'table'=>'hrx_applications', 'state'=>'status', 'create'=>true, 'update'=>true ),
+		'applications' => array( 'table'=>'hrx_applications', 'state'=>'stage', 'create'=>true, 'update'=>true ),
 		'interviews' => array( 'table'=>'hrx_interviews', 'state'=>'recommendation', 'create'=>true, 'update'=>true ),
 		'offers' => array( 'table'=>'hrx_offers', 'state'=>'status', 'create'=>true, 'update'=>true ),
 		'employments' => array( 'table'=>'hrx_employments', 'state'=>'status', 'create'=>false, 'update'=>false ),
@@ -133,14 +134,15 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 
 	private function allowed_fields( $entity ) {
 		$map = array(
+			'people'=>array('person_code','first_name','middle_name','last_name','preferred_name','phone','email','privacy_state','source_record'),
 			'org-units'=>array('unit_code','unit_name','unit_type','parent_id','location_id','manager_employment_id','active','effective_from','effective_to'),
 			'positions'=>array('position_code','title','org_unit_id','grade_code','band_min','band_max','openings_planned','status','effective_from','effective_to'),
 			'workforce-plans'=>array('plan_code','fiscal_year','org_unit_id','position_id','headcount_requested','budget_amount','justification','status'),
 			'requisitions'=>array('requisition_code','workforce_plan_id','position_id','location_id','openings','requested_start','budget_amount','business_reason','status'),
 			'applications'=>array('application_code','requisition_id','person_id','privacy_notice_version','consent_or_lawful_basis','applied_at','stage','screening_score','recommendation','selection_rationale','retention_until','status'),
 			'interviews'=>array('application_id','interview_round','interview_at','interviewer_user_id','rubric_version','score','recommendation','evidence_ref','notes_redacted'),
-			'offers'=>array('offer_code','application_id','employment_type','proposed_start','proposed_end','position_id','location_id','compensation_assignment_id','terms_version','contract_ref_id','status'),
-			'contracts'=>array('employment_id','contract_code','contract_version','contract_type','start_date','end_date','probation_end','terms_hash','private_document_ref_id','status'),
+			'offers'=>array('offer_code','application_id','employment_type','proposed_start','proposed_end','position_id','location_id','compensation_assignment_id','terms_version','contract_ref_id','status','accepted_at'),
+			'contracts'=>array('employment_id','contract_code','contract_version','contract_type','start_date','end_date','probation_end','terms_hash','private_document_ref_id','signed_by_person_at','status'),
 			'onboarding-tasks'=>array('employment_id','task_code','task_title','owner_role','due_date','evidence_ref_id','status'),
 			'assignments'=>array('employment_id','position_id','org_unit_id','location_id','manager_employment_id','effective_from','effective_to','reason_code','approval_status'),
 			'schedules'=>array('schedule_code','employment_id','effective_from','effective_to','timezone','monday_json','tuesday_json','wednesday_json','thursday_json','friday_json','saturday_json','sunday_json','status'),
@@ -149,7 +151,7 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 			'leave-transactions'=>array('transaction_code','employment_id','leave_policy_id','transaction_type','start_date','end_date','quantity_days','source_transaction_id','reason','evidence_ref_id','status'),
 			'compensation-assignments'=>array('assignment_code','employment_id','currency','base_salary','effective_from','effective_to','reason_code','reason_text','source_type','source_reference'),
 			'compensation-items'=>array('compensation_assignment_id','component_code','component_name','component_type','amount','frequency','cash_payable','taxable_status','pensionable_status','legal_rule_id','evidence_ref_id'),
-			'legal-rules'=>array('rule_code','rule_family','jurisdiction','source_title','source_article','source_url','source_sha256','publication_date','effective_from','effective_to','formula_key','formula_parameters','applicability','exceptions','review_status'),
+			'legal-rules'=>array('rule_code','rule_family','jurisdiction','source_title','source_article','source_url','source_sha256','publication_date','effective_from','effective_to','formula_key','formula_parameters','applicability','exceptions','review_status','reviewer_name','reviewer_qualification','test_vectors_sha256'),
 			'legal-rule-bands'=>array('legal_rule_id','band_order','lower_bound','upper_bound','rate','constant_credit','calculation_method'),
 			'payee-engagements'=>array('engagement_code','payee_person_id','engagement_type','campaign_or_service','start_date','end_date','contract_ref_id','deliverable_terms','status'),
 			'payee-requests'=>array('request_code','engagement_id','request_type','service_period_start','service_period_end','cash_amount','in_kind_value','currency','invoice_or_receipt_ref'),
@@ -220,6 +222,9 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		if(in_array($entity,array('legal-rules','leave-policies'),true))$row[$entity==='legal-rules'?'review_status':'approval_status']='LEGAL_REVIEW';
 		if(in_array($entity,array('compensation-assignments','compensation-items'),true))$row['status']='DRAFT';
 		if('payee-requests'===$entity){$row['status']='DRAFT';$row['classification_status']='LEGAL_REVIEW';}
+		if(isset($map['state'])&&'active'!==$map['state']&&isset($row[$map['state']]))$row[$map['state']]='DRAFT';
+		if('people'===$entity)$row['privacy_state']='ACTIVE';
+		if('interviews'===$entity)$row['recommendation']='PENDING';
 		if('payee-classifications'===$entity){$row['status']='LEGAL_REVIEW';}
 		if('applications'===$entity){$row['stage']='RECEIVED';$row['status']='OPEN';}
 		if('assignments'===$entity){$row['approval_status']='DRAFT';}
@@ -265,7 +270,7 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 			'positions'=>array('SUBMIT'=>array('DRAFT','SUBMITTED'),'APPROVE'=>array('SUBMITTED','APPROVED'),'REJECT'=>array('SUBMITTED','REJECTED')),
 			'workforce-plans'=>array('SUBMIT'=>array('DRAFT','SUBMITTED'),'APPROVE'=>array('SUBMITTED','APPROVED'),'REJECT'=>array('SUBMITTED','REJECTED')),
 			'requisitions'=>array('SUBMIT'=>array('DRAFT','SUBMITTED'),'APPROVE'=>array('SUBMITTED','APPROVED'),'REJECT'=>array('SUBMITTED','REJECTED'),'OPEN'=>array('APPROVED','OPEN'),'CLOSE'=>array('OPEN','CLOSED')),
-			'applications'=>array('SCREEN'=>array('RECEIVED','SCREENING'),'SHORTLIST'=>array('SCREENING','SHORTLISTED'),'REJECT'=>array('RECEIVED','REJECTED'),'WITHDRAW'=>array('RECEIVED','WITHDRAWN')),
+			'applications'=>array('SCREEN'=>array('RECEIVED','SCREENING'),'SHORTLIST'=>array('SCREENING','SHORTLISTED'),'REJECT'=>array('RECEIVED','REJECTED'),'WITHDRAW'=>array('RECEIVED','WITHDRAWN'),'SELECT'=>array('SHORTLISTED','SELECTED')),
 			'interviews'=>array('RECOMMEND'=>array('PENDING','RECOMMENDED'),'REJECT'=>array('PENDING','NOT_RECOMMENDED')),
 			'offers'=>array('SUBMIT'=>array('DRAFT','SUBMITTED'),'APPROVE'=>array('SUBMITTED','APPROVED'),'REJECT'=>array('SUBMITTED','REJECTED'),'ACCEPT'=>array('APPROVED','ACCEPTED'),'DECLINE'=>array('APPROVED','DECLINED')),
 			'contracts'=>array('SUBMIT'=>array('DRAFT','SUBMITTED'),'APPROVE'=>array('SUBMITTED','APPROVED'),'REJECT'=>array('SUBMITTED','REJECTED')),
@@ -312,7 +317,8 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		elseif('interviews'===$entity)$extra[$state_field]=$to;
 		else $extra[$state_field]=$to;
 		if($is_approval){$extra['approved_by']=get_current_user_id();if(in_array($state_field,array('status','approval_status','review_status'),true))$extra['approved_at']=Stockland_HR_Replacement::now();}
-		if('applications'===$entity&&'REJECT'===$action){$extra['retention_until']=Stockland_HR_Replacement::valid_date($body['retention_until']??'')?:null;}
+		if('applications'===$entity&&'SELECT'===$action){$selection=sanitize_textarea_field((string)($body['selection_rationale']??''));if(strlen(trim($selection))<20)return $this->error('hrx_selection_rationale_required','Document the human selection rationale (minimum 20 characters).',422);$extra['selection_rationale']=$selection;}
+		if('applications'===$entity&&'REJECT'===$action){$extra['status']='REJECTED';$extra['retention_until']=Stockland_HR_Replacement::valid_date($body['retention_until']??'')?:null;}
 		if(false===$this->begin())return $this->error('hrx_tx_begin_failed','Could not start HR transaction.',500);
 		$ok=Stockland_DB::update_record($this->table($entity),$extra,array('id'=>$id,$state_field=>$current[$state_field]));
 		if(false===$ok){$this->rollback();return $this->error('hrx_transition_write_failed','Record state update failed; no transition was recorded.',500);}
@@ -328,7 +334,7 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		$id=(int)$request['id'];$offer=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',Stockland_HR_Replacement::table('hrx_offers'),$id),ARRAY_A);
 		if(!$offer||'ACCEPTED'!==strtoupper((string)$offer['status']))return $this->error('hrx_offer_not_accepted','Only an approved and accepted offer may create a pending employment relationship.',409);
 		$app=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d',Stockland_HR_Replacement::table('hrx_applications'),(int)$offer['application_id']),ARRAY_A);
-		if(!$app||'OPEN'!==strtoupper((string)$app['status'])||empty($app['selection_rationale'])||strlen(trim((string)$app['selection_rationale']))<20)return $this->error('hrx_human_selection_missing','A documented human selection decision and open approved application are required.',409);
+		if(!$app||'OPEN'!==strtoupper((string)$app['status'])||'SELECTED'!==strtoupper((string)$app['stage'])||empty($app['selection_rationale'])||strlen(trim((string)$app['selection_rationale']))<20)return $this->error('hrx_human_selection_missing','A documented human selection decision and open approved application are required.',409);
 		$person=(int)$app['person_id'];$employment_code='EMPX-'.gmdate('Ymd').'-'.wp_generate_password(8,false,false);
 		$row=array('employment_code'=>$employment_code,'person_id'=>$person,'offer_id'=>$id,'legal_employer_code'=>sanitize_key((string)($request->get_param('legal_employer_code')?:'STOCKLAND_ET_PLC')),'employment_type'=>sanitize_key((string)$offer['employment_type'],'full_time'),'start_date'=>$offer['proposed_start'],'end_date'=>$offer['proposed_end'],'status'=>'PENDING_ACTIVATION','created_by'=>get_current_user_id(),'created_at'=>Stockland_HR_Replacement::now(),'version_no'=>1);
 		if(false===$this->begin())return $this->error('hrx_tx_begin_failed','Could not start HR transaction.',500);
@@ -389,7 +395,7 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		$rows=Stockland_DB::read_results($wpdb->prepare("SELECT * FROM %i WHERE rule_family=%s AND review_status='APPROVED' AND effective_from<=%s AND (effective_to IS NULL OR effective_to>=%s) ORDER BY effective_from DESC,id DESC",Stockland_HR_Replacement::table('hrx_legal_rules'),$family,$start,$end),ARRAY_A);
 		if(empty($rows))return null;
 		// More than one rule is a conflict unless only the same version/range is returned.
-		if(count($rows)>1){$top=$rows[0];foreach(array_slice($rows,1) as $r){if($r['rule_code']!==$top['rule_code'])return null;}}
+		if(count($rows)>1)return null;
 		$rule=$rows[0];$params=json_decode((string)$rule['formula_parameters'],true);$rule['parameters']=is_array($params)?$params:array();
 		if('PAYE'===$family){
 			$bands=Stockland_DB::read_results($wpdb->prepare('SELECT band_order,lower_bound,upper_bound,rate,constant_credit,calculation_method FROM %i WHERE legal_rule_id=%d ORDER BY band_order',Stockland_HR_Replacement::table('hrx_legal_rule_bands'),(int)$rule['id']),ARRAY_A);
@@ -525,7 +531,7 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		foreach((array)$lines as $line){
 			if(false===Stockland_DB::insert_record(Stockland_HR_Replacement::table('hrx_payout_items'),array('payout_batch_id'=>$batch_id,'payroll_line_id'=>(int)$line['id'],'amount'=>$line['net_pay'],'status'=>'PENDING','created_at'=>Stockland_HR_Replacement::now()))){$this->rollback();return $this->error('hrx_payout_items_failed','Payout items could not be created atomically.',500);}
 		}
-		$ok=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_payout_batches'),array('status'=>'READY'),'id='.$batch_id);
+		$ok=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_payout_batches'),array('status'=>'READY'),array('id'=>$batch_id));
 		$ok2=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_payroll_runs'),array('status'=>'SETTLEMENT_PENDING','payout_state'=>'PENDING','updated_at'=>Stockland_HR_Replacement::now()),array('id'=>$id,'status'=>'APPROVED','payout_state'=>'NOT_STARTED'));
 		$audit=Stockland_HR_Replacement::audit('payout_batch_created','payroll-run',$id,'Payout batch created; not marked paid');
 		if(false===$ok||false===$ok2||is_wp_error($audit)||false===$audit){$this->rollback();return $this->error('hrx_payout_batch_failed','Payout batch transition was rolled back.',500);}
