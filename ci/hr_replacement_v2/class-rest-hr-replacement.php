@@ -1013,13 +1013,19 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 	}
 
 	public function create_exit_settlement( $request ) {
-		global $wpdb;$body=$this->body($request);$employment_id=(int)($body['employment_id']??0);
+		global $wpdb;
+		$ready=$this->require_schema();if(is_wp_error($ready))return $ready;
+		$body=$this->body($request);$employment_id=(int)($body['employment_id']??0);
 		$emp=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d',Stockland_HR_Replacement::table('hrx_employments'),$employment_id),ARRAY_A);if(!$emp)return $this->error('hrx_employment_not_found','Employment relationship not found.',404);
+		if(!in_array($emp['status'],array('ACTIVE','EXIT_PENDING'),true))return $this->error('hrx_employment_state_invalid','Only an active employment relationship can enter final-settlement workflow.',409);
+		$existing=Stockland_DB::read_row($wpdb->prepare("SELECT id,status FROM %i WHERE employment_id=%d AND status NOT IN('SETTLED','CANCELLED') ORDER BY id DESC LIMIT 1",Stockland_HR_Replacement::table('hrx_exit_settlements'),$employment_id),ARRAY_A);
+		if($existing)return $this->error('hrx_exit_already_open','An unsettled exit process already exists for this employment.',409);
 		$exit_type=sanitize_key($body['exit_type']??'');$reason=sanitize_textarea_field((string)($body['exit_reason']??''));$last=Stockland_HR_Replacement::valid_date($body['final_working_date']??'');$effective=Stockland_HR_Replacement::valid_date($body['effective_end_date']??'');
 		if(!$exit_type||strlen(trim($reason))<20||!$last||!$effective||$effective<$last)return $this->error('hrx_exit_input_invalid','Exit type/reason and valid final/effective dates are required; effective date must be on or after final working day.',422);
-		$code='EXITX-'.gmdate('Ymd').'-'.wp_generate_password(8,false,false);
+		$code='EXITX-'.gmdate('Ymd').'-'.strtoupper(wp_generate_password(8,false,false));
 		$row=array('settlement_code'=>$code,'employment_id'=>$employment_id,'exit_type'=>$exit_type,'exit_reason'=>$reason,'notice_date'=>Stockland_HR_Replacement::valid_date($body['notice_date']??'')?:null,'final_working_date'=>$last,'effective_end_date'=>$effective,'status'=>'DRAFT','created_by'=>get_current_user_id(),'created_at'=>Stockland_HR_Replacement::now(),'version_no'=>1);
-		if(false===Stockland_DB::insert_record(Stockland_HR_Replacement::table('hrx_exit_settlements'),$row))return $this->error('hrx_exit_insert_failed','Final settlement request could not be created.',409);
+		if(false===$this->begin())return $this->error('hrx_tx_begin_failed','Could not start exit request transaction.',500);
+		if(false===Stockland_DB::insert_record(Stockland_HR_Replacement::table('hrx_exit_settlements'),$row)){$this->rollback();return $this->error('hrx_exit_insert_failed','Final settlement request could not be created.',409);}
 		$id=(int)$wpdb->insert_id;
 		$tasks=array(
 			array('HANDOVER','Complete role handover and return operational responsibilities'),
@@ -1030,16 +1036,14 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		);
 		$task_failed=false;
 		foreach($tasks as $task){
-			$task_status=('ACCESS_REVOKED'===$task[0]&&!empty($emp['wp_user_id']))?'OPEN':'OPEN';
-			if('ACCESS_REVOKED'===$task[0]&&empty($emp['wp_user_id']))$task_status='COMPLETE';
+			$task_status=('ACCESS_REVOKED'===$task[0]&&empty($emp['wp_user_id']))?'COMPLETE':'OPEN';
 			$taskrow=array('settlement_id'=>$id,'employment_id'=>$employment_id,'task_code'=>$task[0],'task_title'=>$task[1],'responsible_role'=>'MANAGEMENT','status'=>$task_status,'resolution_note'=>('COMPLETE'===$task_status?'No linked Stockland ERP account exists.':null),'created_by'=>get_current_user_id(),'created_at'=>Stockland_HR_Replacement::now());
 			if(false===Stockland_DB::insert_record(Stockland_HR_Replacement::table('hrx_exit_clearance_tasks'),$taskrow)){$task_failed=true;break;}
 		}
-		if($task_failed){return $this->error('hrx_exit_tasks_create_failed','Exit request created but clearance tasks could not all be created. Keep this settlement blocked and repair the task record through the audited admin workflow.',500);}
 		$evt=Stockland_HR_Replacement::approval_event('exit-settlement',$id,'EXIT_DRAFT_CREATED',null,'DRAFT','Exit request created',$code);
 		$audit=Stockland_HR_Replacement::audit('exit_draft_created','exit-settlement',$id,'Exit initiated; employment remains active until approved settlement and clearance.');
-		if(is_wp_error($evt)||is_wp_error($audit)||false===$audit)return $this->error('hrx_exit_audit_failed','Exit request exists but audit failed; do not approve or pay until reconciled.',500);
-		return rest_ensure_response(array('id'=>$id,'settlement_code'=>$code,'status'=>'DRAFT','clearance_tasks'=>count($tasks),'message'=>'Draft created. The settlement remains blocked until every earning/deduction has qualified legal-rule evidence and all exit clearances are complete.'));
+		if($task_failed||is_wp_error($evt)||is_wp_error($audit)||false===$audit){$this->rollback();return $this->error('hrx_exit_setup_failed','Exit request, clearance tasks and audit must all persist atomically; transaction was rolled back.',500);}
+		$this->commit();return rest_ensure_response(array('id'=>$id,'settlement_code'=>$code,'status'=>'DRAFT','clearance_tasks'=>count($tasks),'message'=>'Draft created. The settlement remains blocked until every earning/deduction has qualified legal-rule evidence and all exit clearances are complete.'));
 	}
 
 	public function add_exit_item( $request ) {
@@ -1048,13 +1052,23 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		if(!in_array($exit['status'],array('DRAFT','CALCULATED'),true))return $this->error('hrx_exit_locked','Only draft/freshly calculated settlement items may be edited.',409);
 		$code=sanitize_key($body['item_code']??'');$label=sanitize_text_field($body['item_label']??'');$type=strtoupper(sanitize_key($body['item_type']??''));$amount=$body['amount']??null;$rule_id=(int)($body['rule_id']??0);$source=sanitize_text_field((string)($body['source_reference']??''));$trace=sanitize_textarea_field((string)($body['calculation_trace']??''));
 		if(!$code||!$label||!in_array($type,array('EARNING','DEDUCTION'),true)||null===$amount||$rule_id<1||strlen(trim($trace))<20)return $this->error('hrx_exit_item_evidence_required','Item code/type/amount, approved rule ID and calculation trace are required.',422);
-		$rule=Stockland_DB::read_row($wpdb->prepare("SELECT * FROM %i WHERE id=%d AND review_status='APPROVED'",Stockland_HR_Replacement::table('hrx_legal_rules'),$rule_id),ARRAY_A);if(!$rule)return $this->error('hrx_exit_rule_unapproved','Final settlement item requires a currently approved legal rule.',409);
+		$rule=Stockland_DB::read_row($wpdb->prepare("SELECT * FROM %i WHERE id=%d AND review_status='APPROVED' AND effective_from<=%s AND (effective_to IS NULL OR effective_to>=%s)",Stockland_HR_Replacement::table('hrx_legal_rules'),$rule_id,$exit['effective_end_date'],$exit['effective_end_date']),ARRAY_A);if(!$rule||empty($rule['source_sha256']))return $this->error('hrx_exit_rule_unapproved','Settlement item requires a currently effective approved rule with source hash.',409);
 		try{$money=Stockland_Money::decimal(Stockland_Money::minor($amount));}catch(Throwable $e){return $this->error('hrx_exit_amount_invalid','Invalid settlement amount.',422);}
-		if(Stockland_Money::minor($money)<0)return $this->error('hrx_exit_amount_negative','Use positive amount and correct earning/deduction type.',422);
-		$ok=Stockland_DB::insert_record(Stockland_HR_Replacement::table('hrx_exit_items'),array('settlement_id'=>$id,'item_code'=>$code,'item_label'=>$label,'item_type'=>$type,'amount'=>$money,'rule_id'=>$rule_id,'source_reference'=>$source,'calculation_trace'=>$trace,'created_at'=>Stockland_HR_Replacement::now()));
-		if(false===$ok)return $this->error('hrx_exit_item_insert_failed','Settlement item could not be saved.',500);
-		Stockland_HR_Replacement::audit('exit_item_added','exit-settlement',$id,'Approved-rule-based settlement item added.');
-		return rest_ensure_response(array('settlement_id'=>$id,'added'=>true));
+		if(Stockland_Money::minor($money)<=0)return $this->error('hrx_exit_amount_invalid','Settlement items must be positive amounts; use the earning/deduction type to determine treatment.',422);
+		$payable_account=null;
+		if('DEDUCTION'===$type){
+			$config=Stockland_DB::read_row($wpdb->prepare("SELECT * FROM %i WHERE status='APPROVED' AND effective_from<=%s AND (effective_to IS NULL OR effective_to>=%s) ORDER BY effective_from DESC,id DESC LIMIT 1",Stockland_HR_Replacement::table('hrx_accounting_config'),$exit['effective_end_date'],$exit['effective_end_date']),ARRAY_A);
+			if(!$config)return $this->error('hrx_gl_mapping_missing','Approved GL mapping is required before settlement deductions can be added.',409);
+			$map=array('PAYE'=>$config['paye_payable_account'],'EMPLOYEE_PENSION'=>$config['employee_pension_payable_account'],'EMPLOYER_PENSION'=>$config['employer_pension_payable_account'],'OTHER_DEDUCTION'=>$config['other_deductions_payable_account']);
+			$payable_account=$map[strtoupper($code)]??$config['other_deductions_payable_account'];
+			if(empty($payable_account)||!Stockland_Accounting::account_exists($payable_account))return $this->error('hrx_exit_deduction_account_invalid','Settlement deduction maps to a missing/inactive payable account.',409);
+		}
+		if(false===$this->begin())return $this->error('hrx_tx_begin_failed','Could not start settlement item transaction.',500);
+		$ok=Stockland_DB::insert_record(Stockland_HR_Replacement::table('hrx_exit_items'),array('settlement_id'=>$id,'item_code'=>$code,'item_label'=>$label,'item_type'=>$type,'amount'=>$money,'rule_id'=>$rule_id,'payable_account_code'=>$payable_account,'source_reference'=>$source,'calculation_trace'=>$trace,'created_at'=>Stockland_HR_Replacement::now()));
+		$ok2=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_exit_settlements'),array('status'=>'DRAFT','updated_at'=>Stockland_HR_Replacement::now(),'version_no'=>(int)$exit['version_no']+1),array('id'=>$id,'status'=>$exit['status']));
+		$audit=Stockland_HR_Replacement::audit('exit_item_added','exit-settlement',$id,'Rule-backed final settlement item added; item change resets calculation.');
+		if(false===$ok||false===$ok2||is_wp_error($audit)||false===$audit){$this->rollback();return $this->error('hrx_exit_item_insert_failed','Settlement item and state/audit update were rolled back.',500);}
+		$this->commit();return rest_ensure_response(array('settlement_id'=>$id,'added'=>true,'status'=>'DRAFT','payable_account_code'=>$payable_account));
 	}
 
 	public function calculate_exit_settlement( $request ) {
