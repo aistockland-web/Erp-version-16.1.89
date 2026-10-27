@@ -82,6 +82,7 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		register_rest_route( $ns, '/hr/replacement/payee-requests/(?P<id>\d+)/calculate', array( 'methods'=>'POST','callback'=>array( $this,'calculate_payee_request' ),'permission_callback'=>array( $this,'permission_manage_payroll' ) ) );
 		register_rest_route( $ns, '/hr/replacement/payee-requests/(?P<id>\d+)/pay', array( 'methods'=>'POST','callback'=>array( $this,'pay_payee_request' ),'permission_callback'=>array( $this,'permission_approve_payroll' ) ) );
 		register_rest_route( $ns, '/hr/replacement/employments/(?P<id>\d+)/activate', array( 'methods'=>'POST','callback'=>array( $this,'activate_employment' ),'permission_callback'=>array( $this,'permission_approve_hr' ) ) );
+		register_rest_route( $ns, '/hr/replacement/employments/(?P<id>\d+)/revoke-access', array( 'methods'=>'POST','callback'=>array( $this,'revoke_employment_access' ),'permission_callback'=>array( $this,'permission_approve_hr' ) ) );
 		register_rest_route( $ns, '/hr/replacement/payout-items/(?P<id>\d+)/outcome', array( 'methods'=>'POST','callback'=>array( $this,'record_payout_outcome' ),'permission_callback'=>array( $this,'permission_approve_payroll' ) ) );
 		register_rest_route( $ns, '/hr/replacement/payroll/runs/(?P<id>\d+)/close', array( 'methods'=>'POST','callback'=>array( $this,'close_payroll_run' ),'permission_callback'=>array( $this,'permission_approve_hr' ) ) );
 		register_rest_route( $ns, '/hr/replacement/legal-rules/(?P<id>\d+)/review', array( 'methods'=>'POST','callback'=>array( $this,'review_legal_rule' ),'permission_callback'=>array( $this,'permission_approve_hr' ) ) );
@@ -380,9 +381,16 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		$contract=array('employment_id'=>$eid,'contract_code'=>'CTX-'.wp_generate_password(12,false,false),'contract_version'=>1,'contract_type'=>$row['employment_type'],'start_date'=>$row['start_date'],'end_date'=>$row['end_date'],'probation_end'=>null,'terms_hash'=>hash('sha256',(string)$offer['terms_version']),'status'=>'DRAFT','created_by'=>get_current_user_id(),'created_at'=>Stockland_HR_Replacement::now());
 		$ok2=Stockland_DB::insert_record(Stockland_HR_Replacement::table('hrx_contracts'),$contract);
 		$contract_id=(int)$wpdb->insert_id;
+		$tasks=array(
+			array('CONTRACT_SIGNED','Sign and verify the employment contract','HR'),
+			array('PERSONNEL_DOCS','Verify required personnel documents','HR'),
+			array('COMPENSATION_SETUP','Confirm approved effective-dated compensation','FINANCE'),
+			array('INDUCTION','Complete role induction and SOP acknowledgement','MANAGEMENT')
+		);
+		$task_failed=false;foreach($tasks as $task){$taskrow=array('employment_id'=>$eid,'task_code'=>$task[0],'task_title'=>$task[1],'owner_role'=>$task[2],'status'=>'OPEN','created_by'=>get_current_user_id(),'created_at'=>Stockland_HR_Replacement::now());if(false===Stockland_DB::insert_record(Stockland_HR_Replacement::table('hrx_onboarding_tasks'),$taskrow)){$task_failed=true;break;}}
 		$evt=Stockland_HR_Replacement::approval_event('employment',$eid,'PENDING_HIRE_CREATED',null,'PENDING_ACTIVATION','From accepted offer',$employment_code);
 		$audit=Stockland_HR_Replacement::audit('pending_hire_created','employment',$eid,'From approved offer');
-		if(false===$ok2||is_wp_error($evt)||is_wp_error($audit)||false===$audit){$this->rollback();return $this->error('hrx_hire_transaction_failed','Hire creation was rolled back because contract/audit did not complete.',500);}
+		if(false===$ok2||$task_failed||is_wp_error($evt)||is_wp_error($audit)||false===$audit){$this->rollback();return $this->error('hrx_hire_transaction_failed','Hire creation was rolled back because contract/audit did not complete.',500);}
 		$this->commit();return rest_ensure_response(array('employment_id'=>$eid,'employment_code'=>$employment_code,'status'=>'PENDING_ACTIVATION','contract_id'=>$contract_id,'message'=>'Pending hire created; signed contract, verified documents, onboarding and approved compensation must be completed before activation.'));
 	}
 
