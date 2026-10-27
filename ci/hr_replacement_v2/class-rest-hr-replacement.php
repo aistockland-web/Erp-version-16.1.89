@@ -945,17 +945,39 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 	}
 
 	public function approve_payee_request( $request ) {
-		global $wpdb;$id=(int)$request['id'];$body=$this->body($request);
-		$req=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d',Stockland_HR_Replacement::table('hrx_payee_requests'),$id),ARRAY_A);if(!$req)return $this->error('hrx_payee_request_not_found','Payee request not found.',404);
-		if('APPROVED'!==$req['classification_status'])return $this->error('hrx_payee_tax_review_required','An approved legal/tax classification is mandatory before approval for payment.',409);
-		if('SUBMITTED'!==$req['status'])return $this->error('hrx_payee_state_invalid','Only a submitted payee request can be approved.',409);
-		$reason=sanitize_textarea_field((string)($body['approval_note']??''));if(strlen(trim($reason))<30)return $this->error('hrx_payee_approval_note_required','Independent approval rationale is required.',422);
+		global $wpdb;
+		$ready=$this->require_schema();if(is_wp_error($ready))return $ready;
+		$id=(int)$request['id'];$body=$this->body($request);
+		$req=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',Stockland_HR_Replacement::table('hrx_payee_requests'),$id),ARRAY_A);
+		if(!$req)return $this->error('hrx_payee_request_not_found','Payee request not found.',404);
+		if('APPROVED'!==strtoupper((string)$req['classification_status'])||'SUBMITTED'!==strtoupper((string)$req['status']))return $this->error('hrx_payee_state_invalid','Payee request must be calculated and independently tax-classified before approval.',409);
 		if((int)$req['created_by']===get_current_user_id())return $this->error('hrx_no_self_approval','Request creator cannot approve the request.',403);
-		$ok=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_payee_requests'),array('status'=>'APPROVED','approved_by'=>get_current_user_id(),'approved_at'=>Stockland_HR_Replacement::now(),'updated_at'=>Stockland_HR_Replacement::now()),array('id'=>$id,'status'=>'SUBMITTED','classification_status'=>'APPROVED'));
-		if(false===$ok)return $this->error('hrx_payee_approval_failed','Payee request approval failed.',409);
-		Stockland_HR_Replacement::approval_event('payee-request',$id,'PAYEE_APPROVED','SUBMITTED','APPROVED',$reason,wp_generate_uuid4(),null,get_current_user_id());
-		Stockland_HR_Replacement::audit('payee_approved','payee-request',$id,'Approved for central Finance/AP settlement; no branch payment.');
-		return rest_ensure_response(array('id'=>$id,'status'=>'APPROVED','message'=>'Approved for central AP processing. Payment and remittance evidence must be handled by the controlled finance service.'));
+		$reason=sanitize_textarea_field((string)($body['approval_note']??''));$key=sanitize_text_field((string)($body['idempotency_key']??''));
+		if(strlen(trim($reason))<30||!$key)return $this->error('hrx_payee_approval_note_required','Independent approval rationale (30+ characters) and idempotency key are required.',422);
+		if(Stockland_Money::minor($req['cash_amount'])!==Stockland_Money::minor(Stockland_Money::add($req['net_amount'],$req['withholding_amount'])))return $this->error('hrx_payee_calculation_mismatch','Cash amount does not reconcile to net payable plus withholding.',409);
+		$rule_id=(int)($req['withholding_rule_id']??0);
+		$rule=Stockland_DB::read_row($wpdb->prepare("SELECT * FROM %i WHERE id=%d AND review_status='APPROVED' AND rule_family='PAYEE_WITHHOLDING'",Stockland_HR_Replacement::table('hrx_legal_rules'),$rule_id),ARRAY_A);
+		if(!$rule||empty($rule['source_sha256'])||!preg_match('/^[a-f0-9]{64}$/i',(string)$rule['source_sha256']))return $this->error('hrx_payee_rule_no_longer_approved','The approved payee withholding rule or source hash is missing.',409);
+		if(Stockland_Money::minor($req['in_kind_value'])>0&&((int)$req['in_kind_posting_verified']!==1||empty($req['in_kind_stock_reference'])))return $this->error('hrx_in_kind_stock_evidence_missing','In-kind stock transaction/valuation evidence is not verified.',409);
+		$config=Stockland_DB::read_row($wpdb->prepare("SELECT * FROM %i WHERE status='APPROVED' AND effective_from<=%s AND (effective_to IS NULL OR effective_to>=%s) ORDER BY effective_from DESC,id DESC LIMIT 1",Stockland_HR_Replacement::table('hrx_accounting_config'),$req['service_period_end']?:current_time('Y-m-d'),$req['service_period_start']?:current_time('Y-m-d')),ARRAY_A);
+		if(!$config)return $this->error('hrx_gl_mapping_missing','Approved effective-dated central AP account mapping is required.',409);
+		foreach(array($config['payee_expense_account'],$config['payee_payable_account'],$config['payee_withholding_account']) as $account){if(empty($account)||!Stockland_Accounting::account_exists($account))return $this->error('hrx_ap_account_invalid','All central AP expense/payable/withholding accounts must exist and be active.',409);}
+		$net=Stockland_Money::minor($req['net_amount']);$withholding=Stockland_Money::minor($req['withholding_amount']);$cash=Stockland_Money::minor($req['cash_amount']);
+		if($net<0||$withholding<0||$cash<0||$net+$withholding!==$cash)return $this->error('hrx_payee_amounts_invalid','Payee net/withholding amounts are not valid or balanced.',409);
+		$lines=array();
+		if($cash>0)$lines[]=array('account_code'=>$config['payee_expense_account'],'debit'=>Stockland_Money::decimal($cash),'credit'=>'0.00','memo'=>'Central payee service/cash consideration '.$req['request_code']);
+		if($net>0)$lines[]=array('account_code'=>$config['payee_payable_account'],'debit'=>'0.00','credit'=>Stockland_Money::decimal($net),'memo'=>'Approved net payable '.$req['request_code']);
+		if($withholding>0)$lines[]=array('account_code'=>$config['payee_withholding_account'],'debit'=>'0.00','credit'=>Stockland_Money::decimal($withholding),'memo'=>'Approved payee withholding '.$req['request_code']);
+		if(empty($lines))return $this->error('hrx_payee_zero_value','Zero-value payee request cannot be posted.',409);
+		if(false===$this->begin())return $this->error('hrx_tx_begin_failed','Could not start AP approval transaction.',500);
+		$journal=Stockland_Accounting::post_journal(current_time('Y-m-d'),'HRX_PAYEE_REQUEST',$id,'Central payee AP '.$req['request_code'],$lines,get_current_user_id());
+		if(!$journal){$this->rollback();return $this->error('hrx_payee_gl_failed','AP approval journal did not post.',500);}
+		$link=Stockland_DB::insert_record(Stockland_HR_Replacement::table('hrx_accounting_links'),array('source_type'=>'HRX_PAYEE_REQUEST','source_id'=>$id,'journal_id'=>(int)$journal,'journal_hash'=>hash('sha256',wp_json_encode($lines)),'posted_at'=>Stockland_HR_Replacement::now(),'posted_by'=>get_current_user_id()));
+		$ok=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_payee_requests'),array('status'=>'APPROVED','approved_by'=>get_current_user_id(),'approved_at'=>Stockland_HR_Replacement::now(),'journal_id'=>(int)$journal,'updated_at'=>Stockland_HR_Replacement::now()),array('id'=>$id,'status'=>'SUBMITTED','classification_status'=>'APPROVED'));
+		$evt=Stockland_HR_Replacement::approval_event('payee-request',$id,'PAYEE_APPROVED','SUBMITTED','APPROVED',$reason,$key,null,get_current_user_id());
+		$audit=Stockland_HR_Replacement::audit('payee_approved','payee-request',$id,'Central AP liability and withholding journal posted; payment remains separate.');
+		if(false===$link||false===$ok||is_wp_error($evt)||is_wp_error($audit)||false===$audit){$this->rollback();return $this->error('hrx_payee_approval_failed','Approval/AP journal and audit were rolled back.',500);}
+		$this->commit();return rest_ensure_response(array('id'=>$id,'status'=>'APPROVED','journal_id'=>(int)$journal,'message'=>'Central AP liability posted. A separate authorized Management payer must record and reconcile payment.'));
 	}
 
 	public function create_exit_settlement( $request ) {
