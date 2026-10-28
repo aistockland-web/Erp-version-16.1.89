@@ -2,11 +2,14 @@ name: Stockland HR replacement workforce slice contracts
 
 on:
   push:
-    branches: [feature/hr-replacement-stage3-rebased-2026-10-28]
+    branches: [feature/hr-replacement-stage3-rebased-2026-10-28, feature/hr-replacement-stage4-people-lifecycle-2026-10-28]
     paths:
       - 'ci/hr_payroll_replacement_runtime/**'
       - 'ci/hr_payroll_candidate/**'
       - 'ci/qa/test_hr_replacement_workforce_slice.php'
+      - 'ci/qa/test_hr_replacement_people_lifecycle.php'
+      - 'ci/qa/test_hr_replacement_people_repository.php'
+      - 'ci/qa/test_hr_replacement_people_rest_contract.py'
       - '.github/workflows/hr-replacement-workforce-slice.yml'
   pull_request:
     branches: [main]
@@ -14,6 +17,9 @@ on:
       - 'ci/hr_payroll_replacement_runtime/**'
       - 'ci/hr_payroll_candidate/**'
       - 'ci/qa/test_hr_replacement_workforce_slice.php'
+      - 'ci/qa/test_hr_replacement_people_lifecycle.php'
+      - 'ci/qa/test_hr_replacement_people_repository.php'
+      - 'ci/qa/test_hr_replacement_people_rest_contract.py'
       - '.github/workflows/hr-replacement-workforce-slice.yml'
   workflow_dispatch:
 
@@ -53,13 +59,28 @@ jobs:
           php -l ci/hr_payroll_replacement_runtime/Stockland_HR_Replacement_Workforce_Schema.php
           php -l ci/hr_payroll_replacement_runtime/Stockland_HR_Replacement_Workforce_WP_Access.php
           php -l ci/hr_payroll_replacement_runtime/class-rest-hr-replacement-workforce.php
+          php -l ci/hr_payroll_replacement_runtime/Stockland_HR_Replacement_People_Contract.php
+          php -l ci/hr_payroll_replacement_runtime/Stockland_HR_Replacement_People_Repository.php
+          php -l ci/hr_payroll_replacement_runtime/Stockland_HR_Replacement_People_Service.php
+          php -l ci/hr_payroll_replacement_runtime/Stockland_HR_Replacement_People_Schema.php
+          php -l ci/hr_payroll_replacement_runtime/Stockland_HR_Replacement_People_WP_Access.php
+          php -l ci/hr_payroll_replacement_runtime/Stockland_HR_Replacement_WP_Private_Vault.php
+          php -l ci/hr_payroll_replacement_runtime/class-rest-hr-replacement-people.php
           php -l ci/qa/test_hr_replacement_workforce_slice.php
+          php -l ci/qa/test_hr_replacement_people_lifecycle.php
+          php -l ci/qa/test_hr_replacement_people_repository.php
           python ci/qa/test_hr_replacement_workforce_rest_contract.py
           php -l ci/hr_payroll_candidate/Stockland_HR_Workflow_State_Machine.php
           php -l ci/hr_payroll_candidate/Stockland_HR_Payroll_Calculator.php
           php -l ci/hr_payroll_candidate/Stockland_HR_Time_Leave_Engine.php
       - name: Run synthetic persistence, authorization, concurrency and workflow contracts
         run: php ci/qa/test_hr_replacement_workforce_slice.php
+      - name: Run synthetic People, recruitment, contract, private-vault and onboarding lifecycle tests
+        run: php ci/qa/test_hr_replacement_people_lifecycle.php
+      - name: Run transactional engine readiness contract
+        run: php ci/qa/test_hr_replacement_people_repository.php
+      - name: Verify People REST loader and Owner authority source contracts
+        run: python ci/qa/test_hr_replacement_people_rest_contract.py
       - name: Re-run independent payroll, workflow and leave-engine pure tests
         run: |
           php ci/hr_payroll_candidate/test_calculator.php
