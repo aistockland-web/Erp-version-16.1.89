@@ -50,8 +50,8 @@ must("new WP_Error(" in s and "hrx_operation_failed" in s, "errors must not sile
 must("error_log( '[Stockland HRX] operation failed (' . get_class( $e ) . ').' )" in s, "unexpected failures must be logged without SQL details")
 must("WP_REST_Server::READABLE" in s and "WP_REST_Server::CREATABLE" in s, "read/write HTTP methods must be explicit")
 must("return;" in s[:1000], "controller must fail closed when loader prerequisites are unavailable")
-create_route = s.split("'/hr/replacement/workforce/plans/(?P<id>\\\\d+)/lines',", 1)[1].split("register_rest_route(", 1)[0]
-update_route = s.split("'/hr/replacement/workforce/plans/(?P<id>\\\\d+)/lines/(?P<line_id>\\\\d+)'", 1)[1].split("register_rest_route(", 1)[0]
+create_route = s.split("'/hr/replacement/workforce/plans/(?P<id>\\d+)/lines',", 1)[1].split("register_rest_route(", 1)[0]
+update_route = s.split("'/hr/replacement/workforce/plans/(?P<id>\\d+)/lines/(?P<line_id>\\d+)'", 1)[1].split("register_rest_route(", 1)[0]
 must("'methods' => WP_REST_Server::CREATABLE" in create_route, "plan-line creation must be a POST-only create route")
 must("'methods' => 'PATCH'" in update_route, "plan-line updates must use a line_id-specific PATCH route")
 print("PASS workforce REST static contract: 15 unique paths, idempotency, role gates, branch scope, fail-closed errors.")
