@@ -113,6 +113,12 @@ hrxp_people_assert(strpos(implode("\n",$ddl),'CREATE TABLE wp_stockland_hrx_priv
 hrxp_people_assert(strpos(implode("\n",$ddl),'stock_payroll_lines')===false,'no legacy payroll table is declared in target DDL');$checks++;
 hrxp_people_expect('HRXP_SCHEMA_PREFIX_INVALID',function(){Stockland_HR_Replacement_People_Schema::ddl('wp_;DROP');});$checks++;
 hrxp_people_expect('HRXP_PUBLIC_DOCUMENT_REFERENCE',function(){Stockland_HR_Replacement_People_Contract::private_reference('https://public.example/contract.docx');});$checks++;
+hrxp_people_expect('HRXP_PUBLIC_DOCUMENT_REFERENCE',function(){Stockland_HR_Replacement_People_Contract::private_reference('ftp://public.example/contract.docx');});$checks++;
+hrxp_people_expect('HRXP_PUBLIC_DOCUMENT_REFERENCE',function(){Stockland_HR_Replacement_People_Contract::private_reference('file:///tmp/contract.docx');});$checks++;
+hrxp_people_expect('HRXP_PUBLIC_DOCUMENT_REFERENCE',function(){Stockland_HR_Replacement_People_Contract::private_reference('data:text/plain,secret');});$checks++;
+hrxp_people_expect('HRXP_PUBLIC_DOCUMENT_REFERENCE',function(){Stockland_HR_Replacement_People_Contract::private_reference('vault://hr/contracts/../private.docx');});$checks++;
+hrxp_people_assert(Stockland_HR_Replacement_People_Contract::private_reference('vault://hr/contracts/CON-0001')==='vault://hr/contracts/CON-0001','approved vault object references are accepted');$checks++;
+hrxp_people_assert(Stockland_HR_Replacement_People_Contract::private_reference('vault-audit:TEST-VERIFY-001')==='vault-audit:TEST-VERIFY-001','vault audit receipts are accepted');$checks++;
 
 $repo=new HRXP_People_Memory_Repo();$access=new HRXP_People_Fake_Access();$vault=new HRXP_People_Fake_Vault();
 $service=new Stockland_HR_Replacement_People_Service($repo,$access,$vault);
@@ -130,6 +136,9 @@ hrxp_people_expect('HRXP_PRIVACY_ACK_REQUIRED',function()use($service,$withoutNo
 
 $app=$service->create_application(array('application_code'=>'APP-001','candidate_id'=>$candidate['candidate']['id'],'requisition_id'=>5,'location_id'=>1),'application.create.0001');$checks++;
 hrxp_people_assert($app['record']['stage']==='APPLIED','application links candidate to a currently open vacancy');$checks++;
+$repo->data['candidates'][$candidate['candidate']['id']]['retention_review_on']='2026-10-27';
+hrxp_people_expect('HRXP_RETENTION_REVIEW_DUE',function()use($service,$app){$service->move_application(array('application_id'=>$app['record']['id'],'to_stage'=>'SCREENING','version_no'=>1,'human_decision'=>false,'rationale'=>''),'application.retention.expired.01');});$checks++;
+$repo->data['candidates'][$candidate['candidate']['id']]['retention_review_on']=$candidatePayload['retention_review_on'];
 hrxp_people_expect('HRXP_TRANSITION_NOT_ALLOWED',function()use($service,$app){$service->move_application(array('application_id'=>$app['record']['id'],'to_stage'=>'SELECTED','version_no'=>1,'human_decision'=>true,'rationale'=>'This is a long rationale but should not skip every review stage.'),'application.invalid.0001');});$checks++;
 
 $move=function($to,$version,$key,$decision=false,$rationale='')use($service,$app){
@@ -152,11 +161,21 @@ $checks++;
 $move('ACCEPTED',7,'application.accept.owner.0001',true,'The candidate explicitly accepted the offer and the authorized reviewer recorded evidence.');
 $checks++;
 $access->actor=1;$access->approve=false;
-$hire=$service->create_pending_hire(array('application_id'=>$app['record']['id'],'employment_code'=>'EMP-0001','contract_code'=>'CON-0001','legal_employer_code'=>'STOCKLAND-ET','start_date'=>'2026-11-01','end_date'=>null,'employment_type'=>'FULL_TIME','contract_type'=>'FULL_TIME','probation_end'=>'2027-02-01','location_id'=>1),'hire.create.0001');$checks++;
+$hirePayload=array('application_id'=>$app['record']['id'],'employment_code'=>'EMP-0001','contract_code'=>'CON-0001','legal_employer_code'=>'STOCKLAND-ET','start_date'=>'2026-11-01','end_date'=>null,'employment_type'=>'FULL_TIME','contract_type'=>'FULL_TIME','probation_end'=>'2027-02-01','location_id'=>1);
+$repo->data['candidates'][$candidate['candidate']['id']]['retention_review_on']='2026-10-27';
+hrxp_people_expect('HRXP_RETENTION_REVIEW_DUE',function()use($service,$hirePayload){$service->create_pending_hire($hirePayload,'hire.retention.expired.01');});$checks++;
+$repo->data['candidates'][$candidate['candidate']['id']]['retention_review_on']=$candidatePayload['retention_review_on'];
+$hire=$service->create_pending_hire($hirePayload,'hire.create.0001');$checks++;
+$hireReplay=$service->create_pending_hire($hirePayload,'hire.create.0001');$checks++;
+hrxp_people_assert($hireReplay['replayed']===true&&$hireReplay['contract']['id']===$hire['contract']['id']&&$hireReplay['onboarding_tasks']===7&&!$hireReplay['activation_allowed'],'idempotent hire replay returns contract and onboarding continuation data');$checks++;
 hrxp_people_assert($hire['activation_allowed']===false&&$hire['employment']['status']==='PENDING_CONTRACT'&&$hire['onboarding_tasks']===7,'pending hire does not automatically activate employee or access');$checks++;
 hrxp_people_assert($repo->data['requisitions'][5]['filled_openings']===1&&$repo->data['applications'][$app['record']['id']]['stage']==='HIRED','hire creation consumes the accepted vacancy reservation atomically');$checks++;
 
-$doc=$service->register_private_document(array('document_code'=>'DOC-CON-001','subject_type'=>'CONTRACT','subject_id'=>$hire['contract']['id'],'document_type'=>'EMPLOYMENT_CONTRACT','private_reference'=>'vault://hr/contracts/CON-0001','content_sha256'=>str_repeat('b',64),'issued_on'=>'2026-10-28','expires_on'=>null),'document.register.0001');$checks++;
+$docPayload=array('document_code'=>'DOC-CON-001','subject_type'=>'CONTRACT','subject_id'=>$hire['contract']['id'],'document_type'=>'EMPLOYMENT_CONTRACT','private_reference'=>'vault://hr/contracts/CON-0001','content_sha256'=>str_repeat('b',64),'issued_on'=>'2026-10-28','expires_on'=>null);
+$doc=$service->register_private_document($docPayload,'document.register.0001');$checks++;
+$access->locations=array(2=>true);
+hrxp_people_expect('HRXP_LOCATION_FORBIDDEN',function()use($service,$docPayload){$service->register_private_document($docPayload,'document.register.0001');});$checks++;
+$access->locations=array(1=>true);
 $access->actor=2;$access->approve=true;
 $withoutVault=new Stockland_HR_Replacement_People_Service($repo,$access);
 hrxp_people_expect('HRXP_PRIVATE_VAULT_NOT_VERIFIED',function()use($withoutVault,$doc){$withoutVault->verify_private_document(array('document_id'=>$doc['record']['id'],'version_no'=>1,'review_note'=>'Reviewed file metadata; underlying private vault was not proven.'),'document.verify.no-vault.01');});$checks++;
@@ -166,6 +185,9 @@ $access->actor=1;
 $signedPayload=array('contract_id'=>$hire['contract']['id'],'document_id'=>$doc['record']['id'],'signed_on'=>'2026-10-28','version_no'=>1);
 $signed=$service->sign_contract($signedPayload,'contract.sign.0001');$checks++;
 $signedReplay=$service->sign_contract($signedPayload,'contract.sign.0001');hrxp_people_assert($signedReplay['replayed']===true,'signing request safely replays after contract version advances');$checks++;
+$access->locations=array(2=>true);
+hrxp_people_expect('HRXP_LOCATION_FORBIDDEN',function()use($service,$signedPayload){$service->sign_contract($signedPayload,'contract.sign.0001');});$checks++;
+$access->locations=array(1=>true);
 hrxp_people_assert($signed['record']['status']==='SIGNED'&&$signed['record']['private_document_id']===$doc['record']['id'],'contract cannot be signed without verified linked private document');$checks++;
 $access->actor=2;$access->approve=true;
 $approvalPayload=array('contract_id'=>$hire['contract']['id'],'version_no'=>2,'approval_note'=>'Independent Owner review confirmed signed evidence and approved particulars.');
