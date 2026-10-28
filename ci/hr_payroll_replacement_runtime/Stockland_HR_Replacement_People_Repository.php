@@ -8,6 +8,7 @@ interface Stockland_HR_Replacement_People_Repository {
 	public function insert( $entity, $data );
 	public function update_expected( $entity, $id, $version, $status, $data );
 	public function find_event_by_key( $key );
+	public function person_email_exists( $email );
 	public function append_event( $event );
 	public function requisition( $id, $for_update = false );
 	public function requisition_slot_available( $id );
