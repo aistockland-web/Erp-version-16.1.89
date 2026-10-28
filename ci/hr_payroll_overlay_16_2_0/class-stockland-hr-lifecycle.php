@@ -463,10 +463,6 @@ final class Stockland_HR_Lifecycle {
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (id), KEY employee_period (employee_id,review_period), KEY reviewer (reviewer_id)
 		) ENGINE=InnoDB {$cc};";
-		return $t;
-	}
-
-
 		$t[] = "CREATE TABLE {$p}hr_payroll_runs (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			run_code VARCHAR(60) NOT NULL,
@@ -769,6 +765,9 @@ final class Stockland_HR_Lifecycle {
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (id), UNIQUE KEY snapshot_code (snapshot_code), KEY account_asof (platform,account_label,report_as_of), KEY campaign_dates (campaign_id,period_start,period_end)
 		) ENGINE=InnoDB {$cc};";
+
+		return $t;
+	}
 
 	public static function write_event( $entity_type, $entity_id, $event_type, $from_status, $to_status, $payload, $rule_set_id = null, $rule_version = null ) {
 		$json = wp_json_encode( $payload );
