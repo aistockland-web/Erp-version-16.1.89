@@ -2,6 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const postcss = require('postcss');
+const crypto = require('crypto');
 const root = process.argv[2];
 if (!root || !fs.existsSync(root)) throw new Error('Pass extracted stockland-erp-app path');
 const assets = path.join(root, 'assets');
