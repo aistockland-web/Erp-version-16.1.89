@@ -129,6 +129,39 @@ final class Stockland_HR_Replacement_Recruitment_Service {
 		return is_wp_error( $application ) ? $application : array( 'interview' => $interview, 'application' => $application );
 	}
 
+	public function get_candidate( $candidate_id ) {
+		$candidate = $this->repo->get( 'candidates', $candidate_id );
+		if ( ! $candidate ) {
+			return $this->error( 'hrx_candidate_not_found', 'The candidate does not exist.', 404 );
+		}
+		$person = $this->repo->get( 'people', (int) $candidate['person_id'] );
+		if ( ! $person ) {
+			return $this->error( 'hrx_person_not_found', 'The canonical person record is unavailable.', 409 );
+		}
+		// Return a minimized profile. Contact details and private documents are not in this view.
+		return array(
+			'candidate' => array(
+				'id' => (int) $candidate['id'],
+				'candidate_code' => (string) $candidate['candidate_code'],
+				'source_code' => (string) $candidate['source_code'],
+				'status' => (string) $candidate['status'],
+				'privacy_notice_version' => (string) $candidate['privacy_notice_version'],
+				'retention_until' => $candidate['retention_until'],
+				'created_at' => $candidate['created_at'],
+			),
+			'person' => array(
+				'id' => (int) $person['id'],
+				'person_code' => (string) $person['person_code'],
+				'full_name' => (string) $person['full_name'],
+				'preferred_name' => $person['preferred_name'],
+				'person_status' => (string) $person['person_status'],
+				'consent_status' => (string) $person['consent_status'],
+				'processing_basis' => (string) $person['processing_basis'],
+				'privacy_notice_version' => (string) $person['privacy_notice_version'],
+			),
+		);
+	}
+
 	public function list_applications( $filters = array() ) {
 		$rows = $this->repo->list_rows(
 			'applications',
