@@ -111,10 +111,11 @@ final class Stockland_HR_Replacement_Workforce_WPDB_Repository {
 				absint( $plan_id )
 			)
 		);
-		if ( '' !== (string) $wpdb->last_error || ! is_numeric( $total ) ) {
+		if ( '' !== (string) $wpdb->last_error || ! is_scalar( $total ) || ! preg_match( '/^[0-9]+(?:\\.[0-9]{1,2})?$/', (string) $total ) ) {
 			throw new RuntimeException( 'Planned annual workforce cost could not be calculated.' );
 		}
-		return number_format( (float) $total, 2, '.', '' );
+		$parts = explode( '.', (string) $total, 2 );
+		return $parts[0] . '.' . str_pad( isset( $parts[1] ) ? $parts[1] : '', 2, '0' );
 	}
 
 	public function find_org_unit( $id ) {
