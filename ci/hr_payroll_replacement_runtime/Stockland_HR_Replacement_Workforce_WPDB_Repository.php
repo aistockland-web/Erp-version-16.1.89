@@ -118,6 +118,64 @@ final class Stockland_HR_Replacement_Workforce_WPDB_Repository {
 		return $parts[0] . '.' . str_pad( isset( $parts[1] ) ? $parts[1] : '', 2, '0' );
 	}
 
+	public function reserve_position_slot( $position_id, $expected_version ) {
+		global $wpdb;
+		$table = $this->table( 'positions' );
+		$result = $wpdb->query(
+			$wpdb->prepare(
+				'UPDATE %i SET reserved_headcount = reserved_headcount + 1, version_no = version_no + 1, updated_by = %d, updated_at = %s WHERE id = %d AND version_no = %d AND status = %s AND (filled_headcount + reserved_headcount) < planned_headcount',
+				$table,
+				get_current_user_id(),
+				current_time( 'mysql', true ),
+				absint( $position_id ),
+				absint( $expected_version ),
+				'ACTIVE'
+			)
+		);
+		if ( false === $result || 1 !== (int) $result ) {
+			throw new RuntimeException( 'No unreserved position headcount is available or the position changed concurrently.' );
+		}
+		return $this->get( 'positions', $position_id );
+	}
+
+	public function convert_reserved_headcount_to_filled( $position_id, $expected_version ) {
+		global $wpdb;
+		$table = $this->table( 'positions' );
+		$result = $wpdb->query(
+			$wpdb->prepare(
+				'UPDATE %i SET reserved_headcount = reserved_headcount - 1, filled_headcount = filled_headcount + 1, version_no = version_no + 1, updated_by = %d, updated_at = %s WHERE id = %d AND version_no = %d AND reserved_headcount > 0 AND (filled_headcount + reserved_headcount) <= planned_headcount',
+				$table,
+				get_current_user_id(),
+				current_time( 'mysql', true ),
+				absint( $position_id ),
+				absint( $expected_version )
+			)
+		);
+		if ( false === $result || 1 !== (int) $result ) {
+			throw new RuntimeException( 'Reserved headcount could not be converted to filled headcount.' );
+		}
+		return $this->get( 'positions', $position_id );
+	}
+
+	public function release_reserved_headcount( $position_id, $expected_version ) {
+		global $wpdb;
+		$table = $this->table( 'positions' );
+		$result = $wpdb->query(
+			$wpdb->prepare(
+				'UPDATE %i SET reserved_headcount = reserved_headcount - 1, version_no = version_no + 1, updated_by = %d, updated_at = %s WHERE id = %d AND version_no = %d AND reserved_headcount > 0',
+				$table,
+				get_current_user_id(),
+				current_time( 'mysql', true ),
+				absint( $position_id ),
+				absint( $expected_version )
+			)
+		);
+		if ( false === $result || 1 !== (int) $result ) {
+			throw new RuntimeException( 'Reserved headcount could not be released safely.' );
+		}
+		return $this->get( 'positions', $position_id );
+	}
+
 	public function find_org_unit( $id ) {
 		global $wpdb;
 		$row = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM %i WHERE id = %d LIMIT 1', $this->table( 'org_units' ), absint( $id ) ), ARRAY_A );
@@ -197,7 +255,7 @@ final class Stockland_HR_Replacement_Workforce_WPDB_Repository {
 			'org_units' => array( 'id', 'unit_code', 'unit_name', 'unit_type', 'parent_unit_id', 'status', 'version_no', 'created_by', 'created_at', 'updated_by', 'updated_at' ),
 			'workforce_plans' => array( 'id', 'plan_code', 'fiscal_year', 'department', 'location_id', 'justification', 'budget_reference', 'approved_budget_etb', 'status', 'version_no', 'created_by', 'created_at', 'submitted_by', 'submitted_at', 'approved_by', 'approved_at', 'decision_note' ),
 			'plan_lines' => array( 'id', 'plan_id', 'line_code', 'position_title', 'grade_code', 'openings', 'estimated_monthly_cost_etb', 'location_id', 'business_case', 'status', 'version_no', 'created_by', 'created_at', 'updated_by', 'updated_at' ),
-			'positions' => array( 'id', 'position_code', 'title', 'department', 'org_unit_id', 'location_id', 'grade_code', 'reporting_position_id', 'planned_headcount', 'filled_headcount', 'status', 'version_no', 'created_by', 'created_at', 'updated_by', 'updated_at', 'approval_reference', 'approved_by', 'approved_at', 'decision_note', 'workforce_plan_id', 'plan_line_id' ),
+			'positions' => array( 'id', 'position_code', 'title', 'department', 'org_unit_id', 'location_id', 'grade_code', 'reporting_position_id', 'planned_headcount', 'filled_headcount', 'reserved_headcount', 'status', 'version_no', 'created_by', 'created_at', 'updated_by', 'updated_at', 'approval_reference', 'approved_by', 'approved_at', 'decision_note', 'workforce_plan_id', 'plan_line_id' ),
 			'requisitions' => array( 'id', 'requisition_code', 'plan_id', 'plan_line_id', 'position_id', 'location_id', 'openings', 'justification', 'budget_reference', 'status', 'version_no', 'created_by', 'created_at', 'submitted_by', 'submitted_at', 'approved_by', 'approved_at', 'opened_by', 'opened_at', 'decision_note' ),
 			'people' => array( 'id', 'person_code', 'full_name', 'preferred_name', 'primary_email', 'primary_phone', 'privacy_notice_version', 'processing_basis', 'processing_basis_reference', 'consent_status', 'consent_recorded_at', 'consent_withdrawn_at', 'retention_until', 'person_status', 'version_no', 'created_by', 'created_at', 'updated_by', 'updated_at' ),
 			'candidates' => array( 'id', 'candidate_code', 'person_id', 'source_code', 'status', 'privacy_notice_version', 'retention_until', 'withdrawn_at', 'withdrawal_reason', 'version_no', 'created_by', 'created_at', 'updated_by', 'updated_at' ),
