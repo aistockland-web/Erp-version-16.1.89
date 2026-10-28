@@ -55,7 +55,7 @@ final class Stockland_HR_Replacement_Workforce_WPDB_Repository implements Stockl
 		if ( ! isset( $this->tables[ $entity ] ) ) {
 			throw new InvalidArgumentException( 'HRX_ENTITY_UNKNOWN: Unknown workforce repository entity.' );
 		}
-		return (string) $this->wpdb->prefix . 'stock_hrx_' . $this->tables[ $entity ];
+		return (string) $this->wpdb->prefix . 'stockland_hrx_' . $this->tables[ $entity ];
 	}
 
 	private function query( $sql, $failure_code = 'HRX_DATABASE_ERROR' ) {
