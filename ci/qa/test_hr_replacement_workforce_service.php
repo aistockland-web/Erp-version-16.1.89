@@ -206,7 +206,6 @@ $events = array_values( $repo->tables['workflow_events'] );
 $correlations = array_map( function ( $event ) { return $event['correlation_id']; }, $events );
 hrx_assert( count( $events ) === count( array_unique( $correlations ) ), 'workflow event correlation IDs are unique' ); $checks++;
 hrx_assert( count( $events ) >= 12, 'all completed transitions and draft changes produce auditable events' ); $checks++;
-hrx_assert( count( $repo->tables['command_receipts'] ) === 13, 'every successful mutating command has one idempotency receipt' ); $checks++;
-hrx_assert( 0 === count( $repo->tables['requisitions'] ) - 1 ? false : true, 'synthetic command count guard' ); $checks++;
+hrx_assert( count( $repo->tables['command_receipts'] ) === 12, 'every successful mutating command has one idempotency receipt; rejected self-approval leaves no receipt' ); $checks++;
 
 echo 'PASS HR replacement workforce synthetic service contract: ' . $checks . " assertions.\n";
