@@ -154,9 +154,13 @@ jobs:
           receipt=json.loads(next(p.glob('*.receipt.json')).read_text())
           assert hashlib.sha256(zipfile.read_bytes()).hexdigest()==receipt['installer_sha256']
           assert receipt.get('release')=='16.1.98'
-          assert receipt.get('schema_changed') is False
-          assert receipt.get('live_business_data_changed') is False
-          print('PASS receipt matches exact final ZIP hash; no live data mutation by builder')
+          assert receipt.get('schema_changed') is True
+          assert receipt.get('schema_contract_approved') is False
+          assert receipt.get('production_ready') is False
+          assert receipt.get('production_database_touched') is False
+          assert receipt.get('wordpress_activated') is False
+          assert 'Owner-approved minimal additive schema/migration plan' in ' '.join(receipt.get('required_external_acceptance', []))
+          print('PASS receipt matches exact ZIP hash; schema change is explicit, unapproved and not production-ready')
           PY
 
       - name: Upload exact final installer and receipts
