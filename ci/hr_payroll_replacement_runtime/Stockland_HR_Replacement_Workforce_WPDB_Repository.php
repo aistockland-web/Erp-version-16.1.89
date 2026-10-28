@@ -118,6 +118,38 @@ final class Stockland_HR_Replacement_Workforce_WPDB_Repository {
 		return $parts[0] . '.' . str_pad( isset( $parts[1] ) ? $parts[1] : '', 2, '0' );
 	}
 
+	public function find_open_employment_for_candidate( $candidate_id ) {
+		global $wpdb;
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT * FROM %i WHERE candidate_id = %d AND status NOT IN ('ENDED','CANCELLED','DECLINED','REJECTED','WITHDRAWN') ORDER BY id DESC LIMIT 1",
+				$this->table( 'employments' ),
+				absint( $candidate_id )
+			),
+			ARRAY_A
+		);
+		if ( '' !== (string) $wpdb->last_error ) {
+			throw new RuntimeException( 'Candidate employment state could not be checked.' );
+		}
+		return is_array( $row ) ? $row : null;
+	}
+
+	public function count_applications_for_requisition( $requisition_id, $status ) {
+		global $wpdb;
+		$count = $wpdb->get_var(
+			$wpdb->prepare(
+				'SELECT COUNT(*) FROM %i WHERE requisition_id = %d AND status = %s',
+				$this->table( 'applications' ),
+				absint( $requisition_id ),
+				sanitize_key( $status )
+			)
+		);
+		if ( '' !== (string) $wpdb->last_error || ! is_numeric( $count ) ) {
+			throw new RuntimeException( 'Requisition application count could not be checked.' );
+		}
+		return (int) $count;
+	}
+
 	public function reserve_position_slot( $position_id, $expected_version ) {
 		global $wpdb;
 		$table = $this->table( 'positions' );
@@ -231,7 +263,7 @@ final class Stockland_HR_Replacement_Workforce_WPDB_Repository {
 				$where[] = 'application_id IN (SELECT id FROM %i WHERE location_id IN (' . implode( ',', array_fill( 0, count( $ids ), '%d' ) ) . '))';
 				$args[] = $linked_table;
 				$args = array_merge( $args, $ids );
-			} elseif ( in_array( $entity, array( 'contracts', 'onboarding_tasks', 'documents' ), true ) ) {
+			} elseif ( in_array( $entity, array( 'contracts', 'onboarding_tasks' ), true ) ) {
 				$linked_table = $this->table( 'employments' );
 				$where[] = 'employment_id IN (SELECT id FROM %i WHERE location_id IN (' . implode( ',', array_fill( 0, count( $ids ), '%d' ) ) . '))';
 				$args[] = $linked_table;
