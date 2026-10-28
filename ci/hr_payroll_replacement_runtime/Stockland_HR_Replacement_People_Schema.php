@@ -183,6 +183,7 @@ final class Stockland_HR_Replacement_People_Schema {
 				version_no INT UNSIGNED NOT NULL DEFAULT 1,
 				verified_by BIGINT UNSIGNED NULL,
 				verified_at DATETIME NULL,
+				vault_verification_reference VARCHAR(190) NULL,
 				review_note VARCHAR(500) NULL,
 				created_by BIGINT UNSIGNED NOT NULL,
 				created_at DATETIME NOT NULL,
