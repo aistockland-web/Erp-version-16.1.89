@@ -10,7 +10,6 @@ require_once STOCKLAND_PLUGIN_DIR . 'includes/Stockland_HR_Replacement_People_Co
 require_once STOCKLAND_PLUGIN_DIR . 'includes/Stockland_HR_Replacement_People_Repository.php';
 require_once STOCKLAND_PLUGIN_DIR . 'includes/Stockland_HR_Replacement_People_Service.php';
 require_once STOCKLAND_PLUGIN_DIR . 'includes/Stockland_HR_Replacement_People_Schema.php';
-require_once STOCKLAND_PLUGIN_DIR . 'includes/Stockland_HR_Replacement_People_WPDB_Repository.php';
 require_once STOCKLAND_PLUGIN_DIR . 'includes/Stockland_HR_Replacement_People_WP_Access.php';
 require_once STOCKLAND_PLUGIN_DIR . 'includes/Stockland_HR_Replacement_WP_Private_Vault.php';
 
@@ -64,7 +63,7 @@ final class Stockland_REST_HR_Replacement_People {
 		$this->register( '/hr/replacement/people/candidates', WP_REST_Server::CREATABLE, 'candidate_create', 'can_prepare' );
 		$this->register( '/hr/replacement/people/applications', WP_REST_Server::READABLE, 'applications_list', 'can_prepare' );
 		$this->register( '/hr/replacement/people/applications', WP_REST_Server::CREATABLE, 'application_create', 'can_prepare' );
-		$this->register( '/hr/replacement/people/applications/(?P<id>\d+)/stage', WP_REST_Server::CREATABLE, 'application_stage', 'can_prepare' );
+		$this->register( '/hr/replacement/people/applications/(?P<id>\d+)/stage', WP_REST_Server::CREATABLE, 'application_stage', 'can_prepare_or_approve' );
 		$this->register( '/hr/replacement/people/interviews', WP_REST_Server::CREATABLE, 'interview_create', 'can_prepare' );
 		$this->register( '/hr/replacement/people/pending-hires', WP_REST_Server::CREATABLE, 'hire_create', 'can_prepare' );
 		$this->register( '/hr/replacement/people/private-documents', WP_REST_Server::CREATABLE, 'document_create', 'can_prepare' );
