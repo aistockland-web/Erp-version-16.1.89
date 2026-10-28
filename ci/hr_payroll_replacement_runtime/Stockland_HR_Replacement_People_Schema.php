@@ -178,6 +178,7 @@ final class Stockland_HR_Replacement_People_Schema {
 				issued_on DATE NULL,
 				expires_on DATE NULL,
 				status VARCHAR(24) NOT NULL DEFAULT 'PENDING_VERIFICATION',
+				version_no INT UNSIGNED NOT NULL DEFAULT 1,
 				verified_by BIGINT UNSIGNED NULL,
 				verified_at DATETIME NULL,
 				review_note VARCHAR(500) NULL,
