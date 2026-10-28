@@ -130,10 +130,11 @@ final class Stockland_HR_Replacement_People_Service {
 	public function list_applications( $filters = array(), $limit = 50 ) {
 		$this->require_candidate_access();
 		$allowed = array();
+		if ( ! isset( $filters['location_id'] ) || '' === $filters['location_id'] ) { Stockland_HR_Replacement_People_Contract::deny( 'HRXP_LOCATION_REQUIRED', 'Select an authorized work location before listing candidate applications.' ); }
+		$allowed['location_id'] = $this->location( $filters['location_id'] );
 		foreach ( array( 'stage', 'candidate_id', 'requisition_id' ) as $field ) {
 			if ( isset( $filters[ $field ] ) && '' !== $filters[ $field ] ) { $allowed[ $field ] = $filters[ $field ]; }
 		}
-		if ( isset( $filters['location_id'] ) && '' !== $filters['location_id'] ) { $allowed['location_id'] = $this->location( $filters['location_id'] ); }
 		return $this->repo->list_records( 'applications', $allowed, $limit );
 	}
 	public function create_candidate( $payload, $idempotency_key ) {
@@ -152,6 +153,7 @@ final class Stockland_HR_Replacement_People_Service {
 		$source = strtoupper( Stockland_HR_Replacement_People_Contract::text( $payload['source_channel'] ?? 'OTHER', 'source_channel', 2, 40 ) );
 		if ( ! in_array( $source, array( 'REFERRAL','COMPANY_WEBSITE','WALK_IN','JOB_BOARD','SOCIAL_PROFESSIONAL','AGENCY','OTHER' ), true ) ) { Stockland_HR_Replacement_People_Contract::deny( 'HRXP_SOURCE_CHANNEL_INVALID', 'Select a supported candidate source channel.' ); }
 		$retention = Stockland_HR_Replacement_People_Contract::date( $payload['retention_review_on'] ?? null, 'retention_review_on' );
+		if ( $retention < $this->today() ) { Stockland_HR_Replacement_People_Contract::deny( 'HRXP_RETENTION_REVIEW_DATE_INVALID', 'Candidate retention review date cannot be in the past at profile creation.' ); }
 		$normalized = array( 'person_code'=>$person_code,'candidate_code'=>$candidate_code,'first_name'=>$first,'last_name'=>$last,'email'=>$email,'phone'=>$phone,'privacy_notice_version'=>$notice,'collection_purpose'=>$purpose,'source_channel'=>$source,'retention_review_on'=>$retention );
 		list( $key, $hash ) = $this->idempotency( $idempotency_key, $normalized );
 		return $this->repo->transaction( function () use ( $key, $hash, $normalized, $actor ) {
@@ -207,26 +209,46 @@ final class Stockland_HR_Replacement_People_Service {
 			return array('record'=>$record,'replayed'=>false);
 		});
 	}
-	public function move_application( $payload, $idempotency_key ) {
-		$this->require_candidate_access();$actor=$this->actor();$id=$this->required_id($payload,'application_id');$target=strtoupper(Stockland_HR_Replacement_People_Contract::text($payload['to_stage']??null,'to_stage',2,30));
-		if('HIRED'===$target){Stockland_HR_Replacement_People_Contract::deny('HRXP_INTERNAL_TRANSITION_ONLY','HIRED is system-managed when a pending employment record is created.');}
-		$maker=(int)($payload['created_by']??0);unset($payload['created_by']);
-		$rationale=isset($payload['rationale'])?(string)$payload['rationale']:'';$human=!empty($payload['human_decision']);
-		$row=$this->load('applications',$id);$this->require_same_location($row);
-		$context=array('actor_id'=>$actor,'created_by'=>(int)$row['created_by'],'human_decision'=>$human,'rationale'=>$rationale);
-		$transition=Stockland_HR_Replacement_People_Contract::application_stage($row['stage'],$target,$context);
-		$final=in_array($target,array('SELECTED','NOT_SELECTED','ACCEPTED','DECLINED'),true);
-		if($final){$this->require_approve();}else{$this->require_prepare();}
-		$this->expected_version($row,$payload);list($key,$hash)=$this->idempotency($idempotency_key,array('application_id'=>$id,'from'=>$transition['from'],'to'=>$transition['to'],'version_no'=>(int)$payload['version_no'],'rationale'=>$rationale,'human_decision'=>$human));
-		return $this->repo->transaction(function()use($key,$hash,$id,$actor,$target,$rationale,$human,$final,$payload){
-			$prior=$this->replay($key,$hash);if($prior){return array('record'=>$this->load('applications',(int)$prior['entity_id']),'replayed'=>true);}
-			$row=$this->load('applications',$id,true);$this->require_same_location($row);$v=$this->expected_version($row,$payload);
-			if('SELECTED'===$target&&!$this->repo->requisition_slot_available((int)$row['requisition_id'])){Stockland_HR_Replacement_People_Contract::deny('HRXP_VACANCY_FULL','The vacancy no longer has an unreserved opening.',409);}
-			$from=$row['stage'];$updated=$this->repo->update_expected('applications',$id,$v,$from,array('stage'=>$target,'decision_rationale'=>$final?$rationale:$row['decision_rationale'],'decision_by'=>$final?$actor:$row['decision_by'],'decision_at'=>$final?$this->now():$row['decision_at'],'human_decision'=>$final?1:(int)$row['human_decision'],'version_no'=>$v+1,'updated_by'=>$actor,'updated_at'=>$this->now()));
-			$this->event($key,$hash,'APPLICATION',$id,'APPLICATION_STAGE_CHANGED',$from,$target,$actor,(int)$row['created_by'],$final?$rationale:'Stage transition', $v+1,array('human_decision'=>$final,'rationale_present'=>''!==trim($rationale)));
-			return array('record'=>$updated,'replayed'=>false);
-		});
+		public function move_application( $payload, $idempotency_key ) {
+		$this->require_candidate_access();
+		$actor = $this->actor();
+		$id = $this->required_id( $payload, 'application_id' );
+		$target = strtoupper( Stockland_HR_Replacement_People_Contract::text( $payload['to_stage'] ?? null, 'to_stage', 2, 30 ) );
+		if ( 'HIRED' === $target ) { Stockland_HR_Replacement_People_Contract::deny( 'HRXP_INTERNAL_TRANSITION_ONLY', 'HIRED is system-managed when a pending employment record is created.' ); }
+		$rationale = isset( $payload['rationale'] ) ? (string) $payload['rationale'] : '';
+		$human = ! empty( $payload['human_decision'] );
+		$version = (int) ( $payload['version_no'] ?? 0 );
+		if ( $version < 1 ) { Stockland_HR_Replacement_People_Contract::deny( 'HRXP_STALE_VERSION', 'A positive expected record version is required.', 409 ); }
+		list( $key, $hash ) = $this->idempotency( $idempotency_key, array( 'application_id' => $id, 'to_stage' => $target, 'version_no' => $version, 'rationale' => $rationale, 'human_decision' => $human ) );
+		return $this->repo->transaction( function () use ( $key, $hash, $id, $actor, $target, $rationale, $human, $version ) {
+			$prior = $this->replay( $key, $hash );
+			if ( $prior ) { return array( 'record' => $this->load( 'applications', (int) $prior['entity_id'] ), 'replayed' => true ); }
+			$row = $this->load( 'applications', $id, true );
+			$this->require_same_location( $row );
+			$this->expected_version( $row, array( 'version_no' => $version ) );
+			$context = array( 'actor_id' => $actor, 'created_by' => (int) $row['created_by'], 'human_decision' => $human, 'rationale' => $rationale );
+			$transition = Stockland_HR_Replacement_People_Contract::application_stage( $row['stage'], $target, $context );
+			$final = in_array( $target, array( 'SELECTED', 'NOT_SELECTED', 'ACCEPTED', 'DECLINED' ), true );
+			if ( $final ) { $this->require_approve(); } else { $this->require_prepare(); }
+			if ( 'SELECTED' === $target && ! $this->repo->requisition_slot_available( (int) $row['requisition_id'] ) ) {
+				Stockland_HR_Replacement_People_Contract::deny( 'HRXP_VACANCY_FULL', 'The vacancy no longer has an unreserved opening.', 409 );
+			}
+			$from = $row['stage'];
+			$updated = $this->repo->update_expected( 'applications', $id, $version, $from, array(
+				'stage' => $target,
+				'decision_rationale' => $final ? $rationale : $row['decision_rationale'],
+				'decision_by' => $final ? $actor : $row['decision_by'],
+				'decision_at' => $final ? $this->now() : $row['decision_at'],
+				'human_decision' => $final ? 1 : (int) $row['human_decision'],
+				'version_no' => $version + 1,
+				'updated_by' => $actor,
+				'updated_at' => $this->now(),
+			) );
+			$this->event( $key, $hash, 'APPLICATION', $id, 'APPLICATION_STAGE_CHANGED', $from, $target, $actor, (int) $row['created_by'], $final ? $rationale : 'Stage transition', $version + 1, array( 'human_decision' => $final, 'rationale_present' => '' !== trim( $rationale ) ) );
+			return array( 'record' => $updated, 'replayed' => false );
+		} );
 	}
+
 	public function create_pending_hire( $payload, $idempotency_key ) {
 		$this->require_candidate_access();$actor=$this->actor();$app_id=$this->required_id($payload,'application_id');$employment_code=$this->code($payload,'employment_code');$contract_code=$this->code($payload,'contract_code');
 		$legal_employer=Stockland_HR_Replacement_People_Contract::code($payload['legal_employer_code']??null,'legal_employer_code');
@@ -274,7 +296,7 @@ final class Stockland_HR_Replacement_People_Service {
 			$prior=$this->replay($key,$hash);if($prior){return array('record'=>$this->load('documents',(int)$prior['entity_id']),'replayed'=>true);}
 			$allowedTypes=array('IDENTITY','EMPLOYMENT_CONTRACT','QUALIFICATION','WORK_ELIGIBILITY','TAX_PROFILE','PENSION_PROFILE','CERTIFICATE','OTHER');
 			if(!in_array($doc_type,$allowedTypes,true)){Stockland_HR_Replacement_People_Contract::deny('HRXP_DOCUMENT_TYPE_INVALID','Select a supported personnel document type.');}
-			if('CONTRACT'===$type){$this->load('contracts',$subject_id,true);}elseif('EMPLOYMENT'===$type){$this->load('employments',$subject_id,true);}else{$this->load('candidates',$subject_id,true);}
+			if('CONTRACT'===$type){$contract=$this->load('contracts',$subject_id,true);$this->require_same_location($this->load('employments',(int)$contract['employment_id'],true));}elseif('EMPLOYMENT'===$type){$this->require_same_location($this->load('employments',$subject_id,true));}else{$this->load('candidates',$subject_id,true);}
 			$record=$this->repo->insert('documents',array('document_code'=>$code,'subject_type'=>$type,'subject_id'=>$subject_id,'document_type'=>$doc_type,'private_reference'=>$ref,'content_sha256'=>$sha,'issued_on'=>$issued,'expires_on'=>$expires,'status'=>'PENDING_VERIFICATION','version_no'=>1,'verified_by'=>null,'verified_at'=>null,'review_note'=>null,'created_by'=>$actor,'created_at'=>$this->now(),'updated_at'=>$this->now()));
 			$this->event($key,$hash,'PRIVATE_DOCUMENT',(int)$record['id'],'PRIVATE_DOCUMENT_REGISTERED',null,'PENDING_VERIFICATION',$actor,$actor,'Private document metadata registered; underlying vault access must be independently verified',1,array('subject_type'=>$type,'document_type'=>$doc_type,'content_sha256'=>$sha));
 			return array('record'=>$record,'replayed'=>false);
@@ -285,7 +307,7 @@ final class Stockland_HR_Replacement_People_Service {
 		$row=$this->load('documents',$id);list($key,$hash)=$this->idempotency($idempotency_key,array('document_id'=>$id,'review_note'=>$note,'version_no'=>(int)($payload['version_no']??0)));
 		return $this->repo->transaction(function()use($key,$hash,$actor,$id,$note,$payload){
 			$prior=$this->replay($key,$hash);if($prior){return array('record'=>$this->load('documents',(int)$prior['entity_id']),'replayed'=>true);}
-			$row=$this->load('documents',$id,true);$v=$this->expected_version($row,$payload);if('PENDING_VERIFICATION'!==strtoupper((string)$row['status'])){Stockland_HR_Replacement_People_Contract::deny('HRXP_DOCUMENT_STATE_INVALID','Only a pending private document can be verified.');}
+			$row=$this->load('documents',$id,true);$v=$this->expected_version($row,$payload);if('CONTRACT'===strtoupper((string)$row['subject_type'])){$contract=$this->load('contracts',(int)$row['subject_id'],true);$this->require_same_location($this->load('employments',(int)$contract['employment_id'],true));}elseif('EMPLOYMENT'===strtoupper((string)$row['subject_type'])){$this->require_same_location($this->load('employments',(int)$row['subject_id'],true));}if('PENDING_VERIFICATION'!==strtoupper((string)$row['status'])){Stockland_HR_Replacement_People_Contract::deny('HRXP_DOCUMENT_STATE_INVALID','Only a pending private document can be verified.');}
 			Stockland_HR_Replacement_People_Contract::assert_independent($actor,(int)$row['created_by'],'verify');
 			$verification = $this->vault->verify_reference( (string) $row['private_reference'], (string) $row['content_sha256'], $actor );
 			if ( ! is_array( $verification ) || empty( $verification['verified'] ) || ! empty( $verification['public_access'] ) || ! isset( $verification['content_sha256'] ) || ! hash_equals( (string) $row['content_sha256'], strtolower( (string) $verification['content_sha256'] ) ) ) {
@@ -296,52 +318,99 @@ final class Stockland_HR_Replacement_People_Service {
 			return array('record'=>$updated,'replayed'=>false);
 		});
 	}
-	public function sign_contract( $payload, $idempotency_key ) {
-		$this->require_candidate_access();$actor=$this->actor();$id=$this->required_id($payload,'contract_id');$doc=$this->required_id($payload,'document_id');$signed=Stockland_HR_Replacement_People_Contract::date($payload['signed_on']??null,'signed_on');
-		$row=$this->load('contracts',$id);$v=$this->expected_version($row,$payload);list($key,$hash)=$this->idempotency($idempotency_key,array('contract_id'=>$id,'document_id'=>$doc,'signed_on'=>$signed,'version_no'=>$v));
-		return $this->repo->transaction(function()use($key,$hash,$actor,$id,$doc,$signed,$payload){
-			$prior=$this->replay($key,$hash);if($prior){return array('record'=>$this->load('contracts',(int)$prior['entity_id']),'replayed'=>true);}
-			$row=$this->load('contracts',$id,true);$v=$this->expected_version($row,$payload);if('DRAFT'!==strtoupper((string)$row['status'])){Stockland_HR_Replacement_People_Contract::deny('HRXP_CONTRACT_STATE_INVALID','Only a draft contract can be signed.');}
-			$document=$this->load('documents',$doc,true);
-			if('VERIFIED'!==strtoupper((string)$document['status'])||'CONTRACT'!==strtoupper((string)$document['subject_type'])||(int)$document['subject_id']!==$id||'EMPLOYMENT_CONTRACT'!==strtoupper((string)$document['document_type'])){Stockland_HR_Replacement_People_Contract::deny('HRXP_SIGNED_CONTRACT_DOCUMENT_REQUIRED','A verified private-vault employment-contract document must be linked to this contract.');}
-			if(!empty($document['expires_on'])&&$signed>$document['expires_on']){Stockland_HR_Replacement_People_Contract::deny('HRXP_CONTRACT_DOCUMENT_EXPIRED','The verified contract evidence is expired for the signature date.');}
-			$updated=$this->repo->update_expected('contracts',$id,$v,$row['status'],array('private_document_id'=>$doc,'signed_at'=>$signed.' 00:00:00','status'=>'SIGNED','updated_by'=>$actor,'updated_at'=>$this->now(),'version_no'=>$v+1));
-			$this->event($key,$hash,'CONTRACT',$id,'CONTRACT_SIGNED','DRAFT','SIGNED',$actor,(int)$row['created_by'],'Signed contract evidence linked', $v+1,array('document_id'=>$doc,'document_sha256'=>$document['content_sha256']));
-			return array('record'=>$updated,'replayed'=>false);
-		});
+		public function sign_contract( $payload, $idempotency_key ) {
+		$this->require_candidate_access();
+		$actor = $this->actor();
+		$id = $this->required_id( $payload, 'contract_id' );
+		$doc_id = $this->required_id( $payload, 'document_id' );
+		$signed = Stockland_HR_Replacement_People_Contract::date( $payload['signed_on'] ?? null, 'signed_on' );
+		$version = (int) ( $payload['version_no'] ?? 0 );
+		if ( $version < 1 ) { Stockland_HR_Replacement_People_Contract::deny( 'HRXP_STALE_VERSION', 'A positive expected contract version is required.', 409 ); }
+		list( $key, $hash ) = $this->idempotency( $idempotency_key, array( 'contract_id' => $id, 'document_id' => $doc_id, 'signed_on' => $signed, 'version_no' => $version ) );
+		return $this->repo->transaction( function () use ( $key, $hash, $actor, $id, $doc_id, $signed, $version ) {
+			$prior = $this->replay( $key, $hash );
+			if ( $prior ) { return array( 'record' => $this->load( 'contracts', (int) $prior['entity_id'] ), 'replayed' => true ); }
+			$row = $this->load( 'contracts', $id, true );
+			$this->expected_version( $row, array( 'version_no' => $version ) );
+			if ( 'DRAFT' !== strtoupper( (string) $row['status'] ) ) { Stockland_HR_Replacement_People_Contract::deny( 'HRXP_CONTRACT_STATE_INVALID', 'Only a draft contract can be signed.' ); }
+			$employment = $this->load( 'employments', (int) $row['employment_id'], true );
+			$this->require_same_location( $employment );
+			$document = $this->load( 'documents', $doc_id, true );
+			if ( 'VERIFIED' !== strtoupper( (string) $document['status'] ) || 'CONTRACT' !== strtoupper( (string) $document['subject_type'] ) || (int) $document['subject_id'] !== $id || 'EMPLOYMENT_CONTRACT' !== strtoupper( (string) $document['document_type'] ) ) {
+				Stockland_HR_Replacement_People_Contract::deny( 'HRXP_SIGNED_CONTRACT_DOCUMENT_REQUIRED', 'A verified private-vault employment-contract document must be linked to this contract.' );
+			}
+			if ( ! empty( $document['expires_on'] ) && $signed > $document['expires_on'] ) { Stockland_HR_Replacement_People_Contract::deny( 'HRXP_CONTRACT_DOCUMENT_EXPIRED', 'The verified contract evidence is expired for the signature date.' ); }
+			$updated = $this->repo->update_expected( 'contracts', $id, $version, $row['status'], array(
+				'private_document_id' => $doc_id, 'signed_at' => $signed . ' 00:00:00', 'status' => 'SIGNED',
+				'updated_by' => $actor, 'updated_at' => $this->now(), 'version_no' => $version + 1,
+			) );
+			$this->event( $key, $hash, 'CONTRACT', $id, 'CONTRACT_SIGNED', 'DRAFT', 'SIGNED', $actor, (int) $row['created_by'], 'Signed contract evidence linked', $version + 1, array( 'document_id' => $doc_id, 'document_sha256' => $document['content_sha256'] ) );
+			return array( 'record' => $updated, 'replayed' => false );
+		} );
 	}
-	public function approve_contract( $payload, $idempotency_key ) {
-		$this->require_approve();$actor=$this->actor();$id=$this->required_id($payload,'contract_id');$note=Stockland_HR_Replacement_People_Contract::text($payload['approval_note']??null,'approval_note',20,500);
-		$row=$this->load('contracts',$id);$v=$this->expected_version($row,$payload);list($key,$hash)=$this->idempotency($idempotency_key,array('contract_id'=>$id,'approval_note'=>$note,'version_no'=>$v));
-		return $this->repo->transaction(function()use($key,$hash,$actor,$id,$note,$payload){
-			$prior=$this->replay($key,$hash);if($prior){return array('record'=>$this->load('contracts',(int)$prior['entity_id']),'replayed'=>true);}
-			$row=$this->load('contracts',$id,true);$v=$this->expected_version($row,$payload);
-			if('SIGNED'!==strtoupper((string)$row['status'])||(int)$row['created_by']===$actor){Stockland_HR_Replacement_People_Contract::deny('HRXP_CONTRACT_APPROVAL_BLOCKED','Owner must independently approve a signed contract prepared by another actor.',403);}
-			$doc=$this->load('documents',(int)$row['private_document_id'],true);if('VERIFIED'!==strtoupper((string)$doc['status'])||'CONTRACT'!==strtoupper((string)$doc['subject_type'])||(int)$doc['subject_id']!==$id||'EMPLOYMENT_CONTRACT'!==strtoupper((string)$doc['document_type'])){Stockland_HR_Replacement_People_Contract::deny('HRXP_CONTRACT_DOCUMENT_UNVERIFIED','Contract evidence must be verified before approval.');}
-			$updated=$this->repo->update_expected('contracts',$id,$v,$row['status'],array('status'=>'APPROVED','approved_by'=>$actor,'approved_at'=>$this->now(),'approval_note'=>$note,'updated_by'=>$actor,'updated_at'=>$this->now(),'version_no'=>$v+1));
-			$employment=$this->load('employments',(int)$row['employment_id'],true);$ev=(int)$employment['version_no'];if('PENDING_CONTRACT'!==strtoupper((string)$employment['status'])){Stockland_HR_Replacement_People_Contract::deny('HRXP_EMPLOYMENT_STATE_INVALID','Employment record is no longer pending contract approval.');}
-			$employment=$this->repo->update_expected('employments',(int)$employment['id'],$ev,$employment['status'],array('status'=>'PENDING_ONBOARDING','updated_by'=>$actor,'updated_at'=>$this->now(),'version_no'=>$ev+1));
-			$this->event($key,$hash,'CONTRACT',$id,'CONTRACT_APPROVED','SIGNED','APPROVED',$actor,(int)$row['created_by'],$note,$v+1,array('employment_id'=>(int)$employment['id'],'approved_by_owner'=>true));
-			return array('record'=>$updated,'employment'=>$employment,'activation_allowed'=>false,'replayed'=>false);
-		});
+
+		public function approve_contract( $payload, $idempotency_key ) {
+		$this->require_approve();
+		$actor = $this->actor();
+		$id = $this->required_id( $payload, 'contract_id' );
+		$note = Stockland_HR_Replacement_People_Contract::text( $payload['approval_note'] ?? null, 'approval_note', 20, 500 );
+		$version = (int) ( $payload['version_no'] ?? 0 );
+		if ( $version < 1 ) { Stockland_HR_Replacement_People_Contract::deny( 'HRXP_STALE_VERSION', 'A positive expected contract version is required.', 409 ); }
+		list( $key, $hash ) = $this->idempotency( $idempotency_key, array( 'contract_id' => $id, 'approval_note' => $note, 'version_no' => $version ) );
+		return $this->repo->transaction( function () use ( $key, $hash, $actor, $id, $note, $version ) {
+			$prior = $this->replay( $key, $hash );
+			if ( $prior ) { return array( 'record' => $this->load( 'contracts', (int) $prior['entity_id'] ), 'replayed' => true ); }
+			$row = $this->load( 'contracts', $id, true );
+			$this->expected_version( $row, array( 'version_no' => $version ) );
+			if ( 'SIGNED' !== strtoupper( (string) $row['status'] ) || (int) $row['created_by'] === $actor ) {
+				Stockland_HR_Replacement_People_Contract::deny( 'HRXP_CONTRACT_APPROVAL_BLOCKED', 'Owner must independently approve a signed contract prepared by another actor.', 403 );
+			}
+			$employment = $this->load( 'employments', (int) $row['employment_id'], true );
+			$this->require_same_location( $employment );
+			$doc = $this->load( 'documents', (int) $row['private_document_id'], true );
+			if ( 'VERIFIED' !== strtoupper( (string) $doc['status'] ) || 'CONTRACT' !== strtoupper( (string) $doc['subject_type'] ) || (int) $doc['subject_id'] !== $id || 'EMPLOYMENT_CONTRACT' !== strtoupper( (string) $doc['document_type'] ) ) {
+				Stockland_HR_Replacement_People_Contract::deny( 'HRXP_CONTRACT_DOCUMENT_UNVERIFIED', 'Contract evidence must be verified before approval.' );
+			}
+			$updated = $this->repo->update_expected( 'contracts', $id, $version, $row['status'], array(
+				'status' => 'APPROVED', 'approved_by' => $actor, 'approved_at' => $this->now(),
+				'approval_note' => $note, 'updated_by' => $actor, 'updated_at' => $this->now(), 'version_no' => $version + 1,
+			) );
+			$ev = (int) $employment['version_no'];
+			if ( 'PENDING_CONTRACT' !== strtoupper( (string) $employment['status'] ) ) { Stockland_HR_Replacement_People_Contract::deny( 'HRXP_EMPLOYMENT_STATE_INVALID', 'Employment record is no longer pending contract approval.' ); }
+			$employment = $this->repo->update_expected( 'employments', (int) $employment['id'], $ev, $employment['status'], array( 'status' => 'PENDING_ONBOARDING', 'updated_by' => $actor, 'updated_at' => $this->now(), 'version_no' => $ev + 1 ) );
+			$this->event( $key, $hash, 'CONTRACT', $id, 'CONTRACT_APPROVED', 'SIGNED', 'APPROVED', $actor, (int) $row['created_by'], $note, $version + 1, array( 'employment_id' => (int) $employment['id'], 'approved_by_owner' => true ) );
+			return array( 'record' => $updated, 'employment' => $employment, 'activation_allowed' => false, 'replayed' => false );
+		} );
 	}
-	public function complete_onboarding_task( $payload, $idempotency_key ) {
-		$this->require_prepare();$actor=$this->actor();$id=$this->required_id($payload,'task_id');$evidence=Stockland_HR_Replacement_People_Contract::private_reference($payload['evidence_reference']??null);
-		$row=$this->load('onboarding',$id);$this->require_same_location($this->load('employments',(int)$row['employment_id']));
-		$v=$this->expected_version($row,$payload);list($key,$hash)=$this->idempotency($idempotency_key,array('task_id'=>$id,'evidence_reference'=>$evidence,'version_no'=>$v));
-		return $this->repo->transaction(function()use($key,$hash,$actor,$id,$evidence,$payload){
-			$prior=$this->replay($key,$hash);if($prior){return array('record'=>$this->load('onboarding',(int)$prior['entity_id']),'replayed'=>true);}
-			$row=$this->load('onboarding',$id,true);$v=$this->expected_version($row,$payload);$employment=$this->load('employments',(int)$row['employment_id'],true);
-			if('PENDING_ONBOARDING'!==strtoupper((string)$employment['status'])){Stockland_HR_Replacement_People_Contract::deny('HRXP_EMPLOYMENT_STATE_INVALID','Onboarding cannot be completed before an independently approved contract.');}
-			$approvedContracts=$this->repo->list_records('contracts',array('employment_id'=>(int)$employment['id'],'status'=>'APPROVED'),10);
-			if(!$approvedContracts){Stockland_HR_Replacement_People_Contract::deny('HRXP_CONTRACT_APPROVAL_REQUIRED','The linked employment contract must be approved before onboarding tasks can be completed.');}
-			if(!in_array(strtoupper((string)$row['task_type']),array('PERSONNEL_DOCS','INDUCTION','CODE_OF_CONDUCT','SAFETY_BRIEFING','ROLE_SOP_ACKNOWLEDGEMENT'),true)){Stockland_HR_Replacement_People_Contract::deny('HRXP_TASK_RESERVED_FOR_LATER_STAGE','Payroll setup and access provisioning remain blocked until the compensation/access stages pass.');}
-			if('COMPLETE'!==strtoupper((string)$row['status'])){$updated=$this->repo->update_expected('onboarding',$id,$v,$row['status'],array('status'=>'COMPLETE','evidence_reference'=>$evidence,'completed_by'=>$actor,'completed_at'=>$this->now(),'updated_by'=>$actor,'updated_at'=>$this->now(),'version_no'=>$v+1));}
-			else{Stockland_HR_Replacement_People_Contract::deny('HRXP_TASK_ALREADY_COMPLETE','The onboarding task is already complete.');}
-			$this->event($key,$hash,'ONBOARDING_TASK',$id,'ONBOARDING_TASK_COMPLETED',$row['status'],'COMPLETE',$actor,(int)$row['created_by'],'Evidence reference captured',$v+1,array('employment_id'=>(int)$row['employment_id'],'task_type'=>$row['task_type']));
-			return array('record'=>$updated,'replayed'=>false);
-		});
+
+		public function complete_onboarding_task( $payload, $idempotency_key ) {
+		$this->require_prepare();
+		$actor = $this->actor();
+		$id = $this->required_id( $payload, 'task_id' );
+		$evidence = Stockland_HR_Replacement_People_Contract::private_reference( $payload['evidence_reference'] ?? null );
+		$version = (int) ( $payload['version_no'] ?? 0 );
+		if ( $version < 1 ) { Stockland_HR_Replacement_People_Contract::deny( 'HRXP_STALE_VERSION', 'A positive expected task version is required.', 409 ); }
+		list( $key, $hash ) = $this->idempotency( $idempotency_key, array( 'task_id' => $id, 'evidence_reference' => $evidence, 'version_no' => $version ) );
+		return $this->repo->transaction( function () use ( $key, $hash, $actor, $id, $evidence, $version ) {
+			$prior = $this->replay( $key, $hash );
+			if ( $prior ) { return array( 'record' => $this->load( 'onboarding', (int) $prior['entity_id'] ), 'replayed' => true ); }
+			$row = $this->load( 'onboarding', $id, true );
+			$this->expected_version( $row, array( 'version_no' => $version ) );
+			$employment = $this->load( 'employments', (int) $row['employment_id'], true );
+			$this->require_same_location( $employment );
+			if ( 'PENDING_ONBOARDING' !== strtoupper( (string) $employment['status'] ) ) { Stockland_HR_Replacement_People_Contract::deny( 'HRXP_EMPLOYMENT_STATE_INVALID', 'Onboarding cannot proceed before an independently approved contract.' ); }
+			$approved = $this->repo->list_records( 'contracts', array( 'employment_id' => (int) $employment['id'], 'status' => 'APPROVED' ), 10 );
+			if ( ! $approved ) { Stockland_HR_Replacement_People_Contract::deny( 'HRXP_CONTRACT_APPROVAL_REQUIRED', 'The linked employment contract must be approved before onboarding tasks can be completed.' ); }
+			if ( ! in_array( strtoupper( (string) $row['task_type'] ), array( 'PERSONNEL_DOCS', 'INDUCTION', 'CODE_OF_CONDUCT', 'SAFETY_BRIEFING', 'ROLE_SOP_ACKNOWLEDGEMENT' ), true ) ) {
+				Stockland_HR_Replacement_People_Contract::deny( 'HRXP_TASK_RESERVED_FOR_LATER_STAGE', 'Payroll setup and access provisioning remain blocked until compensation, tax and access controls pass.' );
+			}
+			if ( 'COMPLETE' === strtoupper( (string) $row['status'] ) ) { Stockland_HR_Replacement_People_Contract::deny( 'HRXP_TASK_ALREADY_COMPLETE', 'The onboarding task is already complete.' ); }
+			$updated = $this->repo->update_expected( 'onboarding', $id, $version, $row['status'], array( 'status' => 'COMPLETE', 'evidence_reference' => $evidence, 'completed_by' => $actor, 'completed_at' => $this->now(), 'updated_by' => $actor, 'updated_at' => $this->now(), 'version_no' => $version + 1 ) );
+			$this->event( $key, $hash, 'ONBOARDING_TASK', $id, 'ONBOARDING_TASK_COMPLETED', $row['status'], 'COMPLETE', $actor, (int) $row['created_by'], 'Evidence reference captured', $version + 1, array( 'employment_id' => (int) $row['employment_id'], 'task_type' => $row['task_type'] ) );
+			return array( 'record' => $updated, 'replayed' => false );
+		} );
 	}
+
 	public function list_onboarding( $employment_id ) {
 		$this->require_candidate_access();$employment=$this->load('employments',(int)$employment_id);$this->require_same_location($employment);
 		return $this->repo->list_records('onboarding',array('employment_id'=>(int)$employment_id),100);
