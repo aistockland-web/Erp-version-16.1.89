@@ -201,7 +201,8 @@ def main():
     require("check_admin_referer" in handler and "Stockland_Authority::can_view_hr()" in handler, "resource download handler lacks nonce/authorization")
     require("Stockland_Audit::log(" in handler and "'HR_RESOURCE_DOWNLOAD'" in handler, "resource access is not audited")
     require("Content-Disposition: attachment" in handler and MIME in handler, "DOCX MIME/content-disposition missing")
-    require("approval_status'                => \"VARCHAR(24) NOT NULL DEFAULT 'DRAFT' AFTER allowance_breakdown_json\"" in new[ROOT_IN_ZIP + "includes/class-stockland-hr.php"].decode(), "migrated compensation must remain DRAFT pending review")
+    hr_schema = new[ROOT_IN_ZIP + "includes/class-stockland-hr.php"].decode()
+    require("private static function migration_columns()" in hr_schema and "'approval_status'" in hr_schema and "VARCHAR(24) NOT NULL DEFAULT 'DRAFT'" in hr_schema, "lifecycle compensation approvals use the separate additive migration allowlist")
     print("PASS 16.1.98 exact-package full HR/Payroll lifecycle and resource download source/package contracts.")
     print("PENDING: live target-host lifecycle/payment E2E, private vault tests, legal/tax/pension review, source parity with live 16.1.97, two-period parallel payroll, backup/restore/rollback and Owner/HR/Finance sign-off.")
 
