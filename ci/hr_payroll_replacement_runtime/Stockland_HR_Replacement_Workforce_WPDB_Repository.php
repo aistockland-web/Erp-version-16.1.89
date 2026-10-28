@@ -17,6 +17,10 @@ final class Stockland_HR_Replacement_Workforce_WPDB_Repository {
 		$this->tables = Stockland_HR_Replacement_Workforce_Schema::table_names();
 	}
 
+	public function document_blob_table() {
+		return $this->table( 'document_blobs' );
+	}
+
 	private function table( $key ) {
 		if ( ! isset( $this->tables[ $key ] ) ) {
 			throw new InvalidArgumentException( 'Unknown HR replacement table key.' );
@@ -243,6 +247,32 @@ final class Stockland_HR_Replacement_Workforce_WPDB_Repository {
 			'payroll_adjustments' => array( 'status', 'employment_id', 'payroll_run_id' ),
 			'payout_instructions' => array( 'status', 'payee_type', 'payee_id', 'employment_id', 'payout_batch_id' ),
 			'final_settlements' => array( 'status', 'exit_case_id' ),
+			'compensation_assignment_lines' => array( 'status', 'compensation_assignment_id', 'component_id' ),
+			'statutory_rule_sets' => array( 'rule_type', 'status' ),
+			'statutory_rule_vectors' => array( 'rule_set_id', 'status' ),
+			'work_calendars' => array( 'status' ),
+			'calendar_days' => array( 'calendar_id', 'day_date', 'day_type' ),
+			'shift_templates' => array( 'status', 'work_calendar_id' ),
+			'leave_policies' => array( 'status', 'leave_type' ),
+			'payroll_runs' => array( 'status', 'period_year', 'period_month' ),
+			'payroll_approvals' => array( 'payroll_run_id', 'stage_code', 'decision' ),
+			'payroll_postings' => array( 'payroll_run_id', 'status' ),
+			'payout_batches' => array( 'status', 'payroll_run_id', 'settlement_id' ),
+			'payout_attempts' => array( 'payout_instruction_id', 'status' ),
+			'statutory_obligations' => array( 'status', 'obligation_type', 'payroll_run_id' ),
+			'statutory_remittances' => array( 'status', 'obligation_id' ),
+			'exit_cases' => array( 'status', 'employment_id' ),
+			'exit_clearance_tasks' => array( 'status', 'exit_case_id' ),
+			'final_settlement_items' => array( 'settlement_id', 'component_code' ),
+			'individual_payees' => array( 'status', 'person_id', 'person_kind' ),
+			'service_engagements' => array( 'status', 'payee_id', 'engagement_type' ),
+			'service_deliverables' => array( 'status', 'engagement_id' ),
+			'withholding_assessments' => array( 'status', 'payee_id', 'engagement_id' ),
+			'payee_payment_requests' => array( 'status', 'payee_id', 'engagement_id' ),
+			'payee_payment_lines' => array( 'request_id', 'component_code' ),
+			'payee_payment_attempts' => array( 'request_id', 'status' ),
+			'access_audit_events' => array( 'subject_type', 'subject_id', 'actor_id', 'action_code' ),
+			'social_insight_snapshots' => array( 'platform_code', 'reporting_period_start', 'reporting_period_end' ),
 		);
 		if ( ! isset( $allowed_filters[ $entity ] ) ) {
 			throw new InvalidArgumentException( 'Unsupported HR replacement list entity.' );
