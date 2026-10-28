@@ -65,6 +65,28 @@ final class Stockland_HR_Replacement_Workforce_Service {
 		return $whole . '.' . str_pad( $fraction, 2, '0' );
 	}
 
+	private function compare_money( $left, $right ) {
+		$parts = array();
+		foreach ( array( (string) $left, (string) $right ) as $amount ) {
+			if ( ! preg_match( '/^[0-9]+(?:\.[0-9]{1,2})?$/', $amount ) ) {
+				throw new InvalidArgumentException( 'A monetary comparison value is invalid.' );
+			}
+			$split = explode( '.', $amount, 2 );
+			$parts[] = array( ltrim( $split[0], '0' ) ?: '0', str_pad( isset( $split[1] ) ? $split[1] : '', 2, '0' ) );
+		}
+		$a = $parts[0];
+		$b = $parts[1];
+		if ( strlen( $a[0] ) !== strlen( $b[0] ) ) {
+			return strlen( $a[0] ) < strlen( $b[0] ) ? -1 : 1;
+		}
+		$whole = strcmp( $a[0], $b[0] );
+		if ( 0 !== $whole ) {
+			return $whole < 0 ? -1 : 1;
+		}
+		$fraction = strcmp( $a[1], $b[1] );
+		return $fraction < 0 ? -1 : ( $fraction > 0 ? 1 : 0 );
+	}
+
 	private function record_or_error( $entity, $id, $location_field = 'location_id' ) {
 		$row = $this->repo->get( $entity, $id, true );
 		if ( ! $row ) {
@@ -312,7 +334,9 @@ final class Stockland_HR_Replacement_Workforce_Service {
 			if ( 'APPROVE' === $decision ) {
 				$evidence = $this->required_text( $data, 'budget_reference', 'Budget authorization reference', 190 );
 				$budget = $this->nonnegative_money( $data['approved_budget_etb'] ?? null, 'Approved budget' );
-				if ( (float) $budget <= 0 ) return $this->error( 'hrx_budget_invalid', 'Approved budget must be greater than zero.', 422 );
+				if ( 0 === $this->compare_money( $budget, '0.00' ) ) return $this->error( 'hrx_budget_invalid', 'Approved budget must be greater than zero.', 422 );
+				$annual_cost = $this->repo->estimated_annual_cost_for_plan( $id );
+				if ( $this->compare_money( $budget, $annual_cost ) < 0 ) return $this->error( 'hrx_budget_below_plan_cost', 'The approved budget is below the annualized estimate for the proposed workforce plan.', 422 );
 				$changes['budget_reference'] = $evidence;
 				$changes['approved_budget_etb'] = $budget;
 				$changes['approved_by'] = get_current_user_id();
@@ -322,7 +346,8 @@ final class Stockland_HR_Replacement_Workforce_Service {
 			$lines = $this->repo->list_rows( 'plan_lines', array( 'plan_id' => (int) $id ), $this->access->scoped_location_ids(), $this->access->company_scope() );
 			foreach ( $lines as $line ) {
 				if ( 'DRAFT' === $line['status'] ) {
-					$this->repo->transition( 'plan_lines', (int) $line['id'], (int) $line['version_no'], 'DRAFT', $to, array() );
+					$line_updated = $this->repo->transition( 'plan_lines', (int) $line['id'], (int) $line['version_no'], 'DRAFT', $to, array() );
+					$this->write_event( 'workforce-plan-line', $line_updated, 'PLAN_LINE_' . $decision, 'DRAFT', $to, hash( 'sha256', $key . ':line:' . $line['id'] ), $note, $evidence );
 				}
 			}
 			$this->write_event( 'workforce-plan', $updated, 'WORKFORCE_PLAN_' . $decision, 'SUBMITTED', $to, $key, $note, $evidence );
