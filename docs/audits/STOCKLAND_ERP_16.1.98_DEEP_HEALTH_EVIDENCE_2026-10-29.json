@@ -1,0 +1,104 @@
+{
+  "audit_date": "2026-10-29",
+  "disposition": "NO_GO_NOT_CERTIFIED",
+  "runtime": {
+    "source": "Owner-supplied System Health output",
+    "wordpress": "7.1.4",
+    "php": "8.4.27",
+    "mariadb": "11.4.13",
+    "plugin_label": "16.1.98-HRX-REVIEW-ONLY",
+    "db_marker": "16.1.1",
+    "core_schema": "29/29",
+    "full_schema_presence": "49/49",
+    "rest_v16_routes": 121,
+    "failed_checks": [
+      "schema_contract_exact_49",
+      "supplemental_integrity_scan",
+      "pwa_registration_source"
+    ],
+    "supplemental_scan": "SCAN_INCOMPLETE",
+    "audit_chain_hash_verification": "PASS",
+    "payroll_readiness_active_rows_needing_review": 0,
+    "payroll_full_cycle_e2e": "NOT_DEMONSTRATED"
+  },
+  "design_authority": {
+    "notion_reset": "https://app.notion.com/p/b2c96e7d1c2c45f7a0b269152fad0b2d",
+    "notion_lifecycle_requirements": "https://app.notion.com/p/4026db0f767e81aaa3ecc4383f5402f9",
+    "physical_hr_table_count": null,
+    "legacy_hr_transition_tables": [
+      "employees",
+      "employee_compensation",
+      "payroll_periods",
+      "payroll_lines"
+    ],
+    "policy": "Do not freeze physical count or retire legacy data before source-mapped ERD, copy-only migration, history/GL reconciliation, parallel periods, backup/restore and rollback."
+  },
+  "ci": [
+    {
+      "run_id": 40411201808,
+      "url": "https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/40411201808",
+      "workflow": "16.1.98 exact-package gates",
+      "conclusion": "failure",
+      "installer_sha256": "f38723acb1ca8bdd55720d8a4edd73fdcd5181012905d729e6aa4b6cfc5967e4",
+      "failure": "Exact package QA: candidate must not claim production acceptance; subsequent package tests and artifact upload skipped."
+    },
+    {
+      "run_id": 40395915340,
+      "url": "https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/40395915340",
+      "workflow": "16.1.98 exact-package gates",
+      "conclusion": "success_with_product_steps_skipped",
+      "artifact_uploaded": false,
+      "failure_mode": "Builder/QA files absent; baseline fetch, build, contract checks, lint and tests skipped. Not product certification."
+    },
+    {
+      "run_id": 40597350077,
+      "url": "https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/40597350077",
+      "workflow": "16.2.0 full HR/payroll candidate",
+      "conclusion": "failure",
+      "failure": "IndentationError: unexpected indent (build_full_hr_payroll_16_2_0.py, line 305) on PHP 8.3 and 8.4 CI matrix; package build/tests/upload skipped."
+    },
+    {
+      "run_id": 40609855986,
+      "url": "https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/40609855986",
+      "workflow": "HR replacement workforce vertical slice",
+      "conclusion": "limited_component_pass",
+      "scope": "PHP 8.3/8.4 workforce/service contract and syntax checks only, not complete payroll or live install acceptance."
+    }
+  ],
+  "root_cause_assessment": [
+    {
+      "finding": "schema_contract_exact_49",
+      "status": "CONFIRMED_RUNTIME_FAILURE; EXACT_SET_NOT_CAPTURED",
+      "likely_causes": [
+        "unexpected/unapproved tables",
+        "table-key or prefix mismatch",
+        "installed code/manifest differs from intended candidate"
+      ],
+      "rule": "Do not change expected count to 73/82 or suppress the gate before a signed physical-model decision."
+    },
+    {
+      "finding": "supplemental_integrity_scan",
+      "status": "SCAN_INCOMPLETE",
+      "rule": "Zero summary findings is not a PASS if required checks did not reach terminal states."
+    },
+    {
+      "finding": "pwa_registration_source",
+      "status": "CONFIRMED_RUNTIME_FAILURE; EXACT_SOURCE_NOT_AVAILABLE",
+      "possible_causes": [
+        "mixed/stale deployed asset",
+        "registration pattern mismatch",
+        "subdirectory/scope mismatch",
+        "stale browser/service-worker cache"
+      ],
+      "rule": "Inspect exact deployed source hashes and staging HTTP/browser evidence before patching."
+    },
+    {
+      "finding": "CI exact-package gate",
+      "status": "CONTRADICTORY WORKFLOW EVIDENCE",
+      "rule": "Green workflow with build/tests skipped is not product acceptance."
+    }
+  ],
+  "live_wordpress_e2e_this_session": "NOT_RUN; target URL fetch returned cache miss; no authenticated runtime or direct DB access is claimed.",
+  "production_database_modified": false,
+  "recommended_next_action": "Read-only installed file/schema fingerprint on a restored staging clone, then correct scan state semantics and CI gating."
+}
