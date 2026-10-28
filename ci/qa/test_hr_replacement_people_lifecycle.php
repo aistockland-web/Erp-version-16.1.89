@@ -156,7 +156,9 @@ hrxp_people_expect('HRXP_INTERVIEW_EVIDENCE_REQUIRED',function()use($move){$move
 $completedInterview=$service->record_interview(array('interview_code'=>'INT-002','application_id'=>$app['record']['id'],'round_no'=>2,'rubric_version'=>'RUBRIC-1','score'=>'78.00','recommendation'=>'RECOMMEND','scheduled_at'=>'2026-10-27 09:30:00','notes_reference'=>'vault://interviews/INT-002','evidence_sha256'=>str_repeat('c',64)),'interview.record.0002');$checks++;
 hrxp_people_assert(!empty($completedInterview['record']['interviewed_at']),'completed interview evidence records when the interview was conducted');$checks++;
 $move('RECOMMENDED',4,'application.recommend.0001');$checks++;
+$access->approve=true;
 hrxp_people_expect('HRXP_MAKER_CHECKER',function()use($move){$move('SELECTED',5,'application.select.same.0001',true,'Documented panel recommendation supports the hiring decision.');});$checks++;
+$access->approve=false;
 
 $access->actor=2;$access->prepare=false;$access->approve=true;
 $move('SELECTED',5,'application.select.owner.0001',true,'Documented human panel review supports selection against the approved vacancy.');
