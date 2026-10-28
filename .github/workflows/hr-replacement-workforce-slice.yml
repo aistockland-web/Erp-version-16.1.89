@@ -9,6 +9,7 @@ on:
       - 'ci/qa/test_hr_replacement_workforce_slice.php'
       - 'ci/qa/test_hr_replacement_people_lifecycle.php'
       - 'ci/qa/test_hr_replacement_people_repository.php'
+      - 'ci/qa/test_hr_replacement_people_rest_contract.py'
       - '.github/workflows/hr-replacement-workforce-slice.yml'
   pull_request:
     branches: [main]
@@ -17,6 +18,8 @@ on:
       - 'ci/hr_payroll_candidate/**'
       - 'ci/qa/test_hr_replacement_workforce_slice.php'
       - 'ci/qa/test_hr_replacement_people_lifecycle.php'
+      - 'ci/qa/test_hr_replacement_people_repository.php'
+      - 'ci/qa/test_hr_replacement_people_rest_contract.py'
       - '.github/workflows/hr-replacement-workforce-slice.yml'
   workflow_dispatch:
 
@@ -76,6 +79,8 @@ jobs:
         run: php ci/qa/test_hr_replacement_people_lifecycle.php
       - name: Run transactional engine readiness contract
         run: php ci/qa/test_hr_replacement_people_repository.php
+      - name: Verify People REST loader and Owner authority source contracts
+        run: python ci/qa/test_hr_replacement_people_rest_contract.py
       - name: Re-run independent payroll, workflow and leave-engine pure tests
         run: |
           php ci/hr_payroll_candidate/test_calculator.php
