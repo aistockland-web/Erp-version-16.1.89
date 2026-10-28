@@ -100,8 +100,8 @@ def patch_hr_schema(files):
 \t}
 """
     p = once(p,
-        "\\t/** Read-only inventory of missing HR columns; no table or business data is changed. */",
-        migration_helper + "\\n\\t/** Read-only inventory of missing HR columns; no table or business data is changed. */",
+        "\t/** Read-only inventory of missing HR columns; no table or business data is changed. */",
+        migration_helper + "\n\t/** Read-only inventory of missing HR columns; no table or business data is changed. */",
         "separate additive lifecycle migration allowlist")
     p = many(p,
         "foreach ( self::required_columns() as $key => $columns ) {",
@@ -113,7 +113,7 @@ def patch_hr_schema(files):
     batch_at = find_batch_boundary(p, last_table)
     if last_table < 0 or batch_at < 0:
         raise ValueError("Could not locate the payroll_lines table/batch boundary for the HR lifecycle DDL.")
-    lifecycle_ddl = "\\t\\tforeach ( Stockland_HR_Lifecycle::table_ddl( $p, $cc ) as $lifecycle_ddl ) {\\n\\t\\t\\t$tables[] = $lifecycle_ddl;\\n\\t\\t}\\n\\n"
+    lifecycle_ddl = "\t\tforeach ( Stockland_HR_Lifecycle::table_ddl( $p, $cc ) as $lifecycle_ddl ) {\n\t\t\t$tables[] = $lifecycle_ddl;\n\t\t}\n\n"
     p = p[:batch_at] + lifecycle_ddl + p[batch_at:]
     put(files, "includes/class-stockland-hr.php", p)
 
