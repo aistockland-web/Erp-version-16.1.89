@@ -128,7 +128,7 @@ Test role × operation × state × location × record owner × sensitive field f
 - Labour Proclamation No. 1156/2019: https://justice.gov.et/en/law/labour-proclamation/
 - Income Tax Amendment Proclamation No. 1395/2025, Federal Negarit Gazette No. 64: https://www.ffic.gov.et/Portals/0/1395-2017.pdf
 - Ministry of Finance tax directive register (draft entries are not law): https://www.mofed.gov.et/mof-directive/tax-directive/
-- Pension contribution Directive No. 1087/2025: https://justice.gov.et/en/directives/%E1%8B%A8%E1%8C%8D%E1%88%8D-%E1%8B%B5%E1%88%AD%E1%8C%85%E1%89%B5-%E1%88%A0%E1%AB%AB%E1%8A%9E%E1%89%BD-%E1%8C%A1%E1%88%A8%E1%89%B3-%E1%88%98%E1%8B%8B%E1%8C%AE-%E1%8C%88%E1%89%A2-%E1%8B%95-3/
+- Pension contribution Directive No. 1087/2025: https://justice.gov.et/en/directives/%E1%8B%A8%E1%8C%8D%E1%88%8D-%E1%8B%B5%E1%88%AD%E1%8C%85%E1%89%B5-%E1%88%A0%E1%88%AB%E1%89%B0%E1%8A%9E%E1%89%BD-%E1%8C%A1%E1%88%A8%E1%89%B3-%E1%88%98%E1%8B%8B%E1%8C%AE-%E1%8C%88%E1%89%A2-%E1%8B%95-3/
 - Pension implementation Directive No. 1085/2025: https://justice.gov.et/en/directives/%E1%88%88%E1%8C%8D%E1%88%8D-%E1%8B%B5%E1%88%AD%E1%8C%85%E1%89%B5-%E1%88%A0%E1%88%AB%E1%89%B0%E1%8A%9E%E1%89%BD-%E1%8C%A1%E1%88%A8%E1%89%B3-%E1%88%A5%E1%88%AB-%E1%8A%A0%E1%8D%88%E1%8C%BB%E1%8C%B8/
 - Personal Data Protection Proclamation No. 1321/2024: https://justice.gov.et/en/law/personal-data-protection-proclamation/
 
