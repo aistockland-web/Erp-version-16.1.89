@@ -10,6 +10,7 @@ on:
       - 'ci/qa/test_hr_replacement_people_lifecycle.php'
       - 'ci/qa/test_hr_replacement_people_repository.php'
       - 'ci/qa/test_hr_replacement_people_rest_contract.py'
+      - 'ci/qa/test_hr_replacement_namespace_contract.py'
       - '.github/workflows/hr-replacement-workforce-slice.yml'
   pull_request:
     branches: [main]
@@ -81,6 +82,8 @@ jobs:
         run: php ci/qa/test_hr_replacement_people_repository.php
       - name: Verify People REST loader and Owner authority source contracts
         run: python ci/qa/test_hr_replacement_people_rest_contract.py
+      - name: Verify HRX schema and repository prefix contract
+        run: python ci/qa/test_hr_replacement_namespace_contract.py
       - name: Re-run independent payroll, workflow and leave-engine pure tests
         run: |
           php ci/hr_payroll_candidate/test_calculator.php
