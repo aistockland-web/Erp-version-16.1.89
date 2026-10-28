@@ -8,6 +8,9 @@ on:
       - "ci/build_full_hr_payroll_16_2_0.py"
       - "ci/hr_payroll_overlay_16_2_0/**"
       - "ci/qa/test_full_hr_payroll_16_2_0.py"
+      - "ci/qa/check-css-postcss.js"
+      - "ci/qa/test_audit_chain_synthetic.php"
+      - "ci/cssqa/**"
       - ".github/workflows/hr-payroll-full-cycle-16-2-0.yml"
   pull_request:
     branches: [main]
@@ -88,6 +91,17 @@ jobs:
           find "$OUT/stockland-erp-app" -type f -name '*.php' -print0 | xargs -0 -n1 php -l
           node --check "$OUT/stockland-erp-app/assets/app.js"
           node --check ci/hr_payroll_overlay_16_2_0/hr-lifecycle-ui.js
+      - name: Install locked PostCSS parser for exact package validation
+        run: npm ci --prefix ci/cssqa --ignore-scripts --no-audit --no-fund
+      - name: Validate ordered CSS modules, Bootstrap asset hash and compiled stylesheet
+        env:
+          NODE_PATH: ${{ github.workspace }}/ci/cssqa/node_modules
+          STOCKLAND_APP: ${{ runner.temp }}/stockland-16.2.0/extracted/stockland-erp-app
+        run: node ci/qa/check-css-postcss.js "$STOCKLAND_APP" --scope release-candidate
+      - name: Verify audit-chain hash and continuity behavior with synthetic records
+        env:
+          STOCKLAND_APP: ${{ runner.temp }}/stockland-16.2.0/extracted/stockland-erp-app
+        run: php ci/qa/test_audit_chain_synthetic.php "$STOCKLAND_APP"
       - name: Test pure payroll calculator with synthetic-only fixtures
         run: php ci/hr_payroll_overlay_16_2_0/test-calculator-overlay.php
       - name: Verify candidate no-production-write and fail-closed manifest
