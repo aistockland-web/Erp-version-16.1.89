@@ -88,6 +88,18 @@ final class HRX_Test_Repository {
 	public function get( $entity, $id, $for_update = false ) {
 		return isset( $this->tables[ $entity ][ (int) $id ] ) ? $this->tables[ $entity ][ (int) $id ] : null;
 	}
+	public function estimated_annual_cost_for_plan( $plan_id ) {
+		$minor = 0;
+		foreach ( $this->tables['plan_lines'] as $line ) {
+			if ( (int) $line['plan_id'] !== (int) $plan_id ) continue;
+			$parts = explode( '.', (string) $line['estimated_monthly_cost_etb'], 2 );
+			$fraction = isset( $parts[1] ) ? str_pad( $parts[1], 2, '0' ) : '00';
+			$line_minor = ( (int) $parts[0] * 100 ) + (int) $fraction;
+			$minor += $line_minor * (int) $line['openings'] * 12;
+		}
+		return (string) intdiv( $minor, 100 ) . '.' . str_pad( (string) ( $minor % 100 ), 2, '0', STR_PAD_LEFT );
+	}
+
 	public function find_org_unit( $id ) { return $this->get( 'org_units', $id ); }
 	public function list_rows( $entity, $filters = array(), $location_ids = array(), $company_scope = false ) {
 		$rows = array_values( $this->tables[ $entity ] );
@@ -180,7 +192,10 @@ $own_approval = $service->execute_idempotent( hrx_key( 4 ), 'workforce_plan.deci
 hrx_assert( is_wp_error( $own_approval ) && 'hrx_self_approval_blocked' === $own_approval->code && 'SUBMITTED' === $repo->get( 'workforce_plans', $first['id'] )['status'], 'maker cannot approve own plan and rollback preserves SUBMITTED state' ); $checks++;
 
 $GLOBALS['hrx_test_user_id'] = 1; // synthetic independent Owner
-$approved = $service->execute_idempotent( hrx_key( 5 ), 'workforce_plan.decide', array( 'decision'=>'APPROVE', 'version_no'=>2, 'decision_note'=>'Budget checked against approved headcount and monthly plan.', 'budget_reference'=>'BUDGET-SYNTH-01', 'approved_budget_etb'=>'10000.00' ), function () use ( $service, $first ) { return $service->decide_plan( $first['id'], array( 'decision'=>'APPROVE', 'version_no'=>2, 'decision_note'=>'Budget checked against approved headcount and monthly plan.', 'budget_reference'=>'BUDGET-SYNTH-01', 'approved_budget_etb'=>'10000.00' ), hrx_key( 5 ) ); } );
+$underbudget_payload = array( 'decision'=>'APPROVE', 'version_no'=>2, 'decision_note'=>'Budget checked against approved headcount and monthly plan.', 'budget_reference'=>'BUDGET-SYNTH-01', 'approved_budget_etb'=>'10000.00' );
+$underbudget = $service->execute_idempotent( hrx_key( 14 ), 'workforce_plan.decide', $underbudget_payload, function () use ( $service, $first, $underbudget_payload ) { return $service->decide_plan( $first['id'], $underbudget_payload, hrx_key( 14 ) ); } );
+hrx_assert( is_wp_error( $underbudget ) && 'hrx_budget_below_plan_cost' === $underbudget->code && 'SUBMITTED' === $repo->get( 'workforce_plans', $first['id'] )['status'], 'Owner cannot approve a budget below annualized plan cost' ); $checks++;
+$approved = $service->execute_idempotent( hrx_key( 5 ), 'workforce_plan.decide', array( 'decision'=>'APPROVE', 'version_no'=>2, 'decision_note'=>'Budget checked against approved headcount and monthly plan.', 'budget_reference'=>'BUDGET-SYNTH-01', 'approved_budget_etb'=>'30000.00' ), function () use ( $service, $first ) { return $service->decide_plan( $first['id'], array( 'decision'=>'APPROVE', 'version_no'=>2, 'decision_note'=>'Budget checked against approved headcount and monthly plan.', 'budget_reference'=>'BUDGET-SYNTH-01', 'approved_budget_etb'=>'30000.00' ), hrx_key( 5 ) ); } );
 hrx_assert( is_array( $approved ) && 'APPROVED' === $approved['record']['status'] && 'APPROVED' === $repo->get( 'plan_lines', $line['id'] )['status'], 'independent Owner approval gates plan and plan line' ); $checks++;
 $GLOBALS['hrx_test_user_id'] = 22; // Management prepares the position; Owner approved the budget above.
 $position_payload = array( 'position_code'=>'POS-SYNTH-001', 'workforce_plan_id'=>$first['id'], 'plan_line_id'=>$line['id'] );
@@ -188,6 +203,7 @@ $position = $service->execute_idempotent( hrx_key( 6 ), 'position.create', $posi
 hrx_assert( is_array( $position ) && 'DRAFT' === $position['record']['status'] && (int)$position['record']['planned_headcount'] === 2, 'position can only be created from approved plan line and carries headcount' ); $checks++;
 $position_submit = $service->execute_idempotent( hrx_key( 7 ), 'position.submit', array( 'version_no'=>1 ), function () use ( $service, $position ) { return $service->submit_position( $position['id'], array( 'version_no'=>1 ), hrx_key( 7 ) ); } );
 hrx_assert( is_array( $position_submit ) && 'SUBMITTED' === $position_submit['record']['status'], 'position submission changes state' ); $checks++;
+$GLOBALS['hrx_test_user_id'] = 1; // Owner independently approves the position prepared by Management.
 $position_approved = $service->execute_idempotent( hrx_key( 8 ), 'position.decide', array( 'decision'=>'APPROVE', 'version_no'=>2, 'decision_note'=>'Approved against the signed workforce plan and budget.', 'approval_reference'=>'POS-APPROVAL-SYNTH-01' ), function () use ( $service, $position ) { return $service->decide_position( $position['id'], array( 'decision'=>'APPROVE', 'version_no'=>2, 'decision_note'=>'Approved against the signed workforce plan and budget.', 'approval_reference'=>'POS-APPROVAL-SYNTH-01' ), hrx_key( 8 ) ); } );
 hrx_assert( is_array( $position_approved ) && 'APPROVED' === $position_approved['record']['status'], 'position requires separate approval rationale and reference' ); $checks++;
 $position_active = $service->execute_idempotent( hrx_key( 9 ), 'position.activate', array( 'version_no'=>3 ), function () use ( $service, $position ) { return $service->activate_position( $position['id'], array( 'version_no'=>3 ), hrx_key( 9 ) ); } );
@@ -208,7 +224,7 @@ hrx_assert( is_array( $opened ) && 'OPEN' === $opened['record']['status'], 'appr
 $events = array_values( $repo->tables['workflow_events'] );
 $correlations = array_map( function ( $event ) { return $event['correlation_id']; }, $events );
 hrx_assert( count( $events ) === count( array_unique( $correlations ) ), 'workflow event correlation IDs are unique' ); $checks++;
-hrx_assert( count( $events ) >= 12, 'all completed transitions and draft changes produce auditable events' ); $checks++;
+hrx_assert( count( $events ) >= 13, 'all completed transitions, line decisions and draft changes produce auditable events' ); $checks++;
 hrx_assert( count( $repo->tables['command_receipts'] ) === 12, 'every successful mutating command has one idempotency receipt; rejected self-approval leaves no receipt' ); $checks++;
 
 echo 'PASS HR replacement workforce synthetic service contract: ' . $checks . " assertions.\n";
