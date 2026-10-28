@@ -219,6 +219,37 @@ final class Stockland_HR_Replacement_Workforce_WPDB_Repository {
 		return $this->get( $entity, $id );
 	}
 
+	public function transition( $entity, $id, $expected_version, $expected_state, $new_state, $changes = array() ) {
+		global $wpdb;
+		$allowed_changes = array(
+			'workforce_plans' => array( 'decision_note', 'submitted_by', 'submitted_at', 'approved_by', 'approved_at', 'budget_reference', 'approved_budget_etb' ),
+			'plan_lines' => array(),
+			'positions' => array( 'decision_note', 'approval_reference', 'approved_by', 'approved_at' ),
+			'requisitions' => array( 'decision_note', 'submitted_by', 'submitted_at', 'approved_by', 'approved_at', 'opened_by', 'opened_at', 'budget_reference' ),
+		);
+		if ( ! isset( $allowed_changes[ $entity ] ) ) {
+			throw new InvalidArgumentException( 'Unsupported HR replacement transition entity.' );
+		}
+		$clean = array_intersect_key( $changes, array_flip( $allowed_changes[ $entity ] ) );
+		$clean['status'] = sanitize_key( $new_state );
+		$clean['version_no'] = absint( $expected_version ) + 1;
+		$result = $wpdb->update(
+			$this->table( $entity ),
+			$clean,
+			array(
+				'id' => absint( $id ),
+				'version_no' => absint( $expected_version ),
+				'status' => sanitize_key( $expected_state ),
+			),
+			array_fill( 0, count( $clean ), '%s' ),
+			array( '%d', '%d', '%s' )
+		);
+		if ( false === $result || 1 !== (int) $result ) {
+			throw new RuntimeException( 'State transition lost a version/state race or could not be verified.' );
+		}
+		return $this->get( $entity, $id );
+	}
+
 	public function append_event( $entity, $id, $event, $from, $to, $actor, $correlation, $reason = '', $evidence = '' ) {
 		global $wpdb;
 		$payload = array(
@@ -228,7 +259,7 @@ final class Stockland_HR_Replacement_Workforce_WPDB_Repository {
 			'from_state' => $from ? sanitize_key( $from ) : null,
 			'to_state' => sanitize_key( $to ),
 			'actor_id' => absint( $actor ),
-			'approver_id' => ( $actor !== get_current_user_id() ) ? absint( get_current_user_id() ) : null,
+			'approver_id' => ( false !== strpos( strtoupper( (string) $event ), 'APPROVE' ) || false !== strpos( strtoupper( (string) $event ), 'DECISION' ) ) ? absint( $actor ) : null,
 			'reason_code' => '',
 			'reason_text' => sanitize_textarea_field( (string) $reason ),
 			'evidence_reference' => sanitize_text_field( (string) $evidence ),
