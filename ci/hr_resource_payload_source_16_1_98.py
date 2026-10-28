@@ -259,14 +259,24 @@ def make_docx(doc: dict) -> bytes:
 <Application>Microsoft Office Word</Application><Company>Stockland Ethiopia</Company></Properties>'''
     import io
     buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-        z.writestr("[Content_Types].xml", content_types)
-        z.writestr("_rels/.rels", rels)
-        z.writestr("word/document.xml", doc_xml)
-        z.writestr("word/_rels/document.xml.rels", docrels)
-        z.writestr("word/styles.xml", styles)
-        z.writestr("docProps/core.xml", core)
-        z.writestr("docProps/app.xml", app)
+    # Pin member order, timestamps, permissions and compression so a generated
+    # payload is byte-identical when the QA job regenerates the same DOCX.
+    members = (
+        ("[Content_Types].xml", content_types),
+        ("_rels/.rels", rels),
+        ("word/document.xml", doc_xml),
+        ("word/_rels/document.xml.rels", docrels),
+        ("word/styles.xml", styles),
+        ("docProps/core.xml", core),
+        ("docProps/app.xml", app),
+    )
+    with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as z:
+        for name, data in members:
+            info = zipfile.ZipInfo(name, date_time=(2020, 1, 1, 0, 0, 0))
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.create_system = 3
+            info.external_attr = 0o100644 << 16
+            z.writestr(info, data, compress_type=zipfile.ZIP_DEFLATED, compresslevel=9)
     return buf.getvalue()
 
 def resource_files_php() -> bytes:
