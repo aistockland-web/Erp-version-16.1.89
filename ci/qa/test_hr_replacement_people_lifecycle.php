@@ -57,7 +57,8 @@ final class HRXP_People_Memory_Repo implements Stockland_HR_Replacement_People_R
 	}
 	public function update_expected( $entity, $id, $version, $status, $data ) {
 		$row=$this->find($entity,$id);
-		if(!$row||(int)$row['version_no']!==(int)$version||(string)$row['status']!==(string)$status)throw new DomainException('HRXP_STALE_OR_MISSING: changed',409);
+		$stateField = 'applications' === $entity ? 'stage' : 'status';
+		if(!$row||(int)$row['version_no']!==(int)$version||(string)($row[$stateField]??'')!==(string)$status)throw new DomainException('HRXP_STALE_OR_MISSING: changed',409);
 		$new=array_merge($row,$data);$this->data[$entity][(int)$id]=$new;return $new;
 	}
 	public function find_event_by_key( $key ) { return $this->events[$key]??null; }
