@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 final class Stockland_HR_Replacement_Workforce_Schema {
-	const VERSION = '0.1.0';
+	const VERSION = '0.2.0';
 
 	private static function table( $suffix ) {
 		global $wpdb;
@@ -24,8 +24,17 @@ final class Stockland_HR_Replacement_Workforce_Schema {
 			'workforce_plans'  => self::table( 'workforce_plans' ),
 			'plan_lines'       => self::table( 'workforce_plan_lines' ),
 			'positions'        => self::table( 'positions' ),
-			'requisitions'     => self::table( 'vacancy_requisitions' ),
-			'workflow_events'  => self::table( 'workflow_events' ),
+			'requisitions'        => self::table( 'vacancy_requisitions' ),
+			'people'              => self::table( 'people' ),
+			'candidates'          => self::table( 'candidates' ),
+			'applications'        => self::table( 'applications' ),
+			'interviews'          => self::table( 'interviews' ),
+			'selection_decisions' => self::table( 'selection_decisions' ),
+			'employments'         => self::table( 'employments' ),
+			'contracts'           => self::table( 'contracts' ),
+			'documents'           => self::table( 'documents' ),
+			'onboarding_tasks'    => self::table( 'onboarding_tasks' ),
+			'workflow_events'     => self::table( 'workflow_events' ),
 			'command_receipts' => self::table( 'command_receipts' ),
 		);
 	}
