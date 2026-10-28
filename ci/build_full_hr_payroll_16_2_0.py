@@ -353,7 +353,7 @@ def rebuild_css(files):
     min_path = ROOT + "assets/app.min.css"
     modules_path = ROOT + "assets/css/modules.json"
     module = files[module_path].decode("utf-8")
-    overlay = Path(__file__).resolve().parent / "hr_payroll_overlay_16_2_0" / "hr-lifecycle-ui.css"
+    overlay = Path(__file__).resolve().parent / "hr_payroll_overlay" / "hr-lifecycle-ui.css"
     css = overlay.read_text(encoding="utf-8")
     marker = "/* HRIS lifecycle workspace: conservative SAP/Odoo-style data density"
     if marker not in module:
