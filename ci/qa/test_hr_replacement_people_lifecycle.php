@@ -93,7 +93,7 @@ final class HRXP_People_Fake_Access implements Stockland_HR_Replacement_People_A
 final class HRXP_People_Fake_Vault implements Stockland_HR_Replacement_Private_Vault {
 	public $available=true;
 	public function verify_reference($private_reference,$expected_sha256,$actor_id) {
-		return $this->available?array('verified'=>true,'public_access'=>false,'content_sha256'=>strtolower($expected_sha256)):array('verified'=>false,'public_access'=>true);
+		return $this->available?array('verified'=>true,'public_access'=>false,'content_sha256'=>strtolower($expected_sha256),'verification_reference'=>'vault-audit:TEST-VERIFY-001'):array('verified'=>false,'public_access'=>true);
 	}
 }
 function hrxp_people_expect( $code, callable $fn ) {
