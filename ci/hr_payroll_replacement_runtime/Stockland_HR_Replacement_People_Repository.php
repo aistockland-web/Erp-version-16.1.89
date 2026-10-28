@@ -113,7 +113,8 @@ final class Stockland_HR_Replacement_People_WPDB_Repository implements Stockland
 	}
 	public function update_expected( $entity, $id, $version, $status, $data ) {
 		if ( ! is_array( $data ) || empty( $data ) || ! array_key_exists( 'version_no', $data ) ) { throw new InvalidArgumentException( 'HRXP_VERSIONED_UPDATE_REQUIRED: Updates must advance version_no.' ); }
-		$result = $this->wpdb->update( $this->table( $entity ), $data, array( 'id' => (int) $id, 'version_no' => (int) $version, 'status' => (string) $status ) );
+		$state_field = 'applications' === $entity ? 'stage' : 'status';
+		$result = $this->wpdb->update( $this->table( $entity ), $data, array( 'id' => (int) $id, 'version_no' => (int) $version, $state_field => (string) $status ) );
 		if ( false === $result ) { throw new RuntimeException( 'HRXP_DATABASE_UPDATE_FAILED: Could not update the HR record.' ); }
 		if ( 1 !== (int) $result ) { throw new DomainException( 'HRXP_STALE_OR_MISSING: The record was changed by another user or its state is no longer valid.', 409 ); }
 		return $this->find( $entity, (int) $id );
