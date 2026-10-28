@@ -194,6 +194,7 @@ final class Stockland_HR_Replacement_People_Service {
 	}
 	public function move_application( $payload, $idempotency_key ) {
 		$this->require_candidate_access();$actor=$this->actor();$id=$this->required_id($payload,'application_id');$target=strtoupper(Stockland_HR_Replacement_People_Contract::text($payload['to_stage']??null,'to_stage',2,30));
+		if('HIRED'===$target){Stockland_HR_Replacement_People_Contract::deny('HRXP_INTERNAL_TRANSITION_ONLY','HIRED is system-managed when a pending employment record is created.');}
 		$maker=(int)($payload['created_by']??0);unset($payload['created_by']);
 		$rationale=isset($payload['rationale'])?(string)$payload['rationale']:'';$human=!empty($payload['human_decision']);
 		$row=$this->load('applications',$id);$this->require_same_location($row);
@@ -231,12 +232,17 @@ final class Stockland_HR_Replacement_People_Service {
 			if('ACCEPTED'!==strtoupper((string)$app['stage'])){Stockland_HR_Replacement_People_Contract::deny('HRXP_OFFER_ACCEPTANCE_REQUIRED','A pending hire can be created only after a human-approved offer acceptance.');}
 			if((int)$app['location_id']!==$loc){Stockland_HR_Replacement_People_Contract::deny('HRXP_LOCATION_MISMATCH','Employment location must match the approved vacancy location.');}
 			$req=$this->repo->requisition((int)$app['requisition_id'],true);if(!$req||'OPEN'!==strtoupper((string)$req['status'])){Stockland_HR_Replacement_People_Contract::deny('HRXP_VACANCY_NOT_OPEN','The source vacancy is not open at pending-hire creation.');}
+			if((int)$req['filled_openings'] >= (int)$req['openings']){Stockland_HR_Replacement_People_Contract::deny('HRXP_VACANCY_FULL','No unfilled approved opening remains for this accepted offer.',409);}
 			$employment=$this->repo->insert('employments',array('employment_code'=>$employment_code,'person_id'=>(int)$this->load('candidates',(int)$app['candidate_id'])['person_id'],'application_id'=>$app_id,'position_id'=>(int)$req['position_id'],'legal_employer_code'=>$legal_employer,'location_id'=>$loc,'reporting_manager_id'=>$managerId,'start_date'=>$start,'end_date'=>$end,'employment_type'=>$type,'status'=>'PENDING_CONTRACT','version_no'=>1,'created_by'=>$actor,'updated_by'=>$actor,'created_at'=>$this->now(),'updated_at'=>$this->now()));
 			$contract=$this->repo->insert('contracts',array('contract_code'=>$contract_code,'employment_id'=>(int)$employment['id'],'version_no'=>1,'contract_version_no'=>1,'contract_type'=>$contract_type,'effective_from'=>$start,'effective_to'=>$end,'probation_end'=>$probation,'private_document_id'=>null,'signed_at'=>null,'status'=>'DRAFT','submitted_by'=>null,'submitted_at'=>null,'approved_by'=>null,'approved_at'=>null,'approval_note'=>null,'created_by'=>$actor,'updated_by'=>$actor,'created_at'=>$this->now(),'updated_at'=>$this->now()));
 			foreach(array('PERSONNEL_DOCS','INDUCTION','CODE_OF_CONDUCT','SAFETY_BRIEFING','ROLE_SOP_ACKNOWLEDGEMENT','PAYROLL_SETUP','ACCESS_PROVISIONING') as $taskType){
 				$this->repo->insert('onboarding',array('task_code'=>substr($employment_code,0,14).'-'.substr(hash('sha256',$employment_code),0,8).'-'.$taskType,'employment_id'=>(int)$employment['id'],'task_type'=>$taskType,'title'=>str_replace('_',' ',ucfirst(strtolower($taskType))),'assigned_role'=>in_array($taskType,array('PAYROLL_SETUP','ACCESS_PROVISIONING'),true)?'OWNER':'MANAGEMENT','owner_user_id'=>null,'due_on'=>null,'mandatory'=>1,'status'=>'PENDING','evidence_reference'=>null,'completed_by'=>null,'completed_at'=>null,'version_no'=>1,'created_by'=>$actor,'updated_by'=>$actor,'created_at'=>$this->now(),'updated_at'=>$this->now()));
 			}
-			$this->event($key,$hash,'EMPLOYMENT',(int)$employment['id'],'PENDING_HIRE_CREATED','OFFER_ACCEPTED','PENDING_CONTRACT',$actor,$actor,'Pending employment created; payroll setup and access remain gated',1,array('application_id'=>$app_id,'position_id'=>(int)$req['position_id'],'contract_id'=>(int)$contract['id'],'onboarding_tasks'=>7));
+			$appVersion=(int)$app['version_no'];
+			$this->repo->update_expected('applications',$app_id,$appVersion,'ACCEPTED',array('stage'=>'HIRED','human_decision'=>1,'version_no'=>$appVersion+1,'updated_by'=>$actor,'updated_at'=>$this->now()));
+			$reqVersion=(int)$req['version_no'];
+			$this->repo->update_expected('requisitions',(int)$req['id'],$reqVersion,'OPEN',array('filled_openings'=>(int)$req['filled_openings']+1,'version_no'=>$reqVersion+1,'updated_by'=>$actor,'updated_at'=>$this->now()));
+			$this->event($key,$hash,'EMPLOYMENT',(int)$employment['id'],'PENDING_HIRE_CREATED','OFFER_ACCEPTED','PENDING_CONTRACT',$actor,$actor,'Pending employment created; payroll setup and access remain gated',1,array('application_id'=>$app_id,'position_id'=>(int)$req['position_id'],'contract_id'=>(int)$contract['id'],'onboarding_tasks'=>7,'requisition_openings_filled'=>(int)$req['filled_openings']+1));
 			return array('employment'=>$employment,'contract'=>$contract,'onboarding_tasks'=>7,'activation_allowed'=>false,'replayed'=>false);
 		});
 	}
