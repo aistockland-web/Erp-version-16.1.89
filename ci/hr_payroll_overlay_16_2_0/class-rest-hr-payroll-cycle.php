@@ -386,7 +386,7 @@ final class Stockland_REST_HR_Payroll_Cycle extends Stockland_REST_Base {
 	private function refresh_run_completion( $run_id ) {
 		global $wpdb;
 		$run=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d',$this->table('hr_payroll_runs'),(int)$run_id),ARRAY_A);if(!$run)return false;
-		$unpaid=Stockland_DB::read_var($wpdb->prepare("SELECT COUNT(*) FROM %i l WHERE l.run_id=%d AND NOT EXISTS (SELECT 1 FROM %i i INNER JOIN %i b ON b.id=i.batch_id WHERE i.run_line_id=l.id AND i.status='PAID' AND b.status IN ('RECONCILED','PARTIAL_RECONCILED'))",$this->table('hr_payroll_run_lines'),(int)$run_id,$this->table('hr_payroll_payment_items'),$this->table('hr_payroll_payment_batches'));
+		$unpaid=Stockland_DB::read_var($wpdb->prepare("SELECT COUNT(*) FROM %i l WHERE l.run_id=%d AND NOT EXISTS (SELECT 1 FROM %i i INNER JOIN %i b ON b.id=i.batch_id WHERE i.run_line_id=l.id AND i.status='PAID' AND b.status IN ('RECONCILED','PARTIAL_RECONCILED'))",$this->table('hr_payroll_run_lines'),(int)$run_id,$this->table('hr_payroll_payment_items'),$this->table('hr_payroll_payment_batches')));
 		$unreconciled_batches=Stockland_DB::read_var($wpdb->prepare("SELECT COUNT(*) FROM %i WHERE run_id=%d AND status NOT IN ('RECONCILED','PARTIAL_RECONCILED')",$this->table('hr_payroll_payment_batches'),(int)$run_id));
 		$unreconciled_remits=Stockland_DB::read_var($wpdb->prepare("SELECT COUNT(*) FROM %i WHERE run_id=%d AND status<>'RECONCILED'",$this->table('hr_statutory_remittances'),(int)$run_id));
 		$target=((int)$unpaid===0&&(int)$unreconciled_batches===0&&(int)$unreconciled_remits===0)?'SETTLED':'PAYMENT_PARTIAL';
