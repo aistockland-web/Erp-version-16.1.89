@@ -161,7 +161,7 @@ final class Stockland_HR_Replacement_Workforce_Service {
 		return array( 'plan' => $row, 'lines' => $this->repo->list_rows( 'plan_lines', array( 'plan_id' => (int) $id ), $this->access->scoped_location_ids(), $this->access->company_scope() ) );
 	}
 
-	public function create_plan( $data ) {
+	public function create_plan( $data, $key ) {
 		try {
 			$location_id = $this->positive_int( $data['location_id'] ?? null, 'Work location' );
 			$access = $this->access->assert_branch( $location_id );
@@ -184,14 +184,14 @@ final class Stockland_HR_Replacement_Workforce_Service {
 				'status' => 'DRAFT', 'version_no' => 1, 'created_by' => get_current_user_id(),
 				'created_at' => current_time( 'mysql', true ),
 			) );
-			$this->write_event( 'workforce-plan', $row, 'WORKFORCE_PLAN_CREATED', null, 'DRAFT', sanitize_text_field( $data['_idempotency_key'] ?? '' ), 'Workforce plan created.' );
+			$this->write_event( 'workforce-plan', $row, 'WORKFORCE_PLAN_CREATED', null, 'DRAFT', $key, 'Workforce plan created.' );
 			return array( 'id' => (int) $row['id'], 'entity_type' => 'workforce-plan', 'record' => $row, 'message' => 'Draft workforce plan created.' );
 		} catch ( Throwable $e ) {
 			return $this->error( 'hrx_validation_failed', $e->getMessage(), 400 );
 		}
 	}
 
-	public function update_plan( $id, $data ) {
+	public function update_plan( $id, $data, $key ) {
 		try {
 			$row = $this->record_or_error( 'workforce_plans', $id );
 			if ( is_wp_error( $row ) ) return $row;
@@ -211,13 +211,14 @@ final class Stockland_HR_Replacement_Workforce_Service {
 				$changes['justification'] = $j;
 			}
 			$updated = $this->repo->update_versioned( 'workforce_plans', $id, $version, $changes );
+			$this->write_event( 'workforce-plan', $updated, 'WORKFORCE_PLAN_UPDATED', 'DRAFT', 'DRAFT', $key, 'Draft workforce plan fields updated.' );
 			return array( 'id' => (int) $updated['id'], 'entity_type' => 'workforce-plan', 'record' => $updated, 'message' => 'Draft workforce plan updated.' );
 		} catch ( Throwable $e ) {
 			return $this->error( 'hrx_validation_failed', $e->getMessage(), 400 );
 		}
 	}
 
-	public function create_plan_line( $plan_id, $data ) {
+	public function create_plan_line( $plan_id, $data, $key ) {
 		try {
 			$plan = $this->record_or_error( 'workforce_plans', $plan_id );
 			if ( is_wp_error( $plan ) ) return $plan;
@@ -235,14 +236,14 @@ final class Stockland_HR_Replacement_Workforce_Service {
 				'business_case' => $business_case, 'status' => 'DRAFT', 'version_no' => 1,
 				'created_by' => get_current_user_id(), 'created_at' => current_time( 'mysql', true ),
 			) );
-			$this->write_event( 'workforce-plan-line', $row, 'PLAN_LINE_CREATED', null, 'DRAFT', sanitize_text_field( $data['_idempotency_key'] ?? '' ), 'Plan line created.' );
+			$this->write_event( 'workforce-plan-line', $row, 'PLAN_LINE_CREATED', null, 'DRAFT', $key, 'Plan line created.' );
 			return array( 'id' => (int) $row['id'], 'entity_type' => 'plan-line', 'record' => $row, 'message' => 'Workforce plan line created.' );
 		} catch ( Throwable $e ) {
 			return $this->error( 'hrx_validation_failed', $e->getMessage(), 400 );
 		}
 	}
 
-	public function update_plan_line( $plan_id, $line_id, $data ) {
+	public function update_plan_line( $plan_id, $line_id, $data, $key ) {
 		try {
 			$plan = $this->record_or_error( 'workforce_plans', $plan_id );
 			if ( is_wp_error( $plan ) ) return $plan;
@@ -263,6 +264,7 @@ final class Stockland_HR_Replacement_Workforce_Service {
 				$changes['business_case'] = $j;
 			}
 			$updated = $this->repo->update_versioned( 'plan_lines', $line_id, $version, $changes );
+			$this->write_event( 'workforce-plan-line', $updated, 'PLAN_LINE_UPDATED', 'DRAFT', 'DRAFT', $key, 'Draft workforce plan line fields updated.' );
 			return array( 'id' => (int) $updated['id'], 'entity_type' => 'plan-line', 'record' => $updated, 'message' => 'Draft workforce plan line updated.' );
 		} catch ( Throwable $e ) {
 			return $this->error( 'hrx_validation_failed', $e->getMessage(), 400 );
