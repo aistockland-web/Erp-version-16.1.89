@@ -199,8 +199,9 @@ final class Stockland_HR_Replacement_Recruitment_Service {
 			$person_code = $this->text( $data, 'person_code', 'Person code', 80 );
 			$candidate_code = $this->text( $data, 'candidate_code', 'Candidate code', 80 );
 			$full_name = $this->text( $data, 'full_name', 'Candidate full name', 190 );
-			$email = isset( $data['primary_email'] ) ? sanitize_email( (string) $data['primary_email'] ) : '';
-			if ( '' !== $email && ! is_email( $email ) ) {
+			$raw_email = isset( $data['primary_email'] ) ? trim( (string) $data['primary_email'] ) : '';
+			$email = '' !== $raw_email ? sanitize_email( $raw_email ) : '';
+			if ( '' !== $raw_email && ( '' === $email || ! is_email( $email ) ) ) {
 				throw new InvalidArgumentException( 'Candidate email is not valid.' );
 			}
 			$phone = $this->optional( $data, 'primary_phone', 40 );
@@ -554,13 +555,25 @@ final class Stockland_HR_Replacement_Recruitment_Service {
 				if ( 'OTHER_REVIEW' === $employment_type ) {
 					return $this->error( 'hrx_employment_type_review_required', 'The proposed employment type must be reviewed before selection.', 422 );
 				}
-				$legal_employer = $this->text( $data, 'legal_employer_code', 'Legal employer code', 80 );
+				$legal_employer = strtoupper( sanitize_key( $this->text( $data, 'legal_employer_code', 'Legal employer code', 80 ) ) );
+				$configured_employer = function_exists( 'get_option' ) ? strtoupper( sanitize_key( (string) get_option( 'stockland_hrx_legal_employer_code', '' ) ) ) : '';
+				if ( '' === $configured_employer || ! hash_equals( $configured_employer, $legal_employer ) ) {
+					return $this->error( 'hrx_legal_employer_unconfigured', 'The requested legal employer is not configured in reviewed HR company settings. Do not create an employment record until the legal-employer master is approved.', 422 );
+				}
 				$requisition = $this->scoped_requisition( (int) $application['requisition_id'] );
 				if ( is_wp_error( $requisition ) ) {
 					return $requisition;
 				}
 				if ( 'OPEN' !== $requisition['status'] ) {
 					return $this->error( 'hrx_vacancy_not_open', 'The vacancy was closed before selection.', 409 );
+				}
+				$already_selected = $this->repo->count_applications_for_requisition( (int) $requisition['id'], 'SELECTED' );
+				if ( $already_selected >= (int) $requisition['openings'] ) {
+					return $this->error( 'hrx_requisition_openings_filled', 'All openings authorized by this requisition are already reserved for selected hires.', 409 );
+				}
+				$existing_employment = $this->repo->find_open_employment_for_candidate( (int) $application['candidate_id'] );
+				if ( $existing_employment ) {
+					return $this->error( 'hrx_candidate_already_employed_or_pending', 'This candidate already has an active or pending employment record. Resolve the existing employment workflow before selecting again.', 409 );
 				}
 				$position = $this->scoped_position( (int) $requisition['position_id'] );
 				if ( is_wp_error( $position ) ) {
