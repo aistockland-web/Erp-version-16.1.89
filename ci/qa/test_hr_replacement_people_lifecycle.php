@@ -139,7 +139,9 @@ hrxp_people_assert($app['record']['stage']==='APPLIED','application links candid
 $repo->data['candidates'][$candidate['candidate']['id']]['retention_review_on']='2026-10-27';
 hrxp_people_expect('HRXP_RETENTION_REVIEW_DUE',function()use($service,$app){$service->move_application(array('application_id'=>$app['record']['id'],'to_stage'=>'SCREENING','version_no'=>1,'human_decision'=>false,'rationale'=>''),'application.retention.expired.01');});$checks++;
 $repo->data['candidates'][$candidate['candidate']['id']]['retention_review_on']=$candidatePayload['retention_review_on'];
+$access->actor=2;$access->prepare=false;$access->approve=true;
 hrxp_people_expect('HRXP_TRANSITION_NOT_ALLOWED',function()use($service,$app){$service->move_application(array('application_id'=>$app['record']['id'],'to_stage'=>'SELECTED','version_no'=>1,'human_decision'=>true,'rationale'=>'This is a long rationale but should not skip every review stage.'),'application.invalid.0001');});$checks++;
+$access->actor=1;$access->prepare=true;$access->approve=false;
 
 $move=function($to,$version,$key,$decision=false,$rationale='')use($service,$app){
 	return $service->move_application(array('application_id'=>$app['record']['id'],'to_stage'=>$to,'version_no'=>$version,'human_decision'=>$decision,'rationale'=>$rationale),$key);
