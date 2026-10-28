@@ -471,7 +471,9 @@ def patch_resource_downloads(files):
         "placement": "inside the HR & Payroll lifecycle workspace",
         "status": "candidate implementation; still requires target-host click/access tests and full HR lifecycle acceptance",
     }
-    pending = manifest.setdefault("production_acceptance", {}).setdefault("pending", [])
+    acceptance = manifest.setdefault("production_acceptance", {})
+    acceptance["status"] = "PENDING_SOURCE_PARITY_AND_EXTERNAL_ACCEPTANCE"
+    pending = acceptance.setdefault("pending", [])
     parity_gate = "Compare against the reported live 16.1.97 source; this candidate builder is locked to 16.1.95. Do not install in place until all intervening fixes are preserved."
     if parity_gate not in pending:
         pending.insert(0, parity_gate)
