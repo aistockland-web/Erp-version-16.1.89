@@ -162,6 +162,8 @@ final class Stockland_HR_Replacement_People_WPDB_Repository implements Stockland
 			$table = $this->table( $entity );
 			$exists = $this->wpdb->get_var( $this->wpdb->prepare( 'SHOW TABLES LIKE %s', $this->wpdb->esc_like( $table ) ) );
 			if ( null === $exists || '' === (string) $exists || '' !== (string) $this->wpdb->last_error ) { return false; }
+			$status = $this->wpdb->get_row( $this->wpdb->prepare( 'SHOW TABLE STATUS WHERE Name = %s', $table ), ARRAY_A );
+			if ( '' !== (string) $this->wpdb->last_error || ! is_array( $status ) || 'InnoDB' !== (string) ( $status['Engine'] ?? '' ) ) { return false; }
 		}
 		return true;
 	}
