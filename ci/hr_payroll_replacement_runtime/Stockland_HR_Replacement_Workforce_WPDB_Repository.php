@@ -275,7 +275,7 @@ final class Stockland_HR_Replacement_Workforce_WPDB_Repository {
 			'from_state' => $from ? sanitize_key( $from ) : null,
 			'to_state' => sanitize_key( $to ),
 			'actor_id' => absint( $actor ),
-			'approver_id' => ( 'SUBMITTED' === strtoupper( (string) $from ) && in_array( strtoupper( (string) $to ), array( 'APPROVED', 'REJECTED' ), true ) ) ? absint( $actor ) : null,
+			'approver_id' => in_array( strtoupper( (string) $to ), array( 'APPROVED', 'REJECTED' ), true ) ? absint( $actor ) : null,
 			'reason_code' => '',
 			'reason_text' => sanitize_textarea_field( (string) $reason ),
 			'evidence_reference' => sanitize_text_field( (string) $evidence ),
