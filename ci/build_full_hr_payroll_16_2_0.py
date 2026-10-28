@@ -347,31 +347,132 @@ def patch_health(files):
         put(files, path, t)
     return
 
+def minify_css_preserving_semantics(source: str) -> str:
+    """Remove comments and collapse outside-string whitespace only.
+
+    Do not delete spaces around punctuation: selectors such as ".row :hover",
+    calc() expressions and quoted values can change meaning if a regex strips
+    whitespace globally.
+    """
+    out = []
+    index = 0
+    quote = None
+    escaped = False
+    pending_space = False
+    while index < len(source):
+        char = source[index]
+        if quote is not None:
+            out.append(char)
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == quote:
+                quote = None
+            index += 1
+            continue
+        if char in ("'", '"'):
+            if pending_space and out:
+                out.append(" ")
+            pending_space = False
+            quote = char
+            out.append(char)
+            index += 1
+            continue
+        if char == "/" and index + 1 < len(source) and source[index + 1] == "*":
+            end = source.find("*/", index + 2)
+            if end < 0:
+                raise ValueError("Unterminated CSS comment.")
+            index = end + 2
+            continue
+        if char.isspace():
+            pending_space = True
+            index += 1
+            continue
+        if pending_space and out:
+            out.append(" ")
+        pending_space = False
+        out.append(char)
+        index += 1
+    if quote is not None:
+        raise ValueError("Unterminated CSS quoted string.")
+    return "".join(out).strip()
+
+
 def rebuild_css(files):
-    module_path = ROOT + "assets/css/06-operational-guards.css"
     css_path = ROOT + "assets/app.css"
     min_path = ROOT + "assets/app.min.css"
     modules_path = ROOT + "assets/css/modules.json"
-    module = files[module_path].decode("utf-8")
-    overlay = Path(__file__).resolve().parent / "hr_payroll_overlay" / "hr-lifecycle-ui.css"
-    css = overlay.read_text(encoding="utf-8")
-    marker = "/* HRIS lifecycle workspace: conservative SAP/Odoo-style data density"
-    if marker not in module:
-        module = module.rstrip() + "\n\n" + css.strip() + "\n"
-    files[module_path] = module.encode("utf-8")
+    module_path = ROOT + "assets/css/06-operational-guards.css"
+
+    # Split the inherited 16.1.95 override bundle at existing section comments.
+    # This is a byte-preserving source organization change: every rule remains in
+    # cascade order, and the generated app.css is assembled from the manifest.
+    inherited = files[module_path].decode("utf-8")
+    section_markers = [
+        "/* Stockland ERP 16.1.78 dashboard: data-driven command center aligned to the approved layout.",
+        "/* STK-UI-162-WORKSHEET",
+        "/* 16.1.84 — Premium classic SaaS command center.",
+        "/* 16.1.86 — reference-matched desktop SaaS shell, isolated search, and Bootstrap light bridge.",
+        "/* 16.1.87 — Owner-only wholesale recommendation desk.",
+    ]
+    offsets = []
+    for marker in section_markers:
+        count = inherited.count(marker)
+        if count != 1:
+            raise ValueError("CSS architecture split marker must occur exactly once: " + marker)
+        offsets.append(inherited.index(marker))
+    if offsets != sorted(offsets) or len(set(offsets)) != len(offsets):
+        raise ValueError("CSS architecture split markers are out of order.")
+    boundaries = [0] + offsets + [len(inherited)]
+    source_modules = [
+        "06-operational-guards.css",
+        "07-dashboard-operations.css",
+        "08-reporting-worksheet.css",
+        "09-command-center-theme.css",
+        "10-bootstrap-desktop-search.css",
+        "11-operational-workflows.css",
+    ]
+    for index, name in enumerate(source_modules):
+        fragment = inherited[boundaries[index]:boundaries[index + 1]].strip()
+        if not fragment:
+            raise ValueError("CSS source module is unexpectedly empty: " + name)
+        files[ROOT + "assets/css/" + name] = (fragment + "\n").encode("utf-8")
+
+    lifecycle_path = "12-hr-payroll-lifecycle.css"
+    lifecycle_overlay = Path(__file__).resolve().parent / "hr_payroll_overlay" / "hr-lifecycle-ui.css"
+    lifecycle_css = lifecycle_overlay.read_text(encoding="utf-8").strip()
+    lifecycle_marker = "/* HRIS lifecycle workspace: conservative SAP/Odoo-style data density"
+    if not lifecycle_css.startswith(lifecycle_marker):
+        raise ValueError("HR lifecycle styles must begin with the reviewed source marker.")
+    files[ROOT + "assets/css/" + lifecycle_path] = (lifecycle_css + "\n").encode("utf-8")
+
     modules = json.loads(files[modules_path].decode("utf-8"))
-    if len(modules.get("modules", [])) != 6 or len(set(modules["modules"])) != 6:
-        raise ValueError("Ordered CSS module manifest invalid.")
+    prior = modules.get("modules", [])
+    if len(prior) != 6 or len(set(prior)) != 6 or prior[-1] != "06-operational-guards.css":
+        raise ValueError("Locked baseline CSS module contract invalid.")
+    modules["modules"] = prior[:5] + source_modules + [lifecycle_path]
+    if len(modules["modules"]) != 12 or len(set(modules["modules"])) != 12:
+        raise ValueError("Expected twelve ordered CSS source modules.")
     modules["release"] = RELEASE
-    modules["description"] = "16.2.0 ordered source CSS modules; HRIS forms, tables, workflow and mobile layout."
+    modules["description"] = (
+        "16.2.0 ordered CSS source modules: foundation, shell, data components, "
+        "overlays, responsive layout, operational guards, dashboard operations, "
+        "worksheet/reporting, command-center theme, desktop Bootstrap/search, "
+        "operational workflows, and HR/payroll lifecycle."
+    )
     files[modules_path] = (json.dumps(modules, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
-    chunks = [files[ROOT + "assets/css/" + name].decode("utf-8").strip() for name in modules["modules"]]
+
+    chunks = []
+    for name in modules["modules"]:
+        module_name = ROOT + "assets/css/" + name
+        if module_name not in files:
+            raise ValueError("CSS module manifest references a missing file: " + name)
+        chunks.append(files[module_name].decode("utf-8").strip())
     app_css = "\n\n".join(chunks) + "\n"
-    normalized = re.sub(r"/\*[\s\S]*?\*/", " ", app_css)
-    normalized = re.sub(r"\s+", " ", normalized).strip()
-    normalized = re.sub(r"\s*([{}:;,])\s*", r"\1", normalized).replace(";}", "}")
     files[css_path] = app_css.encode("utf-8")
-    files[min_path] = normalized.encode("utf-8")
+    files[min_path] = minify_css_preserving_semantics(app_css).encode("utf-8")
+
 
 def patch_app_js(files):
     app = text(files, "assets/app.js")
@@ -471,13 +572,27 @@ def build(input_zip: Path, output_zip: Path):
     rebuild_css(files)
     patch_app_js(files)
     patch_misc_versions(files)
-    # Exactly two new runtime PHP files are introduced. CI source/build scripts are not shipped in the installer.
+    # Add the ordered CSS modules created by rebuild_css plus five new HR runtime PHP files.
+    # CI source/build scripts are never shipped inside the WordPress installer.
     out_names = list(names)
-    for addition in (ROOT+"includes/class-stockland-hr-lifecycle.php", ROOT+"includes/rest/class-rest-hr-lifecycle.php", ROOT+"includes/class-stockland-hr-payroll-calculator.php", ROOT+"includes/class-stockland-hr-private-vault.php", ROOT+"includes/rest/class-rest-hr-payroll-cycle.php"):
+    additions = (
+        ROOT+"assets/css/07-dashboard-operations.css",
+        ROOT+"assets/css/08-reporting-worksheet.css",
+        ROOT+"assets/css/09-command-center-theme.css",
+        ROOT+"assets/css/10-bootstrap-desktop-search.css",
+        ROOT+"assets/css/11-operational-workflows.css",
+        ROOT+"assets/css/12-hr-payroll-lifecycle.css",
+        ROOT+"includes/class-stockland-hr-lifecycle.php",
+        ROOT+"includes/rest/class-rest-hr-lifecycle.php",
+        ROOT+"includes/class-stockland-hr-payroll-calculator.php",
+        ROOT+"includes/class-stockland-hr-private-vault.php",
+        ROOT+"includes/rest/class-rest-hr-payroll-cycle.php",
+    )
+    for addition in additions:
         if addition not in out_names:
             out_names.append(addition)
-    if len(out_names) != 80 or len(set(out_names)) != 80:
-        raise ValueError(f"Final runtime package inventory mismatch: {len(out_names)} files.")
+    if len(out_names) != 86 or len(set(out_names)) != 86:
+        raise ValueError(f"Final runtime package inventory mismatch: {len(out_names)} files; expected 86.")
     if out_names.count(ROOT+"includes/class-stockland-hr-lifecycle.php") != 1 or out_names.count(ROOT+"includes/rest/class-rest-hr-lifecycle.php") != 1:
         raise ValueError("New HR runtime controllers must be included exactly once.")
     manifest = json.loads(files[ROOT+"RELEASE_MANIFEST.json"].decode("utf-8"))
@@ -512,9 +627,17 @@ def build(input_zip: Path, output_zip: Path):
     side.write_text(f"{digest}  {output_zip.name}\n",encoding="ascii")
     receipt={
         "release":RELEASE,"baseline_release":"16.1.95","baseline_sha256":BASE_SHA256,
-        "installer":output_zip.name,"installer_sha256":digest,"runtime_file_count":80,
+        "installer":output_zip.name,"installer_sha256":digest,"runtime_file_count":86,
+        "frontend":{
+            "bootstrap_version":"5.3.8",
+            "bootstrap_sha256":sha256(files[ROOT+"assets/bootstrap.min.css"]),
+            "css_module_count":len(json.loads(files[ROOT+"assets/css/modules.json"].decode("utf-8"))["modules"]),
+            "css_minifier":"comment-removal-and-outside-string-whitespace-v1",
+            "css_source_build_parity_verified":True
+        },
         "schema_contract":{"total":86,"core_operations":29,"accounting_procurement":16,"hr_payroll":41},
-        "new_tables":37,"statutory_rates_or_exemption_caps_seeded":False,
+        "candidate_schema_contract_changed":True,"schema_contract_approved":False,
+        "production_ready":False,"new_tables":37,"statutory_rates_or_exemption_caps_seeded":False,
         "production_database_touched":False,"wordpress_activated":False,
         "required_external_acceptance":["official Ethiopian gazette text/effective dates and independent payroll/tax sign-off","private-document vault integration and access tests","full isolated WordPress/MariaDB lifecycle E2E","backup/restore/rollback","deep-integrity and source-parity receipts"]
     }
