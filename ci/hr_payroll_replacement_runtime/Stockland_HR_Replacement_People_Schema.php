@@ -146,6 +146,7 @@ final class Stockland_HR_Replacement_People_Schema {
 				contract_code VARCHAR(48) NOT NULL,
 				employment_id BIGINT UNSIGNED NOT NULL,
 				version_no INT UNSIGNED NOT NULL DEFAULT 1,
+				contract_version_no INT UNSIGNED NOT NULL DEFAULT 1,
 				contract_type VARCHAR(32) NOT NULL,
 				effective_from DATE NOT NULL,
 				effective_to DATE NULL,
@@ -164,7 +165,7 @@ final class Stockland_HR_Replacement_People_Schema {
 				updated_at DATETIME NOT NULL,
 				PRIMARY KEY (id),
 				UNIQUE KEY contract_code (contract_code),
-				UNIQUE KEY employment_version (employment_id, version_no),
+				UNIQUE KEY employment_version (employment_id, contract_version_no),
 				KEY status_effective (status, effective_from)
 			) ENGINE=InnoDB {$charset_collate}",
 			'documents' => "CREATE TABLE {$p}private_documents (
