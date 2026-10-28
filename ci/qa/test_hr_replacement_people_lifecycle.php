@@ -134,7 +134,8 @@ hrxp_people_expect('HRXP_TRANSITION_NOT_ALLOWED',function()use($service,$app){$s
 $move=function($to,$version,$key,$decision=false,$rationale='')use($service,$app){
 	return $service->move_application(array('application_id'=>$app['record']['id'],'to_stage'=>$to,'version_no'=>$version,'human_decision'=>$decision,'rationale'=>$rationale),$key);
 };
-$move('SCREENING',1,'application.screen.0001');$checks++;
+$screen=$move('SCREENING',1,'application.screen.0001');$checks++;
+$screenReplay=$move('SCREENING',1,'application.screen.0001');hrxp_people_assert($screenReplay['replayed']===true,'application stage requests replay idempotently after the row version advances');$checks++;
 $move('INTERVIEW',2,'application.interview.0001');$checks++;
 $interview=$service->record_interview(array('interview_code'=>'INT-001','application_id'=>$app['record']['id'],'round_no'=>1,'rubric_version'=>'RUBRIC-1','score'=>'82.50','recommendation'=>'RECOMMEND','scheduled_at'=>'2026-10-29 09:30:00','notes_reference'=>'vault://interviews/INT-001','evidence_sha256'=>str_repeat('a',64)),'interview.record.0001');$checks++;
 hrxp_people_assert($interview['record']['interviewer_id']===1&&$interview['record']['score']==='82.50','interview is attributed to a human interviewer and versioned rubric');$checks++;
@@ -181,9 +182,9 @@ foreach($tasks as $task){
 hrxp_people_assert($repo->data['employments'][$hire['employment']['id']]['status']==='PENDING_ONBOARDING','Stage 4 cannot activate employee before compensation/payroll and access controls');$checks++;
 hrxp_people_assert(count($repo->events)>=12,'all key lifecycle writes append idempotent workflow events');$checks++;
 
-$access->view=false;
-hrxp_people_expect('HRXP_FORBIDDEN',function()use($service){$service->list_applications();});$checks++;
-$repo->ready=false;
-hrxp_people_expect('HRXP_SCHEMA_NOT_READY',function()use($service){$service->list_applications();});$checks++;
+$access->view=false;$access->prepare=false;
+hrxp_people_expect('HRXP_CANDIDATE_ACCESS_DENIED',function()use($service){$service->list_applications(array('location_id'=>1));});$checks++;
+$access->prepare=true;$repo->ready=false;
+hrxp_people_expect('HRXP_SCHEMA_NOT_READY',function()use($service){$service->list_applications(array('location_id'=>1));});$checks++;
 
 echo 'PASS Stage 4 People lifecycle synthetic contract: '.$checks." assertions. In-memory only; no WordPress/MariaDB/live data. Private vault is mocked only for this test.\n";
