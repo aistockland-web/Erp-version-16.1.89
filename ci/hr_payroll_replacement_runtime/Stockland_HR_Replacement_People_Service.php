@@ -310,11 +310,12 @@ final class Stockland_HR_Replacement_People_Service {
 			$row=$this->load('documents',$id,true);$v=$this->expected_version($row,$payload);if('CONTRACT'===strtoupper((string)$row['subject_type'])){$contract=$this->load('contracts',(int)$row['subject_id'],true);$this->require_same_location($this->load('employments',(int)$contract['employment_id'],true));}elseif('EMPLOYMENT'===strtoupper((string)$row['subject_type'])){$this->require_same_location($this->load('employments',(int)$row['subject_id'],true));}if('PENDING_VERIFICATION'!==strtoupper((string)$row['status'])){Stockland_HR_Replacement_People_Contract::deny('HRXP_DOCUMENT_STATE_INVALID','Only a pending private document can be verified.');}
 			Stockland_HR_Replacement_People_Contract::assert_independent($actor,(int)$row['created_by'],'verify');
 			$verification = $this->vault->verify_reference( (string) $row['private_reference'], (string) $row['content_sha256'], $actor );
-			if ( ! is_array( $verification ) || empty( $verification['verified'] ) || ! empty( $verification['public_access'] ) || ! isset( $verification['content_sha256'] ) || ! hash_equals( (string) $row['content_sha256'], strtolower( (string) $verification['content_sha256'] ) ) ) {
-				Stockland_HR_Replacement_People_Contract::deny( 'HRXP_PRIVATE_VAULT_NOT_VERIFIED', 'The host has not proven that the file exists in authorized private storage with the expected hash and no public access. No verification status was changed.' );
+			if ( ! is_array( $verification ) || empty( $verification['verified'] ) || ! empty( $verification['public_access'] ) || ! isset( $verification['content_sha256'] ) || ! hash_equals( (string) $row['content_sha256'], strtolower( (string) $verification['content_sha256'] ) ) || empty( $verification['verification_reference'] ) ) {
+				Stockland_HR_Replacement_People_Contract::deny( 'HRXP_PRIVATE_VAULT_NOT_VERIFIED', 'The host has not proven that the file exists in authorized private storage with the expected hash, no public access, and a durable verification receipt. No verification status was changed.' );
 			}
-			$updated=$this->repo->update_expected('documents',$id,$v,$row['status'],array('status'=>'VERIFIED','verified_by'=>$actor,'verified_at'=>$this->now(),'review_note'=>$note,'version_no'=>$v+1,'updated_at'=>$this->now()));
-			$this->event($key,$hash,'PRIVATE_DOCUMENT',$id,'PRIVATE_DOCUMENT_VERIFIED',$row['status'],'VERIFIED',$actor,(int)$row['created_by'],$note,$v+1,array('content_sha256'=>$row['content_sha256']));
+			$vaultReceipt = Stockland_HR_Replacement_People_Contract::private_reference( (string) $verification['verification_reference'] );
+			$updated=$this->repo->update_expected('documents',$id,$v,$row['status'],array('status'=>'VERIFIED','verified_by'=>$actor,'verified_at'=>$this->now(),'vault_verification_reference'=>$vaultReceipt,'review_note'=>$note,'version_no'=>$v+1,'updated_at'=>$this->now()));
+			$this->event($key,$hash,'PRIVATE_DOCUMENT',$id,'PRIVATE_DOCUMENT_VERIFIED',$row['status'],'VERIFIED',$actor,(int)$row['created_by'],$note,$v+1,array('content_sha256'=>$row['content_sha256'],'vault_verification_reference'=>$vaultReceipt));
 			return array('record'=>$updated,'replayed'=>false);
 		});
 	}
