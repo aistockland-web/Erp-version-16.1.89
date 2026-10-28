@@ -945,7 +945,7 @@ posted_at datetime NULL,
 reversal_of_posting_id bigint(20) unsigned NULL,
 PRIMARY KEY  (id),
 UNIQUE KEY posting_code (posting_code),
-UNIQUE KEY payroll_run_id (payroll_run_id),
+KEY payroll_run_id (payroll_run_id),
 UNIQUE KEY idempotency_key (idempotency_key),
 KEY status (status)
 ) $charset;";
@@ -1091,7 +1091,7 @@ approved_by bigint(20) unsigned NULL,
 approved_at datetime NULL,
 PRIMARY KEY  (id),
 UNIQUE KEY exit_code (exit_code),
-UNIQUE KEY employment_exit_active (employment_id,status),
+KEY employment_exit_active (employment_id,status),
 KEY effective_date (effective_date),
 KEY status (status)
 ) $charset;";
@@ -1163,6 +1163,7 @@ KEY source_ref (source_type,source_id)
 		$sql[] = 'CREATE TABLE ' . $names['individual_payees'] . " (
 id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
 payee_code varchar(80) NOT NULL,
+person_id bigint(20) unsigned NOT NULL,
 person_kind varchar(32) NOT NULL,
 legal_name varchar(190) NOT NULL,
 display_name varchar(190) NULL,
@@ -1179,6 +1180,7 @@ approved_by bigint(20) unsigned NULL,
 approved_at datetime NULL,
 PRIMARY KEY  (id),
 UNIQUE KEY payee_code (payee_code),
+UNIQUE KEY person_id (person_id),
 KEY person_kind (person_kind),
 KEY status (status)
 ) $charset;";
