@@ -1,0 +1,77 @@
+name: Stockland HR replacement workforce slice contracts
+
+on:
+  push:
+    branches: [feature/hr-replacement-stage3-rebased-2026-10-28]
+    paths:
+      - 'ci/hr_payroll_replacement_runtime/**'
+      - 'ci/hr_payroll_candidate/**'
+      - 'ci/qa/test_hr_replacement_workforce_slice.php'
+      - '.github/workflows/hr-replacement-workforce-slice.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'ci/hr_payroll_replacement_runtime/**'
+      - 'ci/hr_payroll_candidate/**'
+      - 'ci/qa/test_hr_replacement_workforce_slice.php'
+      - '.github/workflows/hr-replacement-workforce-slice.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stockland-hr-workforce-slice-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  workforce-contracts:
+    name: Workforce contract tests / PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ["8.3", "8.4"]
+    steps:
+      - name: Checkout exact source and comparison history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Set up PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+      - name: PHP syntax for all replacement workforce sources and tests
+        run: |
+          set -euo pipefail
+          php -l ci/hr_payroll_replacement_runtime/Stockland_HR_Replacement_Workforce_Contract.php
+          php -l ci/hr_payroll_replacement_runtime/Stockland_HR_Replacement_Workforce_Repository.php
+          php -l ci/hr_payroll_replacement_runtime/Stockland_HR_Replacement_Workforce_Service.php
+          php -l ci/hr_payroll_replacement_runtime/Stockland_HR_Replacement_Workforce_WPDB_Repository.php
+          php -l ci/hr_payroll_replacement_runtime/Stockland_HR_Replacement_Workforce_Schema.php
+          php -l ci/hr_payroll_replacement_runtime/Stockland_HR_Replacement_Workforce_WP_Access.php
+          php -l ci/hr_payroll_replacement_runtime/class-rest-hr-replacement-workforce.php
+          php -l ci/qa/test_hr_replacement_workforce_slice.php
+          python ci/qa/test_hr_replacement_workforce_rest_contract.py
+          php -l ci/hr_payroll_candidate/Stockland_HR_Workflow_State_Machine.php
+          php -l ci/hr_payroll_candidate/Stockland_HR_Payroll_Calculator.php
+          php -l ci/hr_payroll_candidate/Stockland_HR_Time_Leave_Engine.php
+      - name: Run synthetic persistence, authorization, concurrency and workflow contracts
+        run: php ci/qa/test_hr_replacement_workforce_slice.php
+      - name: Re-run independent payroll, workflow and leave-engine pure tests
+        run: |
+          php ci/hr_payroll_candidate/test_calculator.php
+          php ci/hr_payroll_candidate/test_workflow_state_machine.php
+          php ci/hr_payroll_candidate/test_time_leave_engine.php
+      - name: Verify candidate changes remain outside the installable package
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --name-only origin/main...HEAD | tee "$RUNNER_TEMP/hrx-changed-files.txt"
+          if grep -E '(^STOCKLAND_ERP_.*\.zip$|^stockland-erp-app/)' "$RUNNER_TEMP/hrx-changed-files.txt"; then
+            echo "::error::Workforce slice must not modify the existing installer; integration requires a separately reviewed release builder."
+            exit 1
+          fi
+          echo "PASS: this branch changes CI/source candidates only; no installable ZIP or packaged plugin source was changed."
