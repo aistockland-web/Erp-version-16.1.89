@@ -59,7 +59,10 @@ final class Stockland_HR_Replacement_Workforce_Service {
 		if ( ! is_scalar( $value ) || ! preg_match( '/^(?:0|[1-9][0-9]{0,11})(?:\.[0-9]{1,2})?$/', (string) $value ) ) {
 			throw new InvalidArgumentException( $label . ' must be a non-negative ETB amount with no more than two decimals.' );
 		}
-		return number_format( (float) $value, 2, '.', '' );
+		$parts = explode( '.', (string) $value, 2 );
+		$whole = $parts[0];
+		$fraction = isset( $parts[1] ) ? $parts[1] : '';
+		return $whole . '.' . str_pad( $fraction, 2, '0' );
 	}
 
 	private function record_or_error( $entity, $id, $location_field = 'location_id' ) {
@@ -122,10 +125,11 @@ final class Stockland_HR_Replacement_Workforce_Service {
 			}
 			$entity_type = isset( $result['entity_type'] ) ? $result['entity_type'] : null;
 			$entity_id = isset( $result['id'] ) ? $result['id'] : null;
-			$this->repo->finish_receipt( $receipt_id, $result, $entity_type, $entity_id );
+			$public_result = $result;
+			unset( $public_result['entity_type'] );
+			$this->repo->finish_receipt( $receipt_id, $public_result, $entity_type, $entity_id );
 			$this->repo->commit();
-			unset( $result['entity_type'] );
-			return rest_ensure_response( $result );
+			return rest_ensure_response( $public_result );
 		} catch ( Throwable $e ) {
 			$this->repo->rollback();
 			// Retry path for a concurrent duplicate key: only return a result after commit.
