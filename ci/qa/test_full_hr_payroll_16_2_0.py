@@ -97,7 +97,7 @@ def main():
         require(manifest.get("statutory_rates_or_exemption_caps_seeded") is False, "no automatic statutory rates or exemption caps are seeded")
         # Ensure the new accounting/HR API has explicit permission callbacks for every REST registration.
         routes = re.findall(r"register_rest_route\s*\(", cycle)
-        permissions = re.findall(r"permission_callback\s*=>", cycle)
+        permissions = re.findall(r"""[\'"]?permission_callback[\'"]?\s*=>""", cycle)
         require(len(permissions) >= len(routes), "every REST route handler declares explicit permission callback(s)")
         require("employee_reimbursements" in schema and "receipt_resource_id" in schema, "reimbursements require a receipt-resource reference")
         # No real payee identifiers may be returned by list APIs.
