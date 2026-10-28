@@ -16,6 +16,9 @@ final class Stockland_HR_Replacement_WP_Private_Vault implements Stockland_HR_Re
 		if ( ! is_array( $result ) ) {
 			return array( 'verified' => false, 'public_access' => true, 'reason' => 'No approved private-vault adapter answered the verification request.' );
 		}
+		if ( empty( $result['verified'] ) || ! empty( $result['public_access'] ) || empty( $result['content_sha256'] ) || empty( $result['verification_reference'] ) ) {
+			return array( 'verified' => false, 'public_access' => true, 'reason' => 'The private-vault adapter did not return a complete verification receipt.' );
+		}
 		return $result;
 	}
 }
