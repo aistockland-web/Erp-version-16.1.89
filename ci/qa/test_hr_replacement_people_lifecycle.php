@@ -97,9 +97,9 @@ final class HRXP_People_Fake_Vault implements Stockland_HR_Replacement_Private_V
 	}
 }
 function hrxp_people_expect( $code, callable $fn ) {
-	try { $fn(); } catch ( DomainException $e ) {
+	try { $fn(); } catch ( Throwable $e ) {
 		if ( 0 === strpos( $e->getMessage(), $code . ':' ) ) { return; }
-		throw new RuntimeException( 'Expected ' . $code . ', got ' . $e->getMessage() );
+		throw new RuntimeException( 'Expected ' . $code . ', got ' . get_class( $e ) . ': ' . $e->getMessage() );
 	}
 	throw new RuntimeException( 'Expected exception ' . $code . ' but action succeeded.' );
 }
