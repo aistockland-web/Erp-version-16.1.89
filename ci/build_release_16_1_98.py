@@ -611,7 +611,8 @@ def build(input_zip: Path, output_zip: Path):
         "installer":output_zip.name,"installer_sha256":digest,"runtime_file_count":79,
         "implementation_scope":"full HR/Payroll lifecycle candidate plus secure resource library; not a document-only build",
         "schema_contract":{"total":73,"core_operations":29,"accounting_procurement":16,"hr_payroll":28},
-        "new_tables":24,"statutory_rates_or_exemption_caps_seeded":False,
+        "schema_changed":True,"schema_contract_approved":False,
+        "production_ready":False,"new_tables":24,"statutory_rates_or_exemption_caps_seeded":False,
         "production_database_touched":False,"wordpress_activated":False,
         "resource_downloads": manifest.get("hr_resource_downloads", {}).get("resources", []),
         "required_external_acceptance":["Owner-approved minimal additive schema/migration plan; the 73-table lifecycle proposal is not authorized for production migration until reviewed", "compare candidate source with live 16.1.97; builder baseline is 16.1.95 and in-place install is blocked until intervening fixes are preserved","official Ethiopian gazette text/effective dates and independent payroll/tax/pension sign-off","private employee-document vault integration and access tests","full isolated WordPress/MariaDB lifecycle E2E","two-period parallel payroll and GL/PLEDGER reconciliation","backup/restore/rollback","deep-integrity and Owner/HR/Finance acceptance receipts"]
