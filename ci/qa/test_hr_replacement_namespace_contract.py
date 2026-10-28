@@ -34,6 +34,6 @@ for label, source in (("workforce", workforce_repo), ("People", people_repo)):
 
 require("'migrations'" in workforce_schema and "'events'" in workforce_schema,
         "Stage 3 schema owns the shared migration and event journals")
-require("'migrations' => 'migrations'" in people_schema and "'events' => 'events'" in people_schema,
-        "People schema is an additive consumer of the same shared migration/event namespace")
+require("foreach ( array( 'migrations' => 'migrations', 'events' => 'events'" in people_schema,
+        "People schema checks the same shared migration/event namespace as prerequisites")
 print("PASS HRX namespace contract: schema installers and both repositories use one physical prefix; both DB adapters fail closed on non-InnoDB tables.")
