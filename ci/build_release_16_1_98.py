@@ -193,6 +193,29 @@ def patch_statutory(files):
         "$manager_safe = 'MANAGEMENT_PREPARED' === $status && 0 === $exempt_minor && $pensionable_minor === $base_minor;\n\t\tif ( 'OWNER_CLASSIFIED' !== $status && ! $manager_safe ) {",
         "$manager_safe = 'MANAGEMENT_PREPARED' === $status && 0 === $exempt_minor && $pensionable_minor === $base_minor;\n\t\t$rule_classified = 'RULE_CLASSIFIED' === $status && 'APPROVED' === strtoupper( (string) ( $record['approval_status'] ?? '' ) ) && ( 0 === $exempt_minor || ( ! empty( $record['allowance_rule_set_id'] ) && ! empty( $record['allowance_rule_version'] ) ) );\n\t\tif ( 'OWNER_CLASSIFIED' !== $status && ! $manager_safe && ! $rule_classified ) {",
         "allow system-rule classification after separate Owner compensation approval")
+    # Compensation readiness validates saved data without silently invoking a statutory
+    # calculator that now requires a pinned, effective-dated rule bundle. Payroll generation
+    # retrieves and requires that bundle separately before any calculation/posting.
+    old_validation = """\t\t\ttry {
+\t\t\t\tself::calculate(
+\t\t\t\t\tStockland_Money::decimal( $base_minor ),
+\t\t\t\t\tStockland_Money::decimal( $taxable_minor ),
+\t\t\t\t\tStockland_Money::decimal( $exempt_minor ),
+\t\t\t\t\tStockland_Money::decimal( $pensionable_minor ),
+\t\t\t\t\tStockland_Money::decimal( $other_minor )
+\t\t\t\t);
+\t\t\t} catch ( Throwable $e ) {
+\t\t\t\treturn 'Compensation amounts cannot produce a valid payroll calculation; review gross pay, pensionable salary, and deductions.';
+\t\t\t}"""
+    new_validation = """\t\t\t$gross_minor = $base_minor + $taxable_minor + $exempt_minor;
+\t\t\tif ( $pensionable_minor > $gross_minor ) {
+\t\t\t\treturn 'Pensionable salary cannot exceed gross pay.';
+\t\t\t}
+\t\t\tif ( $other_minor > $gross_minor ) {
+\t\t\t\treturn 'Authorized deductions exceed gross pay; review the compensation record.';
+\t\t\t}"""
+    p = once(p, old_validation, new_validation, "keep compensation readiness structural until pinned rules are supplied")
+
     # A mixed allowance is stored as two amount rows from split_allowances(), so the established validator's tax-treatment sum stays exact.
     put(files, "includes/class-stockland-payroll-statutory.php", p)
 
