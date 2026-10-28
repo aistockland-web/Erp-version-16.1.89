@@ -106,7 +106,7 @@ final class Stockland_HR_Replacement_Workforce_WPDB_Repository {
 		global $wpdb;
 		$total = $wpdb->get_var(
 			$wpdb->prepare(
-				'SELECT COALESCE(SUM(estimated_monthly_cost_etb * openings * 12), 0.00) FROM %i WHERE plan_id = %d',
+				'SELECT CAST(COALESCE(SUM(estimated_monthly_cost_etb * openings * 12), 0.00) AS DECIMAL(24,2)) FROM %i WHERE plan_id = %d',
 				$this->table( 'plan_lines' ),
 				absint( $plan_id )
 			)
@@ -136,6 +136,10 @@ final class Stockland_HR_Replacement_Workforce_WPDB_Repository {
 			'plan_lines' => array( 'plan_id', 'status', 'location_id' ),
 			'positions' => array( 'status', 'department', 'location_id', 'org_unit_id' ),
 			'requisitions' => array( 'status', 'position_id', 'plan_id', 'location_id' ),
+			'applications' => array( 'status', 'stage', 'candidate_id', 'requisition_id', 'location_id' ),
+			'employments' => array( 'status', 'person_id', 'position_id', 'requisition_id', 'location_id' ),
+			'interviews' => array( 'status', 'application_id', 'stage_code' ),
+			'selection_decisions' => array( 'status', 'application_id', 'candidate_id', 'recommendation' ),
 		);
 		if ( ! isset( $allowed_filters[ $entity ] ) ) {
 			throw new InvalidArgumentException( 'Unsupported HR replacement list entity.' );
@@ -155,13 +159,28 @@ final class Stockland_HR_Replacement_Workforce_WPDB_Repository {
 				$args[] = sanitize_text_field( (string) $value );
 			}
 		}
-		if ( ! $company_scope && in_array( 'location_id', $this->columns_for( $entity ), true ) ) {
+		$linked_table = null;
+		if ( ! $company_scope ) {
 			$ids = array_values( array_unique( array_filter( array_map( 'absint', $location_ids ) ) ) );
 			if ( ! $ids ) {
 				return array();
 			}
-			$where[] = 'location_id IN (' . implode( ',', array_fill( 0, count( $ids ), '%d' ) ) . ')';
-			$args = array_merge( $args, $ids );
+			if ( in_array( 'location_id', $this->columns_for( $entity ), true ) ) {
+				$where[] = 'location_id IN (' . implode( ',', array_fill( 0, count( $ids ), '%d' ) ) . ')';
+				$args = array_merge( $args, $ids );
+			} elseif ( in_array( $entity, array( 'interviews', 'selection_decisions' ), true ) ) {
+				$linked_table = $this->table( 'applications' );
+				$where[] = 'application_id IN (SELECT id FROM %i WHERE location_id IN (' . implode( ',', array_fill( 0, count( $ids ), '%d' ) ) . '))';
+				$args[] = $linked_table;
+				$args = array_merge( $args, $ids );
+			} elseif ( in_array( $entity, array( 'contracts', 'onboarding_tasks', 'documents' ), true ) ) {
+				$linked_table = $this->table( 'employments' );
+				$where[] = 'employment_id IN (SELECT id FROM %i WHERE location_id IN (' . implode( ',', array_fill( 0, count( $ids ), '%d' ) ) . '))';
+				$args[] = $linked_table;
+				$args = array_merge( $args, $ids );
+			} else {
+				return array();
+			}
 		}
 		$sql = 'SELECT * FROM %i WHERE ' . implode( ' AND ', $where ) . ' ORDER BY id DESC LIMIT 250';
 		array_unshift( $args, $table );
@@ -180,6 +199,15 @@ final class Stockland_HR_Replacement_Workforce_WPDB_Repository {
 			'plan_lines' => array( 'id', 'plan_id', 'line_code', 'position_title', 'grade_code', 'openings', 'estimated_monthly_cost_etb', 'location_id', 'business_case', 'status', 'version_no', 'created_by', 'created_at', 'updated_by', 'updated_at' ),
 			'positions' => array( 'id', 'position_code', 'title', 'department', 'org_unit_id', 'location_id', 'grade_code', 'reporting_position_id', 'planned_headcount', 'filled_headcount', 'status', 'version_no', 'created_by', 'created_at', 'updated_by', 'updated_at', 'approval_reference', 'approved_by', 'approved_at', 'decision_note', 'workforce_plan_id', 'plan_line_id' ),
 			'requisitions' => array( 'id', 'requisition_code', 'plan_id', 'plan_line_id', 'position_id', 'location_id', 'openings', 'justification', 'budget_reference', 'status', 'version_no', 'created_by', 'created_at', 'submitted_by', 'submitted_at', 'approved_by', 'approved_at', 'opened_by', 'opened_at', 'decision_note' ),
+			'people' => array( 'id', 'person_code', 'full_name', 'preferred_name', 'primary_email', 'primary_phone', 'privacy_notice_version', 'processing_basis', 'processing_basis_reference', 'consent_status', 'consent_recorded_at', 'consent_withdrawn_at', 'retention_until', 'person_status', 'version_no', 'created_by', 'created_at', 'updated_by', 'updated_at' ),
+			'candidates' => array( 'id', 'candidate_code', 'person_id', 'source_code', 'status', 'privacy_notice_version', 'retention_until', 'withdrawn_at', 'withdrawal_reason', 'version_no', 'created_by', 'created_at', 'updated_by', 'updated_at' ),
+			'applications' => array( 'id', 'application_code', 'candidate_id', 'person_id', 'requisition_id', 'location_id', 'stage', 'status', 'applied_at', 'withdrawn_at', 'decision_note', 'version_no', 'created_by', 'created_at', 'updated_by', 'updated_at' ),
+			'interviews' => array( 'id', 'interview_code', 'application_id', 'stage_code', 'scheduled_start', 'scheduled_end', 'timezone_code', 'panel_user_ids_json', 'status', 'evaluation_json', 'reviewer_summary', 'evidence_reference', 'completed_by', 'completed_at', 'version_no', 'created_by', 'created_at', 'updated_by', 'updated_at' ),
+			'selection_decisions' => array( 'id', 'decision_code', 'application_id', 'candidate_id', 'recommendation', 'rationale', 'evidence_reference', 'recommended_by', 'recommended_at', 'status', 'owner_decision', 'owner_decision_note', 'owner_decided_by', 'owner_decided_at', 'version_no', 'created_by', 'created_at' ),
+			'employments' => array( 'id', 'employment_code', 'person_id', 'candidate_id', 'application_id', 'selection_decision_id', 'position_id', 'requisition_id', 'location_id', 'job_title_snapshot', 'department_snapshot', 'employment_type', 'legal_employer_code', 'start_date', 'end_date', 'status', 'activated_by', 'activated_at', 'version_no', 'created_by', 'created_at', 'updated_by', 'updated_at' ),
+			'contracts' => array( 'id', 'contract_code', 'employment_id', 'contract_type', 'contract_version', 'start_date', 'end_date', 'probation_end', 'document_id', 'status', 'employee_signed_at', 'employer_signed_at', 'approved_by', 'approved_at', 'version_no', 'created_by', 'created_at', 'updated_by', 'updated_at' ),
+			'documents' => array( 'id', 'document_code', 'subject_type', 'subject_id', 'document_type', 'vault_reference', 'document_sha256', 'content_type', 'file_size_bytes', 'status', 'verified_by', 'verified_at', 'approved_by', 'approved_at', 'issued_on', 'expires_on', 'retention_until', 'version_no', 'created_by', 'created_at' ),
+			'onboarding_tasks' => array( 'id', 'task_code', 'employment_id', 'task_type', 'title', 'mandatory', 'assigned_to_role', 'assigned_to_user', 'due_on', 'status', 'evidence_reference', 'completed_by', 'completed_at', 'completion_note', 'version_no', 'created_by', 'created_at', 'updated_by', 'updated_at' ),
 		);
 		if ( ! isset( $columns[ $entity ] ) ) {
 			throw new InvalidArgumentException( 'Unsupported HR replacement entity.' );
@@ -207,7 +235,7 @@ final class Stockland_HR_Replacement_Workforce_WPDB_Repository {
 		global $wpdb;
 		$allowed = $this->columns_for( $entity );
 		$clean = array_intersect_key( $data, array_flip( $allowed ) );
-		foreach ( array( 'id', 'created_by', 'created_at', 'version_no', 'status', 'submitted_by', 'submitted_at', 'approved_by', 'approved_at', 'opened_by', 'opened_at' ) as $immutable ) {
+		foreach ( array( 'id', 'created_by', 'created_at', 'version_no', 'status', 'person_status', 'submitted_by', 'submitted_at', 'approved_by', 'approved_at', 'opened_by', 'opened_at', 'recommended_by', 'recommended_at', 'owner_decided_by', 'owner_decided_at', 'verified_by', 'verified_at', 'completed_by', 'completed_at' ) as $immutable ) {
 			unset( $clean[ $immutable ] );
 		}
 		if ( ! $clean ) {
@@ -242,12 +270,22 @@ final class Stockland_HR_Replacement_Workforce_WPDB_Repository {
 			'plan_lines' => array(),
 			'positions' => array( 'decision_note', 'approval_reference', 'approved_by', 'approved_at' ),
 			'requisitions' => array( 'decision_note', 'submitted_by', 'submitted_at', 'approved_by', 'approved_at', 'opened_by', 'opened_at', 'budget_reference' ),
+			'people' => array( 'consent_status', 'consent_recorded_at', 'consent_withdrawn_at', 'retention_until' ),
+			'candidates' => array( 'retention_until', 'withdrawn_at', 'withdrawal_reason' ),
+			'applications' => array( 'stage', 'decision_note', 'withdrawn_at' ),
+			'interviews' => array( 'evaluation_json', 'reviewer_summary', 'evidence_reference', 'completed_by', 'completed_at' ),
+			'selection_decisions' => array( 'owner_decision', 'owner_decision_note', 'owner_decided_by', 'owner_decided_at' ),
+			'employments' => array( 'activated_by', 'activated_at', 'start_date', 'end_date' ),
+			'contracts' => array( 'employee_signed_at', 'employer_signed_at', 'approved_by', 'approved_at', 'document_id' ),
+			'documents' => array( 'verified_by', 'verified_at', 'approved_by', 'approved_at', 'expires_on', 'retention_until' ),
+			'onboarding_tasks' => array( 'evidence_reference', 'completed_by', 'completed_at', 'completion_note' ),
 		);
 		if ( ! isset( $allowed_changes[ $entity ] ) ) {
 			throw new InvalidArgumentException( 'Unsupported HR replacement transition entity.' );
 		}
+		$state_column = 'people' === $entity ? 'person_status' : 'status';
 		$clean = array_intersect_key( $changes, array_flip( $allowed_changes[ $entity ] ) );
-		$clean['status'] = sanitize_key( $new_state );
+		$clean[ $state_column ] = sanitize_key( $new_state );
 		$clean['version_no'] = absint( $expected_version ) + 1;
 		$result = $wpdb->update(
 			$this->table( $entity ),
@@ -255,7 +293,7 @@ final class Stockland_HR_Replacement_Workforce_WPDB_Repository {
 			array(
 				'id' => absint( $id ),
 				'version_no' => absint( $expected_version ),
-				'status' => sanitize_key( $expected_state ),
+				$state_column => sanitize_key( $expected_state ),
 			),
 			array_fill( 0, count( $clean ), '%s' ),
 			array( '%d', '%d', '%s' )
