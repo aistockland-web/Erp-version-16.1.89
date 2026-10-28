@@ -102,6 +102,21 @@ final class Stockland_HR_Replacement_Workforce_WPDB_Repository {
 		return is_array( $row ) ? $row : null;
 	}
 
+	public function estimated_annual_cost_for_plan( $plan_id ) {
+		global $wpdb;
+		$total = $wpdb->get_var(
+			$wpdb->prepare(
+				'SELECT COALESCE(SUM(estimated_monthly_cost_etb * openings * 12), 0.00) FROM %i WHERE plan_id = %d',
+				$this->table( 'plan_lines' ),
+				absint( $plan_id )
+			)
+		);
+		if ( '' !== (string) $wpdb->last_error || ! is_numeric( $total ) ) {
+			throw new RuntimeException( 'Planned annual workforce cost could not be calculated.' );
+		}
+		return number_format( (float) $total, 2, '.', '' );
+	}
+
 	public function find_org_unit( $id ) {
 		global $wpdb;
 		$row = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM %i WHERE id = %d LIMIT 1', $this->table( 'org_units' ), absint( $id ) ), ARRAY_A );
