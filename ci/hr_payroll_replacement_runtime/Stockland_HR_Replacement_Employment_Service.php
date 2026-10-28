@@ -212,6 +212,14 @@ final class Stockland_HR_Replacement_Employment_Service {
 		return $stored;
 	}
 
+	public function get_document_download_url( $document_id ) {
+		$document = $this->repo->get( 'documents', $document_id );
+		if ( ! $document ) return $this->error( 'hrx_document_not_found', 'The document does not exist.', 404 );
+		if ( ! $this->document_scope_allowed( $document ) ) return $this->error( 'hrx_document_scope_denied', 'The document is outside your permitted HR scope.', 403 );
+		$url = $this->vault->download_url( $document_id );
+		return is_wp_error( $url ) ? $url : array( 'document_id' => (int) $document_id, 'download_url' => $url, 'message' => 'The download URL is nonce-protected and available only to an authorized authenticated user.' );
+	}
+
 	public function verify_document( $document_id, $data, $key ) {
 		$note = $this->rationale( $data['verification_note'] ?? '', 'Verification note', 20 );
 		$evidence = $this->text( $data, 'evidence_reference', 'Verification evidence reference', 190 );
