@@ -43,11 +43,15 @@ final class Stockland_HR_Replacement_People_Contract {
 	}
 	public static function private_reference( $value ) {
 		$value = self::text( $value, 'private_document_reference', 3, 190 );
-		if ( preg_match( '~^(?:https?://|//)~i', $value ) || preg_match( '~(?:^|[/\\\\])\\.\\.(?:[/\\\\]|$)~', $value ) || preg_match( '/[\x00-\x1F]/', $value ) ) {
-			self::deny( 'HRXP_PUBLIC_DOCUMENT_REFERENCE', 'Private HR documents must use an approved non-public vault reference, never a URL or path traversal.' );
+		$allowed_vault_object = 1 === preg_match( '~^vault://[A-Za-z0-9][A-Za-z0-9._/-]{1,175}$~D', $value );
+		$allowed_audit_receipt = 1 === preg_match( '~^vault-audit:[A-Za-z0-9][A-Za-z0-9._:-]{1,175}$~D', $value );
+		$traversal = 1 === preg_match( '~(?:^|/)\.\.(?:/|$)~', $value );
+		if ( ( ! $allowed_vault_object && ! $allowed_audit_receipt ) || $traversal || preg_match( '/[\x00-\x1F\x7F]/', $value ) ) {
+			self::deny( 'HRXP_PUBLIC_DOCUMENT_REFERENCE', 'Private HR documents must use an approved vault:// object reference or vault-audit: receipt. URLs, unsupported schemes and path traversal are prohibited.' );
 		}
 		return $value;
 	}
+
 	public static function assert_independent( $actor, $maker, $action ) {
 		if ( (int) $actor < 1 ) { self::deny( 'HRXP_ACTOR_REQUIRED', 'An authenticated actor is required.', 401 ); }
 		if ( (int) $actor === (int) $maker ) { self::deny( 'HRXP_MAKER_CHECKER', 'The preparer cannot ' . $action . ' their own record.', 403 ); }
