@@ -162,18 +162,26 @@ hrxp_people_expect('HRXP_PRIVATE_VAULT_NOT_VERIFIED',function()use($withoutVault
 $verified=$service->verify_private_document(array('document_id'=>$doc['record']['id'],'version_no'=>1,'review_note'=>'Verified the private object, ACL, and SHA-256 through the approved vault test.'),'document.verify.owner.01');$checks++;
 hrxp_people_assert($verified['record']['status']==='VERIFIED'&&$verified['record']['version_no']===2,'document verification requires independent maker-checker and private-vault proof');$checks++;
 $access->actor=1;
-$signed=$service->sign_contract(array('contract_id'=>$hire['contract']['id'],'document_id'=>$doc['record']['id'],'signed_on'=>'2026-10-28','version_no'=>1),'contract.sign.0001');$checks++;
+$signedPayload=array('contract_id'=>$hire['contract']['id'],'document_id'=>$doc['record']['id'],'signed_on'=>'2026-10-28','version_no'=>1);
+$signed=$service->sign_contract($signedPayload,'contract.sign.0001');$checks++;
+$signedReplay=$service->sign_contract($signedPayload,'contract.sign.0001');hrxp_people_assert($signedReplay['replayed']===true,'signing request safely replays after contract version advances');$checks++;
 hrxp_people_assert($signed['record']['status']==='SIGNED'&&$signed['record']['private_document_id']===$doc['record']['id'],'contract cannot be signed without verified linked private document');$checks++;
 $access->actor=2;$access->approve=true;
-$approved=$service->approve_contract(array('contract_id'=>$hire['contract']['id'],'version_no'=>2,'approval_note'=>'Independent Owner review confirmed signed evidence and approved particulars.'),'contract.approve.01');$checks++;
+$approvalPayload=array('contract_id'=>$hire['contract']['id'],'version_no'=>2,'approval_note'=>'Independent Owner review confirmed signed evidence and approved particulars.');
+$approved=$service->approve_contract($approvalPayload,'contract.approve.01');$checks++;
+$approvalReplay=$service->approve_contract($approvalPayload,'contract.approve.01');hrxp_people_assert($approvalReplay['replayed']===true,'Owner contract approval request safely replays');$checks++;
 hrxp_people_assert($approved['record']['status']==='APPROVED'&&$approved['employment']['status']==='PENDING_ONBOARDING'&&!$approved['activation_allowed'],'Owner approval advances pending onboarding only');$checks++;
 
 $tasks=$service->list_onboarding($hire['employment']['id']);hrxp_people_assert(count($tasks)===7,'pending hire created seven mandatory onboarding tasks');$checks++;
 $access->actor=1;$access->approve=false;
 foreach($tasks as $task){
 	if(in_array($task['task_type'],array('PERSONNEL_DOCS','INDUCTION','CODE_OF_CONDUCT','SAFETY_BRIEFING','ROLE_SOP_ACKNOWLEDGEMENT'),true)){
-		$done=$service->complete_onboarding_task(array('task_id'=>$task['id'],'version_no'=>1,'evidence_reference'=>'vault://onboarding/'.$task['task_type'].'/ack-001'),'onboarding.complete.'.strtolower(substr($task['task_type'],0,8)).'01');
+		$taskPayload=array('task_id'=>$task['id'],'version_no'=>1,'evidence_reference'=>'vault://onboarding/'.$task['task_type'].'/ack-001');
+		$taskKey='onboarding.complete.'.strtolower(substr($task['task_type'],0,8)).'01';
+		$done=$service->complete_onboarding_task($taskPayload,$taskKey);
 		hrxp_people_assert($done['record']['status']==='COMPLETE','permitted onboarding task complete with evidence reference');$checks++;
+		$taskReplay=$service->complete_onboarding_task($taskPayload,$taskKey);
+		hrxp_people_assert($taskReplay['replayed']===true,'completed task request replays despite stale expected version');$checks++;
 	}
 	if('PAYROLL_SETUP'===$task['task_type']){
 		hrxp_people_expect('HRXP_TASK_RESERVED_FOR_LATER_STAGE',function()use($service,$task){$service->complete_onboarding_task(array('task_id'=>$task['id'],'version_no'=>1,'evidence_reference'=>'vault://onboarding/payroll/pending'),'onboarding.payroll.block.01');});$checks++;
