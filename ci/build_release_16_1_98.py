@@ -196,24 +196,24 @@ def patch_statutory(files):
     # Compensation readiness validates saved data without silently invoking a statutory
     # calculator that now requires a pinned, effective-dated rule bundle. Payroll generation
     # retrieves and requires that bundle separately before any calculation/posting.
-    old_validation = """\t\t\ttry {
-\t\t\t\tself::calculate(
-\t\t\t\t\tStockland_Money::decimal( $base_minor ),
-\t\t\t\t\tStockland_Money::decimal( $taxable_minor ),
-\t\t\t\t\tStockland_Money::decimal( $exempt_minor ),
-\t\t\t\t\tStockland_Money::decimal( $pensionable_minor ),
-\t\t\t\t\tStockland_Money::decimal( $other_minor )
-\t\t\t\t);
-\t\t\t} catch ( Throwable $e ) {
-\t\t\t\treturn 'Compensation amounts cannot produce a valid payroll calculation; review gross pay, pensionable salary, and deductions.';
-\t\t\t}"""
-    new_validation = """\t\t\t$gross_minor = $base_minor + $taxable_minor + $exempt_minor;
-\t\t\tif ( $pensionable_minor > $gross_minor ) {
-\t\t\t\treturn 'Pensionable salary cannot exceed gross pay.';
-\t\t\t}
-\t\t\tif ( $other_minor > $gross_minor ) {
-\t\t\t\treturn 'Authorized deductions exceed gross pay; review the compensation record.';
-\t\t\t}"""
+    old_validation = """\t\ttry {
+\t\t\tself::calculate(
+\t\t\t\tStockland_Money::decimal( $base_minor ),
+\t\t\t\tStockland_Money::decimal( $taxable_minor ),
+\t\t\t\tStockland_Money::decimal( $exempt_minor ),
+\t\t\t\tStockland_Money::decimal( $pensionable_minor ),
+\t\t\t\tStockland_Money::decimal( $other_minor )
+\t\t\t);
+\t\t} catch ( Throwable $e ) {
+\t\t\treturn 'Compensation amounts cannot produce a valid payroll calculation; review gross pay, pensionable salary, and deductions.';
+\t\t}"""
+    new_validation = """\t\t$gross_minor = $base_minor + $taxable_minor + $exempt_minor;
+\t\tif ( $pensionable_minor > $gross_minor ) {
+\t\t\treturn 'Pensionable salary cannot exceed gross pay.';
+\t\t}
+\t\tif ( $other_minor > $gross_minor ) {
+\t\t\treturn 'Authorized deductions exceed gross pay; review the compensation record.';
+\t\t}"""
     p = once(p, old_validation, new_validation, "keep compensation readiness structural until pinned rules are supplied")
 
     # A mixed allowance is stored as two amount rows from split_allowances(), so the established validator's tax-treatment sum stays exact.
