@@ -7,16 +7,107 @@ if (!root || !fs.existsSync(root)) throw new Error('Pass extracted stockland-erp
 const assets = path.join(root, 'assets');
 const manifest = JSON.parse(fs.readFileSync(path.join(assets, 'css/modules.json'), 'utf8'));
 const releaseManifest = JSON.parse(fs.readFileSync(path.join(root, 'RELEASE_MANIFEST.json'), 'utf8'));
-if (!releaseManifest.release || manifest.release !== releaseManifest.release || manifest.modules.length !== 6 || new Set(manifest.modules).size !== 6) {
-  throw new Error('Expected six unique CSS modules with a release marker matching RELEASE_MANIFEST.json');
+const expectedModuleCount = releaseManifest.release === '16.2.0' ? 12 : 6;
+if (!releaseManifest.release || manifest.release !== releaseManifest.release ||
+    !Array.isArray(manifest.modules) || manifest.modules.length !== expectedModuleCount ||
+    new Set(manifest.modules).size !== expectedModuleCount) {
+  throw new Error('CSS source-module count, uniqueness, or release marker is invalid');
 }
 const chunks = manifest.modules.map(name => fs.readFileSync(path.join(assets, 'css', name), 'utf8').trim());
 const built = chunks.join('\n\n') + '\n';
 const appCss = fs.readFileSync(path.join(assets, 'app.css'), 'utf8');
 const appMin = fs.readFileSync(path.join(assets, 'app.min.css'), 'utf8').trim();
-const normalize = value => value.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\s+/g, ' ').trim().replace(/\s*([{}:;,])\s*/g, '$1').replace(/;}/g, '}');
+
+// Match the release builder: remove comments and collapse whitespace outside
+// quoted strings only. Do not strip whitespace around punctuation globally.
+function minifyCssPreservingSemantics(source) {
+  let out = '';
+  let index = 0;
+  let quote = null;
+  let escaped = false;
+  let pendingSpace = false;
+  while (index < source.length) {
+    const ch = source[index];
+    if (quote !== null) {
+      out += ch;
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === quote) quote = null;
+      index += 1;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      if (pendingSpace && out.length) out += ' ';
+      pendingSpace = false;
+      quote = ch;
+      out += ch;
+      index += 1;
+      continue;
+    }
+    if (ch === '/' && source[index + 1] === '*') {
+      const end = source.indexOf('*/', index + 2);
+      if (end < 0) throw new Error('Unterminated CSS comment.');
+      index = end + 2;
+      continue;
+    }
+    if (/\s/.test(ch)) {
+      pendingSpace = true;
+      index += 1;
+      continue;
+    }
+    if (pendingSpace && out.length) out += ' ';
+    pendingSpace = false;
+    out += ch;
+    index += 1;
+  }
+  if (quote !== null) throw new Error('Unterminated CSS quoted string.');
+  return out.trim();
+}
+const fixture = '.desc :hover{content:"ratio: 9 : 16";width:calc(100% - 2rem)} /* test */ .next{color:red}';
+const fixtureMin = minifyCssPreservingSemantics(fixture);
+if (!fixtureMin.includes('.desc :hover') ||
+    !fixtureMin.includes('"ratio: 9 : 16"') ||
+    !fixtureMin.includes('calc(100% - 2rem)') ||
+    fixtureMin.includes('/* test */')) {
+  throw new Error('CSS minifier semantic safety fixture failed');
+}
 if (built !== appCss) throw new Error('app.css differs from ordered CSS source modules');
-if (normalize(built) !== appMin) throw new Error('app.min.css differs from deterministic normalized CSS source');
+if (releaseManifest.release === '16.2.0') {
+  const expectedTail = [
+    '07-dashboard-operations.css',
+    '08-reporting-worksheet.css',
+    '09-command-center-theme.css',
+    '10-bootstrap-desktop-search.css',
+    '11-operational-workflows.css',
+    '12-hr-payroll-lifecycle.css'
+  ];
+  if (JSON.stringify(manifest.modules.slice(-6)) !== JSON.stringify(expectedTail)) {
+    throw new Error('16.2.0 CSS modules are not in the approved cascade order');
+  }
+  if (minifyCssPreservingSemantics(built) !== appMin) {
+    throw new Error('app.min.css differs from semantics-safe minification of source modules');
+  }
+} else {
+  // Keep historical release artifacts reproducible; the new builder uses the
+  // safer minifier on 16.2.0 and subsequent candidate builds.
+  const legacyNormalize = value => value.replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/\s+/g, ' ').trim().replace(/\s*([{}:;,])\s*/g, '$1').replace(/;}/g, '}');
+  if (legacyNormalize(built) !== appMin) {
+    throw new Error('Historical app.min.css differs from its release-era normalizer');
+  }
+}
+if (releaseManifest.release === '16.2.0') {
+  const bootstrap = fs.readFileSync(path.join(assets, 'bootstrap.min.css'));
+  const header = bootstrap.toString('utf8', 0, 220);
+  const digest = crypto.createHash('sha256').update(bootstrap).digest('hex');
+  if (!header.includes('Bootstrap  v5.3.8')) throw new Error('Bundled Bootstrap must be stable v5.3.8');
+  if (!releaseManifest.frontend ||
+      releaseManifest.frontend.bootstrap_version !== '5.3.8' ||
+      releaseManifest.frontend.bootstrap_asset_sha256 !== digest) {
+    throw new Error('Bootstrap version/hash must match the release manifest');
+  }
+  console.log('PASS Bootstrap 5.3.8 local asset version and SHA-256');
+}
 for (const file of ['app.css', 'app.min.css', 'bootstrap.min.css']) {
   postcss.parse(fs.readFileSync(path.join(assets, file), 'utf8'), { from: file });
   console.log('PASS PostCSS parse ' + file);
@@ -45,6 +136,10 @@ for (const [selector, label] of baselineSelectors) {
   if (!source.includes(selector)) throw new Error('Missing ' + label);
   console.log('PASS ' + label);
 }
+if (!source.includes(':focus-visible') || !source.includes('prefers-reduced-motion')) {
+  throw new Error('Focus-visible and reduced-motion accessibility rules are required');
+}
+console.log('PASS keyboard focus and reduced-motion CSS controls');
 if (scope === 'release-candidate') {
   const candidateSelectors = [
     ['.sl-overlay .sl-req-drawer .sl-approval-grid', 'body-level requisition approval drawer layout'],
