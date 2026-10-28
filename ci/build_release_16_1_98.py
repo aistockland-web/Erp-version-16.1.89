@@ -67,40 +67,53 @@ def patch_hr_schema(files):
         "return array( 'employees', 'employee_compensation', 'payroll_periods', 'payroll_lines' );",
         "return array_merge( array( 'employees', 'employee_compensation', 'payroll_periods', 'payroll_lines' ), Stockland_HR_Lifecycle::table_keys() );",
         "HR table contract")
+    # Keep historical table DDL and required_columns() byte-identical. All new columns
+    # are a separate explicit allowlist, applied by the existing protected ALTER migration.
+    migration_helper = """\t/** Additive lifecycle-only columns; legacy required_columns() remains frozen. */
+\tprivate static function migration_columns() {
+\t\t$columns = self::required_columns();
+\t\t$additions = array(
+\t\t\t'employee_compensation' => array(
+\t\t\t\t'approval_status'         => "VARCHAR(24) NOT NULL DEFAULT 'DRAFT'",
+\t\t\t\t'approved_by'             => 'BIGINT UNSIGNED NULL',
+\t\t\t\t'approved_at'             => 'DATETIME NULL',
+\t\t\t\t'statutory_rule_set_id'   => 'BIGINT UNSIGNED NULL',
+\t\t\t\t'statutory_rule_version'  => 'VARCHAR(80) NULL',
+\t\t\t\t'allowance_rule_set_id'   => 'BIGINT UNSIGNED NULL',
+\t\t\t\t'allowance_rule_version'  => 'VARCHAR(80) NULL',
+\t\t\t),
+\t\t\t'payroll_periods' => array(
+\t\t\t\t'statutory_rule_set_id'  => 'BIGINT UNSIGNED NULL',
+\t\t\t\t'statutory_rule_version' => 'VARCHAR(80) NULL',
+\t\t\t),
+\t\t\t'payroll_lines' => array(
+\t\t\t\t'statutory_rule_set_id'  => 'BIGINT UNSIGNED NULL',
+\t\t\t\t'statutory_rule_version' => 'VARCHAR(80) NULL',
+\t\t\t\t'allowance_rule_set_id'  => 'BIGINT UNSIGNED NULL',
+\t\t\t\t'allowance_rule_version' => 'VARCHAR(80) NULL',
+\t\t\t),
+\t\t);
+\t\tforeach ( $additions as $table => $fields ) {
+\t\t\t$columns[ $table ] = array_merge( $columns[ $table ] ?? array(), $fields );
+\t\t}
+\t\treturn $columns;
+\t}
+"""
     p = once(p,
-        "'allowance_breakdown_json'        => 'LONGTEXT NULL AFTER statutory_classification_note',",
-        "'allowance_breakdown_json'        => 'LONGTEXT NULL AFTER statutory_classification_note',\n\t\t\t\t'approval_status'                => \"VARCHAR(24) NOT NULL DEFAULT 'DRAFT' AFTER allowance_breakdown_json\",\n\t\t\t\t'approved_by'                    => 'BIGINT UNSIGNED NULL AFTER approval_status',\n\t\t\t\t'approved_at'                    => 'DATETIME NULL AFTER approved_by',\n\t\t\t\t'statutory_rule_set_id'           => 'BIGINT UNSIGNED NULL AFTER approved_at',\n\t\t\t\t'statutory_rule_version'          => 'VARCHAR(80) NULL AFTER statutory_rule_set_id',\n\t\t\t\t'allowance_rule_set_id'           => 'BIGINT UNSIGNED NULL AFTER statutory_rule_version',\n\t\t\t\t'allowance_rule_version'          => 'VARCHAR(80) NULL AFTER allowance_rule_set_id',",
-        "compensation additive columns")
-    p = once(p,
-        "'other_deduction_total'  => 'DECIMAL(14,2) NOT NULL DEFAULT 0.00 AFTER employer_pension_total',",
-        "'other_deduction_total'  => 'DECIMAL(14,2) NOT NULL DEFAULT 0.00 AFTER employer_pension_total',\n\t\t\t\t'statutory_rule_set_id'   => 'BIGINT UNSIGNED NULL AFTER other_deduction_total',\n\t\t\t\t'statutory_rule_version'  => 'VARCHAR(80) NULL AFTER statutory_rule_set_id',",
-        "period rule columns")
-    p = once(p,
-        "'tax_rule_version'         => 'VARCHAR(40) NULL AFTER employer_pension',",
-        "'tax_rule_version'         => 'VARCHAR(40) NULL AFTER employer_pension',\n\t\t\t\t'statutory_rule_set_id'    => 'BIGINT UNSIGNED NULL AFTER tax_rule_version',\n\t\t\t\t'statutory_rule_version'   => 'VARCHAR(80) NULL AFTER statutory_rule_set_id',\n\t\t\t\t'allowance_rule_set_id'    => 'BIGINT UNSIGNED NULL AFTER statutory_rule_version',\n\t\t\t\t'allowance_rule_version'   => 'VARCHAR(80) NULL AFTER allowance_rule_set_id',",
-        "payroll-line rule columns")
-    p = once(p,
-        "allowance_breakdown_json LONGTEXT NULL,\n            created_by BIGINT UNSIGNED NOT NULL,",
-        "allowance_breakdown_json LONGTEXT NULL,\n            approval_status VARCHAR(24) NOT NULL DEFAULT 'DRAFT',\n            approved_by BIGINT UNSIGNED NULL,\n            approved_at DATETIME NULL,\n            statutory_rule_set_id BIGINT UNSIGNED NULL,\n            statutory_rule_version VARCHAR(80) NULL,\n            allowance_rule_set_id BIGINT UNSIGNED NULL,\n            allowance_rule_version VARCHAR(80) NULL,\n            created_by BIGINT UNSIGNED NOT NULL,",
-        "fresh compensation schema")
-    p = once(p,
-        "payment_method VARCHAR(20) NULL,\n            notes VARCHAR(500) NULL,\n            created_by BIGINT UNSIGNED NOT NULL,",
-        "payment_method VARCHAR(20) NULL,\n            notes VARCHAR(500) NULL,\n            statutory_rule_set_id BIGINT UNSIGNED NULL,\n            statutory_rule_version VARCHAR(80) NULL,\n            created_by BIGINT UNSIGNED NOT NULL,",
-        "fresh payroll period schema")
-    p = once(p,
-        "tax_rule_version VARCHAR(40) NULL,\n            statutory_status VARCHAR(20) NOT NULL DEFAULT 'LEGACY',",
-        "tax_rule_version VARCHAR(40) NULL,\n            statutory_rule_set_id BIGINT UNSIGNED NULL,\n            statutory_rule_version VARCHAR(80) NULL,\n            allowance_rule_set_id BIGINT UNSIGNED NULL,\n            allowance_rule_version VARCHAR(80) NULL,\n            statutory_status VARCHAR(20) NOT NULL DEFAULT 'LEGACY',",
-        "fresh payroll line schema")
-    # Inject lifecycle DDL after the legacy payroll_lines declaration and before batching begins.
-    # Use the declaration boundary rather than a multiline SQL substring because CRLF/newline
-    # normalization can differ between the locked release archive and this patcher source.
+        "\\t/** Read-only inventory of missing HR columns; no table or business data is changed. */",
+        migration_helper + "\\n\\t/** Read-only inventory of missing HR columns; no table or business data is changed. */",
+        "separate additive lifecycle migration allowlist")
+    p = many(p,
+        "foreach ( self::required_columns() as $key => $columns ) {",
+        "foreach ( self::migration_columns() as $key => $columns ) {",
+        2, "legacy and lifecycle migration column inventory")
+    # Inject only the new, independently declared lifecycle tables. Existing legacy
+    # CREATE TABLE blocks are preserved exactly as they were in the canonical baseline.
     last_table = p.find("CREATE TABLE {$p}stock_payroll_lines")
-    # Locate the batch guard as a PHP source line, independent of literal tabs vs escaped tabs
-    # and LF vs CRLF normalization. Search only after the legacy payroll_lines declaration.
     batch_at = find_batch_boundary(p, last_table)
     if last_table < 0 or batch_at < 0:
         raise ValueError("Could not locate the payroll_lines table/batch boundary for the HR lifecycle DDL.")
-    lifecycle_ddl = "\t\tforeach ( Stockland_HR_Lifecycle::table_ddl( $p, $cc ) as $lifecycle_ddl ) {\n\t\t\t$tables[] = $lifecycle_ddl;\n\t\t}\n\n"
+    lifecycle_ddl = "\\t\\tforeach ( Stockland_HR_Lifecycle::table_ddl( $p, $cc ) as $lifecycle_ddl ) {\\n\\t\\t\\t$tables[] = $lifecycle_ddl;\\n\\t\\t}\\n\\n"
     p = p[:batch_at] + lifecycle_ddl + p[batch_at:]
     put(files, "includes/class-stockland-hr.php", p)
 
