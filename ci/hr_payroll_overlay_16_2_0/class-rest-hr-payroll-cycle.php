@@ -428,7 +428,7 @@ final class Stockland_REST_HR_Payroll_Cycle extends Stockland_REST_Base {
 			if(!$this->event('statutory-remittance',$id,'REMITTANCE_RECONCILED',$r['status'],'RECONCILED',array('type'=>$r['statutory_type'],'amount'=>$confirmed,'receipt_sha256'=>$doc['file_sha256']??null)))throw new RuntimeException('Remittance audit failed.');
 			if(false===Stockland_DB::execute_query('COMMIT'))throw new RuntimeException('Remittance commit failed.');
 			$runState=$this->refresh_run_completion((int)$r['run_id']);
-			return rest_ensure_response(array('id'=>$id,'status'=>'RECONCILED','confirmed_amount'=>$confirmed)),'payroll_run_status'=>$runState));
+			return rest_ensure_response(array('id'=>$id,'status'=>'RECONCILED','confirmed_amount'=>$confirmed,'payroll_run_status'=>$runState));
 		}catch(Throwable $e){Stockland_DB::execute_query('ROLLBACK');return $this->bad('hr_remittance_reconciliation_failed',$e->getMessage(),409);}
 	}
 
