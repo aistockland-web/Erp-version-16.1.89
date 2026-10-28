@@ -118,6 +118,12 @@ final class Stockland_HR_Replacement_People_WPDB_Repository implements Stockland
 		if ( 1 !== (int) $result ) { throw new DomainException( 'HRXP_STALE_OR_MISSING: The record was changed by another user or its state is no longer valid.', 409 ); }
 		return $this->find( $entity, (int) $id );
 	}
+	public function person_email_exists( $email ) {
+		if ( ! is_string( $email ) || '' === trim( $email ) ) { return false; }
+		$count = (int) $this->wpdb->get_var( $this->wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE LOWER(email) = %s', $this->table( 'people' ), strtolower( trim( $email ) ) ) );
+		if ( '' !== (string) $this->wpdb->last_error ) { throw new RuntimeException( 'HRXP_PERSON_MATCH_LOOKUP_FAILED: Could not check potential duplicate identity.' ); }
+		return $count > 0;
+	}
 	public function find_event_by_key( $key ) {
 		$row = $this->wpdb->get_row( $this->wpdb->prepare( 'SELECT * FROM %i WHERE idempotency_key = %s LIMIT 1', $this->table( 'events' ), (string) $key ), ARRAY_A );
 		if ( '' !== (string) $this->wpdb->last_error ) { throw new RuntimeException( 'HRXP_EVENT_LOOKUP_FAILED: Could not verify request idempotency.' ); }
