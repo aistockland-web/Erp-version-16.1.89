@@ -226,16 +226,19 @@ final class Stockland_HR_Replacement_People_Service {
 			$this->require_candidate_retention( $this->load( 'candidates', (int) $app['candidate_id'], true ) );
 			if(!in_array(strtoupper((string)$app['stage']),array('SCREENING','INTERVIEW','REFERENCE_REVIEW'),true)){Stockland_HR_Replacement_People_Contract::deny('HRXP_INTERVIEW_STAGE_INVALID','Interviews are allowed only during screening/interview/reference-review stages.');}
 			$r=$this->repo->requisition((int)$app['requisition_id']);if(!$r||'OPEN'!==strtoupper((string)$r['status'])){Stockland_HR_Replacement_People_Contract::deny('HRXP_VACANCY_NOT_OPEN','The linked vacancy is no longer open.');}
-			$record=$this->repo->insert('interviews',array('interview_code'=>$code,'application_id'=>$app_id,'round_no'=>$round,'scheduled_at'=>$scheduled,'interviewed_at'=>$this->now(),'interviewer_id'=>$actor,'rubric_version'=>$rubric,'score'=>$score,'recommendation'=>$recommendation,'notes_reference'=>$notes,'evidence_sha256'=>$evidence,'version_no'=>1,'created_by'=>$actor,'created_at'=>$this->now(),'updated_at'=>$this->now()));
+			$now = $this->now();
+			$interviewed_at = null !== $scheduled && $scheduled > $now ? null : $now;
+			$record=$this->repo->insert('interviews',array('interview_code'=>$code,'application_id'=>$app_id,'round_no'=>$round,'scheduled_at'=>$scheduled,'interviewed_at'=>$interviewed_at,'interviewer_id'=>$actor,'rubric_version'=>$rubric,'score'=>$score,'recommendation'=>$recommendation,'notes_reference'=>$notes,'evidence_sha256'=>$evidence,'version_no'=>1,'created_by'=>$actor,'created_at'=>$now,'updated_at'=>$now));
 			$this->event($key,$hash,'INTERVIEW',(int)$record['id'],'INTERVIEW_RECORDED',null,$recommendation,$actor,$actor,'Human interviewer evidence captured; not an automated selection decision',1,array('application_id'=>$app_id,'round_no'=>$round,'rubric_version'=>$rubric,'score_present'=>null!==$score));
 			return array('record'=>$record,'replayed'=>false);
 		});
 	}
 		public function move_application( $payload, $idempotency_key ) {
-		$this->require_candidate_access();
 		$actor = $this->actor();
 		$id = $this->required_id( $payload, 'application_id' );
 		$target = strtoupper( Stockland_HR_Replacement_People_Contract::text( $payload['to_stage'] ?? null, 'to_stage', 2, 30 ) );
+		$requested_final_decision = in_array( $target, array( 'SELECTED', 'NOT_SELECTED', 'ACCEPTED', 'DECLINED' ), true );
+		if ( $requested_final_decision ) { $this->require_approve(); } else { $this->require_prepare(); }
 		if ( 'HIRED' === $target ) { Stockland_HR_Replacement_People_Contract::deny( 'HRXP_INTERNAL_TRANSITION_ONLY', 'HIRED is system-managed when a pending employment record is created.' ); }
 		$rationale = isset( $payload['rationale'] ) ? (string) $payload['rationale'] : '';
 		$human = ! empty( $payload['human_decision'] );
@@ -251,6 +254,14 @@ final class Stockland_HR_Replacement_People_Service {
 			$this->expected_version( $row, array( 'version_no' => $version ) );
 			$context = array( 'actor_id' => $actor, 'created_by' => (int) $row['created_by'], 'human_decision' => $human, 'rationale' => $rationale );
 			$transition = Stockland_HR_Replacement_People_Contract::application_stage( $row['stage'], $target, $context );
+			if ( in_array( $target, array( 'RECOMMENDED', 'SELECTED' ), true ) ) {
+				$interviews = $this->repo->list_records( 'interviews', array( 'application_id' => $id ), 100 );
+				$completed_interview = false;
+				foreach ( $interviews as $interview ) {
+					if ( ! empty( $interview['interviewed_at'] ) ) { $completed_interview = true; break; }
+				}
+				if ( ! $completed_interview ) { Stockland_HR_Replacement_People_Contract::deny( 'HRXP_INTERVIEW_EVIDENCE_REQUIRED', 'At least one completed, recorded interview is required before recommendation or selection.' ); }
+			}
 			$final = in_array( $target, array( 'SELECTED', 'NOT_SELECTED', 'ACCEPTED', 'DECLINED' ), true );
 			if ( $final ) { $this->require_approve(); } else { $this->require_prepare(); }
 			if ( 'SELECTED' === $target && ! $this->repo->requisition_slot_available( (int) $row['requisition_id'] ) ) {
