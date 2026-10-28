@@ -35,6 +35,7 @@ final class Stockland_REST_HR_Replacement_People {
 	public function can_view() { return class_exists( 'Stockland_Authority' ) && Stockland_Authority::can_view_hr(); }
 	public function can_prepare() { return class_exists( 'Stockland_Authority' ) && Stockland_Authority::can_prepare_hr(); }
 	public function can_approve() { return class_exists( 'Stockland_Authority' ) && Stockland_Authority::is_owner() && Stockland_Authority::can_approve_payroll(); }
+	public function can_prepare_or_approve() { return $this->can_prepare() || $this->can_approve(); }
 	private function invoke( callable $callback ) {
 		try { return rest_ensure_response( $callback() ); }
 		catch ( DomainException $e ) {
