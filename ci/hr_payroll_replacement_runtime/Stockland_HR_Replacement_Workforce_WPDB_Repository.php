@@ -230,6 +230,19 @@ final class Stockland_HR_Replacement_Workforce_WPDB_Repository {
 			'employments' => array( 'status', 'person_id', 'position_id', 'requisition_id', 'location_id' ),
 			'interviews' => array( 'status', 'application_id', 'stage_code' ),
 			'selection_decisions' => array( 'status', 'application_id', 'candidate_id', 'recommendation' ),
+			'contracts' => array( 'status', 'employment_id' ),
+			'onboarding_tasks' => array( 'status', 'employment_id', 'task_type', 'assigned_to_user' ),
+			'documents' => array( 'status', 'subject_type', 'subject_id', 'document_type' ),
+			'shift_assignments' => array( 'status', 'employment_id', 'shift_template_id' ),
+			'time_events' => array( 'status', 'employment_id', 'work_date', 'event_code' ),
+			'attendance_days' => array( 'status', 'employment_id', 'work_date' ),
+			'leave_requests' => array( 'status', 'employment_id', 'leave_type' ),
+			'leave_movements' => array( 'employment_id', 'leave_type', 'movement_type' ),
+			'compensation_assignments' => array( 'status', 'employment_id' ),
+			'payroll_lines' => array( 'status', 'payroll_run_id', 'employment_id' ),
+			'payroll_adjustments' => array( 'status', 'employment_id', 'payroll_run_id' ),
+			'payout_instructions' => array( 'status', 'payee_type', 'payee_id', 'employment_id', 'payout_batch_id' ),
+			'final_settlements' => array( 'status', 'exit_case_id' ),
 		);
 		if ( ! isset( $allowed_filters[ $entity ] ) ) {
 			throw new InvalidArgumentException( 'Unsupported HR replacement list entity.' );
@@ -263,11 +276,20 @@ final class Stockland_HR_Replacement_Workforce_WPDB_Repository {
 				$where[] = 'application_id IN (SELECT id FROM %i WHERE location_id IN (' . implode( ',', array_fill( 0, count( $ids ), '%d' ) ) . '))';
 				$args[] = $linked_table;
 				$args = array_merge( $args, $ids );
-			} elseif ( in_array( $entity, array( 'contracts', 'onboarding_tasks' ), true ) ) {
+			} elseif ( in_array( $entity, array( 'contracts', 'onboarding_tasks', 'shift_assignments', 'time_events', 'attendance_days', 'leave_requests', 'leave_movements', 'compensation_assignments', 'payroll_lines', 'payroll_adjustments', 'payout_instructions' ), true ) ) {
 				$linked_table = $this->table( 'employments' );
 				$where[] = 'employment_id IN (SELECT id FROM %i WHERE location_id IN (' . implode( ',', array_fill( 0, count( $ids ), '%d' ) ) . '))';
 				$args[] = $linked_table;
 				$args = array_merge( $args, $ids );
+			} elseif ( 'final_settlements' === $entity ) {
+				$exit_table = $this->table( 'exit_cases' );
+				$employment_table = $this->table( 'employments' );
+				$where[] = 'exit_case_id IN (SELECT id FROM %i WHERE employment_id IN (SELECT id FROM %i WHERE location_id IN (' . implode( ',', array_fill( 0, count( $ids ), '%d' ) ) . ')))';
+				$args[] = $exit_table;
+				$args[] = $employment_table;
+				$args = array_merge( $args, $ids );
+			} elseif ( 'documents' === $entity ) {
+				return array();
 			} else {
 				return array();
 			}
