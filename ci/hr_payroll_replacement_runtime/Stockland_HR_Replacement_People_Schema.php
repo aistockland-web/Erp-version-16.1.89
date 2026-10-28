@@ -46,6 +46,7 @@ final class Stockland_HR_Replacement_People_Schema {
 				updated_at DATETIME NOT NULL,
 				PRIMARY KEY (id),
 				UNIQUE KEY person_code (person_code),
+				UNIQUE KEY person_email (email),
 				KEY name_lookup (last_name, first_name),
 				KEY status_created (status, created_at)
 			) ENGINE=InnoDB {$charset_collate}",
@@ -229,6 +230,13 @@ final class Stockland_HR_Replacement_People_Schema {
 			throw new RuntimeException( 'HRXP_DATABASE_UNAVAILABLE: WordPress database gateway is unavailable.' );
 		}
 		$prefix = (string) $wpdb->prefix . 'stockland_hrx_';
+		foreach ( array( 'migrations' => 'migrations', 'events' => 'events', 'requisitions' => 'requisitions', 'plan_lines' => 'workforce_plan_lines', 'positions' => 'positions' ) as $key => $name ) {
+			$dependency = $prefix . $name;
+			$exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $dependency ) ) );
+			if ( null === $exists || '' === (string) $exists || '' !== (string) $wpdb->last_error ) {
+				throw new RuntimeException( 'HRXP_STAGE3_PREREQUISITE_MISSING: Required workforce schema is not ready; no Stage 4 tables were created.' );
+			}
+		}
 		$ddl = self::ddl( $prefix, method_exists( $wpdb, 'get_charset_collate' ) ? $wpdb->get_charset_collate() : 'DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci' );
 		$missing = array();
 		$validated = array();
