@@ -17,11 +17,24 @@ interface Stockland_HR_Replacement_People_Access {
 	public function can_access_location( $location_id );
 }
 
+interface Stockland_HR_Replacement_Private_Vault {
+	public function verify_reference( $private_reference, $expected_sha256, $actor_id );
+}
+
+/** Default adapter is intentionally unavailable: it never pretends a path is private. */
+final class Stockland_HR_Replacement_Unavailable_Private_Vault implements Stockland_HR_Replacement_Private_Vault {
+	public function verify_reference( $private_reference, $expected_sha256, $actor_id ) {
+		return array( 'verified' => false, 'public_access' => true, 'reason' => 'No approved private-vault adapter is configured.' );
+	}
+}
+
 final class Stockland_HR_Replacement_People_Service {
 	private $repo;
 	private $access;
-	public function __construct( Stockland_HR_Replacement_People_Repository $repo, Stockland_HR_Replacement_People_Access $access ) {
+	private $vault;
+	public function __construct( Stockland_HR_Replacement_People_Repository $repo, Stockland_HR_Replacement_People_Access $access, Stockland_HR_Replacement_Private_Vault $vault = null ) {
 		$this->repo = $repo; $this->access = $access;
+		$this->vault = $vault instanceof Stockland_HR_Replacement_Private_Vault ? $vault : new Stockland_HR_Replacement_Unavailable_Private_Vault();
 	}
 	private function require_schema() {
 		if ( ! $this->repo->tables_ready() ) { Stockland_HR_Replacement_People_Contract::deny( 'HRXP_SCHEMA_NOT_READY', 'The isolated People lifecycle schema is unavailable; legacy HR tables are not a fallback.', 503 ); }
@@ -138,7 +151,7 @@ final class Stockland_HR_Replacement_People_Service {
 		$purpose = Stockland_HR_Replacement_People_Contract::text( $payload['collection_purpose'] ?? 'Recruitment and candidate communication', 'collection_purpose', 10, 190 );
 		$source = strtoupper( Stockland_HR_Replacement_People_Contract::text( $payload['source_channel'] ?? 'OTHER', 'source_channel', 2, 40 ) );
 		if ( ! in_array( $source, array( 'REFERRAL','COMPANY_WEBSITE','WALK_IN','JOB_BOARD','SOCIAL_PROFESSIONAL','AGENCY','OTHER' ), true ) ) { Stockland_HR_Replacement_People_Contract::deny( 'HRXP_SOURCE_CHANNEL_INVALID', 'Select a supported candidate source channel.' ); }
-		$retention = Stockland_HR_Replacement_People_Contract::date( $payload['retention_review_on'] ?? null, 'retention_review_on', true );
+		$retention = Stockland_HR_Replacement_People_Contract::date( $payload['retention_review_on'] ?? null, 'retention_review_on' );
 		$normalized = array( 'person_code'=>$person_code,'candidate_code'=>$candidate_code,'first_name'=>$first,'last_name'=>$last,'email'=>$email,'phone'=>$phone,'privacy_notice_version'=>$notice,'collection_purpose'=>$purpose,'source_channel'=>$source,'retention_review_on'=>$retention );
 		list( $key, $hash ) = $this->idempotency( $idempotency_key, $normalized );
 		return $this->repo->transaction( function () use ( $key, $hash, $normalized, $actor ) {
@@ -151,6 +164,7 @@ final class Stockland_HR_Replacement_People_Service {
 		} );
 	}
 	private function now() { return function_exists( 'current_time' ) ? current_time( 'mysql', true ) : gmdate( 'Y-m-d H:i:s' ); }
+	private function today() { return function_exists( 'current_time' ) ? current_time( 'Y-m-d' ) : gmdate( 'Y-m-d' ); }
 	public function create_application( $payload, $idempotency_key ) {
 		$this->require_candidate_access(); $actor = $this->actor();
 		$app_code = $this->code( $payload, 'application_code' ); $candidate_id = $this->required_id( $payload, 'candidate_id' ); $req_id = $this->required_id( $payload, 'requisition_id' );
@@ -160,7 +174,7 @@ final class Stockland_HR_Replacement_People_Service {
 			$prior=$this->replay($key,$hash); if($prior){return array('record'=>$this->load('applications',(int)$prior['entity_id']),'replayed'=>true);}
 			$candidate=$this->load('candidates',$candidate_id,true);
 			if('ACTIVE'!==strtoupper((string)$candidate['status'])){Stockland_HR_Replacement_People_Contract::deny('HRXP_CANDIDATE_INACTIVE','Candidate is withdrawn or outside the active retention period.');}
-			if(!empty($candidate['retention_review_on'])&&substr((string)$candidate['retention_review_on'],0,10)<gmdate('Y-m-d')){Stockland_HR_Replacement_People_Contract::deny('HRXP_RETENTION_REVIEW_DUE','Candidate retention review is due. The profile must be reviewed before further processing.');}
+			if(!empty($candidate['retention_review_on'])&&substr((string)$candidate['retention_review_on'],0,10)<$this->today()){Stockland_HR_Replacement_People_Contract::deny('HRXP_RETENTION_REVIEW_DUE','Candidate retention review is due. The profile must be reviewed before further processing.');}
 			$req=$this->repo->requisition($req_id,true);
 			if(!$req||'OPEN'!==strtoupper((string)$req['status'])){Stockland_HR_Replacement_People_Contract::deny('HRXP_VACANCY_NOT_OPEN','Applications require an approved and open vacancy.');}
 			if((int)($req['location_id']??0)!==$location){Stockland_HR_Replacement_People_Contract::deny('HRXP_LOCATION_MISMATCH','Application location must match the approved vacancy location.');}
@@ -272,6 +286,10 @@ final class Stockland_HR_Replacement_People_Service {
 			$prior=$this->replay($key,$hash);if($prior){return array('record'=>$this->load('documents',(int)$prior['entity_id']),'replayed'=>true);}
 			$row=$this->load('documents',$id,true);$v=$this->expected_version($row,$payload);if('PENDING_VERIFICATION'!==strtoupper((string)$row['status'])){Stockland_HR_Replacement_People_Contract::deny('HRXP_DOCUMENT_STATE_INVALID','Only a pending private document can be verified.');}
 			Stockland_HR_Replacement_People_Contract::assert_independent($actor,(int)$row['created_by'],'verify');
+			$verification = $this->vault->verify_reference( (string) $row['private_reference'], (string) $row['content_sha256'], $actor );
+			if ( ! is_array( $verification ) || empty( $verification['verified'] ) || ! empty( $verification['public_access'] ) || ! isset( $verification['content_sha256'] ) || ! hash_equals( (string) $row['content_sha256'], strtolower( (string) $verification['content_sha256'] ) ) ) {
+				Stockland_HR_Replacement_People_Contract::deny( 'HRXP_PRIVATE_VAULT_NOT_VERIFIED', 'The host has not proven that the file exists in authorized private storage with the expected hash and no public access. No verification status was changed.' );
+			}
 			$updated=$this->repo->update_expected('documents',$id,$v,$row['status'],array('status'=>'VERIFIED','verified_by'=>$actor,'verified_at'=>$this->now(),'review_note'=>$note,'version_no'=>$v+1,'updated_at'=>$this->now()));
 			$this->event($key,$hash,'PRIVATE_DOCUMENT',$id,'PRIVATE_DOCUMENT_VERIFIED',$row['status'],'VERIFIED',$actor,(int)$row['created_by'],$note,$v+1,array('content_sha256'=>$row['content_sha256']));
 			return array('record'=>$updated,'replayed'=>false);
