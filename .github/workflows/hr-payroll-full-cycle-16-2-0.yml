@@ -18,6 +18,9 @@ on:
       - "ci/build_full_hr_payroll_16_2_0.py"
       - "ci/hr_payroll_overlay_16_2_0/**"
       - "ci/qa/test_full_hr_payroll_16_2_0.py"
+      - "ci/qa/check-css-postcss.js"
+      - "ci/qa/test_audit_chain_synthetic.php"
+      - "ci/cssqa/**"
       - ".github/workflows/hr-payroll-full-cycle-16-2-0.yml"
   workflow_dispatch:
 
