@@ -1,0 +1,51 @@
+{
+  "audit_date": "2026-10-29",
+  "locked_baseline": {
+    "release": "16.1.95",
+    "sha256": "494e777247508d009dfdb216c9607bb1bc96717197e94a0e8ad3459b7cc81625",
+    "archive_members": 75,
+    "php_files": 48,
+    "registered_tables": 49,
+    "static_ddl_declarations": 49,
+    "legacy_hr_tables": [
+      "employees",
+      "employee_compensation",
+      "payroll_periods",
+      "payroll_lines"
+    ],
+    "rest_registration_calls": 116
+  },
+  "local_review_candidate": {
+    "name": "STOCKLAND_ERP_16.1.98_HRX_ERP_WIDE_SOP_REVIEW_ONLY.zip",
+    "sha256": "0cd4886fd0a49aa05734b586d19c8d06e8934198bce0f7eb194ec1ccd8f3d6ab",
+    "bytes": 2067650,
+    "archive_members": 103,
+    "zip_crc": "PASS",
+    "single_root": "stockland-erp-app/",
+    "sop_docx_count": 24,
+    "embedded_sop_hashes": "PASS"
+  },
+  "sop_library": {
+    "name": "STOCKLAND_ERP_ALL_ERP_SOP_LIBRARY_v1.0_DRAFT.zip",
+    "sha256": "f7649480d0f45d35cc799f505abf102807dc77ca86a5ea09b0c96193b5b18d80",
+    "count": 24,
+    "legacy_table_coverage": "49/49",
+    "hrx_logical_table_coverage": "33/33",
+    "status": "DRAFT_NOT_APPROVED"
+  },
+  "local_tests": {
+    "hrx_domain_assertions": 727,
+    "hrx_domain_failures": 0,
+    "php_syntax_files": 51,
+    "app_js_syntax": "PASS",
+    "pwa_js_syntax": "PASS",
+    "sop_docx_content_hash_control_checks": "PASS",
+    "zip_crc_hashes": "PASS"
+  },
+  "environment": {
+    "wordpress_e2e": "NOT_RUN",
+    "reason": "Site URL could not be resolved/retrieved; no local WP CLI/MySQL/MariaDB/Docker or PHP MySQL driver",
+    "production_ready": false
+  },
+  "release_disposition": "NO_GO_PRODUCTION; do not install the 16.1.98 candidate over the reported installed 16.1.97 because the exact 16.1.97 binary was not available."
+}
