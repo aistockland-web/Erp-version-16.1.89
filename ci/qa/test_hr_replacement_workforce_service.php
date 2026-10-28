@@ -182,6 +182,7 @@ hrx_assert( is_wp_error( $own_approval ) && 'hrx_self_approval_blocked' === $own
 $GLOBALS['hrx_test_user_id'] = 1; // synthetic independent Owner
 $approved = $service->execute_idempotent( hrx_key( 5 ), 'workforce_plan.decide', array( 'decision'=>'APPROVE', 'version_no'=>2, 'decision_note'=>'Budget checked against approved headcount and monthly plan.', 'budget_reference'=>'BUDGET-SYNTH-01', 'approved_budget_etb'=>'10000.00' ), function () use ( $service, $first ) { return $service->decide_plan( $first['id'], array( 'decision'=>'APPROVE', 'version_no'=>2, 'decision_note'=>'Budget checked against approved headcount and monthly plan.', 'budget_reference'=>'BUDGET-SYNTH-01', 'approved_budget_etb'=>'10000.00' ), hrx_key( 5 ) ); } );
 hrx_assert( is_array( $approved ) && 'APPROVED' === $approved['record']['status'] && 'APPROVED' === $repo->get( 'plan_lines', $line['id'] )['status'], 'independent Owner approval gates plan and plan line' ); $checks++;
+$GLOBALS['hrx_test_user_id'] = 22; // Management prepares the position; Owner approved the budget above.
 $position_payload = array( 'position_code'=>'POS-SYNTH-001', 'workforce_plan_id'=>$first['id'], 'plan_line_id'=>$line['id'] );
 $position = $service->execute_idempotent( hrx_key( 6 ), 'position.create', $position_payload, function () use ( $service, $position_payload ) { return $service->create_position( $position_payload, hrx_key( 6 ) ); } );
 hrx_assert( is_array( $position ) && 'DRAFT' === $position['record']['status'] && (int)$position['record']['planned_headcount'] === 2, 'position can only be created from approved plan line and carries headcount' ); $checks++;
@@ -192,11 +193,13 @@ hrx_assert( is_array( $position_approved ) && 'APPROVED' === $position_approved[
 $position_active = $service->execute_idempotent( hrx_key( 9 ), 'position.activate', array( 'version_no'=>3 ), function () use ( $service, $position ) { return $service->activate_position( $position['id'], array( 'version_no'=>3 ), hrx_key( 9 ) ); } );
 hrx_assert( is_array( $position_active ) && 'ACTIVE' === $position_active['record']['status'], 'position activation requires approved status and reference' ); $checks++;
 
+$GLOBALS['hrx_test_user_id'] = 22; // Management opens the request; Owner provides the independent decision below.
 $req_payload = array( 'requisition_code'=>'REQ-SYNTH-001', 'position_id'=>$position['id'], 'openings'=>1, 'justification'=>'Backfill required for planned store operations.' );
 $req = $service->execute_idempotent( hrx_key( 10 ), 'vacancy_requisition.create', $req_payload, function () use ( $service, $req_payload ) { return $service->create_requisition( $req_payload, hrx_key( 10 ) ); } );
 hrx_assert( is_array( $req ) && 'DRAFT' === $req['record']['status'], 'vacancy requisition is bound to approved active position' ); $checks++;
 $req_submit = $service->execute_idempotent( hrx_key( 11 ), 'vacancy_requisition.submit', array( 'version_no'=>1 ), function () use ( $service, $req ) { return $service->submit_requisition( $req['id'], array( 'version_no'=>1 ), hrx_key( 11 ) ); } );
 hrx_assert( is_array( $req_submit ) && 'SUBMITTED' === $req_submit['record']['status'], 'vacancy requisition submits independently' ); $checks++;
+$GLOBALS['hrx_test_user_id'] = 1; // Independent Owner approval of the requisition.
 $req_approved = $service->execute_idempotent( hrx_key( 12 ), 'vacancy_requisition.decide', array( 'decision'=>'APPROVE', 'version_no'=>2, 'decision_note'=>'Approved after confirming remaining approved headcount.', 'budget_reference'=>'REQ-BUDGET-SYNTH-01' ), function () use ( $service, $req ) { return $service->decide_requisition( $req['id'], array( 'decision'=>'APPROVE', 'version_no'=>2, 'decision_note'=>'Approved after confirming remaining approved headcount.', 'budget_reference'=>'REQ-BUDGET-SYNTH-01' ), hrx_key( 12 ) ); } );
 hrx_assert( is_array( $req_approved ) && 'APPROVED' === $req_approved['record']['status'], 'vacancy approval requires independent reviewer and budget reference' ); $checks++;
 $opened = $service->execute_idempotent( hrx_key( 13 ), 'vacancy_requisition.open', array( 'version_no'=>3 ), function () use ( $service, $req ) { return $service->open_requisition( $req['id'], array( 'version_no'=>3 ), hrx_key( 13 ) ); } );
