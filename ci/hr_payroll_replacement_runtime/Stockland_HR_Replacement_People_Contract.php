@@ -30,6 +30,13 @@ final class Stockland_HR_Replacement_People_Contract {
 		}
 		return $value;
 	}
+	public static function datetime( $value, $field, $nullable = false ) {
+		if ( $nullable && ( null === $value || '' === $value ) ) { return null; }
+		if ( ! is_string( $value ) || ! preg_match( '/^([0-9]{4}-[0-9]{2}-[0-9]{2}) ([0-9]{2}):([0-9]{2}):([0-9]{2})$/D', $value, $m ) || ! self::date( $m[1], $field ) || (int) $m[2] > 23 || (int) $m[3] > 59 || (int) $m[4] > 59 ) {
+			self::deny( 'HRXP_INVALID_' . strtoupper( $field ), $field . ' must be a real YYYY-MM-DD HH:MM:SS datetime.' );
+		}
+		return $value;
+	}
 	public static function hash( $value, $field ) {
 		if ( ! is_string( $value ) || ! preg_match( '/^[a-f0-9]{64}$/iD', $value ) ) { self::deny( 'HRXP_INVALID_' . strtoupper( $field ), $field . ' must be a SHA-256 hash.' ); }
 		return strtolower( $value );
