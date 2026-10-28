@@ -500,7 +500,7 @@ final class Stockland_REST_HR_Payroll_Cycle extends Stockland_REST_Base {
 			if(Stockland_DB::update_record($this->table('hr_individual_payee_obligations'),$upd,array('id'=>$id,'status'=>'DRAFT'))===false)throw new RuntimeException('Could not save approved payee obligation decision.');
 			if(!$this->event('individual-payee-obligation',$id,'OBLIGATION_APPROVED','DRAFT','APPROVED',array('rule_version'=>$rule['version_label'],'journal_id'=>(int)$jid,'gross'=>$total,'cash_net'=>$net,'withholding'=>$withholding),$rule_id,$rule['version_label']))throw new RuntimeException('Payee obligation audit failed.');
 			if(false===Stockland_DB::execute_query('COMMIT'))throw new RuntimeException('Payee obligation approval commit failed.');
-			return rest_ensure_response(array('id'=>$id,'status'=>'APPROVED','tax_decision_status'=>'APPROVED','gross_obligation'=>$total,'withholding'=>$withholding,'net_cash_payable'=>$net,'journal_id'=>(int)$jid,'message'=>'AP/GL accrual saved. Payout and statutory remittance are separate.');
+			return rest_ensure_response(array('id'=>$id,'status'=>'APPROVED','tax_decision_status'=>'APPROVED','gross_obligation'=>$total,'withholding'=>$withholding,'net_cash_payable'=>$net,'journal_id'=>(int)$jid,'message'=>'AP/GL accrual saved. Payout and statutory remittance are separate.'));
 		}catch(Throwable $e){Stockland_DB::execute_query('ROLLBACK');return $this->bad('hr_payee_obligation_approval_failed',$e->getMessage(),409);}
 	}
 	public function settle_payee_in_kind( WP_REST_Request $req ) {
