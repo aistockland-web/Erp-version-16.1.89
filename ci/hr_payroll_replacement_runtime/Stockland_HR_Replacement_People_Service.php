@@ -120,6 +120,28 @@ final class Stockland_HR_Replacement_People_Service {
 	private function require_same_location( $row ) {
 		if ( ! $this->access->can_access_location( (int) ( $row['location_id'] ?? 0 ) ) ) { Stockland_HR_Replacement_People_Contract::deny( 'HRXP_LOCATION_FORBIDDEN', 'The record is outside your authorized workplace scope.', 403 ); }
 	}
+
+	private function require_candidate_retention( $candidate ) {
+		if ( ! is_array( $candidate ) ) { Stockland_HR_Replacement_People_Contract::deny( 'HRXP_CANDIDATE_NOT_FOUND', 'The candidate record is not available.', 404 ); }
+		if ( 'ACTIVE' !== strtoupper( (string) ( $candidate['status'] ?? '' ) ) ) { Stockland_HR_Replacement_People_Contract::deny( 'HRXP_CANDIDATE_INACTIVE', 'Candidate is withdrawn or outside the active retention period.' ); }
+		$review_on = substr( (string) ( $candidate['retention_review_on'] ?? '' ), 0, 10 );
+		if ( '' !== $review_on && $review_on < $this->today() ) { Stockland_HR_Replacement_People_Contract::deny( 'HRXP_RETENTION_REVIEW_DUE', 'Candidate retention review is due. Review the profile and renew its retention decision before further processing.' ); }
+	}
+	private function require_document_subject_scope( $document ) {
+		$type = strtoupper( (string) ( $document['subject_type'] ?? '' ) );
+		$id = (int) ( $document['subject_id'] ?? 0 );
+		if ( $id < 1 ) { Stockland_HR_Replacement_People_Contract::deny( 'HRXP_DOCUMENT_SUBJECT_INVALID', 'The document has no valid linked subject.', 409 ); }
+		if ( 'CONTRACT' === $type ) {
+			$contract = $this->load( 'contracts', $id );
+			$this->require_same_location( $this->load( 'employments', (int) $contract['employment_id'] ) );
+		} elseif ( 'EMPLOYMENT' === $type ) {
+			$this->require_same_location( $this->load( 'employments', $id ) );
+		} elseif ( 'CANDIDATE' === $type ) {
+			$this->load( 'candidates', $id );
+		} else {
+			Stockland_HR_Replacement_People_Contract::deny( 'HRXP_DOCUMENT_SUBJECT_INVALID', 'The linked document subject type is unsupported.', 409 );
+		}
+	}
 	public function get_candidate( $candidate_id ) {
 		$this->require_candidate_access();
 		$candidate = $this->load( 'candidates', Stockland_HR_Replacement_People_Contract::positive_id( $candidate_id, 'candidate_id' ) );
@@ -176,8 +198,7 @@ final class Stockland_HR_Replacement_People_Service {
 		return $this->repo->transaction( function () use ( $key,$hash,$actor,$app_code,$candidate_id,$req_id,$location ) {
 			$prior=$this->replay($key,$hash); if($prior){return array('record'=>$this->load('applications',(int)$prior['entity_id']),'replayed'=>true);}
 			$candidate=$this->load('candidates',$candidate_id,true);
-			if('ACTIVE'!==strtoupper((string)$candidate['status'])){Stockland_HR_Replacement_People_Contract::deny('HRXP_CANDIDATE_INACTIVE','Candidate is withdrawn or outside the active retention period.');}
-			if(!empty($candidate['retention_review_on'])&&substr((string)$candidate['retention_review_on'],0,10)<$this->today()){Stockland_HR_Replacement_People_Contract::deny('HRXP_RETENTION_REVIEW_DUE','Candidate retention review is due. The profile must be reviewed before further processing.');}
+			$this->require_candidate_retention( $candidate );
 			$req=$this->repo->requisition($req_id,true);
 			if(!$req||'OPEN'!==strtoupper((string)$req['status'])){Stockland_HR_Replacement_People_Contract::deny('HRXP_VACANCY_NOT_OPEN','Applications require an approved and open vacancy.');}
 			if((int)($req['location_id']??0)!==$location){Stockland_HR_Replacement_People_Contract::deny('HRXP_LOCATION_MISMATCH','Application location must match the approved vacancy location.');}
@@ -202,6 +223,7 @@ final class Stockland_HR_Replacement_People_Service {
 		return $this->repo->transaction(function()use($key,$hash,$actor,$code,$app_id,$round,$rubric,$score,$recommendation,$notes,$evidence,$scheduled){
 			$prior=$this->replay($key,$hash);if($prior){return array('record'=>$this->load('interviews',(int)$prior['entity_id']),'replayed'=>true);}
 			$app=$this->load('applications',$app_id,true);$this->require_same_location($app);
+			$this->require_candidate_retention( $this->load( 'candidates', (int) $app['candidate_id'], true ) );
 			if(!in_array(strtoupper((string)$app['stage']),array('SCREENING','INTERVIEW','REFERENCE_REVIEW'),true)){Stockland_HR_Replacement_People_Contract::deny('HRXP_INTERVIEW_STAGE_INVALID','Interviews are allowed only during screening/interview/reference-review stages.');}
 			$r=$this->repo->requisition((int)$app['requisition_id']);if(!$r||'OPEN'!==strtoupper((string)$r['status'])){Stockland_HR_Replacement_People_Contract::deny('HRXP_VACANCY_NOT_OPEN','The linked vacancy is no longer open.');}
 			$record=$this->repo->insert('interviews',array('interview_code'=>$code,'application_id'=>$app_id,'round_no'=>$round,'scheduled_at'=>$scheduled,'interviewed_at'=>$this->now(),'interviewer_id'=>$actor,'rubric_version'=>$rubric,'score'=>$score,'recommendation'=>$recommendation,'notes_reference'=>$notes,'evidence_sha256'=>$evidence,'version_no'=>1,'created_by'=>$actor,'created_at'=>$this->now(),'updated_at'=>$this->now()));
@@ -225,6 +247,7 @@ final class Stockland_HR_Replacement_People_Service {
 			if ( $prior ) { return array( 'record' => $this->load( 'applications', (int) $prior['entity_id'] ), 'replayed' => true ); }
 			$row = $this->load( 'applications', $id, true );
 			$this->require_same_location( $row );
+			$this->require_candidate_retention( $this->load( 'candidates', (int) $row['candidate_id'], true ) );
 			$this->expected_version( $row, array( 'version_no' => $version ) );
 			$context = array( 'actor_id' => $actor, 'created_by' => (int) $row['created_by'], 'human_decision' => $human, 'rationale' => $rationale );
 			$transition = Stockland_HR_Replacement_People_Contract::application_stage( $row['stage'], $target, $context );
@@ -264,13 +287,21 @@ final class Stockland_HR_Replacement_People_Service {
 		$managerId=isset($payload['reporting_manager_id'])&&''!==(string)$payload['reporting_manager_id']?Stockland_HR_Replacement_People_Contract::positive_id($payload['reporting_manager_id'],'reporting_manager_id'):null;
 		list($key,$hash)=$this->idempotency($idempotency_key,array('application_id'=>$app_id,'employment_code'=>$employment_code,'contract_code'=>$contract_code,'legal_employer_code'=>$legal_employer,'start_date'=>$start,'end_date'=>$end,'employment_type'=>$type,'contract_type'=>$contract_type,'probation_end'=>$probation,'location_id'=>$loc,'reporting_manager_id'=>$managerId));
 		return $this->repo->transaction(function()use($key,$hash,$actor,$app_id,$employment_code,$contract_code,$legal_employer,$start,$end,$type,$contract_type,$probation,$loc,$managerId){
-			$prior=$this->replay($key,$hash);if($prior){return array('employment'=>$this->load('employments',(int)$prior['entity_id']),'replayed'=>true);}
-			$app=$this->load('applications',$app_id,true);$this->require_same_location($app);
+			$prior=$this->replay($key,$hash);
+			if($prior){
+				$employment=$this->load('employments',(int)$prior['entity_id']);
+				$this->require_same_location($employment);
+				$contracts=$this->repo->list_records('contracts',array('employment_id'=>(int)$employment['id']),10);
+				if(!$contracts){throw new RuntimeException('HRXP_HIRE_REPLAY_INCOMPLETE: Contract evidence is unavailable for the completed hire request.');}
+				$tasks=$this->list_onboarding((int)$employment['id']);
+				return array('employment'=>$employment,'contract'=>$contracts[0],'onboarding_tasks'=>count($tasks),'activation_allowed'=>false,'replayed'=>true);
+			}
+			$app=$this->load('applications',$app_id,true);$this->require_same_location($app);$candidate=$this->load('candidates',(int)$app['candidate_id'],true);$this->require_candidate_retention($candidate);
 			if('ACCEPTED'!==strtoupper((string)$app['stage'])){Stockland_HR_Replacement_People_Contract::deny('HRXP_OFFER_ACCEPTANCE_REQUIRED','A pending hire can be created only after a human-approved offer acceptance.');}
 			if((int)$app['location_id']!==$loc){Stockland_HR_Replacement_People_Contract::deny('HRXP_LOCATION_MISMATCH','Employment location must match the approved vacancy location.');}
 			$req=$this->repo->requisition((int)$app['requisition_id'],true);if(!$req||'OPEN'!==strtoupper((string)$req['status'])){Stockland_HR_Replacement_People_Contract::deny('HRXP_VACANCY_NOT_OPEN','The source vacancy is not open at pending-hire creation.');}
 			if((int)$req['filled_openings'] >= (int)$req['openings']){Stockland_HR_Replacement_People_Contract::deny('HRXP_VACANCY_FULL','No unfilled approved opening remains for this accepted offer.',409);}
-			$employment=$this->repo->insert('employments',array('employment_code'=>$employment_code,'person_id'=>(int)$this->load('candidates',(int)$app['candidate_id'])['person_id'],'application_id'=>$app_id,'position_id'=>(int)$req['position_id'],'legal_employer_code'=>$legal_employer,'location_id'=>$loc,'reporting_manager_id'=>$managerId,'start_date'=>$start,'end_date'=>$end,'employment_type'=>$type,'status'=>'PENDING_CONTRACT','version_no'=>1,'created_by'=>$actor,'updated_by'=>$actor,'created_at'=>$this->now(),'updated_at'=>$this->now()));
+			$employment=$this->repo->insert('employments',array('employment_code'=>$employment_code,'person_id'=>(int)$candidate['person_id'],'application_id'=>$app_id,'position_id'=>(int)$req['position_id'],'legal_employer_code'=>$legal_employer,'location_id'=>$loc,'reporting_manager_id'=>$managerId,'start_date'=>$start,'end_date'=>$end,'employment_type'=>$type,'status'=>'PENDING_CONTRACT','version_no'=>1,'created_by'=>$actor,'updated_by'=>$actor,'created_at'=>$this->now(),'updated_at'=>$this->now()));
 			$contract=$this->repo->insert('contracts',array('contract_code'=>$contract_code,'employment_id'=>(int)$employment['id'],'version_no'=>1,'contract_version_no'=>1,'contract_type'=>$contract_type,'effective_from'=>$start,'effective_to'=>$end,'probation_end'=>$probation,'private_document_id'=>null,'signed_at'=>null,'status'=>'DRAFT','submitted_by'=>null,'submitted_at'=>null,'approved_by'=>null,'approved_at'=>null,'approval_note'=>null,'created_by'=>$actor,'updated_by'=>$actor,'created_at'=>$this->now(),'updated_at'=>$this->now()));
 			foreach(array('PERSONNEL_DOCS','INDUCTION','CODE_OF_CONDUCT','SAFETY_BRIEFING','ROLE_SOP_ACKNOWLEDGEMENT','PAYROLL_SETUP','ACCESS_PROVISIONING') as $taskType){
 				$this->repo->insert('onboarding',array('task_code'=>substr($employment_code,0,14).'-'.substr(hash('sha256',$employment_code),0,8).'-'.$taskType,'employment_id'=>(int)$employment['id'],'task_type'=>$taskType,'title'=>str_replace('_',' ',ucfirst(strtolower($taskType))),'assigned_role'=>in_array($taskType,array('PAYROLL_SETUP','ACCESS_PROVISIONING'),true)?'OWNER':'MANAGEMENT','owner_user_id'=>null,'due_on'=>null,'mandatory'=>1,'status'=>'PENDING','evidence_reference'=>null,'completed_by'=>null,'completed_at'=>null,'version_no'=>1,'created_by'=>$actor,'updated_by'=>$actor,'created_at'=>$this->now(),'updated_at'=>$this->now()));
@@ -293,7 +324,8 @@ final class Stockland_HR_Replacement_People_Service {
 		if($issued&&$expires&&$expires<$issued){Stockland_HR_Replacement_People_Contract::deny('HRXP_DOCUMENT_DATES_INVALID','Document expiry cannot precede issuance.');}
 		list($key,$hash)=$this->idempotency($idempotency_key,array('document_code'=>$code,'subject_type'=>$type,'subject_id'=>$subject_id,'document_type'=>$doc_type,'private_reference'=>$ref,'content_sha256'=>$sha,'issued_on'=>$issued,'expires_on'=>$expires));
 		return $this->repo->transaction(function()use($key,$hash,$actor,$code,$type,$subject_id,$doc_type,$ref,$sha,$issued,$expires){
-			$prior=$this->replay($key,$hash);if($prior){return array('record'=>$this->load('documents',(int)$prior['entity_id']),'replayed'=>true);}
+			$prior=$this->replay($key,$hash);
+			if($prior){$record=$this->load('documents',(int)$prior['entity_id']);$this->require_document_subject_scope($record);return array('record'=>$record,'replayed'=>true);}
 			$allowedTypes=array('IDENTITY','EMPLOYMENT_CONTRACT','QUALIFICATION','WORK_ELIGIBILITY','TAX_PROFILE','PENSION_PROFILE','CERTIFICATE','OTHER');
 			if(!in_array($doc_type,$allowedTypes,true)){Stockland_HR_Replacement_People_Contract::deny('HRXP_DOCUMENT_TYPE_INVALID','Select a supported personnel document type.');}
 			if('CONTRACT'===$type){$contract=$this->load('contracts',$subject_id,true);$this->require_same_location($this->load('employments',(int)$contract['employment_id'],true));}elseif('EMPLOYMENT'===$type){$this->require_same_location($this->load('employments',$subject_id,true));}else{$this->load('candidates',$subject_id,true);}
@@ -306,7 +338,8 @@ final class Stockland_HR_Replacement_People_Service {
 		$this->require_approve();$actor=$this->actor();$id=$this->required_id($payload,'document_id');$note=Stockland_HR_Replacement_People_Contract::text($payload['review_note']??null,'review_note',20,500);
 		$row=$this->load('documents',$id);list($key,$hash)=$this->idempotency($idempotency_key,array('document_id'=>$id,'review_note'=>$note,'version_no'=>(int)($payload['version_no']??0)));
 		return $this->repo->transaction(function()use($key,$hash,$actor,$id,$note,$payload){
-			$prior=$this->replay($key,$hash);if($prior){return array('record'=>$this->load('documents',(int)$prior['entity_id']),'replayed'=>true);}
+			$prior=$this->replay($key,$hash);
+			if($prior){$record=$this->load('documents',(int)$prior['entity_id']);$this->require_document_subject_scope($record);return array('record'=>$record,'replayed'=>true);}
 			$row=$this->load('documents',$id,true);$v=$this->expected_version($row,$payload);if('CONTRACT'===strtoupper((string)$row['subject_type'])){$contract=$this->load('contracts',(int)$row['subject_id'],true);$this->require_same_location($this->load('employments',(int)$contract['employment_id'],true));}elseif('EMPLOYMENT'===strtoupper((string)$row['subject_type'])){$this->require_same_location($this->load('employments',(int)$row['subject_id'],true));}if('PENDING_VERIFICATION'!==strtoupper((string)$row['status'])){Stockland_HR_Replacement_People_Contract::deny('HRXP_DOCUMENT_STATE_INVALID','Only a pending private document can be verified.');}
 			Stockland_HR_Replacement_People_Contract::assert_independent($actor,(int)$row['created_by'],'verify');
 			$verification = $this->vault->verify_reference( (string) $row['private_reference'], (string) $row['content_sha256'], $actor );
@@ -330,7 +363,7 @@ final class Stockland_HR_Replacement_People_Service {
 		list( $key, $hash ) = $this->idempotency( $idempotency_key, array( 'contract_id' => $id, 'document_id' => $doc_id, 'signed_on' => $signed, 'version_no' => $version ) );
 		return $this->repo->transaction( function () use ( $key, $hash, $actor, $id, $doc_id, $signed, $version ) {
 			$prior = $this->replay( $key, $hash );
-			if ( $prior ) { return array( 'record' => $this->load( 'contracts', (int) $prior['entity_id'] ), 'replayed' => true ); }
+			if ( $prior ) { $record = $this->load( 'contracts', (int) $prior['entity_id'] ); $this->require_same_location( $this->load( 'employments', (int) $record['employment_id'] ) ); return array( 'record' => $record, 'replayed' => true ); }
 			$row = $this->load( 'contracts', $id, true );
 			$this->expected_version( $row, array( 'version_no' => $version ) );
 			if ( 'DRAFT' !== strtoupper( (string) $row['status'] ) ) { Stockland_HR_Replacement_People_Contract::deny( 'HRXP_CONTRACT_STATE_INVALID', 'Only a draft contract can be signed.' ); }
@@ -360,7 +393,7 @@ final class Stockland_HR_Replacement_People_Service {
 		list( $key, $hash ) = $this->idempotency( $idempotency_key, array( 'contract_id' => $id, 'approval_note' => $note, 'version_no' => $version ) );
 		return $this->repo->transaction( function () use ( $key, $hash, $actor, $id, $note, $version ) {
 			$prior = $this->replay( $key, $hash );
-			if ( $prior ) { return array( 'record' => $this->load( 'contracts', (int) $prior['entity_id'] ), 'replayed' => true ); }
+			if ( $prior ) { $record = $this->load( 'contracts', (int) $prior['entity_id'] ); $this->require_same_location( $this->load( 'employments', (int) $record['employment_id'] ) ); return array( 'record' => $record, 'replayed' => true ); }
 			$row = $this->load( 'contracts', $id, true );
 			$this->expected_version( $row, array( 'version_no' => $version ) );
 			if ( 'SIGNED' !== strtoupper( (string) $row['status'] ) || (int) $row['created_by'] === $actor ) {
