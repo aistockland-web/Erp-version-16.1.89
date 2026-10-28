@@ -32,3 +32,37 @@ Date: 29 October 2026. All items are **draft / review required**.
 ## Shared required controls
 
 Maker/reviewer/approver are distinct for high-risk actions; authorization and location scope are checked server-side; finalized financial/stock records are corrected by linked reversals, not silent overwrites; import uses validation → preview → approval → commit; external payment evidence must exist before declaring settled; unknown legal/tax treatment is held for review; sensitive personal files require a real private vault; production release requires exact artifact identity, staging regression, backup/restore/rollback and Owner/HR/Finance acceptance.
+
+## Individual source files
+
+- [STK-ERP-SOP-001](procedures/STK-ERP-SOP-001.md)
+- [STK-ERP-SOP-002](procedures/STK-ERP-SOP-002.md)
+- [STK-ERP-SOP-003](procedures/STK-ERP-SOP-003.md)
+- [STK-ERP-SOP-004](procedures/STK-ERP-SOP-004.md)
+- [STK-ERP-SOP-005](procedures/STK-ERP-SOP-005.md)
+- [STK-ERP-SOP-006](procedures/STK-ERP-SOP-006.md)
+- [STK-ERP-SOP-007](procedures/STK-ERP-SOP-007.md)
+- [STK-ERP-SOP-008](procedures/STK-ERP-SOP-008.md)
+- [STK-ERP-SOP-009](procedures/STK-ERP-SOP-009.md)
+- [STK-ERP-SOP-010](procedures/STK-ERP-SOP-010.md)
+- [STK-ERP-SOP-011](procedures/STK-ERP-SOP-011.md)
+- [STK-ERP-SOP-012](procedures/STK-ERP-SOP-012.md)
+- [STK-ERP-SOP-013](procedures/STK-ERP-SOP-013.md)
+- [STK-ERP-SOP-014](procedures/STK-ERP-SOP-014.md)
+- [STK-ERP-SOP-015](procedures/STK-ERP-SOP-015.md)
+- [STK-ERP-SOP-016](procedures/STK-ERP-SOP-016.md)
+- [STK-ERP-SOP-017](procedures/STK-ERP-SOP-017.md)
+- [STK-ERP-SOP-018](procedures/STK-ERP-SOP-018.md)
+- [STK-ERP-SOP-019](procedures/STK-ERP-SOP-019.md)
+- [STK-ERP-SOP-020](procedures/STK-ERP-SOP-020.md)
+- [STK-ERP-SOP-021](procedures/STK-ERP-SOP-021.md)
+- [STK-ERP-SOP-022](procedures/STK-ERP-SOP-022.md)
+- [STK-ERP-SOP-023](procedures/STK-ERP-SOP-023.md)
+- [STK-ERP-SOP-024](procedures/STK-ERP-SOP-024.md)
+
+## 29 October audit refresh
+
+- [ERP-wide audit and release gates](../audits/STOCKLAND_ERP_WIDE_AUDIT_REFRESH_2026-10-29.md)
+- [Exact 49-key source/DDL/SOP coverage CSV](../audits/STOCKLAND_ERP_SOURCE_TABLE_COVERAGE_49_2026-10-29.csv)
+- [Machine-readable coverage and evidence receipt](../audits/STOCKLAND_ERP_SOURCE_TABLE_COVERAGE_49_2026-10-29.json)
+- New per-SOP Markdown sources are a concise controlled source set; the offline pack separately contains editable DOCX, PDF, and full Markdown copies. All documents remain v1.0-DRAFT, not effective.

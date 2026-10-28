@@ -1,0 +1,543 @@
+{
+  "audit_date": "2026-10-29",
+  "baseline": {
+    "release": "16.1.95",
+    "sha256": "494e777247508d009dfdb216c9607bb1bc96717197e94a0e8ad3459b7cc81625",
+    "archive_members": 75,
+    "php_files": 48,
+    "registered_table_keys": 49,
+    "static_ddl_declarations": 49,
+    "core_operations": 29,
+    "accounting_procurement": 16,
+    "legacy_hr_payroll": 4
+  },
+  "source_inventory": {
+    "mapped": 49,
+    "unmapped": [],
+    "tables": [
+      {
+        "table": "adjustments",
+        "path": "includes/class-stockland-activator.php",
+        "line": 541,
+        "sopIds": [
+          "008",
+          "009",
+          "017"
+        ]
+      },
+      {
+        "table": "audit_logs",
+        "path": "includes/class-stockland-activator.php",
+        "line": 838,
+        "sopIds": [
+          "001",
+          "002",
+          "018",
+          "024"
+        ]
+      },
+      {
+        "table": "balances",
+        "path": "includes/class-stockland-activator.php",
+        "line": 773,
+        "sopIds": [
+          "005",
+          "006",
+          "007",
+          "008",
+          "009",
+          "010",
+          "012",
+          "017"
+        ]
+      },
+      {
+        "table": "count_batches",
+        "path": "includes/class-stockland-activator.php",
+        "line": 570,
+        "sopIds": [
+          "008"
+        ]
+      },
+      {
+        "table": "count_lines",
+        "path": "includes/class-stockland-activator.php",
+        "line": 588,
+        "sopIds": [
+          "008"
+        ]
+      },
+      {
+        "table": "customer_invoices",
+        "path": "includes/class-stockland-accounting.php",
+        "line": 198,
+        "sopIds": [
+          "012",
+          "015"
+        ]
+      },
+      {
+        "table": "customers",
+        "path": "includes/class-stockland-accounting.php",
+        "line": 83,
+        "sopIds": [
+          "012",
+          "015"
+        ]
+      },
+      {
+        "table": "daily_closings",
+        "path": "includes/class-stockland-activator.php",
+        "line": 626,
+        "sopIds": [
+          "011",
+          "016",
+          "017"
+        ]
+      },
+      {
+        "table": "employee_compensation",
+        "path": "includes/class-stockland-hr.php",
+        "line": 256,
+        "sopIds": [
+          "020",
+          "022",
+          "023"
+        ]
+      },
+      {
+        "table": "employees",
+        "path": "includes/class-stockland-hr.php",
+        "line": 235,
+        "sopIds": [
+          "019",
+          "020",
+          "021",
+          "022",
+          "023",
+          "024"
+        ]
+      },
+      {
+        "table": "expenses",
+        "path": "includes/class-stockland-accounting.php",
+        "line": 231,
+        "sopIds": [
+          "014",
+          "016"
+        ]
+      },
+      {
+        "table": "gl_accounts",
+        "path": "includes/class-stockland-accounting.php",
+        "line": 274,
+        "sopIds": [
+          "014",
+          "015",
+          "016"
+        ]
+      },
+      {
+        "table": "gl_journals",
+        "path": "includes/class-stockland-accounting.php",
+        "line": 285,
+        "sopIds": [
+          "011",
+          "013",
+          "014",
+          "015",
+          "016"
+        ]
+      },
+      {
+        "table": "gl_lines",
+        "path": "includes/class-stockland-accounting.php",
+        "line": 299,
+        "sopIds": [
+          "011",
+          "014",
+          "015",
+          "016"
+        ]
+      },
+      {
+        "table": "import_jobs",
+        "path": "includes/class-stockland-activator.php",
+        "line": 646,
+        "sopIds": [
+          "004"
+        ]
+      },
+      {
+        "table": "import_profiles",
+        "path": "includes/class-stockland-activator.php",
+        "line": 789,
+        "sopIds": [
+          "004"
+        ]
+      },
+      {
+        "table": "import_rows",
+        "path": "includes/class-stockland-activator.php",
+        "line": 680,
+        "sopIds": [
+          "004"
+        ]
+      },
+      {
+        "table": "invoice_items",
+        "path": "includes/class-stockland-accounting.php",
+        "line": 217,
+        "sopIds": [
+          "010",
+          "012",
+          "015"
+        ]
+      },
+      {
+        "table": "locations",
+        "path": "includes/class-stockland-activator.php",
+        "line": 153,
+        "sopIds": [
+          "002",
+          "006",
+          "017"
+        ]
+      },
+      {
+        "table": "notifications",
+        "path": "includes/class-stockland-activator.php",
+        "line": 718,
+        "sopIds": [
+          "002",
+          "018",
+          "021",
+          "022"
+        ]
+      },
+      {
+        "table": "payment_allocations",
+        "path": "includes/class-stockland-accounting.php",
+        "line": 265,
+        "sopIds": [
+          "014",
+          "015",
+          "016"
+        ]
+      },
+      {
+        "table": "payments",
+        "path": "includes/class-stockland-accounting.php",
+        "line": 248,
+        "sopIds": [
+          "011",
+          "014",
+          "015",
+          "016"
+        ]
+      },
+      {
+        "table": "payroll_lines",
+        "path": "includes/class-stockland-hr.php",
+        "line": 303,
+        "sopIds": [
+          "016",
+          "022",
+          "023"
+        ]
+      },
+      {
+        "table": "payroll_periods",
+        "path": "includes/class-stockland-hr.php",
+        "line": 276,
+        "sopIds": [
+          "016",
+          "022",
+          "023"
+        ]
+      },
+      {
+        "table": "price_history",
+        "path": "includes/class-stockland-activator.php",
+        "line": 231,
+        "sopIds": [
+          "003",
+          "017"
+        ]
+      },
+      {
+        "table": "product_code_maps",
+        "path": "includes/class-stockland-activator.php",
+        "line": 812,
+        "sopIds": [
+          "003",
+          "004"
+        ]
+      },
+      {
+        "table": "product_sku_history",
+        "path": "includes/class-stockland-activator.php",
+        "line": 249,
+        "sopIds": [
+          "003",
+          "020"
+        ]
+      },
+      {
+        "table": "products",
+        "path": "includes/class-stockland-activator.php",
+        "line": 179,
+        "sopIds": [
+          "003",
+          "004",
+          "005",
+          "007",
+          "009",
+          "010",
+          "012",
+          "017"
+        ]
+      },
+      {
+        "table": "purchase_order_items",
+        "path": "includes/class-stockland-accounting.php",
+        "line": 123,
+        "sopIds": [
+          "005",
+          "013"
+        ]
+      },
+      {
+        "table": "purchase_orders",
+        "path": "includes/class-stockland-accounting.php",
+        "line": 102,
+        "sopIds": [
+          "005",
+          "013"
+        ]
+      },
+      {
+        "table": "purchase_receipt_items",
+        "path": "includes/class-stockland-accounting.php",
+        "line": 153,
+        "sopIds": [
+          "005",
+          "013"
+        ]
+      },
+      {
+        "table": "purchase_receipts",
+        "path": "includes/class-stockland-accounting.php",
+        "line": 139,
+        "sopIds": [
+          "005",
+          "013"
+        ]
+      },
+      {
+        "table": "receipts",
+        "path": "includes/class-stockland-activator.php",
+        "line": 336,
+        "sopIds": [
+          "005",
+          "006"
+        ]
+      },
+      {
+        "table": "requisition_items",
+        "path": "includes/class-stockland-activator.php",
+        "line": 416,
+        "sopIds": [
+          "007"
+        ]
+      },
+      {
+        "table": "requisitions",
+        "path": "includes/class-stockland-activator.php",
+        "line": 400,
+        "sopIds": [
+          "007",
+          "006"
+        ]
+      },
+      {
+        "table": "reservations",
+        "path": "includes/class-stockland-activator.php",
+        "line": 434,
+        "sopIds": [
+          "007"
+        ]
+      },
+      {
+        "table": "returns",
+        "path": "includes/class-stockland-activator.php",
+        "line": 519,
+        "sopIds": [
+          "009",
+          "010",
+          "011",
+          "017"
+        ]
+      },
+      {
+        "table": "sale_batches",
+        "path": "includes/class-stockland-activator.php",
+        "line": 743,
+        "sopIds": [
+          "010",
+          "011"
+        ]
+      },
+      {
+        "table": "sales",
+        "path": "includes/class-stockland-activator.php",
+        "line": 457,
+        "sopIds": [
+          "010",
+          "011",
+          "012",
+          "015",
+          "017"
+        ]
+      },
+      {
+        "table": "settings",
+        "path": "includes/class-stockland-activator.php",
+        "line": 168,
+        "sopIds": [
+          "001",
+          "002",
+          "018"
+        ]
+      },
+      {
+        "table": "supplier_invoice_items",
+        "path": "includes/class-stockland-accounting.php",
+        "line": 183,
+        "sopIds": [
+          "013",
+          "014",
+          "016"
+        ]
+      },
+      {
+        "table": "supplier_invoices",
+        "path": "includes/class-stockland-accounting.php",
+        "line": 166,
+        "sopIds": [
+          "013",
+          "014",
+          "016"
+        ]
+      },
+      {
+        "table": "suppliers",
+        "path": "includes/class-stockland-accounting.php",
+        "line": 64,
+        "sopIds": [
+          "005",
+          "013",
+          "014"
+        ]
+      },
+      {
+        "table": "transactions",
+        "path": "includes/class-stockland-activator.php",
+        "line": 305,
+        "sopIds": [
+          "005",
+          "006",
+          "008",
+          "009",
+          "010",
+          "016",
+          "017",
+          "018"
+        ]
+      },
+      {
+        "table": "transfers",
+        "path": "includes/class-stockland-activator.php",
+        "line": 361,
+        "sopIds": [
+          "006",
+          "007",
+          "017"
+        ]
+      },
+      {
+        "table": "user_locations",
+        "path": "includes/class-stockland-activator.php",
+        "line": 286,
+        "sopIds": [
+          "002",
+          "006",
+          "007"
+        ]
+      },
+      {
+        "table": "users",
+        "path": "includes/class-stockland-activator.php",
+        "line": 269,
+        "sopIds": [
+          "002",
+          "018"
+        ]
+      },
+      {
+        "table": "wholesale_sales",
+        "path": "includes/class-stockland-activator.php",
+        "line": 497,
+        "sopIds": [
+          "012",
+          "015",
+          "017"
+        ]
+      },
+      {
+        "table": "workflow_events",
+        "path": "includes/class-stockland-activator.php",
+        "line": 610,
+        "sopIds": [
+          "001",
+          "002",
+          "005",
+          "006",
+          "007",
+          "008",
+          "009",
+          "010",
+          "011",
+          "018",
+          "019",
+          "020",
+          "021",
+          "022",
+          "023",
+          "024"
+        ]
+      }
+    ]
+  },
+  "installed_16_1_97": {
+    "previously_recorded_sha256": "7822606ded2883d9d5faf8b58962f058c99320d64fcf2da50c9f140448adee30",
+    "current_session_binary_available": false,
+    "hash_recomputed_in_this_session": false
+  },
+  "live_wordpress": {
+    "url": "https://slerp.xo.je/stockland-erp-app/",
+    "dns": "TEMPORARY_FAILURE_IN_NAME_RESOLUTION",
+    "e2e_status": "NOT_RUN"
+  },
+  "hrx_design": {
+    "status": "PROPOSED_CANDIDATE_ONLY",
+    "design_logical_count": 33,
+    "physical_schema_approved": false
+  },
+  "decision": "NO_GO_PRODUCTION",
+  "notes": [
+    "This is a static table/DDL inventory from the locked baseline, not a live database fingerprint.",
+    "Keep legacy HR/payroll tables intact until source parity, historical reconciliation, backup/restore and rollback are proven.",
+    "Do not treat skipped CI jobs as passed."
+  ]
+}

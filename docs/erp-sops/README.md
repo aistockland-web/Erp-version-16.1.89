@@ -41,3 +41,7 @@ Every document has an ID, v1.0-DRAFT state, issue date, process owner, approver 
 - Live WordPress/MariaDB E2E is NOT RUN. The site URL was unavailable from the current environment and no local WordPress/MariaDB testing stack existed.
 - The new SOP UI/API wiring is in the local review candidate only; it is not yet committed as executable repository source.
 - No SOP is effective until its process owner and approver sign; statutory portions require qualified Ethiopian professional review.
+
+## 29 October evidence refresh
+
+Individual repository procedures are indexed in [the SOP register](ERP_WIDE_SOP_REGISTER_2026-10-29.md). For authoritative baseline traceability, see [ERP-wide audit refresh](../audits/STOCKLAND_ERP_WIDE_AUDIT_REFRESH_2026-10-29.md), [49-table CSV](../audits/STOCKLAND_ERP_SOURCE_TABLE_COVERAGE_49_2026-10-29.csv), and [49-table JSON receipt](../audits/STOCKLAND_ERP_SOURCE_TABLE_COVERAGE_49_2026-10-29.json). The locked source ZIP is 16.1.95 SHA-256 `494e777247508d009dfdb216c9607bb1bc96717197e94a0e8ad3459b7cc81625`. Installed 16.1.97 binary parity remains unverified; `https://slerp.xo.je/stockland-erp-app/` did not resolve DNS from this execution environment, so live E2E is NOT RUN. Production remains NO-GO.
