@@ -26,7 +26,7 @@ def main():
         require(z.testzip() is None, "ZIP CRC and archive integrity")
         infos = [i for i in z.infolist() if not i.is_dir()]
         names = [i.filename for i in infos]
-        require(len(names) == 80 and len(set(names)) == 80, "80 unique runtime files: 75 baseline plus 5 HR/payroll runtime files")
+        require(len(names) == 86 and len(set(names)) == 86, "86 unique runtime files: 75 baseline + 5 HR/payroll files + 6 ordered CSS modules")
         require(all(n.startswith("stockland-erp-app/") and ".." not in n.split("/") for n in names), "single plugin root and safe archive paths")
         root = "stockland-erp-app/"
         files = {n[len(root):]: z.read(n) for n in names}
@@ -51,6 +51,24 @@ def main():
         css = files["assets/app.css"].decode()
         require("Version:           16.2.0" in main and "define( 'STOCKLAND_VERSION', '16.2.0' );" in main, "plugin version/header matches 16.2.0")
         require(manifest.get("release") == "16.2.0" and modules.get("release") == "16.2.0", "release manifest and CSS module metadata agree")
+        required_css_tail = [
+            "07-dashboard-operations.css",
+            "08-reporting-worksheet.css",
+            "09-command-center-theme.css",
+            "10-bootstrap-desktop-search.css",
+            "11-operational-workflows.css",
+            "12-hr-payroll-lifecycle.css",
+        ]
+        require(len(modules.get("modules", [])) == 12 and modules["modules"][-6:] == required_css_tail,
+                "twelve ordered CSS modules include dedicated dashboard, worksheet, desktop and HR/payroll layers")
+        css_chunks = [files["assets/css/" + name].decode("utf-8").strip() for name in modules["modules"]]
+        require(css == "\n\n".join(css_chunks) + "\n", "generated app.css exactly matches the ordered CSS module sources")
+        bootstrap = files["assets/bootstrap.min.css"]
+        bootstrap_hash = hashlib.sha256(bootstrap).hexdigest()
+        require(b"Bootstrap  v5.3.8" in bootstrap[:220]
+                and manifest.get("frontend", {}).get("bootstrap_version") == "5.3.8"
+                and manifest.get("frontend", {}).get("bootstrap_asset_sha256") == bootstrap_hash,
+                "local Bootstrap 5.3.8 source hash matches release manifest")
         require(manifest.get("schema_contract_status") == "PROVISIONAL_CANDIDATE_NOT_ARCHITECTURE_APPROVAL", "physical table count is explicitly marked provisional")
         require(manifest.get("schema_contract") == {"total":86,"core_operations":29,"accounting_procurement":16,"hr_payroll":41}, "provisional source-mapped 86-table candidate contract agrees")
         require(manifest.get("statutory_rates_or_exemption_caps_seeded") is False, "no automatic statutory rates or exemption caps are seeded")
