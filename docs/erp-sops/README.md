@@ -45,3 +45,8 @@ Every document has an ID, v1.0-DRAFT state, issue date, process owner, approver 
 ## 29 October evidence refresh
 
 Individual repository procedures are indexed in [the SOP register](ERP_WIDE_SOP_REGISTER_2026-10-29.md). For authoritative baseline traceability, see [ERP-wide audit refresh](../audits/STOCKLAND_ERP_WIDE_AUDIT_REFRESH_2026-10-29.md), [49-table CSV](../audits/STOCKLAND_ERP_SOURCE_TABLE_COVERAGE_49_2026-10-29.csv), and [49-table JSON receipt](../audits/STOCKLAND_ERP_SOURCE_TABLE_COVERAGE_49_2026-10-29.json). The locked source ZIP is 16.1.95 SHA-256 `494e777247508d009dfdb216c9607bb1bc96717197e94a0e8ad3459b7cc81625`. Installed 16.1.97 binary parity remains unverified; `https://slerp.xo.je/stockland-erp-app/` did not resolve DNS from this execution environment, so live E2E is NOT RUN. Production remains NO-GO.
+
+
+## Current offline pack checksum
+
+Current DOCX+PDF+Markdown offline SOP pack: **SHA-256 `22a48035e7cb70635f2fc01dd508c33db1da5f8363cacc35a1aca981a3c33f66`**, 4,426,124 bytes, 77 ZIP members. The individual document SHA-256 manifest validates. Older SOP ZIP hashes are superseded. The archive is a document library, not an installable WordPress release.

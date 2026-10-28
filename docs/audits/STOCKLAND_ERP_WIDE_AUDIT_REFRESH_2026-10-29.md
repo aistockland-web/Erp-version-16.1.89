@@ -69,3 +69,7 @@ These links are starting references, not legal approval. No statutory rate, PAYE
 7. Obtain Owner + HR + Finance acceptance and independent qualified Ethiopian legal/tax/pension review. Only then may production be reconsidered.
 
 **Final disposition: source traceability and controlled procedure documentation improved; live E2E NOT RUN; production NO-GO.**
+
+## 11. Offline SOP-pack attestation (current 29 Oct build)
+
+The current offline controlled SOP ZIP includes 24 editable DOCX, 24 rendered PDF, 24 Markdown copies, the 49-key CSV/JSON map, audit/release gate notes and SHA-256 manifest. ZIP contains 77 members and passes CRC; all 76 non-manifest payload files pass their individual SHA-256 entries. Final ZIP size: 4,426,124 bytes. **Current pack SHA-256: `22a48035e7cb70635f2fc01dd508c33db1da5f8363cacc35a1aca981a3c33f66`.** Older recorded SOP ZIP hashes refer to previous packaging revisions and are superseded by this one. The pack is an offline draft/document set, not a WordPress plugin package and not proof that SOP downloads are exposed in the live Process Center.
