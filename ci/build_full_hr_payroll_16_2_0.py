@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic 16.1.95 -> 16.2.8 SaaS HR/document workflows and atomic POS cart builder.
+"""Deterministic 16.1.95 -> 16.2.9 SaaS HR/document workflows and atomic POS cart builder.
 Build only. It never connects to WordPress or mutates ERP/employee data.
 """
 from __future__ import annotations
@@ -8,7 +8,7 @@ from pathlib import Path, PurePosixPath
 
 ROOT = "stockland-erp-app/"
 BASE_SHA256 = "494e777247508d009dfdb216c9607bb1bc96717197e94a0e8ad3459b7cc81625"
-RELEASE = "16.2.8"
+RELEASE = "16.2.9"
 
 def sha256(b: bytes) -> str:
     return hashlib.sha256(b).hexdigest()
