@@ -95,3 +95,21 @@
  #hrPage .sl-hrlc-section-icon>svg.sl-hrlc-icon-art{width:20px!important;height:20px!important;min-width:20px!important;min-height:20px!important;max-width:20px!important;max-height:20px!important;flex-basis:20px!important;stroke-width:1.6px!important}
  #hrPage .sl-hrlc-section-icon>svg.sl-hrlc-icon-art *{stroke-width:1.6px!important}
 }
+
+/* HR document-control editor and modal: self-contained, responsive, keyboard safe. */
+.sl-hrlc-resource-dialog{width:min(760px,calc(100vw - 28px));max-width:760px;max-height:calc(100dvh - 28px);padding:0;border:1px solid #d7e0eb;border-radius:18px;background:#fff;color:#233147;box-shadow:0 24px 80px rgba(15,23,42,.25);overflow:auto}
+.sl-hrlc-resource-dialog::backdrop{background:rgba(12,24,44,.48);backdrop-filter:blur(3px)}
+.sl-hrlc-resource-editor{display:block;padding:0}
+.sl-hrlc-resource-editor>header{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding:22px 24px 18px;border-bottom:1px solid #e4eaf2;background:linear-gradient(120deg,#f5f8ff,#fff)}
+.sl-hrlc-resource-editor>header h3{margin:3px 0 7px;font-size:19px;line-height:1.35;font-weight:750}
+.sl-hrlc-resource-editor>header .sl-sub{margin:0;max-width:560px;line-height:1.55}
+.sl-hrlc-resource-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;padding:22px 24px}
+.sl-hrlc-resource-field{display:flex;flex-direction:column;gap:7px;min-width:0;color:#536176;font-size:12px;font-weight:650}
+.sl-hrlc-resource-field input,.sl-hrlc-resource-field textarea{width:100%;max-width:100%;min-width:0;min-height:42px;box-sizing:border-box;border:1px solid #d5deea;border-radius:10px;padding:10px 12px;color:#263448;background:#fff;font:inherit;font-size:13px}
+.sl-hrlc-resource-field input:focus,.sl-hrlc-resource-field textarea:focus{outline:0;border-color:#3867d6;box-shadow:0 0 0 3px rgba(56,103,214,.12)}
+.sl-hrlc-resource-field input[readonly]{background:#f5f7fb;color:#718096}
+.sl-hrlc-resource-wide{grid-column:1/-1}
+.sl-hrlc-resource-editor>footer{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 24px 22px;border-top:1px solid #e4eaf2;background:#fbfcfe}
+.sl-hrlc-resource-editor>footer .sl-sub{max-width:420px;line-height:1.5;margin:0}
+.sl-hrlc-resource-status{padding:0 24px 18px;color:#3159ad;font-size:12px}
+@media(max-width:620px){.sl-hrlc-resource-dialog{width:calc(100vw - 16px);max-height:calc(100dvh - 16px);border-radius:14px}.sl-hrlc-resource-editor>header{padding:16px;gap:10px}.sl-hrlc-resource-grid{grid-template-columns:minmax(0,1fr);padding:16px;gap:12px}.sl-hrlc-resource-wide{grid-column:1}.sl-hrlc-resource-editor>footer{flex-direction:column;align-items:stretch;padding:14px 16px 18px}.sl-hrlc-resource-editor>footer .sl-sub{max-width:none}}
