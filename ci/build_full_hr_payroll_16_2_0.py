@@ -557,14 +557,14 @@ def patch_pos_qty_safety(files):
     new = """\t\t\t\t\t\tstrtoupper( (string) $p['vat_mode'] ) !== (string) $existing['vat_mode'] ||
 \t\t\t\t\t\t(string) ( $existing['external_receipt_no'] ?? '' ) !== (string) ( $p['external_receipt_no'] ?? '' ) ) {"""
     sales = once(sales, old, new, "idempotent POS retry also matches external receipt identity")
-    old = """            $available = Stockland_DB::get_available_stock( $branch_location_id, $sku );
-            if ( $available < $quantity ) {"""
-    new = """            $wpdb->last_error = '';
-            $available = Stockland_DB::get_available_stock( $branch_location_id, $sku );
-            if ( '' !== (string) $wpdb->last_error ) {
-                throw new Exception( 'Stock availability could not be verified because the physical-ledger or active-reservation lookup failed. No sale was posted.' );
-            }
-            if ( $available < $quantity ) {"""
+    old = """\t\t\t$available = Stockland_DB::get_available_stock( $branch_location_id, $sku );
+\t\t\tif ( $available < $quantity ) {"""
+    new = """\t\t\t$wpdb->last_error = '';
+\t\t\t$available = Stockland_DB::get_available_stock( $branch_location_id, $sku );
+\t\t\tif ( '' !== (string) $wpdb->last_error ) {
+\t\t\t\tthrow new Exception( 'Stock availability could not be verified because the physical-ledger or active-reservation lookup failed. No sale was posted.' );
+\t\t\t}
+\t\t\tif ( $available < $quantity ) {"""
     sales = once(sales, old, new, "POS fails closed on stock/reservation query error")
     put(files, "includes/rest/class-rest-sales.php", sales)
 
