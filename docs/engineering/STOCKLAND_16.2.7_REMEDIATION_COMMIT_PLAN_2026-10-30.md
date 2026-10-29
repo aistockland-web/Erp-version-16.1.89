@@ -71,3 +71,45 @@ Current candidate source contains private upload/download, role-scoped listing, 
 
 The engineering build gate is now green for this exact candidate. Continue with authenticated, isolated WordPress/MariaDB staging acceptance, actual visual verification at desktop/mobile widths, private HR vault access/restore tests, complete document preview/metadata/CSV export, standalone Social Media navigation/capability separation, POS concurrency/retry/rollback tests, deep-inventory/accounting parity and the external Owner/HR/Finance/legal approvals. Do not activate this candidate on production based solely on CI.
 
+## Exact project continuation — current source is 16.2.8 (30 October 2026)
+
+### Current source identity and run results
+
+- Current feature branch head before this handover update: `a4ca90a6e7790779aafbd2da026d41fc0c7c17e2`, commit message: “Fix cross-realm error assertion in synthetic POS cart test”.
+- Current candidate workflow: [16.2.8 exact package run #40968188861](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/40968188861) — success on PHP 8.3 and PHP 8.4.
+- Cumulative baseline workflow: [16.1.95 gates #40968188860](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/40968188860) — success including browser-based desktop Product Master, Reports retry, requisition approval and all-workarea responsive checks; CSS/PostCSS, package integrity, PHP/JS syntax, WPCS/security invariants, Semgrep and dependency/license checks passed.
+- Enterprise security: [run #40968189006](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/40968189006) — success for secret scanning, CodeQL JavaScript/TypeScript, CodeQL Actions and runtime dependency/license inventory.
+- Local release-gate workflow: [run #40968188938](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/40968188938) — success. PR #39 remains open; no merge or production deployment has been performed.
+
+### Exact candidate checksum and independent local verification
+
+- GitHub Actions artifact `STOCKLAND-ERP-16.2.8-HR-PAYROLL-CANDIDATE`, artifact ID `12937788838`; outer artifact ZIP SHA-256 `18c2df52052040c4cd874cfa66883452a6858aeb9dce6081675061520dcfd2ed`.
+- Installable inner plugin: `STOCKLAND_ERP_16.2.8_HR_PAYROLL_CANDIDATE.zip`; SHA-256 `3068747abced50000f593a7d5c8e86a55a1acdff6af75f54036badd71fa0b1f8`; 1,204,715 bytes.
+- Receipt hash equals the independently calculated inner ZIP hash; both outer and inner ZIP CRC checks pass. The installer has 87 archive members under one `stockland-erp-app/` root, including 54 PHP files.
+- Independent local checks: PHP 8.4 syntax 54/54 pass; Node syntax `assets/app.js` and `assets/pwa.js` pass; all 3 JSON files parse; 12 ordered CSS modules concatenate to `assets/app.css` according to the locked QA algorithm; Bootstrap 5.3.8 version/hash and CSS/PostCSS checks pass in exact-head CI.
+- Release receipt values are authoritative: `production_ready=false`, `schema_contract_approved=false`, `new_tables=37`, `production_database_touched=false`, `wordpress_activated=false`.
+- Artifact source baseline remains 16.1.95 SHA-256 `494e777247508d009dfdb216c9607bb1bc96717197e94a0e8ad3459b7cc81625`. The new candidate is therefore not proof of binary parity with the user's installed 16.2.6/site ZIP; exact installed-file parity remains CAP-28.
+
+### Front-end / HR gaps verified directly in the 16.2.8 package
+
+The present package improves the HR desktop/mobile layout, two-column desktop sections, mobile stacking, section search/accordion behavior, and inline SVG icon rendering. The package also includes private HR document upload, approval, a new-version editor, same-origin REST-nonce-authenticated downloads, and manual timestamped social campaign snapshots. The following user-requested items are **not yet complete** and must not be inferred from the passing static tests:
+
+1. **Separate Social Media module:** 16.2.8 renders campaign/snapshot controls and official platform links as HR sections (“Influencer/social campaign planning & snapshots”, “Official social account access”). They still share the HR workspace/search and are not a distinct sidebar/navigation module with an independent capability surface.
+2. **Document workflow:** there is no complete authorized PDF/image preview, no formal metadata footer/view with Issue Date / Prepared By / Reviewed By / Approved By / Version / Status, and no permission-filtered CSV register export using the agreed headers.
+3. **Private-document audit:** verify the live download endpoint's audit-write failure behavior and role/approval matrix with a staging database and injected failures. Static route permission callbacks alone do not prove data-scope or audit behavior.
+4. **Staging/runtime:** no authenticated target-host run, real private-vault mount, backup/restore/rollback drill, payroll payout/remittance E2E, live inventory/accounting reconciliation or browser/device acceptance against the deployed site was performed by these build jobs.
+
+### CAP and statutory status
+
+No CAP is closed solely because a candidate build is green. CAP-03 backup/restore/rollback; CAP-04 authorized values for the nine active employee compensation records; CAP-05/CAP-21 qualified current Ethiopian tax/pension review; CAP-07 accounting/inventory reconciliation; CAP-12/CAP-13/CAP-14 authorization/concurrency and business lifecycle; CAP-16/CAP-26 complete deep-integrity scan; CAP-22 HR/final-settlement evidence; CAP-28 exact deployed-source parity; and CAP-29 formal SOP/Owner acceptance remain release gates.
+
+The receipt's 86-table model (29 core/operations + 16 accounting/procurement + 41 HR/payroll, including 37 proposed new tables) is provisional and not architecturally approved. Do not migrate or deploy it into production until the schema contract has a signed decision, an additive migration plan, historical-data reconciliation, tested rollback and independent stakeholder acceptance.
+
+### Local handover files generated for this run
+
+- Installable candidate ZIP: `STOCKLAND_ERP_16.2.8_HR_PAYROLL_CANDIDATE.zip`
+- Checksum sidecar: `STOCKLAND_ERP_16.2.8_HR_PAYROLL_CANDIDATE.zip.sha256`
+- Detailed validation handover: `STOCKLAND_ERP_16.2.8_VALIDATION_HANDOVER.md`
+
+**Disposition:** the exact 16.2.8 candidate CI is green, but production is still **NO-GO**. Keep working on the feature branch and re-run exact-head CI after each implementation commit; do not merge or activate solely from static CI evidence.
+
