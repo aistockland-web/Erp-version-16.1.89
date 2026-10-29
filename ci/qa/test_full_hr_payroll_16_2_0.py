@@ -46,6 +46,13 @@ def main():
         schema = files["includes/class-stockland-hr-lifecycle.php"].decode()
         health_php = files["includes/rest/class-rest-app.php"].decode()
         system_control_php = files["includes/class-stockland-admin.php"].decode()
+        sales_php = files["includes/rest/class-rest-sales.php"].decode()
+        stock_db_php = files["includes/class-stockland-db.php"].decode()
+        sale_math_php = files["includes/class-stockland-sale-math.php"].decode()
+        money_php = files["includes/class-stockland-money.php"].decode()
+        ledger_php = files["includes/class-stockland-ledger.php"].decode()
+        accounting_php = files["includes/class-stockland-accounting.php"].decode()
+        rest_accounting_php = files["includes/rest/class-rest-accounting.php"].decode()
         rest = files["includes/rest/class-rest-hr-lifecycle.php"].decode()
         cycle = files["includes/rest/class-rest-hr-payroll-cycle.php"].decode()
         calc = files["includes/class-stockland-hr-payroll-calculator.php"].decode()
@@ -141,9 +148,33 @@ def main():
                 "responsive accordion holders, consistent line icons and social channel cards are styled in generated app.css")
         require("sl-hrlc-toolbar" in css and "sl-hrlc-search:focus-within" in css and "[data-hrlc-section][hidden]" in css and ".sl-hrlc-section[open]" in css,
                 "SaaS search, keyboard focus, no-result and active accordion states are styled")
+        require("#hrPage{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))" in css and ".sl-hrlc-cycle{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))" in css and "@media(max-width:700px){#hrPage{grid-template-columns:minmax(0,1fr)" in css,
+                "HR/payroll dropdowns use two side-by-side desktop columns and stack on mobile")
         for url in ["https://business.facebook.com/","https://www.instagram.com/","https://business.tiktok.com/","https://studio.youtube.com/"]:
             require(url in app, "direct social sign-in link " + url)
         require("STOCKLAND_PRIVATE_VAULT_DIR" in manifest.get("release_gate_note","") or "private vault configuration" in manifest.get("release_gate_note",""), "manifest records private vault configuration as a release gate")
+        require(manifest.get("pos_retry_contract") == "CLIENT_SALE_ID_STABLE_UNTIL_VERIFIED_CLOSED; SERVER_IDEMPOTENT_REPLAY",
+                "release manifest records stable POS request identity for ambiguous network retries")
+        require(manifest.get("stock_availability_error_policy") == "FAIL_CLOSED_ON_LEDGER_OR_RESERVATION_QUERY_ERROR",
+                "release manifest records fail-closed stock availability reads")
+        require(manifest.get("pos_cart_scope") == "SINGLE_LINE_ATOMIC_POS; MULTI_LINE_CART_WIDE_TRANSACTION_NOT_IMPLEMENTED",
+                "release manifest does not misrepresent single-line POS as a multi-line cart")
+        require("d.sale_id=f.dataset.saleRequestId" in app and "delete f.dataset.saleRequestId;" in app,
+                "Retail POS sends one stable sale id and clears it only after CLOSED confirmation")
+        require("external_receipt_no" in sales_php and "(string) ( $existing['external_receipt_no'] ?? '' ) !== (string) ( $p['external_receipt_no'] ?? '' )" in sales_php,
+                "POS idempotent replay rejects a mismatched external receipt reference")
+        require("if ( '' !== (string) $wpdb->last_error || null === $physical_raw )" in stock_db_php and "if ( '' !== (string) $wpdb->last_error || null === $reserved_raw )" in stock_db_php,
+                "stock availability treats failed ledger or reservation query as unavailable, never as zero reservations")
+        require("Stock availability could not be verified" in sales_php and "Stockland_DB::get_available_stock" in sales_php,
+                "POS reports an availability query failure instead of treating it as an ordinary stock shortage")
+        require("Stockland_Sale_Math::calculate" in sales_php and "Stockland_Ledger::post_sale_closed" in sales_php and "Stockland_Accounting::post_journal" in sales_php and "START TRANSACTION" in sales_php and "ROLLBACK" in sales_php,
+                "single-line POS calculation, stock-ledger movement, GL journal and transaction rollback remain wired")
+        require("debit/credit" in accounting_php.lower() and "Stockland_Money::subtract( $sum_d, $sum_c )" in accounting_php and "existing_journal_matches" in accounting_php,
+                "double-entry journal requires balanced debits and credits and validates source-idempotent replay")
+        require("Stockland_Money::multiply( $q, $uc )" in rest_accounting_php and "Supplier invoice line subtotal/tax does not match" in rest_accounting_php and "Payment allocation total must equal the payment amount exactly" in rest_accounting_php,
+                "supplier invoice quantities/tax and AP/AR payment allocations are revalidated server-side")
+        require("final" not in sale_math_php or "Stockland_Money::multiply" in sale_math_php,
+                "POS money path uses integer minor-unit arithmetic for quantity × unit price")
         require("drop table" not in schema.lower() and "truncate table" not in schema.lower(), "candidate HR schema has no destructive drop/truncate statements")
         require("stockland-private-vault" not in app.lower() and "wp-content/uploads" not in vault.lower(), "private resource storage is not exposed through public uploads URLs")
         require(manifest.get("statutory_rates_or_exemption_caps_seeded") is False, "no automatic statutory rates or exemption caps are seeded")
