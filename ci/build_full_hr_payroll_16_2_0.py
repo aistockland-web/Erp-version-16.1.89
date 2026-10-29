@@ -99,8 +99,8 @@ def patch_hr_schema(files):
     # Existing 16.2.0 installations already have hr_resources; add the version-link
     # through the same protected additive column migration, not only fresh-install DDL.
     p = once(p,
-        "'allowance_breakdown_json' => 'LONGTEXT NULL AFTER net_pay',\\n\\t\\t\\t),\\n\\t\\t);",
-        "'allowance_breakdown_json' => 'LONGTEXT NULL AFTER net_pay',\\n\\t\\t\\t),\\n\\t\\t\\t'hr_resources' => array(\\n\\t\\t\\t\\t'supersedes_resource_id' => 'BIGINT UNSIGNED NULL AFTER version_label',\\n\\t\\t\\t),\\n\\t\\t);",
+        "'allowance_breakdown_json' => 'LONGTEXT NULL AFTER net_pay',\n\t\t\t),\n\t\t);",
+        "'allowance_breakdown_json' => 'LONGTEXT NULL AFTER net_pay',\n\t\t\t),\n\t\t\t'hr_resources' => array(\n\t\t\t\t'supersedes_resource_id' => 'BIGINT UNSIGNED NULL AFTER version_label',\n\t\t\t),\n\t\t);",
         "add controlled HR document version column migration")
     # Inject lifecycle DDL after the legacy payroll_lines declaration and before batching begins.
     # Use the declaration boundary rather than a multiline SQL substring because CRLF/newline
