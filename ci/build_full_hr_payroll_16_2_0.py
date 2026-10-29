@@ -663,6 +663,18 @@ def patch_pos_qty_safety(files):
 def patch_pos_cart_ui(files):
     """Install a responsive multi-line cart UI backed by the atomic /sales/cart endpoint."""
     app = text(files, "assets/app.js")
+    picker_old = """        const syncSelected=(sku,label)=>{
+            hidden.value=String(sku||'');"""
+    picker_new = """        const syncSelected=(sku,label,record=null)=>{
+            hidden.value=String(sku||'');
+            picker.dataset.selectedRecord=record?JSON.stringify(record):'';"""
+    app = once(app, picker_old, picker_new, "attach Product Master selection data to cart SKU picker")
+    result_old = """                return '<button type="button" role="option" aria-selected="false" class="sl-sku-result" data-pick-sku="'+esc(sku)+'" data-pick-label="'+esc(sku+' — '+title)+'"><span><b>'+esc(sku)+'</b><small>'+esc(title+(meta?' • '+meta:''))+'</small></span><em>'+esc(code||'')+'</em></button>';"""
+    result_new = """                return '<button type="button" role="option" aria-selected="false" class="sl-sku-result" data-pick-sku="'+esc(sku)+'" data-pick-label="'+esc(sku+' — '+title)+'" data-pick-product="'+esc(title)+'" data-pick-price="'+esc(r.retail_price??'')+'" data-pick-unit="'+esc(r.unit||'PCS')+'" data-pick-size="'+esc(r.size||'')+'" data-pick-color="'+esc(r.color||'')+'" data-pick-type="'+esc(r.product_type||'SIMPLE')+'"><span><b>'+esc(sku)+'</b><small>'+esc(title+(meta?' • '+meta:''))+'</small></span><em>'+esc(code||'')+'</em></button>';"""
+    app = once(app, result_old, result_new, "expose retail price and UOM to client selection")
+    click_old = """            results.querySelectorAll('[data-pick-sku]').forEach(function(btn){btn.onclick=function(){syncSelected(btn.dataset.pickSku,btn.dataset.pickLabel);hide();}});"""
+    click_new = """            results.querySelectorAll('[data-pick-sku]').forEach(function(btn){btn.onclick=function(){syncSelected(btn.dataset.pickSku,btn.dataset.pickLabel,{sku:btn.dataset.pickSku,product_name:btn.dataset.pickProduct,retail_price:btn.dataset.pickPrice,unit:btn.dataset.pickUnit,size:btn.dataset.pickSize,color:btn.dataset.pickColor,product_type:btn.dataset.pickType});hide();}});"""
+    app = once(app, click_old, click_new, "pass Product Master selected record to cart")
     # Extend the role-scoped SKU search with sales-safe Master price and UOM only.
     # Do not expose purchase cost here; cost/profit remains capability-gated elsewhere.
     rest_app = text(files, "includes/rest/class-rest-app.php")
