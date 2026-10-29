@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic 16.1.95 -> 16.2.1 schema-contract-corrected HR/payroll source package builder.
+"""Deterministic 16.1.95 -> 16.2.2 polished HR dashboard accordion source package builder.
 Build only. It never connects to WordPress or mutates ERP/employee data.
 """
 from __future__ import annotations
@@ -8,7 +8,7 @@ from pathlib import Path, PurePosixPath
 
 ROOT = "stockland-erp-app/"
 BASE_SHA256 = "494e777247508d009dfdb216c9607bb1bc96717197e94a0e8ad3459b7cc81625"
-RELEASE = "16.2.1"
+RELEASE = "16.2.2"
 
 def sha256(b: bytes) -> str:
     return hashlib.sha256(b).hexdigest()
@@ -469,7 +469,7 @@ def rebuild_css(files):
         files[ROOT + "assets/css/" + name] = (fragment + "\n").encode("utf-8")
 
     lifecycle_path = "12-hr-payroll-lifecycle.css"
-    lifecycle_overlay = Path(__file__).resolve().parent / "hr_payroll_overlay" / "hr-lifecycle-ui.css"
+    lifecycle_overlay = Path(__file__).resolve().parent / "hr_payroll_overlay_16_2_0" / "hr-lifecycle-ui.css"
     lifecycle_css = lifecycle_overlay.read_text(encoding="utf-8").strip()
     lifecycle_marker = "/* HRIS lifecycle workspace: conservative SAP/Odoo-style data density"
     if not lifecycle_css.startswith(lifecycle_marker):
