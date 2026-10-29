@@ -8,7 +8,7 @@ if (!root || !fs.existsSync(root)) throw new Error('Pass extracted stockland-erp
 const assets = path.join(root, 'assets');
 const manifest = JSON.parse(fs.readFileSync(path.join(assets, 'css/modules.json'), 'utf8'));
 const releaseManifest = JSON.parse(fs.readFileSync(path.join(root, 'RELEASE_MANIFEST.json'), 'utf8'));
-const expectedModuleCount = releaseManifest.release === '16.2.0' ? 12 : 6;
+const expectedModuleCount = ['16.2.0', '16.2.1'].includes(releaseManifest.release) ? 12 : 6;
 if (!releaseManifest.release || manifest.release !== releaseManifest.release ||
     !Array.isArray(manifest.modules) || manifest.modules.length !== expectedModuleCount ||
     new Set(manifest.modules).size !== expectedModuleCount) {
