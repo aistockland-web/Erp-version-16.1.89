@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic 16.1.95 -> 16.2.0 full-HR/payroll source package builder.
+"""Deterministic 16.1.95 -> 16.2.1 schema-contract-corrected HR/payroll source package builder.
 Build only. It never connects to WordPress or mutates ERP/employee data.
 """
 from __future__ import annotations
@@ -8,7 +8,7 @@ from pathlib import Path, PurePosixPath
 
 ROOT = "stockland-erp-app/"
 BASE_SHA256 = "494e777247508d009dfdb216c9607bb1bc96717197e94a0e8ad3459b7cc81625"
-RELEASE = "16.2.0"
+RELEASE = "16.2.1"
 
 def sha256(b: bytes) -> str:
     return hashlib.sha256(b).hexdigest()
@@ -39,8 +39,8 @@ def put(files, path, value):
 
 def patch_main(files, schema, rest, calculator, vault, payroll_cycle):
     p = text(files, "stockland-inventory.php")
-    p = once(p, " * Version:           16.1.95", " * Version:           16.2.0", "plugin header version")
-    p = once(p, "define( 'STOCKLAND_VERSION', '16.1.95' );", "define( 'STOCKLAND_VERSION', '16.2.0' );", "version constant")
+    p = once(p, " * Version:           16.1.95", f" * Version:           {RELEASE}", "plugin header version")
+    p = once(p, "define( 'STOCKLAND_VERSION', '16.1.95' );", f"define( 'STOCKLAND_VERSION', '{RELEASE}' );", "version constant")
     p = once(p, "define( 'STOCKLAND_HR_SCHEMA_VERSION', '16.1.3' );", "define( 'STOCKLAND_HR_SCHEMA_VERSION', '16.2.0' );", "HR schema version")
     p = once(p, "require_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-money.php';",
         "require_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-money.php';\nrequire_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-hr-payroll-calculator.php';\nrequire_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-hr-private-vault.php';\nrequire_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-hr-lifecycle.php';",
@@ -289,7 +289,7 @@ def patch_hr_rest(files):
     put(files, "includes/rest/class-rest-hr.php", p)
 
 def patch_health(files):
-    for path in ("includes/rest/class-rest-app.php","includes/rest/class-rest-setup.php","assets/app.js","README.md","RELEASE_MANIFEST.json","includes/class-stockland-business-calendar.php","includes/rest/class-rest-products.php"):
+    for path in ("includes/rest/class-rest-app.php","includes/rest/class-rest-setup.php","assets/app.js","README.md","RELEASE_MANIFEST.json","includes/class-stockland-business-calendar.php","includes/rest/class-rest-products.php","includes/class-stockland-admin.php"):
         if ROOT + path not in files:
             continue
         t = text(files, path)
@@ -306,13 +306,42 @@ def patch_health(files):
             old = "$hr_expected         = array( 'employees', 'employee_compensation', 'payroll_periods', 'payroll_lines' );"
             new = "$hr_expected         = array_values( array_unique( array_merge( array( 'employees', 'employee_compensation', 'payroll_periods', 'payroll_lines' ), Stockland_HR_Lifecycle::table_keys() ) ) );"
             t = many(t, old, new, 2, "dynamic HR expected set")
-            t = many(t, "count( $found_keys ) === 49", "count( $found_keys ) === 86", 2, "86-table health contract")
+
+            # Presence of every declared table is the contract. Extra prefixed tables are
+            # reported separately and must not prevent the read-only known-schema scan.
+            quick_old = "$checks['schema_contract_expected']       = $checks['db'] && count( $found_keys ) === 49 && empty( $missing_full ) && empty( $unexpected_full );"
+            quick_new = "$checks['schema_contract_expected']       = $checks['db'] && ! empty( $full_expected ) && empty( $missing_full );"
+            t = once(t, quick_old, quick_new, "quick health uses required tables rather than physical count")
+            deep_old = "$checks['schema_contract_expected']       = count( $found_keys ) === 49 && empty( $missing_full ) && empty( $unexpected_full );"
+            deep_new = "$checks['schema_contract_expected']       = ! empty( $full_expected ) && empty( $missing_full );"
+            t = once(t, deep_old, deep_new, "deep health scans when all required tables exist")
+
+            schema_count_line = "$diagnostics['schema_table_count']        = count( $found_keys );"
+            schema_status_lines = schema_count_line + "\n\t\t$diagnostics['schema_contract_status'] = empty( $missing_full ) ? ( empty( $unexpected_full ) ? 'REQUIRED_TABLES_PRESENT' : 'REQUIRED_TABLES_PRESENT_WITH_EXTRA_TABLES' ) : 'REQUIRED_TABLES_MISSING';\n\t\t$diagnostics['schema_contract_extra_table_count'] = count( $unexpected_full );"
+            t = many(t, schema_count_line, schema_status_lines, 2, "quick/deep schema contract diagnostics")
+
+            t = once(t, "Missing exact schema skips SQL joins and fails closed rather than masking errors.", "Missing required contract tables skip SQL joins and fail closed rather than masking errors.", "accurate deep scan comment")
+            t = once(t, "Database or exact 86-table candidate contract is not healthy; integrity joins were not run.", "Database unavailable or one or more required ERP schema tables are missing; integrity joins were not run.", "accurate deep scan skip reason")
+            t = once(t, "All 49 ERP schema tables, runtime routes, streaming XLSX reader, ledger/audit integrity, AP/AR-to-GL reconciliation, procurement/PLEDGER-to-GRNI consistency, role authority, accounting invariants, payroll classification and the supplementary read-only relational integrity scan must be healthy.", "All required ERP schema tables in the versioned contract, runtime routes, streaming XLSX reader, ledger/audit integrity, AP/AR-to-GL reconciliation, procurement/PLEDGER-to-GRNI consistency, role authority, accounting invariants, payroll classification and the supplementary read-only relational integrity scan must be healthy. Additional prefixed tables are reported for review but do not by themselves block the read-only integrity scan.", "versioned live-readiness rule")
+
+        if path == "includes/class-stockland-admin.php":
+            old = "$full_expected = array_values( array_unique( array_merge( $expected_core, $expected_accounting, array( 'employees', 'employee_compensation', 'payroll_periods', 'payroll_lines' ) ) ) );"
+            new = "$expected_hr = array_values( array_unique( array_merge( array( 'employees', 'employee_compensation', 'payroll_periods', 'payroll_lines' ), class_exists( 'Stockland_HR_Lifecycle' ) ? Stockland_HR_Lifecycle::table_keys() : array() ) ) );\n\t\t$full_expected = array_values( array_unique( array_merge( $expected_core, $expected_accounting, $expected_hr ) ) );"
+            t = once(t, old, new, "System Control full schema uses lifecycle contract")
+            old_hr = "$expected_hr = array( 'employees', 'employee_compensation', 'payroll_periods', 'payroll_lines' );"
+            t = once(t, old_hr, "", "remove stale HR table-list reset")
+
+        if path == "assets/app.js":
+            warning = """    const extraSchemaTables=Array.isArray(q.unexpected_schema_tables)?q.unexpected_schema_tables:[];if(extraSchemaTables.length){html+='<div class="sl-notice sl-notice-warn" style="margin-top:12px"><b>Additional ERP tables detected</b><div style="margin-top:5px">All required contract tables are present. These extra prefixed tables are disclosed for review and do not block the read-only integrity scan. Do not delete them without an approved migration plan.</div><div style="margin-top:5px">'+esc(extraSchemaTables.join(', '))+'</div></div>'; }
+"""
+            t = once(t, "    if(q.last_fatal&&q.last_fatal.reference){", warning + "    if(q.last_fatal&&q.last_fatal.reference){", "show non-blocking extra-table review warning")
+
         if path == "includes/rest/class-rest-setup.php":
             t = t.replace("(int) ( $snapshot['total']['total'] ?? 49 )", "(int) ( $snapshot['total']['total'] ?? 86 )")
         if path == "RELEASE_MANIFEST.json":
             m = json.loads(t)
             m["release"] = RELEASE
-            m["release_label"] = "Stockland Ethiopia ERP — full HR/payroll-cycle candidate 16.2.0 (provisional schema inventory)"
+            m["release_label"] = f"Stockland Ethiopia ERP — full HR/payroll-cycle candidate {RELEASE} (provisional schema inventory)"
             m["schema_contract"] = {"total":86,"core_operations":29,"accounting_procurement":16,"hr_payroll":41}
             m["schema_contract_status"] = "PROVISIONAL_CANDIDATE_NOT_ARCHITECTURE_APPROVAL"
             m["statutory_rates_or_exemption_caps_seeded"] = False
@@ -339,11 +368,11 @@ def patch_health(files):
             m["preserved"]["schema_contract_total_changed_additively"] = True
             m["preserved"]["historical_payroll_and_ledger_unchanged_by_build"] = True
             m["baseline"] = "16.1.95"
-            m["release_gate_note"] = "16.2.0 is a candidate only. The 86-table physical count is provisional, not architecture approval. Exact package tests, qualified Ethiopian legal rules, private vault configuration, isolated WordPress/MariaDB end-to-end tests, backup/restore, source parity and Owner/HR/Finance sign-off remain separate release gates."
+            m["release_gate_note"] = f"{RELEASE} is a candidate only. The 86-table physical count is provisional, not architecture approval. Exact package tests, qualified Ethiopian legal rules, private vault configuration, isolated WordPress/MariaDB end-to-end tests, backup/restore, source parity and Owner/HR/Finance sign-off remain separate release gates."
             t = json.dumps(m, ensure_ascii=False, indent=2) + "\n"
         elif path == "README.md":
-            t = t.replace("16.1.95", "16.2.0", 1)
-            t += "\\n\\n## HRIS/Payroll lifecycle (16.2.0 candidate)\\n\\nThe isolated candidate adds lifecycle, frozen payroll-run, per-recipient settlement, statutory-remittance, individual-payee, employee-reimbursement, private-resource and social-reporting domains. Its physical schema inventory is provisional and must not be read as approval of an 86-table architecture. Payroll requires an independently reviewed, effective-dated statutory rule bundle; this build seeds no tax rates or exemption caps. Private personnel files require STOCKLAND_PRIVATE_VAULT_DIR outside the web root and an encryption key for TIN/licence data. Manual social snapshots are timestamped and are not real-time API reporting. Do not deploy until exact-candidate CI, isolated WordPress/MariaDB lifecycle tests, backup/restore, rollback, source parity, qualified legal review, and Owner/HR/Finance acceptance pass.\\n"
+            t = t.replace("16.1.95", RELEASE, 1)
+            t += f"\\n\\n## HRIS/Payroll lifecycle ({RELEASE} candidate)\\n\\nThe isolated candidate adds lifecycle, frozen payroll-run, per-recipient settlement, statutory-remittance, individual-payee, employee-reimbursement, private-resource and social-reporting domains. Its physical schema inventory is provisional and must not be read as approval of an 86-table architecture. Payroll requires an independently reviewed, effective-dated statutory rule bundle; this build seeds no tax rates or exemption caps. Private personnel files require STOCKLAND_PRIVATE_VAULT_DIR outside the web root and an encryption key for TIN/licence data. Manual social snapshots are timestamped and are not real-time API reporting. Do not deploy until exact-candidate CI, isolated WordPress/MariaDB lifecycle tests, backup/restore, rollback, source parity, qualified legal review, and Owner/HR/Finance acceptance pass.\\n"
         put(files, path, t)
     return
 
@@ -456,7 +485,7 @@ def rebuild_css(files):
         raise ValueError("Expected twelve ordered CSS source modules.")
     modules["release"] = RELEASE
     modules["description"] = (
-        "16.2.0 ordered CSS source modules: foundation, shell, data components, "
+        f"{RELEASE} ordered CSS source modules: foundation, shell, data components, "
         "overlays, responsive layout, operational guards, dashboard operations, "
         "worksheet/reporting, command-center theme, desktop Bootstrap/search, "
         "operational workflows, and HR/payroll lifecycle."
@@ -597,7 +626,7 @@ def build(input_zip: Path, output_zip: Path):
         raise ValueError("New HR runtime controllers must be included exactly once.")
     manifest = json.loads(files[ROOT+"RELEASE_MANIFEST.json"].decode("utf-8"))
     if manifest["schema_contract"] != {"total":86,"core_operations":29,"accounting_procurement":16,"hr_payroll":41}:
-        raise ValueError("73-table manifest contract incorrect.")
+        raise ValueError("86-table manifest contract incorrect.")
     # Ensure unseeded source-based legal rules: no ETB 1,000 exemption is embedded.
     if re.search(r"exemption_cap.{0,20}1000(?:\.00)?", schema, re.I):
         raise ValueError("A legal exemption cap must not be hard-coded into shipped source.")
