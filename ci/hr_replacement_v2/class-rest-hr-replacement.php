@@ -113,6 +113,30 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 	}
 	private function has_schema() { return class_exists( 'Stockland_HR_Replacement' ) && Stockland_HR_Replacement::schema_status()['ready']; }
 	private function require_schema() { return $this->has_schema() ? true : $this->error( 'hrx_schema_not_ready', 'HR replacement schema is not complete. Ask an authorized schema administrator to review the read-only status and create missing HRX tables in bounded batches.', 409 ); }
+	/**
+	 * Fail-closed location scope for the generic entity reader. Entity lists without a proven
+	 * row-to-location relationship are company-scope only; UI filters are never authorization.
+	 */
+	private function apply_location_scope( $entity, $row = null, $requested_location = 0 ) {
+		if ( Stockland_Authority::company_scope() ) { return true; }
+		$location = (int) $requested_location;
+		if ( $location > 0 && ! Stockland_Authority::can_access_location( $location ) ) {
+			return $this->error( 'hrx_location_forbidden', 'Location access denied.', 403 );
+		}
+		if ( is_array( $row ) ) {
+			if ( array_key_exists( 'location_id', $row ) && (int) $row['location_id'] > 0 ) {
+				return Stockland_Authority::can_access_location( (int) $row['location_id'] )
+					? true
+					: $this->error( 'hrx_location_forbidden', 'The record is outside your authorized location scope.', 403 );
+			}
+			return $this->error( 'hrx_location_scope_unresolved', 'This record has no direct, verified location scope. A company-scope HR/payroll role is required until relation-aware scope is available.', 403 );
+		}
+		$direct = array( 'org-units', 'positions', 'workforce-plans', 'requisitions', 'time-events', 'assignments', 'social-snapshots' );
+		if ( ! in_array( $entity, $direct, true ) || $location < 1 ) {
+			return $this->error( 'hrx_location_scope_required', 'Select an authorized location. This entity requires a verified relation-aware scope and is not exposed to branch-scoped listing yet.', 403 );
+		}
+		return true;
+	}
 	private function decode( $request, $key, $default = null ) { $v=$request->get_param( $key ); return null === $v ? $default : $v; }
 
 	public function bootstrap() {
@@ -205,9 +229,10 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		$table=$this->table($entity);
 		$where='1=1';$args=array();
 		$location_id=(int)$request->get_param('location_id');
-		if(!Stockland_Authority::company_scope() && !empty($location_id)){
-			if(!Stockland_Authority::can_access_location($location_id))return $this->error('hrx_location_forbidden','Location access denied.',403);
-			if(in_array($entity,array('org-units','positions','workforce-plans','requisitions','time-events','assignments','social-snapshots'),true)){$where.=' AND location_id=%d';$args[]=$location_id;}
+		$scope=$this->apply_location_scope($entity,null,$location_id);
+		if(is_wp_error($scope))return $scope;
+		if(!Stockland_Authority::company_scope()){
+			$where.=' AND location_id=%d';$args[]=$location_id;
 		}
 		$sql='SELECT * FROM %i WHERE '.$where.' ORDER BY id DESC LIMIT %d OFFSET %d';$args=array_merge(array($table),$args,array($limit,$offset));
 		$rows=Stockland_DB::read_results($wpdb->prepare($sql,$args),ARRAY_A);
