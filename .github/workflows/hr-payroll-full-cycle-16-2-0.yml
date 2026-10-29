@@ -115,20 +115,31 @@ jobs:
         run: php ci/qa/test_audit_chain_synthetic.php "$STOCKLAND_APP"
       - name: Test pure payroll calculator with synthetic-only fixtures
         run: php ci/hr_payroll_overlay_16_2_0/test-calculator-overlay.php
-      - name: Verify candidate no-production-write and fail-closed manifest
+      - name: Verify candidate receipt, no-production-write and fail-closed manifest
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
           import hashlib, json, os, zipfile
           p=os.path.join(os.environ["RUNNER_TEMP"],"stockland-16.2.8","STOCKLAND_ERP_16.2.8_HR_PAYROLL_CANDIDATE.zip")
+          receipt_path=os.path.join(os.environ["RUNNER_TEMP"],"stockland-16.2.8","STOCKLAND_ERP_16.2.8_HR_PAYROLL_CANDIDATE.receipt.json")
+          digest=hashlib.sha256(open(p,"rb").read()).hexdigest()
+          receipt=json.load(open(receipt_path,encoding="utf-8"))
           with zipfile.ZipFile(p) as z:
+              actual=[i.filename for i in z.infolist() if not i.is_dir()]
               m=json.loads(z.read("stockland-erp-app/RELEASE_MANIFEST.json"))
+              assert len(actual)==87 and len(set(actual))==87
+              assert receipt.get("runtime_file_count")==len(actual), "build receipt runtime file count mismatches installer"
+              assert receipt.get("installer_sha256")==digest, "build receipt installer SHA-256 mismatch"
               assert m.get("schema_contract_status") == "PROVISIONAL_CANDIDATE_NOT_ARCHITECTURE_APPROVAL"
               assert m.get("statutory_rates_or_exemption_caps_seeded") is False
               assert m.get("private_vault_required_outside_webroot") is True
               assert m.get("social_reporting_mode") == "MANUAL_EXPORT_TIMESTAMPED_NOT_REALTIME"
-          print("candidate_sha256="+hashlib.sha256(open(p,"rb").read()).hexdigest())
+              assert receipt.get("production_ready") is False
+              assert receipt.get("schema_contract_approved") is False
+              assert receipt.get("production_database_touched") is False
+              assert receipt.get("wordpress_activated") is False
+          print("candidate_sha256="+digest+" runtime_files="+str(len(actual)))
           PY
       - name: Publish candidate artifact and build evidence (PHP 8.3 job only)
         if: matrix.php-version == '8.3'
