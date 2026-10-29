@@ -22,7 +22,7 @@ function accepted(qty, price, unit, expected) {
   assert.equal(actual.selling_price_override, expected.selling_price_override);
 }
 function rejected(qty, price, unit, label) {
-  assert.throws(() => normalize(qty, price, unit), Error, label);
+  assert.throws(() => normalize(qty, price, unit), error => Boolean(error && typeof error.message === 'string' && error.message.length > 0), label);
 }
 
 accepted('1', '', 'PCS', { quantity_sold: 1, selling_price_override: null });
