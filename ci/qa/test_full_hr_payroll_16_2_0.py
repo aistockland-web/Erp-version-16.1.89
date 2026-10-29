@@ -185,6 +185,8 @@ def main():
                 "HR document library renders a controlled edit/save-new-version form")
         require("EMPLOYMENT_CONTRACT" in app and "data-hrcycle-action=\"approve-resource\"" in app and "/hr/resources/'+id+'/revise" in app,
                 "job descriptions and approved employment contracts are uploadable, approval-gated and revision-capable")
+        require("form.elements[k].readOnly=true" in app,
+                "document type, role and language stay locked during version revision")
         require(".sl-hrlc-resource-dialog" in css and ".sl-hrlc-resource-grid" in css and "@media(max-width:620px){.sl-hrlc-resource-dialog" in css,
                 "document revision editor has responsive desktop/mobile form styling")
         require(manifest.get("pos_retry_contract") == "CLIENT_SALE_ID_STABLE_UNTIL_VERIFIED_CLOSED; SERVER_IDEMPOTENT_REPLAY",
