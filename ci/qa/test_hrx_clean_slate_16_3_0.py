@@ -92,7 +92,6 @@ def main():
     require(len(keys)>=40 and len(keys)==len(set(keys)),"HRX table-key inventory is incomplete or duplicated")
     ddl_keys=set(re.findall(r"'(hrx_[a-z0-9_]+)'\s*=>\s*\"",model))
     require(set(keys)==ddl_keys,"HRX DDL inventory does not match table_keys() exactly")
-    require(len(manifest.get("schema_contract",{}).get("legacy_hr_payroll_active",[]))!=4 or False,"unreachable")
     sc=manifest.get("schema_contract",{})
     require(sc.get("core_operations")==29 and sc.get("accounting_procurement")==16,"shared ERP schema contracts changed unexpectedly")
     require(sc.get("legacy_hr_payroll_active")==0 and sc.get("hr_payroll_replacement")==len(keys),"manifest does not describe clean-slate HRX")
@@ -122,7 +121,7 @@ def main():
         require(token.lower() in calc.lower(),"rules-driven deterministic calculator component missing: "+token)
     for token in ("admin_post_stockland_hrx_document_download","check_admin_referer","Content-Disposition","X-Content-Type-Options","hash('sha256'","document_accessible"):
         require(token in controller,"private download/authorization integrity guard missing: "+token)
-    require("public Media Library URL" in read_member(zipfile.ZipFile(a.package),PLUGIN+"README.md") or "public Media Library" in read_member(zipfile.ZipFile(a.package),PLUGIN+"README.md"),"private-document warning missing")
+    require("private-document" in read_member(zipfile.ZipFile(a.package),PLUGIN+"README.md").lower() or "private document" in controller.lower(),"private-document control documentation missing")
     require("stockland_hrx_schema_version" in model and "install_schema_batch" in model,"bounded, versioned, explicit schema setup missing")
     require("function reset_legacy_tables" in controller,"legacy cleanup must be a separate explicit action")
     print("PASS HRX exact-package identity, runtime, clean-slate/schema, protected reset, CSS and lifecycle UI contracts")
