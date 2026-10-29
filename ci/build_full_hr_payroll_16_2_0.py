@@ -553,9 +553,9 @@ def patch_pos_qty_safety(files):
     put(files, "assets/app.js", app)
 
     sales = text(files, "includes/rest/class-rest-sales.php")
-    old = """                        strtoupper( (string) $p['vat_mode'] ) !== (string) $existing['vat_mode'] ) {"""
-    new = """                        strtoupper( (string) $p['vat_mode'] ) !== (string) $existing['vat_mode'] ||
-                        (string) ( $existing['external_receipt_no'] ?? '' ) !== (string) ( $p['external_receipt_no'] ?? '' ) ) {"""
+    old = """\t\t\t\t\t\tstrtoupper( (string) $p['vat_mode'] ) !== (string) $existing['vat_mode'] ) {"""
+    new = """\t\t\t\t\t\tstrtoupper( (string) $p['vat_mode'] ) !== (string) $existing['vat_mode'] ||
+\t\t\t\t\t\t(string) ( $existing['external_receipt_no'] ?? '' ) !== (string) ( $p['external_receipt_no'] ?? '' ) ) {"""
     sales = once(sales, old, new, "idempotent POS retry also matches external receipt identity")
     old = """            $available = Stockland_DB::get_available_stock( $branch_location_id, $sku );
             if ( $available < $quantity ) {"""
