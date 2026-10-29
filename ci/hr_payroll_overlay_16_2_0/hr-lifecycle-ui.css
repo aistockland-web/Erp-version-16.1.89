@@ -1,7 +1,7 @@
 /* HRIS lifecycle workspace: conservative SAP/Odoo-style data density with polished mobile-first accordion holders and social platform cards. */
 #hrPage .sl-hrlc-flow{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;margin:16px 0 22px}
 #hrPage .sl-hrlc-flow span{display:flex;align-items:center;justify-content:center;min-height:48px;border:1px solid var(--sl-border,#d9e1e8);border-radius:12px;background:var(--sl-surface,#fff);padding:8px;text-align:center;font-size:12px;font-weight:700;color:var(--sl-ink,#243346)}
-#hrPage .sl-hrlc-section{display:block;margin:12px 0;overflow:hidden;border:1px solid var(--sl-border,#d9e1e8);border-radius:16px;background:var(--sl-surface,#fff);box-shadow:0 5px 20px rgba(22,42,75,.045)}
+#hrPage .sl-hrlc-section{display:block;margin:12px 0;padding:0;overflow:hidden;border:1px solid var(--sl-border,#d9e1e8);border-radius:16px;background:var(--sl-surface,#fff);box-shadow:0 5px 20px rgba(22,42,75,.045)}
 #hrPage .sl-hrlc-section-summary{display:flex;align-items:center;justify-content:space-between;gap:14px;min-width:0;padding:16px 18px;cursor:pointer;list-style:none;background:linear-gradient(115deg,rgba(42,96,232,.055),rgba(42,96,232,0))}
 #hrPage .sl-hrlc-section-summary::-webkit-details-marker{display:none}
 #hrPage .sl-hrlc-section-summary:focus-visible{outline:3px solid var(--sl-primary,#2f5fe9);outline-offset:-4px;border-radius:14px}
