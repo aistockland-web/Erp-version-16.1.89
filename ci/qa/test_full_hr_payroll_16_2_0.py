@@ -125,6 +125,8 @@ def main():
                 "HR lifecycle and payroll modules use accessible native dropdown sections with clear icons")
         require("if($('#refreshHR'))$('#refreshHR').onclick" in app,
                 "Refresh HR & Payroll button remains wired after the dashboard refactor")
+        require("function bindHRLCSectionState()" in app and "state.hrlcOpenSections" in app,
+                "expanded HR accordion state is preserved across workflow refreshes")
         require("sl-hrlc-social-card" in app and "sl-hrlc-social-icon" in app and "Product reels, outfit stories and engagement insights" in app and "MANUAL EXPORT" in app,
                 "social platform cards show icons, practical content descriptions and manual-export disclosure")
         require("sl-hrlc-section-summary" in css and "sl-hrlc-section-toggle" in css and "sl-hrlc-social-grid" in css and "sl-hrlc-social-card" in css,
