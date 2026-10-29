@@ -655,6 +655,40 @@ def patch_pos_qty_safety(files):
     db = db[:start] + replacement + db[end + len("\n\t}"):]
     put(files, "includes/class-stockland-db.php", db)
 
+
+def patch_pos_cart_ui(files):
+    """Install a responsive multi-line cart UI backed by the atomic /sales/cart endpoint."""
+    app = text(files, "assets/app.js")
+    source = (Path(__file__).resolve().parent / "hr_payroll_overlay_16_2_0" / "pos-cart-ui.js").read_text(encoding="utf-8")
+    app = once(app, "function businessCalendarPage(){", source + "\nfunction businessCalendarPage(){", "insert atomic POS cart runtime")
+
+    header_old = '<div class="sl-eyebrow">LIVE CHECKOUT</div><h3>Record retail sale</h3>'
+    header_new = '<div class="sl-eyebrow">RETAIL CART</div><h3>Build and post a complete basket</h3>'
+    app = once(app, header_old, header_new, "update POS cart workspace title")
+    pill_old = '<span class="sl-pill info">ATOMIC POST</span>'
+    pill_new = '<span class="sl-pill info">ATOMIC CART</span>'
+    app = once(app, pill_old, pill_new, "label POS cart transaction scope")
+
+    start = app.find('<form id="posForm"')
+    end_at = app.find('</form>', start)
+    if start < 0 or end_at < 0:
+        raise ValueError("Could not find original POS form for cart replacement.")
+    end_at += len('</form>')
+    cart_form = """<form id="posCartForm" class="sl-form sl-pos-cart-form"><div class="sl-pos-cart-meta"><div class="sl-field"><label>Business date</label><input name="sale_date" type="date" value="'+esc(selectedSale?.saleDate||localDate())+'" required></div><div class="sl-field"><label>Branch</label>'+branchField+'</div><div class="sl-field"><label>VAT mode</label><select name="vat_mode"><option value="VAT_INCLUDED">VAT included</option><option value="WITHOUT_VAT">Without VAT</option></select></div><div class="sl-field"><label>External receipt no. <small>(optional)</small></label><input name="external_receipt_no" maxlength="80" placeholder="Receipt/reference"></div><div class="sl-field full"><label>Add Product Master SKU</label>'+skuPickerField('cartSku','',{label:'Add item by SKU or product name'})+'<small class="sl-sub">Select an active stockable variant. The server re-reads its current price and unit before posting.</small></div><div class="sl-field full sl-pos-cart-add-row"><button class="sl-btn" id="posCartAddLine" type="button">+ Add item to cart</button><span class="sl-sub" id="posCartSkuHint">Choose a live Product Master result, then add it to the basket.</span></div></div><div class="sl-pos-cart-items" id="posCartItems"><div class="sl-empty">Your cart is empty. Add a Product Master SKU above.</div></div><div class="sl-pos-cart-summary"><div><span>Items</span><b id="posCartLineCount">0 lines</b></div><div><span>Gross total preview</span><b id="posCartGross">ETB 0.00</b></div><div><span>VAT preview</span><b id="posCartVat">ETB 0.00</b></div><div><span>Net sales preview</span><b id="posCartNet">ETB 0.00</b></div></div><div class="sl-notice sl-notice-soft sl-pos-cart-disclaimer">Preview only. Product Master prices, VAT, stock, inventory ledger, GL and audit validations are authoritative on the server. This release supports one atomic multi-line sale with a shared VAT mode; cart discounts and split tender are not enabled.</div><div class="sl-field full sl-pos-cart-actions"><button class="sl-btn primary" type="submit" id="posCartSubmit">POST COMPLETE CART</button><button class="sl-btn" type="button" id="posCartClear">Clear cart</button><span class="sl-sub">If the request times out, the exact cart ID/payload is retained for safe retry.</span></div></form>"""
+    app = app[:start] + cart_form + app[end_at:]
+    app = once(app, '<div id="posResult" style="margin-top:14px"></div>', '<div id="posCartResult" class="sl-pos-cart-result" aria-live="polite"></div>', "rename POS cart outcome area")
+
+    bind_old = """    if($('#posForm')&&!$('#posForm').__slBound){$('#posForm').__slBound=1;$('#posForm').onsubmit=submitPOS;bindSkuPickers();loadPosSales();}
+    if(!$('#posForm')&&$('#posSalesTable'))loadPosSales();"""
+    bind_new = """    if($('#posCartForm')&&!$('#posCartForm').__slBound){$('#posCartForm').__slBound=1;bindPosCart();loadPosSales();}
+    else if($('#posForm')&&!$('#posForm').__slBound){$('#posForm').__slBound=1;$('#posForm').onsubmit=submitPOS;bindSkuPickers();loadPosSales();}
+    if(!$('#posForm')&&!$('#posCartForm')&&$('#posSalesTable'))loadPosSales();"""
+    app = once(app, bind_old, bind_new, "bind atomic cart while retaining legacy fallback")
+
+    sales_form = "const f=document.getElementById('posForm');\n    const date="
+    app = once(app, sales_form, "const f=document.getElementById('posCartForm')||document.getElementById('posForm');\n    const date=", "Recent Posted Sales follows cart filters")
+    put(files, "assets/app.js", app)
+
 def patch_misc_versions(files):
     for path in ("assets/pwa.js","assets/manifest.json","includes/class-stockland-frontend.php","assets/css/modules.json"):
         if ROOT + path not in files: continue
