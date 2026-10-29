@@ -133,6 +133,7 @@ function hrxTable(entity,data,cap){
  let top='<div class="sl-hrx-list-head"><div><h3>'+hrxEsc(meta.label)+'</h3><p class="sl-sub">Showing '+rows.length+' record(s) in the authorized query window. Use Refresh to re-query.</p></div><div class="sl-actions"><button type="button" class="sl-btn" data-hrx-refresh>Refresh list</button></div></div>';
  if(canCreate)top+='<details class="sl-hrx-create"><summary>Create '+hrxEsc(meta.label.toLowerCase())+'</summary><form class="sl-hrx-form" data-hrx-create="'+hrxEsc(entity)+'"><div class="sl-hrx-fields">'+meta.fields.map(hrxFormField).join('')+'</div><div class="sl-hrx-form-actions"><button type="submit" class="sl-btn primary">Save draft</button><span class="sl-sub">This saves a draft. It does not approve, activate, calculate or pay.</span></div></form></details>';
  if(entity==='payroll-runs'&&cap.payroll_manage)top+='<details class="sl-hrx-create"><summary>Create monthly payroll draft</summary><form class="sl-hrx-form" data-hrx-payroll-create><div class="sl-hrx-fields"><label class="sl-hrx-field"><span>Payroll month *</span><input type="month" name="month" required></label></div><div class="sl-hrx-form-actions"><button type="submit" class="sl-btn primary">Create draft run</button><span class="sl-sub">Preflight blocks unresolved compensation, time, leave or legal rules.</span></div></form></details>';
+ if(entity==='exit-settlements'&&cap.hr_manage)top+='<details class="sl-hrx-create"><summary>Start exit and final-settlement process</summary><form class="sl-hrx-form" data-hrx-exit-create><div class="sl-hrx-fields"><label class="sl-hrx-field"><span>Employment ID *</span><input name="employment_id" type="number" min="1" required></label><label class="sl-hrx-field"><span>Exit type *</span><select name="exit_type" required><option value="">Select…</option><option value="RESIGNATION">Resignation</option><option value="TERMINATION">Termination</option><option value="RETIREMENT">Retirement</option><option value="FIXED_TERM_END">Fixed-term end</option><option value="OTHER">Other / review required</option></select></label><label class="sl-hrx-field"><span>Notice date</span><input name="notice_date" type="date"></label><label class="sl-hrx-field"><span>Final working date *</span><input name="final_working_date" type="date" required></label><label class="sl-hrx-field"><span>Employment effective end date *</span><input name="effective_end_date" type="date" required></label><label class="sl-hrx-field full"><span>Reason / approved instruction (20+ characters) *</span><textarea name="exit_reason" rows="3" minlength="20" required></textarea></label></div><div class="sl-hrx-form-actions"><button type="submit" class="sl-btn primary">Create exit draft</button><span class="sl-sub">Starts clearance tasks. It does not terminate the employee or pay a settlement.</span></div></form></details>';
  if(!rows.length)return top+'<div class="sl-empty-rich"><b>No records returned.</b><span>Use the authorized creation flow above or verify the record’s access scope.</span></div>';
  let cols=meta.cols||[];if(!cols.length)cols=Object.keys(rows[0]).filter(k=>!['created_by','updated_by','created_at','updated_at','private_storage_key','notes','terms_json','snapshot_json','formula_parameters','applicability','exceptions'].includes(k)).slice(0,7);
  const head=cols.map(k=>'<th>'+hrxEsc(k.replace(/_/g,' '))+'</th>').join('');
@@ -332,7 +333,7 @@ async function hrxClick(event){
  }catch(e){if(e.message!=='Cancelled.')toast(e.message||String(e),true)}finally{b.disabled=false;}
 }
 async function hrxSubmit(event){
- const form=event.target.closest('form[data-hrx-create],form[data-hrx-payroll-create],form#hrxDocumentUpload');if(!form)return;
+ const form=event.target.closest('form[data-hrx-create],form[data-hrx-payroll-create],form[data-hrx-exit-create],form#hrxDocumentUpload');if(!form)return;
  event.preventDefault();if(!form.reportValidity())return;const button=form.querySelector('[type="submit"]');if(button)button.disabled=true;
  try{
   if(form.matches('[data-hrx-create]')){
@@ -346,6 +347,15 @@ async function hrxSubmit(event){
    const [y,m]=month.split('-').map(Number);const last=String(new Date(y,m,0).getDate()).padStart(2,'0');const period_start=month+'-01',period_end=month+'-'+last;
    const out=await api16('/hr/replacement/payroll/runs',{method:'POST',body:JSON.stringify({period_start,period_end,idempotency_key:'ui-'+crypto.randomUUID()})});
    toast('Payroll draft created. Run preflight before any calculation.');form.reset();await hrxLoadCurrent();return;
+  }
+  if(form.matches('[data-hrx-exit-create]')){
+   const d=Object.fromEntries(new FormData(form).entries());
+   d.employment_id=Number(d.employment_id);
+   if(d.notice_date==='')delete d.notice_date;
+   if(d.exit_reason.trim().length<20)throw new Error('Provide an exit rationale of at least 20 characters.');
+   if(d.effective_end_date<d.final_working_date)throw new Error('Employment effective end date cannot be earlier than final working date.');
+   const out=await api16('/hr/replacement/exits',{method:'POST',body:JSON.stringify(d)});
+   toast('Exit process created. Complete clearance tasks and approved rule-backed settlement items before review.');form.reset();await hrxLoadCurrent();return;
   }
   if(form.id==='hrxDocumentUpload'){
    const fd=new FormData(form);const target=String(fd.get('entity_type')||'HR_RESOURCE');const targetId=Number(fd.get('entity_id')||0);if(target==='HR_RESOURCE'&&targetId!==0)throw new Error('HR Process Center resources use owner ID 0.');if(target!=='HR_RESOURCE'&&targetId<1)throw new Error('Enter the target record ID for a private attachment.');
