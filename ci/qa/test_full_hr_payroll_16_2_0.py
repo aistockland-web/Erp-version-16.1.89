@@ -120,7 +120,7 @@ def main():
         require("posting_allowed" in calc and "payment_allowed" in calc and "allow_synthetic_test_rules" in calc, "payroll calculation core exposes separate legal-posting/payment gates")
         require("hrlcPayrollCyclePanel" in app and "bindHRPayrollCycleForms" in app, "new HR/payroll cycle UI is wired into the ERP app")
         require("hr/payroll-runs" in app and "hr/employee-reimbursements" in app and "hr/individual-payees" in app, "UI uses frozen payroll, reimbursements and individual payee APIs")
-        require("MANUAL_EXPORT" in app and "recovery tokens" in app, "social reporting and credential safety are described in the UI")
+        require("MANUAL EXPORT" in app and "recovery tokens" in app, "social reporting and credential safety are described in the UI")
         require("sl-hrlc-section-summary" in app and "sl-hrlc-section-body" in app and "function hrlcSectionIcon" in app,
                 "HR lifecycle and payroll modules use accessible native dropdown sections with clear icons")
         require("sl-hrlc-social-card" in app and "sl-hrlc-social-icon" in app and "Product reels, outfit stories and engagement insights" in app and "MANUAL EXPORT" in app,
