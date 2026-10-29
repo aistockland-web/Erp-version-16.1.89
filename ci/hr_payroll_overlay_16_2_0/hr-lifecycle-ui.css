@@ -80,3 +80,11 @@
 #hrPage .sl-hrlc-section-body .sl-table-wrap{overflow-x:auto}
 @media(max-width:700px){#hrPage{grid-template-columns:minmax(0,1fr);gap:10px}#hrPage>.sl-hrlc-toolbar,#hrPage>[data-hrlc-search-empty],#hrPage>.sl-grid,#hrPage>.sl-hrlc-flow,#hrPage>.sl-hrlc-cycle,#hrPage>.sl-hrlc-section{grid-column:1}#hrPage .sl-hrlc-cycle{grid-template-columns:minmax(0,1fr);gap:10px}#hrPage .sl-hrlc-section-summary{min-height:0;height:auto}}
 @media print{#hrPage{display:block}#hrPage>.sl-hrlc-section,#hrPage .sl-hrlc-cycle>.sl-hrlc-section{margin:10px 0}}
+
+/* Isolate HR module icon geometry from global WordPress/theme SVG rules.
+   The dimensions and stroke are deliberately scoped and guarded so a theme
+   cannot stretch the inline icons or fill them into solid blobs. */
+#stockland-app #hrPage .sl-hrlc-section-icon{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;overflow:hidden}
+#stockland-app #hrPage .sl-hrlc-section-icon>svg.sl-hrlc-icon-art{display:block!important;box-sizing:content-box;width:22px!important;height:22px!important;min-width:22px!important;min-height:22px!important;max-width:22px!important;max-height:22px!important;flex:0 0 22px!important;flex-shrink:0!important;overflow:visible!important;fill:none!important;stroke:currentColor!important;stroke-width:1.7!important;stroke-linecap:round!important;stroke-linejoin:round!important;vector-effect:non-scaling-stroke}
+#stockland-app #hrPage .sl-hrlc-section-icon>svg.sl-hrlc-icon-art *{fill:none!important;stroke:currentColor!important;vector-effect:non-scaling-stroke}
+@media(max-width:700px){#stockland-app #hrPage .sl-hrlc-section-icon>svg.sl-hrlc-icon-art{width:20px!important;height:20px!important;min-width:20px!important;min-height:20px!important;max-width:20px!important;max-height:20px!important;flex-basis:20px!important}}
