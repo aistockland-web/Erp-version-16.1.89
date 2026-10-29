@@ -74,7 +74,7 @@ final class Stockland_REST_HR_Payroll_Cycle extends Stockland_REST_Base {
 			array( 'methods'=>'POST', 'callback'=>array( $this, 'upload_resource' ), 'permission_callback'=>function(){ return Stockland_Authority::can_manage_hr(); } ),
 		) );
 		register_rest_route( $ns, '/hr/resources/(?P<id>\d+)/approve', array( 'methods'=>'POST', 'callback'=>array( $this, 'approve_resource' ), 'permission_callback'=>function(){ return Stockland_Authority::can_approve_payroll(); } ) );
-		register_rest_route( $ns, '/hr/resources/(?P<id>\\d+)/revise', array( 'methods'=>'POST', 'callback'=>array( $this, 'revise_resource' ), 'permission_callback'=>function(){ return Stockland_Authority::can_manage_hr(); } ) );
+		register_rest_route( $ns, '/hr/resources/(?P<id>\d+)/revise', array( 'methods'=>'POST', 'callback'=>array( $this, 'revise_resource' ), 'permission_callback'=>function(){ return Stockland_Authority::can_manage_hr(); } ) );
 		register_rest_route( $ns, '/hr/resources/(?P<id>\d+)/download', array( 'methods'=>'GET', 'callback'=>array( $this, 'download_resource' ), 'permission_callback'=>function(){ return Stockland_Authority::can_view_hr(); } ) );
 
 		register_rest_route( $ns, '/hr/management-social', array(
@@ -634,7 +634,9 @@ final class Stockland_REST_HR_Payroll_Cycle extends Stockland_REST_Base {
 		$id=(int)$req['id'];$r=$this->row('hr_resources',$id);$manager=Stockland_Authority::can_manage_hr()||$this->is_owner();if(!$r||($r['status']!=='APPROVED'&&!($manager&&$r['status']==='SUPERSEDED')))return $this->bad('hr_resource_not_available','Only approved current resources or manager-authorized historical versions are downloadable.',404);
 		$role=strtoupper(sanitize_key((string)Stockland_Authority::role()));if('ALL'!==strtoupper((string)$r['role_code'])&&$role!==strtoupper((string)$r['role_code'])&&!$manager)return $this->bad('hr_resource_forbidden','This resource is not assigned to the authenticated role.',403);
 		$f=Stockland_HR_Private_Vault::resolve($r['private_file_ref'],$r['file_sha256']);if(is_wp_error($f))return $f;
-		$this->event('hr-resource',$id,'RESOURCE_DOWNLOADED','APPROVED','APPROVED',array('actor_id'=>get_current_user_id(),'file_sha256'=>$r['file_sha256']));
+		if ( ! $this->event( 'hr-resource', $id, 'RESOURCE_DOWNLOADED', 'APPROVED', 'APPROVED', array( 'actor_id' => get_current_user_id(), 'file_sha256' => $r['file_sha256'] ) ) ) {
+			return $this->bad( 'hr_resource_download_audit_failed', 'The private document was not released because its download audit record could not be written.', 500 );
+		}
 		if(!headers_sent()){nocache_headers();header('Content-Type: '.$f['mime_type']);header('Content-Length: '.(string)$f['size_bytes']);header('Content-Disposition: attachment; filename="'.str_replace('"','',sanitize_file_name((string)$r['file_name'])).'"');header('X-Content-Type-Options: nosniff');header('Cache-Control: private, no-store, max-age=0');}
 		readfile($f['path']);exit;
 	}
