@@ -113,3 +113,29 @@
 .sl-hrlc-resource-editor>footer .sl-sub{max-width:420px;line-height:1.5;margin:0}
 .sl-hrlc-resource-status{padding:0 24px 18px;color:#3159ad;font-size:12px}
 @media(max-width:620px){.sl-hrlc-resource-dialog{width:calc(100vw - 16px);max-height:calc(100dvh - 16px);border-radius:14px}.sl-hrlc-resource-editor>header{padding:16px;gap:10px}.sl-hrlc-resource-grid{grid-template-columns:minmax(0,1fr);padding:16px;gap:12px}.sl-hrlc-resource-wide{grid-column:1}.sl-hrlc-resource-editor>footer{flex-direction:column;align-items:stretch;padding:14px 16px 18px}.sl-hrlc-resource-editor>footer .sl-sub{max-width:none}}
+
+/* Retail POS cart — compact SaaS workspace, responsive line editing and total preview. */
+#stockland-app .sl-pos-cart-panel{min-width:0;overflow:hidden}
+#stockland-app .sl-pos-cart-form{display:flex;flex-direction:column;gap:16px}
+#stockland-app .sl-pos-cart-meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;padding:18px;border:1px solid #e1e8f1;border-radius:14px;background:linear-gradient(120deg,#fbfcff,#fff)}
+#stockland-app .sl-pos-cart-meta .full{grid-column:1/-1;min-width:0}
+#stockland-app .sl-pos-cart-add-row{display:flex;align-items:center;flex-wrap:wrap;gap:12px}
+#stockland-app .sl-pos-cart-add-row .sl-sub{flex:1;min-width:200px;margin:0}
+#stockland-app .sl-pos-cart-items{min-width:0}
+#stockland-app .sl-pos-cart-table{min-width:760px;margin:0}
+#stockland-app .sl-pos-cart-table td{vertical-align:middle}
+#stockland-app .sl-pos-cart-product{display:block;margin-top:4px;color:var(--sl-muted,#64748b);font-size:11px;line-height:1.45;white-space:normal}
+#stockland-app .sl-pos-cart-cell-input{width:104px;max-width:100%;min-height:39px;box-sizing:border-box;padding:8px 9px;border:1px solid #d5deea;border-radius:9px;background:#fff;font:inherit;font-size:13px;color:#233147}
+#stockland-app .sl-pos-cart-cell-input:focus{outline:0;border-color:#3867d6;box-shadow:0 0 0 3px rgba(56,103,214,.12)}
+#stockland-app .sl-pos-cart-cell-input:disabled{background:#f2f5fa;color:#64748b;opacity:1}
+#stockland-app .sl-pos-cart-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:14px;border:1px solid #dce5f1;border-radius:14px;background:#f7f9fd}
+#stockland-app .sl-pos-cart-summary>div{display:flex;flex-direction:column;gap:7px;min-width:0;padding:10px 12px;border:1px solid #e0e7f0;border-radius:11px;background:#fff}
+#stockland-app .sl-pos-cart-summary span{font-size:11px;color:#64748b}
+#stockland-app .sl-pos-cart-summary b{font-size:16px;font-weight:750;color:#1c2f4a;overflow-wrap:anywhere}
+#stockland-app .sl-pos-cart-disclaimer{margin:0;line-height:1.6}
+#stockland-app .sl-pos-cart-actions{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding-top:4px}
+#stockland-app .sl-pos-cart-actions .sl-sub{flex:1 1 220px;margin:0}
+#stockland-app .sl-pos-cart-result{margin-top:12px}
+#stockland-app .sl-pos-cart-result .sl-notice{overflow-wrap:anywhere}
+@media(max-width:900px){#stockland-app .sl-pos-cart-summary{grid-template-columns:repeat(2,minmax(0,1fr))}#stockland-app .sl-pos-cart-meta{gap:10px;padding:13px}}
+@media(max-width:620px){#stockland-app .sl-pos-cart-meta{grid-template-columns:minmax(0,1fr);padding:12px}#stockland-app .sl-pos-cart-meta .full{grid-column:1}#stockland-app .sl-pos-cart-summary{grid-template-columns:minmax(0,1fr);gap:8px;padding:10px}#stockland-app .sl-pos-cart-summary>div{flex-direction:row;align-items:center;justify-content:space-between;gap:10px}#stockland-app .sl-pos-cart-summary b{font-size:14px;text-align:right}#stockland-app .sl-pos-cart-cell-input{width:88px}#stockland-app .sl-pos-cart-add-row{align-items:stretch;flex-direction:column}#stockland-app .sl-pos-cart-add-row .sl-sub{min-width:0}}
