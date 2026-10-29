@@ -74,6 +74,7 @@ final class Stockland_REST_HR_Payroll_Cycle extends Stockland_REST_Base {
 			array( 'methods'=>'POST', 'callback'=>array( $this, 'upload_resource' ), 'permission_callback'=>function(){ return Stockland_Authority::can_manage_hr(); } ),
 		) );
 		register_rest_route( $ns, '/hr/resources/(?P<id>\d+)/approve', array( 'methods'=>'POST', 'callback'=>array( $this, 'approve_resource' ), 'permission_callback'=>function(){ return Stockland_Authority::can_approve_payroll(); } ) );
+		register_rest_route( $ns, '/hr/resources/(?P<id>\\d+)/revise', array( 'methods'=>'POST', 'callback'=>array( $this, 'revise_resource' ), 'permission_callback'=>function(){ return Stockland_Authority::can_manage_hr(); } ) );
 		register_rest_route( $ns, '/hr/resources/(?P<id>\d+)/download', array( 'methods'=>'GET', 'callback'=>array( $this, 'download_resource' ), 'permission_callback'=>function(){ return Stockland_Authority::can_view_hr(); } ) );
 
 		register_rest_route( $ns, '/hr/management-social', array(
@@ -537,28 +538,101 @@ final class Stockland_REST_HR_Payroll_Cycle extends Stockland_REST_Base {
 	}
 
 	public function list_resources( WP_REST_Request $req ) {
-		global $wpdb;$role=strtoupper(sanitize_key((string)Stockland_Authority::role()));
-		$rows=Stockland_DB::read_results($wpdb->prepare("SELECT id,resource_code,title,description,role_code,language_code,resource_type,version_label,file_sha256,file_name,mime_type,status,approved_by,approved_at,created_at FROM %i WHERE status='APPROVED' AND (UPPER(role_code)='ALL' OR UPPER(role_code)=%s) ORDER BY role_code,title",$this->table('hr_resources'),$role),ARRAY_A);
-		return rest_ensure_response(is_array($rows)?$rows:array());
+		global $wpdb;
+		$role = strtoupper( sanitize_key( (string) Stockland_Authority::role() ) );
+		$manager = Stockland_Authority::can_manage_hr() || $this->is_owner();
+		if ( $manager ) {
+			$sql = "SELECT id,resource_code,title,description,role_code,language_code,resource_type,version_label,supersedes_resource_id,file_sha256,file_name,mime_type,status,created_by,approved_by,approved_at,created_at FROM %i WHERE status IN ('DRAFT','APPROVED','SUPERSEDED') ORDER BY COALESCE(supersedes_resource_id,id) DESC,created_at DESC,id DESC";
+			$rows = Stockland_DB::read_results( $wpdb->prepare( $sql, $this->table( 'hr_resources' ) ), ARRAY_A );
+		} else {
+			$sql = "SELECT id,resource_code,title,description,role_code,language_code,resource_type,version_label,supersedes_resource_id,file_sha256,file_name,mime_type,status,created_by,approved_by,approved_at,created_at FROM %i WHERE status='APPROVED' AND (UPPER(role_code)='ALL' OR UPPER(role_code)=%s) ORDER BY role_code,title";
+			$rows = Stockland_DB::read_results( $wpdb->prepare( $sql, $this->table( 'hr_resources' ), $role ), ARRAY_A );
+		}
+		return rest_ensure_response( is_array( $rows ) ? $rows : array() );
 	}
 	public function upload_resource( WP_REST_Request $req ) {
-		$files=$req->get_file_params();$file=is_array($files)&&isset($files['file'])?$files['file']:null;$stored=Stockland_HR_Private_Vault::store_upload($file);if(is_wp_error($stored))return $stored;
-		$p=$req->get_params();$title=sanitize_text_field((string)($p['title']??''));$type=strtoupper(sanitize_key((string)($p['resource_type']??'')));$role=strtoupper(sanitize_key((string)($p['role_code']??'ALL')));$lang=strtolower(sanitize_text_field((string)($p['language_code']??'en-am')));$version=sanitize_text_field((string)($p['version_label']??'1.0'));
-		if($title===''||!in_array($type,array('JOB_DESCRIPTION','EMPLOYMENT_TERMS_DRAFT','CODE_OF_CONDUCT','SOP','FORM','TAX_RECEIPT','PENSION_RECEIPT','STATUTORY_RECEIPT','AGREEMENT','IDENTITY_EVIDENCE','OTHER','EXPENSE_RECEIPT'),true)){return $this->bad('hr_resource_metadata_invalid','Title and an approved resource type are required.',400);}
-		$code=sanitize_text_field((string)($p['resource_code']??('HRDOC-'.strtoupper(bin2hex(random_bytes(5))))));
-		$row=array('resource_code'=>$code,'title'=>$title,'description'=>sanitize_textarea_field((string)($p['description']??'')),'role_code'=>$role,'language_code'=>$lang,'resource_type'=>$type,'version_label'=>$version,'private_file_ref'=>$stored['private_file_ref'],'file_sha256'=>$stored['file_sha256'],'file_name'=>$stored['file_name'],'mime_type'=>$stored['mime_type'],'status'=>'DRAFT','created_by'=>get_current_user_id());
-		if(Stockland_DB::insert_record($this->table('hr_resources'),$row)===false){$fileInfo=Stockland_HR_Private_Vault::resolve($stored['private_file_ref'],$stored['file_sha256']);if(!is_wp_error($fileInfo))@unlink($fileInfo['path']);return $this->bad('hr_resource_metadata_save_failed','Private file metadata could not be saved; the new file was discarded.',409);}
-		global $wpdb;$id=(int)$wpdb->insert_id;if(!$this->event('hr-resource',$id,'RESOURCE_UPLOADED',null,'DRAFT',array('resource_code'=>$code,'resource_type'=>$type,'file_sha256'=>$stored['file_sha256'],'file_size'=>$stored['size_bytes'])))return $this->bad('hr_resource_audit_failed','Resource uploaded but audit event failed; do not approve it.',500);
-		return rest_ensure_response(array('id'=>$id,'resource_code'=>$code,'status'=>'DRAFT','file_sha256'=>$stored['file_sha256'],'message'=>'Private file stored outside web root; Owner approval is required before users can download it.'));
+		$p = $req->get_params();
+		$title = sanitize_text_field( (string) ( $p['title'] ?? '' ) );
+		$type = strtoupper( sanitize_key( (string) ( $p['resource_type'] ?? '' ) ) );
+		$role = strtoupper( sanitize_key( (string) ( $p['role_code'] ?? 'ALL' ) ) );
+		$lang = strtolower( sanitize_text_field( (string) ( $p['language_code'] ?? 'en-am' ) ) );
+		$version = sanitize_text_field( (string) ( $p['version_label'] ?? '1.0' ) );
+		$types = array( 'JOB_DESCRIPTION','EMPLOYMENT_CONTRACT','EMPLOYMENT_TERMS_DRAFT','CODE_OF_CONDUCT','SOP','FORM','TAX_RECEIPT','PENSION_RECEIPT','STATUTORY_RECEIPT','AGREEMENT','IDENTITY_EVIDENCE','OTHER','EXPENSE_RECEIPT','IN_KIND_SETTLEMENT_EVIDENCE' );
+		if ( '' === $title || strlen( $title ) > 190 || ! in_array( $type, $types, true ) || ! preg_match( '/^[A-Z0-9_-]{1,60}$/D', $role ) || ! in_array( $lang, array( 'en-am','en','am' ), true ) || '' === $version || strlen( $version ) > 40 ) {
+			return $this->bad( 'hr_resource_metadata_invalid', 'Valid title, resource type, role, language and version are required before upload.', 400 );
+		}
+		$code = sanitize_text_field( (string) ( $p['resource_code'] ?? ( 'HRDOC-' . strtoupper( bin2hex( random_bytes( 5 ) ) ) ) ) );
+		if ( '' === $code || strlen( $code ) > 60 ) { return $this->bad( 'hr_resource_code_invalid', 'Resource code must be 1–60 characters.', 400 ); }
+		$files = $req->get_file_params();
+		$file = is_array( $files ) && isset( $files['file'] ) ? $files['file'] : null;
+		$stored = Stockland_HR_Private_Vault::store_upload( $file );
+		if ( is_wp_error( $stored ) ) { return $stored; }
+		$row = array(
+			'resource_code' => $code, 'title' => $title,
+			'description' => sanitize_textarea_field( (string) ( $p['description'] ?? '' ) ),
+			'role_code' => $role, 'language_code' => $lang, 'resource_type' => $type, 'version_label' => $version,
+			'supersedes_resource_id' => null, 'private_file_ref' => $stored['private_file_ref'], 'file_sha256' => $stored['file_sha256'],
+			'file_name' => $stored['file_name'], 'mime_type' => $stored['mime_type'], 'status' => 'DRAFT', 'created_by' => get_current_user_id(),
+		);
+		if ( false === Stockland_DB::insert_record( $this->table( 'hr_resources' ), $row ) ) {
+			$file_info = Stockland_HR_Private_Vault::resolve( $stored['private_file_ref'], $stored['file_sha256'] );
+			if ( ! is_wp_error( $file_info ) ) { @unlink( $file_info['path'] ); }
+			return $this->bad( 'hr_resource_metadata_save_failed', 'Private file metadata could not be saved; the new file was discarded.', 409 );
+		}
+		global $wpdb;
+		$id = (int) $wpdb->insert_id;
+		if ( ! $this->event( 'hr-resource', $id, 'RESOURCE_UPLOADED', null, 'DRAFT', array( 'resource_code' => $code, 'resource_type' => $type, 'file_sha256' => $stored['file_sha256'], 'file_size' => $stored['size_bytes'] ) ) ) {
+			return $this->bad( 'hr_resource_audit_failed', 'Resource uploaded but its audit event failed; do not approve it.', 500 );
+		}
+		return rest_ensure_response( array( 'id' => $id, 'resource_code' => $code, 'status' => 'DRAFT', 'file_sha256' => $stored['file_sha256'], 'message' => 'Private file stored outside web root; independent approval is required before download.' ) );
 	}
+	public function revise_resource( WP_REST_Request $req ) {
+		$id = (int) $req['id'];
+		$parent = $this->row( 'hr_resources', $id );
+		if ( ! $parent || $parent['status'] !== 'APPROVED' ) { return $this->bad( 'hr_resource_revision_parent_invalid', 'Only a current approved document can be revised.', 409 ); }
+		$p = $req->get_params();
+		$title = sanitize_text_field( (string) ( $p['title'] ?? $parent['title'] ) );
+		$type = strtoupper( sanitize_key( (string) ( $p['resource_type'] ?? $parent['resource_type'] ) ) );
+		$role = strtoupper( sanitize_key( (string) ( $p['role_code'] ?? $parent['role_code'] ) ) );
+		$lang = strtolower( sanitize_text_field( (string) ( $p['language_code'] ?? $parent['language_code'] ) ) );
+		$version = sanitize_text_field( (string) ( $p['version_label'] ?? '' ) );
+		$types = array( 'JOB_DESCRIPTION','EMPLOYMENT_CONTRACT','EMPLOYMENT_TERMS_DRAFT','CODE_OF_CONDUCT','SOP','FORM','TAX_RECEIPT','PENSION_RECEIPT','STATUTORY_RECEIPT','AGREEMENT','IDENTITY_EVIDENCE','OTHER','EXPENSE_RECEIPT','IN_KIND_SETTLEMENT_EVIDENCE' );
+		if ( '' === $title || ! in_array( $type, $types, true ) || $type !== $parent['resource_type'] || $role !== $parent['role_code'] || $lang !== $parent['language_code'] || '' === $version || strlen( $version ) > 40 || $version === $parent['version_label'] ) {
+			return $this->bad( 'hr_resource_revision_metadata_invalid', 'A new version must retain the approved document type, role and language, and use a different version label.', 400 );
+		}
+		$files = $req->get_file_params();
+		$file = is_array( $files ) && isset( $files['file'] ) ? $files['file'] : null;
+		$stored = Stockland_HR_Private_Vault::store_upload( $file );
+		if ( is_wp_error( $stored ) ) { return $stored; }
+		$code = sanitize_text_field( (string) ( $p['resource_code'] ?? ( substr( (string) $parent['resource_code'], 0, 35 ) . '-R' . gmdate( 'ymdHis' ) . strtoupper( bin2hex( random_bytes( 2 ) ) ) ) ) );
+		$row = array(
+			'resource_code' => $code, 'title' => $title,
+			'description' => sanitize_textarea_field( (string) ( $p['description'] ?? $parent['description'] ?? '' ) ),
+			'role_code' => $role, 'language_code' => $lang, 'resource_type' => $type, 'version_label' => $version,
+			'supersedes_resource_id' => $id, 'private_file_ref' => $stored['private_file_ref'], 'file_sha256' => $stored['file_sha256'],
+			'file_name' => $stored['file_name'], 'mime_type' => $stored['mime_type'], 'status' => 'DRAFT', 'created_by' => get_current_user_id(),
+		);
+		if ( false === Stockland_DB::insert_record( $this->table( 'hr_resources' ), $row ) ) {
+			$file_info = Stockland_HR_Private_Vault::resolve( $stored['private_file_ref'], $stored['file_sha256'] );
+			if ( ! is_wp_error( $file_info ) ) { @unlink( $file_info['path'] ); }
+			return $this->bad( 'hr_resource_revision_save_failed', 'Replacement document could not be saved; its private file was discarded.', 409 );
+		}
+		global $wpdb;
+		$newId = (int) $wpdb->insert_id;
+		if ( ! $this->event( 'hr-resource', $newId, 'RESOURCE_REVISION_DRAFTED', null, 'DRAFT', array( 'supersedes_resource_id' => $id, 'old_sha256' => $parent['file_sha256'], 'new_sha256' => $stored['file_sha256'], 'version_label' => $version ) ) ) {
+			return $this->bad( 'hr_resource_revision_audit_failed', 'Revision draft saved but audit event failed; do not approve it.', 500 );
+		}
+		return rest_ensure_response( array( 'id' => $newId, 'supersedes_resource_id' => $id, 'status' => 'DRAFT', 'version_label' => $version, 'file_sha256' => $stored['file_sha256'], 'message' => 'New private draft saved. The previously approved document stays current until independent approval.' ) );
+	}
+
 	public function approve_resource( WP_REST_Request $req ) {
 		$id=(int)$req['id'];$p=$req->get_json_params();$note=sanitize_textarea_field((string)($p['approval_note']??''));if(strlen(trim($note))<10)return $this->bad('hr_resource_approval_note_required','Resource approval note is required.');
 		global $wpdb;if(false===Stockland_DB::execute_query('START TRANSACTION'))return $this->bad('hr_transaction_failed','Could not begin resource approval.',500);
-		try{$r=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',$this->table('hr_resources'),$id),ARRAY_A);if(!$r||$r['status']!=='DRAFT')throw new RuntimeException('Only draft HR resources can be approved.');if((int)$r['created_by']===(int)get_current_user_id())throw new RuntimeException('Maker-checker: a resource creator cannot approve their own resource.');$f=Stockland_HR_Private_Vault::resolve($r['private_file_ref'],$r['file_sha256']);if(is_wp_error($f))throw new RuntimeException($f->get_error_message());if(!hash_equals((string)$r['mime_type'],(string)$f['mime_type'])&&!($r['mime_type']==='application/zip'&&in_array(pathinfo((string)$r['file_name'],PATHINFO_EXTENSION),array('docx','xlsx'),true)))throw new RuntimeException('Stored MIME type no longer matches resource metadata.');if(Stockland_DB::update_record($this->table('hr_resources'),array('status'=>'APPROVED','approved_by'=>get_current_user_id(),'approved_at'=>current_time('mysql')),array('id'=>$id,'status'=>'DRAFT'))===false)throw new RuntimeException('Resource approval update failed.');if(!$this->event('hr-resource',$id,'RESOURCE_APPROVED','DRAFT','APPROVED',array('approval_note'=>$note,'file_sha256'=>$r['file_sha256'])))throw new RuntimeException('Resource approval audit failed.');if(false===Stockland_DB::execute_query('COMMIT'))throw new RuntimeException('Resource approval commit failed.');return rest_ensure_response(array('id'=>$id,'status'=>'APPROVED'));}catch(Throwable $e){Stockland_DB::execute_query('ROLLBACK');return $this->bad('hr_resource_approval_failed',$e->getMessage(),409);}
+		try{$r=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',$this->table('hr_resources'),$id),ARRAY_A);if(!$r||$r['status']!=='DRAFT')throw new RuntimeException('Only draft HR resources can be approved.');if((int)$r['created_by']===(int)get_current_user_id())throw new RuntimeException('Maker-checker: a resource creator cannot approve their own resource.');$parentId=(int)($r['supersedes_resource_id']??0);if($parentId>0){$parent=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',$this->table('hr_resources'),$parentId),ARRAY_A);if(!$parent||$parent['status']!=='APPROVED')throw new RuntimeException('The prior document version is no longer current/approved.');if($parent['resource_type']!==$r['resource_type']||$parent['role_code']!==$r['role_code']||$parent['language_code']!==$r['language_code']||$parent['version_label']===$r['version_label'])throw new RuntimeException('A replacement must keep the same document type, role and language and must use a new version label.');if(Stockland_DB::update_record($this->table('hr_resources'),array('status'=>'SUPERSEDED'),array('id'=>$parentId,'status'=>'APPROVED'))===false)throw new RuntimeException('Prior document version could not be superseded.');if(!$this->event('hr-resource',$parentId,'RESOURCE_SUPERSEDED','APPROVED','SUPERSEDED',array('replaced_by_resource_id'=>$id,'new_version'=>$r['version_label'])))throw new RuntimeException('Prior document supersession audit event failed.');}$f=Stockland_HR_Private_Vault::resolve($r['private_file_ref'],$r['file_sha256']);if(is_wp_error($f))throw new RuntimeException($f->get_error_message());if(!hash_equals((string)$r['mime_type'],(string)$f['mime_type'])&&!($r['mime_type']==='application/zip'&&in_array(pathinfo((string)$r['file_name'],PATHINFO_EXTENSION),array('docx','xlsx'),true)))throw new RuntimeException('Stored MIME type no longer matches resource metadata.');if(Stockland_DB::update_record($this->table('hr_resources'),array('status'=>'APPROVED','approved_by'=>get_current_user_id(),'approved_at'=>current_time('mysql')),array('id'=>$id,'status'=>'DRAFT'))===false)throw new RuntimeException('Resource approval update failed.');if(!$this->event('hr-resource',$id,'RESOURCE_APPROVED','DRAFT','APPROVED',array('approval_note'=>$note,'file_sha256'=>$r['file_sha256'])))throw new RuntimeException('Resource approval audit failed.');if(false===Stockland_DB::execute_query('COMMIT'))throw new RuntimeException('Resource approval commit failed.');return rest_ensure_response(array('id'=>$id,'status'=>'APPROVED'));}catch(Throwable $e){Stockland_DB::execute_query('ROLLBACK');return $this->bad('hr_resource_approval_failed',$e->getMessage(),409);}
 	}
 	public function download_resource( WP_REST_Request $req ) {
-		$id=(int)$req['id'];$r=$this->row('hr_resources',$id);if(!$r||$r['status']!=='APPROVED')return $this->bad('hr_resource_not_available','Only approved resources are downloadable.',404);
-		$role=strtoupper(sanitize_key((string)Stockland_Authority::role()));if('ALL'!==strtoupper((string)$r['role_code'])&&$role!==strtoupper((string)$r['role_code'])&&!$this->is_owner())return $this->bad('hr_resource_forbidden','This resource is not assigned to the authenticated role.',403);
+		$id=(int)$req['id'];$r=$this->row('hr_resources',$id);$manager=Stockland_Authority::can_manage_hr()||$this->is_owner();if(!$r||($r['status']!=='APPROVED'&&!($manager&&$r['status']==='SUPERSEDED')))return $this->bad('hr_resource_not_available','Only approved current resources or manager-authorized historical versions are downloadable.',404);
+		$role=strtoupper(sanitize_key((string)Stockland_Authority::role()));if('ALL'!==strtoupper((string)$r['role_code'])&&$role!==strtoupper((string)$r['role_code'])&&!$manager)return $this->bad('hr_resource_forbidden','This resource is not assigned to the authenticated role.',403);
 		$f=Stockland_HR_Private_Vault::resolve($r['private_file_ref'],$r['file_sha256']);if(is_wp_error($f))return $f;
 		$this->event('hr-resource',$id,'RESOURCE_DOWNLOADED','APPROVED','APPROVED',array('actor_id'=>get_current_user_id(),'file_sha256'=>$r['file_sha256']));
 		if(!headers_sent()){nocache_headers();header('Content-Type: '.$f['mime_type']);header('Content-Length: '.(string)$f['size_bytes']);header('Content-Disposition: attachment; filename="'.str_replace('"','',sanitize_file_name((string)$r['file_name'])).'"');header('X-Content-Type-Options: nosniff');header('Cache-Control: private, no-store, max-age=0');}
