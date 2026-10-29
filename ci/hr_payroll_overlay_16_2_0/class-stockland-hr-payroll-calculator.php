@@ -13,7 +13,9 @@ final class Stockland_HR_Payroll_Calculator {
 	const RATE_SCALE = 1000000;
 
 	private static function fail( $code, $message ) {
-		throw new InvalidArgumentException( htmlspecialchars( $code . ': ' . $message, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' ) );
+		// This calculator is synthetic-test-only; keep raw rule/input details out of exception text.
+		unset( $code, $message );
+		throw new InvalidArgumentException( 'Payroll calculation validation failed.' );
 	}
 
 	private static function is_money_string( $value ) {
