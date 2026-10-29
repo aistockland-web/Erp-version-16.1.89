@@ -348,12 +348,19 @@ def patch_health(files):
             m["private_vault_required_outside_webroot"] = True
             m["full_cycle_api_enabled"] = True
             m["social_reporting_mode"] = "MANUAL_EXPORT_TIMESTAMPED_NOT_REALTIME"
-            m["classification"] = "Cumulative 16.1.95 source/package plus additive full HRIS lifecycle. No production or employee data changed by build."
+            m["pos_retry_contract"] = "CLIENT_SALE_ID_STABLE_UNTIL_VERIFIED_CLOSED; SERVER_IDEMPOTENT_REPLAY"
+            m["stock_availability_error_policy"] = "FAIL_CLOSED_ON_LEDGER_OR_RESERVATION_QUERY_ERROR"
+            m["pos_cart_scope"] = "SINGLE_LINE_ATOMIC_POS; MULTI_LINE_CART_WIDE_TRANSACTION_NOT_IMPLEMENTED"
+            m["finance_calculation_policy"] = "SERVER_DECIMAL_MINOR_UNITS; CLIENT_TOTALS_ARE_PREVIEW_ONLY"
+            m["classification"] = "Cumulative 16.1.95 source/package plus additive HRIS lifecycle and source-level POS/stock safety hardening. No production or employee data changed by build."
             m["release_changes"] = list(m.get("release_changes", [])) + [
                 "Adds workforce planning, recruitment/selection, contract/onboarding, attendance/shifts/leave, effective-dated compensation, approved legal rules, payroll events/payments/adjustments and final settlement handlers.",
                 "Adds effective-dated law-backed allowance split. Unknown categories remain taxable; no exemption caps or statutory rates are seeded.",
                 "Adds 37 candidate HR/payroll domain tables to the 49-table source baseline; the resulting 86-table physical count is provisional, not an architecture decision.",
                 "New payroll runs require an approved rule set covering the full payroll period and pin the exact rule-set ID/version to each line and period.",
+                "POS checkout now sends a stable sale_id so a network retry can recover the same committed sale instead of creating a second one.",
+                "Inventory availability reads fail closed when physical-ledger or active-reservation queries fail; unknown reservations are never treated as zero reservations.",
+                "The current Retail POS remains a single-line transaction; no cart-wide multi-line transaction, line discounts or split tender is claimed by this release.",
                 "No live WordPress activation, production deployment or employee data mutation was performed by the builder."
             ]
             m.setdefault("payroll_integrity", {})
@@ -788,7 +795,7 @@ def build(input_zip: Path, output_zip: Path):
         "candidate_schema_contract_changed":True,"schema_contract_approved":False,
         "production_ready":False,"new_tables":37,"statutory_rates_or_exemption_caps_seeded":False,
         "production_database_touched":False,"wordpress_activated":False,
-        "required_external_acceptance":["official Ethiopian gazette text/effective dates and independent payroll/tax sign-off","private-document vault integration and access tests","full isolated WordPress/MariaDB lifecycle E2E","backup/restore/rollback","deep-integrity and source-parity receipts"]
+        "required_external_acceptance":["official Ethiopian gazette text/effective dates and independent payroll/tax sign-off","private-document vault integration and access tests","full isolated WordPress/MariaDB lifecycle E2E","backup/restore/rollback","deep-integrity and source-parity receipts","atomic multi-line POS cart endpoint with cart-wide idempotency, discounts/tender mapping and partial-failure rollback","isolated order-to-cash/AP-AR/PLEDGER/GL and quantity reconciliation using independently calculated expected ETB and unit balances"]
     }
     output_zip.with_suffix(".receipt.json").write_text(json.dumps(receipt,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
     print(json.dumps(receipt,ensure_ascii=False,indent=2))
