@@ -109,7 +109,10 @@ final class Stockland_REST_POS_Cart extends Stockland_REST_Sales {
 			'CLOSED' !== strtoupper( (string) $row['posting_status'] ) ) {
 			return false;
 		}
-		if ( null !== $line['selling_price'] && ! Stockland_Sale_Math::same_money( $row['selling_price'], $line['selling_price'] ) ) {
+		if ( null !== $line['selling_price'] ) {
+			if ( ! Stockland_Sale_Math::same_money( $row['selling_price'], $line['selling_price'] ) ) { return false; }
+		} elseif ( ! Stockland_Sale_Math::same_money( $row['selling_price'], $row['master_price_at_sale'] ) ) {
+			// An omitted price means "use the master price", never silently replay an old override.
 			return false;
 		}
 		return true;
