@@ -146,21 +146,124 @@ function hrxDocumentsUI(data,cap){
  return '<div class="sl-hrx-list-head"><div><h3>Private HR Resource Center</h3><p class="sl-sub">The Resource Center supports approved document versions, hashes, private download, and audit controls. No public Media Library URL is used.</p></div><button type="button" class="sl-btn" data-hrx-refresh>Refresh resources</button></div>'+upload+table;
 }
 function hrxPayrollSpecial(entity,id,action){
- const askNote=(label,min)=>{const x=prompt(label);return x&&x.trim().length>=min?x.trim():null};
+ const ask=(label,min)=>{const x=prompt(label);if(x===null)return null;const v=x.trim();if(v.length<(min||1))throw new Error('Please enter a valid value.');return v};
+ const key=()=>((crypto&&crypto.randomUUID)?'ui-'+crypto.randomUUID():'ui-'+Date.now()+'-'+Math.random().toString(16).slice(2));
+ const post=(url,body)=>api16(url,{method:'POST',body:JSON.stringify(body)});
+ const docId=()=>{const x=ask('Enter the ID of the independently approved private evidence document: ',1);if(!x||!/^\d+$/.test(x))throw new Error('A valid approved private document ID is required.');return Number(x)};
  if(action==='payroll-preflight')return api16('/hr/replacement/payroll/runs/'+id+'/preflight');
- if(action==='payroll-calculate')return api16('/hr/replacement/payroll/runs/'+id+'/calculate',{method:'POST',body:JSON.stringify({})});
- if(action==='payroll-submit')return api16('/hr/replacement/payroll/runs/'+id+'/submit',{method:'POST',body:JSON.stringify({})});
- if(action==='payroll-approve'){const note=askNote('Independent Owner approval note (minimum 30 characters):',30);if(!note)throw new Error('A documented independent approval note is required.');return api16('/hr/replacement/payroll/runs/'+id+'/approve',{method:'POST',body:JSON.stringify({approval_note:note,idempotency_key:'ui-'+crypto.randomUUID()})})}
- if(action==='payroll-close'){if(!confirm('Close and lock this reconciled payroll period?'))throw new Error('Cancelled.');return api16('/hr/replacement/payroll/runs/'+id+'/close',{method:'POST',body:JSON.stringify({close_note:'Owner confirmed period closure.',idempotency_key:'ui-'+crypto.randomUUID()})})}
- if(action==='payout-create')return api16('/hr/replacement/payroll/runs/'+id+'/payout-batch',{method:'POST',body:JSON.stringify({method:'MANUAL_BANK',idempotency_key:'ui-'+crypto.randomUUID()})});
- if(action==='remittance-create')return api16('/hr/replacement/payroll/runs/'+id+'/remittances',{method:'POST',body:JSON.stringify({})});
- if(action==='employment-activate'){const note=askNote('Owner: verify contract, required documents, approved compensation and onboarding before activation (minimum 25 characters):',25);if(!note)throw new Error('Required activation evidence is missing.');return api16('/hr/replacement/employments/'+id+'/activate',{method:'POST',body:JSON.stringify({approval_note:note,idempotency_key:'ui-'+crypto.randomUUID()})})}
- if(action==='employment-revoke'){const note=askNote('Owner: state the documented access-revocation reason (minimum 20 characters):',20);if(!note)throw new Error('Reason is required.');return api16('/hr/replacement/employments/'+id+'/revoke-access',{method:'POST',body:JSON.stringify({reason:note,idempotency_key:'ui-'+crypto.randomUUID()})})}
- if(action==='exit-calculate')return api16('/hr/replacement/exits/'+id+'/calculate',{method:'POST',body:JSON.stringify({})});
- if(action==='exit-approve'){const note=askNote('Owner approval rationale for final settlement (minimum 30 characters):',30);if(!note)throw new Error('Approval rationale is required.');return api16('/hr/replacement/exits/'+id+'/approve',{method:'POST',body:JSON.stringify({approval_note:note,idempotency_key:'ui-'+crypto.randomUUID()})})}
- if(action==='exit-payout'){const ref=askNote('External bank/cash payment reference:',3);if(!ref)throw new Error('Payment reference required.');return api16('/hr/replacement/exits/'+id+'/payout',{method:'POST',body:JSON.stringify({payment_reference:ref,idempotency_key:'ui-'+crypto.randomUUID()})});
+ if(action==='payroll-calculate')return post('/hr/replacement/payroll/runs/'+id+'/calculate',{});
+ if(action==='payroll-submit')return post('/hr/replacement/payroll/runs/'+id+'/submit',{});
+ if(action==='payroll-approve'){
+  const note=ask('Independent Owner approval note (minimum 30 characters): ',30);if(!note)throw new Error('A documented independent approval note is required.');
+  return post('/hr/replacement/payroll/runs/'+id+'/approve',{approval_note:note,idempotency_key:key()});
  }
- return Promise.reject(new Error('Unsupported HRX action.'));
+ if(action==='payroll-close'){
+  if(!confirm('Close and lock this reconciled payroll period?'))throw new Error('Cancelled.');
+  const note=ask('Confirm bank/cash payout and tax/pension remittance reconciliation (minimum 30 characters): ',30);if(!note)throw new Error('Reconciliation evidence is required.');
+  return post('/hr/replacement/payroll/runs/'+id+'/close',{reconciliation_note:note,idempotency_key:key()});
+ }
+ if(action==='payout-create')return post('/hr/replacement/payroll/runs/'+id+'/payout-batch',{method:'BANK_TRANSFER',idempotency_key:key()});
+ if(action==='remittance-create'){
+  return api16('/hr/replacement/entities/statutory-obligations?limit=50&offset=0').then(data=>{
+   const list=(data.records||[]).filter(x=>Number(x.payroll_run_id)===Number(id)&&['OPEN','PARTIALLY_SETTLED'].includes(String(x.status||'').toUpperCase()));
+   if(!list.length)throw new Error('No open statutory obligations were found for this run. Refresh the Statutory Obligations tab and investigate before recording a remittance.');
+   const choices=list.map(x=>String(x.id)+' — '+String(x.obligation_type)+' — amount due '+String(x.amount_due)+' ETB').join('\n');
+   const ob=ask('Choose obligation ID from this run:\n'+choices+'\nObligation ID: ',1);if(!ob||!/^\d+$/.test(ob))throw new Error('A valid obligation ID is required.');
+   const selected=list.find(x=>Number(x.id)===Number(ob));if(!selected)throw new Error('The selected obligation does not belong to this payroll run.');
+   const amount=ask('Amount actually remitted in ETB (remaining obligation '+selected.amount_due+'): ',1);
+   const date=ask('Actual payment/remittance date (YYYY-MM-DD): ',10);if(!/^\d{4}-\d{2}-\d{2}$/.test(date))throw new Error('Use a valid YYYY-MM-DD remittance date.');
+   const gov=ask('Government / bank reference (minimum 4 characters): ',4);if(!gov)throw new Error('Government reference is required.');
+   return post('/hr/replacement/payroll/runs/'+id+'/remittances',{obligation_id:Number(ob),amount:amount,payment_date:date,government_reference:gov});
+  });
+ }
+ if(action==='remittance-verify'){
+  const ref=docId();const note=ask('Independent verification note: match official tax/pension receipt to bank evidence and obligation (minimum 30 characters): ',30);
+  return post('/hr/replacement/remittances/'+id+'/verify',{receipt_document_ref_id:ref,verification_note:note,idempotency_key:key()});
+ }
+ if(action==='payout-outcome'){
+  const outcome=ask('External payment outcome: enter SETTLED, FAILED, or RETURNED: ',6).toUpperCase();
+  if(!['SETTLED','FAILED','RETURNED'].includes(outcome))throw new Error('Outcome must be SETTLED, FAILED, or RETURNED.');
+  const ref=ask('External bank/cash reference (minimum 4 characters): ',4);
+  const note=ask('Payment confirmation or failure reason (do not include confidential bank details): ',3);
+  return post('/hr/replacement/payout-items/'+id+'/outcome',{outcome:outcome,external_reference:ref,note:note,idempotency_key:key()});
+ }
+ if(action==='payout-reconcile'){
+  const ref=ask('External bank/cash batch statement reference (minimum 4 characters): ',4);
+  const note=ask('Reconciliation evidence: confirm all settled item references and amount agrees to bank/cash statement (minimum 30 characters): ',30);
+  return post('/hr/replacement/payout-batches/'+id+'/reconcile',{external_batch_reference:ref,reconciliation_note:note,idempotency_key:key()});
+ }
+ if(action==='employment-activate'){
+  const note=ask('Owner: verify signed contract, approved assignment, private documents, approved compensation and completed onboarding (minimum 30 characters): ',30);
+  return post('/hr/replacement/employments/'+id+'/activate',{approval_note:note,idempotency_key:key()});
+ }
+ if(action==='employment-revoke'){
+  const note=ask('Owner: documented access-revocation reason (minimum 30 characters): ',30);
+  return post('/hr/replacement/employments/'+id+'/revoke-access',{reason:note,idempotency_key:key()});
+ }
+ if(action==='offer-create-employment'){
+  if(!confirm('Create a pending employment relationship from this accepted offer? This will not activate payroll or assign a salary.'))throw new Error('Cancelled.');
+  const employer=ask('Legal employer code (blank defaults to STOCKLAND_ET_PLC): ',0);
+  return post('/hr/replacement/offers/'+id+'/create-employment',employer?{legal_employer_code:employer}:{});
+ }
+ if(action==='contract-sign'){
+  const doc=docId();const date=ask('Date the person signed the contract (YYYY-MM-DD): ',10);
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date))throw new Error('Use the signed date in YYYY-MM-DD format.');
+  if(!confirm('Confirm the private document is the matching signed employment contract, already independently approved and linked to this Contract ID?'))throw new Error('Cancelled.');
+  return post('/hr/replacement/contracts/'+id+'/sign',{document_id:doc,signed_date:date,idempotency_key:key()});
+ }
+ if(action==='document-review'){
+  const decision=ask('Independent document review decision: enter APPROVE or REJECT: ',6).toUpperCase();
+  if(!['APPROVE','REJECT'].includes(decision))throw new Error('Decision must be APPROVE or REJECT.');
+  const note=ask('Document verification note; confirm file purpose, effective date, privacy and integrity (minimum 30 characters): ',30);
+  return post('/hr/replacement/documents/'+id+'/review',{decision:decision,review_note:note,idempotency_key:key()});
+ }
+ if(action==='exit-calculate')return post('/hr/replacement/exits/'+id+'/calculate',{});
+ if(action==='exit-add-item'){
+  const code=ask('Settlement item code (for example FINAL_SALARY or LEAVE_BALANCE): ',2);
+  const label=ask('Settlement item description: ',3);
+  const type=ask('Enter EARNING or DEDUCTION: ',7).toUpperCase();
+  if(!['EARNING','DEDUCTION'].includes(type))throw new Error('Type must be EARNING or DEDUCTION.');
+  const amount=ask('Positive amount in ETB: ',1);
+  const rule=ask('ID of currently effective, approved legal rule: ',1);if(!/^\d+$/.test(rule))throw new Error('Rule ID must be numeric.');
+  const source=ask('Source reference (approved instruction, leave balance, period or evidence): ',1);
+  const trace=ask('Calculation trace and applicable rule rationale (minimum 20 characters): ',20);
+  return post('/hr/replacement/exits/'+id+'/items',{item_code:code,item_label:label,item_type:type,amount:amount,rule_id:Number(rule),source_reference:source,calculation_trace:trace});
+ }
+ if(action==='exit-approve'){
+  const note=ask('Owner approval rationale: confirm each item/rule, leave balance, final payroll, deductions and gross/net reconciliation (minimum 30 characters): ',30);
+  return post('/hr/replacement/exits/'+id+'/approve',{approval_note:note,idempotency_key:key()});
+ }
+ if(action==='exit-payout'){
+  const method=ask('Payout method: BANK_TRANSFER, CASH, or CHEQUE: ',5).toUpperCase();
+  if(!['BANK_TRANSFER','CASH','CHEQUE'].includes(method))throw new Error('Choose BANK_TRANSFER, CASH, or CHEQUE.');
+  const ref=ask('External bank/cash/cheque payment reference (minimum 4 characters): ',4);
+  const note=ask('Payout note (minimum 30 characters): ',30);const doc=docId();
+  return post('/hr/replacement/exits/'+id+'/payout',{method:method,external_reference:ref,payment_note:note,evidence_document_id:doc,idempotency_key:key()});
+ }
+ if(action==='payee-classify'){
+  const rule=ask('ID of current approved PAYEE_WITHHOLDING legal rule; enter 0 to leave pending LEGAL_REVIEW: ',1);
+  if(!/^\d+$/.test(rule))throw new Error('Rule ID must be numeric or 0.');
+  const classification=ask('Classification label (e.g., service, creator, contractor, exemption review): ',3);
+  const status=Number(rule)>0?'APPROVED':'LEGAL_REVIEW';
+  const reason=ask('Evidence and legal basis; classify using the reviewed instrument, scope and exceptions (minimum 40 characters): ',40);
+  return post('/hr/replacement/payee-requests/'+id+'/classify',{rule_id:Number(rule)||0,classification:classification,status:status,reason:reason});
+ }
+ if(action==='payee-calculate')return post('/hr/replacement/payee-requests/'+id+'/calculate',{});
+ if(action==='payee-verify-in-kind'){
+  const ref=ask('Posted negative stock transaction reference in TYPE:REFERENCE format: ',4);
+  const doc=docId();const note=ask('Explain verified stock issue and independently approved valuation evidence (minimum 30 characters): ',30);
+  return post('/hr/replacement/payee-requests/'+id+'/verify-in-kind',{stock_transaction_reference:ref,valuation_document_id:doc,verification_note:note,idempotency_key:key()});
+ }
+ if(action==='payee-approve'){
+  const note=ask('Independent Owner approval note for the central AP posting (minimum 30 characters): ',30);
+  return post('/hr/replacement/payee-requests/'+id+'/approve',{approval_note:note,idempotency_key:key()});
+ }
+ if(action==='payee-pay'){
+  const ref=ask('External bank/cash payment reference (minimum 4 characters): ',4);
+  const note=ask('Payment evidence note (minimum 20 characters): ',20);const doc=docId();
+  return post('/hr/replacement/payee-requests/'+id+'/pay',{external_reference:ref,payment_note:note,evidence_document_id:doc,idempotency_key:key()});
+ }
+ return Promise.reject(new Error('Unsupported HRX action: '+action));
 }
 async function loadHR(){
  const page=document.getElementById('hrPage');if(!page)return;
