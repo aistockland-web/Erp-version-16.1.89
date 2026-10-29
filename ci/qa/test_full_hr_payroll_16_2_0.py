@@ -207,7 +207,7 @@ def main():
                 "cart provides line quantity/price editing and live gross/VAT/net preview totals")
         require("POS cart now posts 1–50 distinct SKU lines" in " ".join(manifest.get("release_changes",[])),
                 "release manifest records real atomic cart behavior")
-        require("unit,retail_price,barcode,gtin FROM %i" in rest_app_php and "COALESCE" not in rest_app_php,
+        require(rest_app_php.count("SELECT variant_id,sku,product_name,product_type,parent_sku,style_code,brand,color,size,unit,retail_price,barcode,gtin FROM %i") == 2,
                 "role-scoped POS SKU search exposes retail price/UOM but not purchase-cost data")
         require("'hr_resources' => array(" in hr_repository_php and "'supersedes_resource_id' => 'BIGINT UNSIGNED NULL AFTER version_label'" in hr_repository_php,
                 "existing HR resource tables receive an additive document-version schema migration")
