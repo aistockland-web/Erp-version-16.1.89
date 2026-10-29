@@ -93,7 +93,10 @@ jobs:
           unzip -q "$RUNNER_TEMP/stockland-16.2.4/STOCKLAND_ERP_16.2.4_HR_PAYROLL_CANDIDATE.zip" -d "$OUT"
           find "$OUT/stockland-erp-app" -type f -name '*.php' -print0 | xargs -0 -n1 php -l
           node --check "$OUT/stockland-erp-app/assets/app.js"
+          node --check "$OUT/stockland-erp-app/assets/pwa.js"
           node --check ci/hr_payroll_overlay_16_2_0/hr-lifecycle-ui.js
+      - name: Test independent POS VAT money and COGS fixtures (synthetic only)
+        run: php ci/qa/test_pos_finance_inventory_16_2_4.php "$RUNNER_TEMP/stockland-16.2.4/extracted/stockland-erp-app"
       - name: Install locked PostCSS parser for exact package validation
         run: npm ci --prefix ci/cssqa --ignore-scripts --no-audit --no-fund
       - name: Validate ordered CSS modules, Bootstrap asset hash and compiled stylesheet
