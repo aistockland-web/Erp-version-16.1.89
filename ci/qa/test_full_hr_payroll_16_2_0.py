@@ -54,6 +54,8 @@ def main():
         ledger_php = files["includes/class-stockland-ledger.php"].decode()
         accounting_php = files["includes/class-stockland-accounting.php"].decode()
         rest_accounting_php = files["includes/rest/class-rest-accounting.php"].decode()
+        rest_app_php = files["includes/rest/class-rest-app.php"].decode()
+        hr_repository_php = files["includes/class-stockland-hr.php"].decode()
         rest = files["includes/rest/class-rest-hr-lifecycle.php"].decode()
         cycle = files["includes/rest/class-rest-hr-payroll-cycle.php"].decode()
         cart = files["includes/rest/class-rest-pos-cart.php"].decode()
@@ -193,7 +195,7 @@ def main():
                 "manifest declares supported multi-line atomic cart scope and explicitly excluded tender/discount features")
         require(manifest.get("uom_precision_policy") == "WHOLE_UNITS_REQUIRED_FOR_PCS_EA_PIECE_UNIT_UOM_IN_POS_AND_CART; OTHER_UOMS_ALLOW_TWO_DECIMALS",
                 "manifest records whole-unit validation for discrete Product Master UOMs")
-        require("register_rest_route" in cart and "'/sales/cart'" in cart and "count($existing_rows) !== count($lines)" in cart,
+        require("register_rest_route" in cart and "'/sales/cart'" in cart and "count( $existing_rows ) !== count( $lines )" in cart,
                 "cart endpoint has one route and rejects partial/different-line idempotent replays")
         require("START TRANSACTION" in cart and "ROLLBACK" in cart and "Stockland_Ledger::post_sale_closed" in cart and "Stockland_Accounting::post_journal" in cart and "Stockland_Audit::log" in cart,
                 "all cart lines, stock ledger, GL and audit share one transaction/rollback boundary")
@@ -205,6 +207,10 @@ def main():
                 "cart provides line quantity/price editing and live gross/VAT/net preview totals")
         require("POS cart now posts 1–50 distinct SKU lines" in " ".join(manifest.get("release_changes",[])),
                 "release manifest records real atomic cart behavior")
+        require("unit,retail_price,barcode,gtin FROM %i" in rest_app_php and "COALESCE" not in rest_app_php,
+                "role-scoped POS SKU search exposes retail price/UOM but not purchase-cost data")
+        require("'hr_resources' => array(" in hr_repository_php and "'supersedes_resource_id' => 'BIGINT UNSIGNED NULL AFTER version_label'" in hr_repository_php,
+                "existing HR resource tables receive an additive document-version schema migration")
         require("#stockland-app .sl-pos-cart-summary" in css and "#stockland-app .sl-pos-cart-table" in css and "@media(max-width:620px){#stockland-app .sl-pos-cart-meta" in css,
                 "POS cart summary, table and mobile layout have responsive styling")
         require("d.sale_id=f.dataset.saleRequestId" in app and "delete f.dataset.saleRequestId;" in app,
