@@ -352,6 +352,7 @@ def patch_health(files):
             m["stock_availability_error_policy"] = "FAIL_CLOSED_ON_LEDGER_OR_RESERVATION_QUERY_ERROR"
             m["pos_cart_scope"] = "SINGLE_LINE_ATOMIC_POS; MULTI_LINE_CART_WIDE_TRANSACTION_NOT_IMPLEMENTED"
             m["finance_calculation_policy"] = "SERVER_DECIMAL_MINOR_UNITS; CLIENT_TOTALS_ARE_PREVIEW_ONLY"
+            m["hr_icon_css_contract"] = "SCOPED_INLINE_SVG_FIXED_22PX_DESKTOP_20PX_MOBILE; FORCE_NO_FILL; CURRENT_COLOR_STROKE"
             m["classification"] = "Cumulative 16.1.95 source/package plus additive HRIS lifecycle and source-level POS/stock safety hardening. No production or employee data changed by build."
             m["release_changes"] = list(m.get("release_changes", [])) + [
                 "Adds workforce planning, recruitment/selection, contract/onboarding, attendance/shifts/leave, effective-dated compensation, approved legal rules, payroll events/payments/adjustments and final settlement handlers.",
@@ -361,6 +362,7 @@ def patch_health(files):
                 "POS checkout now sends a stable sale_id so a network retry can recover the same committed sale instead of creating a second one.",
                 "Inventory availability reads fail closed when physical-ledger or active-reservation queries fail; unknown reservations are never treated as zero reservations.",
                 "The current Retail POS remains a single-line transaction; no cart-wide multi-line transaction, line discounts or split tender is claimed by this release.",
+                "HR/payroll module SVG icons now have isolated fixed desktop/mobile geometry, explicit no-fill/current-color stroke, and selector specificity to resist host theme overrides.",
                 "No live WordPress activation, production deployment or employee data mutation was performed by the builder."
             ]
             m.setdefault("payroll_integrity", {})
