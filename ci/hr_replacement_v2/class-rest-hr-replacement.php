@@ -65,6 +65,7 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		$ns = self::NAMESPACE_V1;
 		register_rest_route( $ns, '/hr/replacement/bootstrap', array( 'methods'=>'GET', 'callback'=>array( $this,'bootstrap' ), 'permission_callback'=>array( $this,'permission_view_hr' ) ) );
 		register_rest_route( $ns, '/hr/replacement/schema/batch', array( 'methods'=>'POST', 'callback'=>array( $this,'schema_batch' ), 'permission_callback'=>array( $this,'permission_schema_admin' ) ) );
+		register_rest_route( $ns, '/hr/replacement/schema/reset-legacy', array( 'methods'=>'POST', 'callback'=>array( $this,'reset_legacy_tables' ), 'permission_callback'=>array( $this,'permission_schema_admin' ) ) );
 		register_rest_route( $ns, '/hr/replacement/entities/(?P<entity>[a-z\-]+)/?', array( array( 'methods'=>'GET','callback'=>array( $this,'list_entity' ),'permission_callback'=>array( $this,'permission_view_hr' ) ), array( 'methods'=>'POST','callback'=>array( $this,'create_entity' ),'permission_callback'=>array( $this,'permission_manage_hr' ) ) ) );
 		register_rest_route( $ns, '/hr/replacement/entities/(?P<entity>[a-z\-]+)/(?P<id>\d+)', array( array( 'methods'=>'GET','callback'=>array( $this,'get_entity' ),'permission_callback'=>array( $this,'permission_view_hr' ) ), array( 'methods'=>'POST','callback'=>array( $this,'update_entity' ),'permission_callback'=>array( $this,'permission_manage_hr' ) ) ) );
 		register_rest_route( $ns, '/hr/replacement/entities/(?P<entity>[a-z\-]+)/(?P<id>\d+)/transition', array( 'methods'=>'POST','callback'=>array( $this,'transition_entity' ),'permission_callback'=>array( $this,'permission_manage_hr' ) ) );
@@ -146,6 +147,7 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 			'module'=>'HR_PAYROLL_REPLACEMENT','version'=>Stockland_HR_Replacement::SCHEMA_VERSION,
 			'status'=>$schema['ready']?'SCHEMA_READY':'SCHEMA_NOT_INSTALLED','schema'=>$schema,
 			'legacy_tables_read_only'=>array('employees','employee_compensation','payroll_periods','payroll_lines'),
+			'legacy_reset_available'=>$this->legacy_reset_environment_allowed(),
 			'capabilities'=>array('hr_view'=>$this->view_hr(),'hr_manage'=>$this->manage_hr(),'payroll_view'=>$can_payroll,'payroll_manage'=>$this->manage_payroll(),'owner_approve'=>$this->approve_payroll(),'schema_admin'=>$this->schema_admin()),
 			'workflows'=>array('workforce','recruitment','contract_onboarding','time_leave','compensation','legal_rules','payroll','payout_settlement','statutory_remittance','individual_payees','exit_final_settlement','reporting_audit')
 		) );
@@ -159,6 +161,58 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 	private function schema_gate() {
 		// Schema creation is additive and separately gated from the ordinary HR UI.
 		return true;
+	}
+
+	/** Destructive reset is disabled by default and impossible on production environment types. */
+	private function legacy_reset_environment_allowed() {
+		if ( ! defined( 'STOCKLAND_HRX_ALLOW_LEGACY_RESET' ) || true !== STOCKLAND_HRX_ALLOW_LEGACY_RESET ) { return false; }
+		if ( ! function_exists( 'wp_get_environment_type' ) ) { return false; }
+		return in_array( wp_get_environment_type(), array( 'local', 'development', 'staging' ), true );
+	}
+
+	/**
+	 * Explicit reset limited to the four retired HR/payroll tables. Never called from activation or schema install.
+	 * The backup and dependency-review hashes are operator-supplied evidence identifiers, not automatic backups.
+	 */
+	public function reset_legacy_tables( $request ) {
+		global $wpdb;
+		if ( ! $this->schema_admin() || ! $this->legacy_reset_environment_allowed() ) {
+			return $this->error( 'hrx_legacy_reset_disabled', 'Legacy reset is disabled. It requires STOCKLAND_HRX_ALLOW_LEGACY_RESET=true and an explicitly configured local/development/staging environment; production is blocked.', 403 );
+		}
+		$body = $this->body( $request );
+		$confirm = sanitize_text_field( (string) ( $body['confirmation'] ?? '' ) );
+		$backup = strtolower( sanitize_text_field( (string) ( $body['backup_sha256'] ?? '' ) ) );
+		$review = strtolower( sanitize_text_field( (string) ( $body['dependency_review_sha256'] ?? '' ) ) );
+		$reason = sanitize_textarea_field( (string) ( $body['reason'] ?? '' ) );
+		if ( 'RESET_LEGACY_HR_PAYROLL_AFTER_BACKUP' !== $confirm || ! preg_match( '/^[a-f0-9]{64}$/', $backup ) || ! preg_match( '/^[a-f0-9]{64}$/', $review ) || strlen( trim( $reason ) ) < 60 ) {
+			return $this->error( 'hrx_legacy_reset_evidence_required', 'Exact confirmation, 64-character verified backup SHA-256, 64-character dependency-review SHA-256 and a 60-character rationale are required.', 422 );
+		}
+		$allow = array( 'employees', 'employee_compensation', 'payroll_periods', 'payroll_lines' );
+		$tables = array();
+		foreach ( $allow as $key ) {
+			$table = Stockland_DB::table( $key );
+			if ( ! preg_match( '/^[A-Za-z0-9_]+$/D', $table ) ) { return $this->error( 'hrx_legacy_reset_identifier_invalid', 'Legacy table identifier failed the allow-list check.', 500 ); }
+			$found = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table ) ) );
+			if ( $found && $found !== $table ) { return $this->error( 'hrx_legacy_reset_preflight_failed', 'A table-name match was ambiguous; no legacy table was dropped.', 409 ); }
+			$tables[] = array( 'key' => $key, 'name' => $table, 'exists' => $found === $table );
+		}
+		$preflight_hash = hash( 'sha256', wp_json_encode( $tables ) );
+		$pre_event = Stockland_HR_Replacement::audit( 'legacy_reset_preflight', 'legacy-hr-payroll', 0, 'Only four retired HR/payroll tables were allow-listed. Backup SHA256 ' . $backup . '; dependency review SHA256 ' . $review . '; preflight ' . $preflight_hash . '.' );
+		if ( false === $pre_event ) { return $this->error( 'hrx_legacy_reset_audit_failed', 'Could not record reset preflight. No table was dropped.', 500 ); }
+		$dropped = array();
+		foreach ( $tables as $table ) {
+			if ( ! $table['exists'] ) { continue; }
+			$sql = 'DROP TABLE `' . $table['name'] . '`';
+			$ok = $wpdb->query( $sql ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Table name is from the fixed allow-list and validated above.
+			if ( false === $ok ) {
+				Stockland_HR_Replacement::audit( 'legacy_reset_partial_failure', 'legacy-hr-payroll', 0, 'Reset stopped at ' . $table['key'] . '. Previously dropped tables may need restoration from the verified backup.' );
+				return $this->error( 'hrx_legacy_reset_partial_failure', 'Reset stopped on a table error; the operation is not transactional. Restore from backup and inspect the audit log.', 500 );
+			}
+			$dropped[] = $table['key'];
+		}
+		$audit = Stockland_HR_Replacement::audit( 'legacy_reset_completed', 'legacy-hr-payroll', 0, 'Dropped only allow-listed legacy tables: ' . implode( ',', $dropped ) . '; backup ' . $backup . '; dependency review ' . $review . '; reason ' . $reason );
+		if ( false === $audit ) { return $this->error( 'hrx_legacy_reset_audit_failed_after_drop', 'Allow-listed reset ran but final audit failed. Stop and verify database state against the backup.', 500 ); }
+		return rest_ensure_response( array( 'reset_completed' => true, 'dropped_tables' => $dropped, 'backup_sha256' => $backup, 'dependency_review_sha256' => $review, 'message' => 'The explicitly allow-listed legacy HR/payroll tables were removed in a non-production environment. Shared ERP tables and HRX tables were not changed.' ) );
 	}
 
 	private function sanitize_value( $key, $value ) {
@@ -264,6 +318,8 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 			$row[$key]=$clean;
 		}
 		if(empty($row))return $this->error('hrx_payload_empty','No allowed fields supplied.',422);
+		$scope=$this->apply_location_scope($entity,null,(int)($row['location_id']??0));
+		if(is_wp_error($scope))return $scope;
 		if(isset($row['location_id'])&&!empty($row['location_id'])&&!Stockland_Authority::can_access_location((int)$row['location_id']))return $this->error('hrx_location_forbidden','This record is outside your authorized location scope.',403);
 		if(in_array($entity,array('legal-rules','leave-policies'),true))$row[$entity==='legal-rules'?'review_status':'approval_status']='LEGAL_REVIEW';
 		if('accounting-config'===$entity)$row['status']='DRAFT';
