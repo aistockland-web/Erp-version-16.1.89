@@ -73,7 +73,7 @@ if (!fixtureMin.includes('.desc :hover') ||
   throw new Error('CSS minifier semantic safety fixture failed');
 }
 if (built !== appCss) throw new Error('app.css differs from ordered CSS source modules');
-if (releaseManifest.release === '16.2.0') {
+if (['16.2.0', '16.2.1'].includes(releaseManifest.release)) {
   const expectedTail = [
     '07-dashboard-operations.css',
     '08-reporting-worksheet.css',
@@ -90,14 +90,14 @@ if (releaseManifest.release === '16.2.0') {
   }
 } else {
   // Keep historical release artifacts reproducible; the new builder uses the
-  // safer minifier on 16.2.0 and subsequent candidate builds.
+  // safer minifier on 16.2.0+ candidate builds.
   const legacyNormalize = value => value.replace(/\/\*[\s\S]*?\*\//g, ' ')
     .replace(/\s+/g, ' ').trim().replace(/\s*([{}:;,])\s*/g, '$1').replace(/;}/g, '}');
   if (legacyNormalize(built) !== appMin) {
     throw new Error('Historical app.min.css differs from its release-era normalizer');
   }
 }
-if (releaseManifest.release === '16.2.0') {
+if (['16.2.0', '16.2.1'].includes(releaseManifest.release)) {
   const bootstrap = fs.readFileSync(path.join(assets, 'bootstrap.min.css'));
   const header = bootstrap.toString('utf8', 0, 220);
   const digest = crypto.createHash('sha256').update(bootstrap).digest('hex');
