@@ -893,11 +893,11 @@ final class Stockland_HR_Lifecycle {
 				$exempt = $amount;
 			} elseif ( $rule && 'EXEMPT_CAP' === $treatment ) {
 				if ( null === $rule['exemption_cap'] || '' === $rule['exemption_cap'] ) {
-					throw new RuntimeException( 'Approved allowance rule ' . $category . ' is missing its exemption cap; payroll blocked.' );
+					throw new RuntimeException( 'An approved allowance rule is missing its exemption cap; payroll blocked.' );
 				}
 				$exempt = Stockland_Money::decimal( min( Stockland_Money::minor( $amount ), Stockland_Money::minor( $rule['exemption_cap'] ) ) );
 			} elseif ( 'TAXABLE' !== $treatment ) {
-				throw new RuntimeException( 'Allowance rule for ' . $category . ' is unsupported; payroll blocked.' );
+				throw new RuntimeException( 'An allowance rule has unsupported tax treatment; payroll blocked.' );
 			}
 			$taxable = Stockland_Money::subtract( $amount, $exempt );
 			$pensionable = 'PENSIONABLE' === strtoupper( (string) ( $rule['pensionable_treatment'] ?? 'SALARY_ONLY' ) ) ? $amount : '0.00';
