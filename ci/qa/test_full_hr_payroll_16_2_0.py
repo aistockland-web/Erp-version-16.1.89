@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Source/package acceptance for the isolated 16.2.8 full HR/payroll-cycle candidate.
+"""Source/package acceptance for the isolated 16.2.9 full HR/payroll-cycle candidate.
 
 Static ZIP tests are not a substitute for a live WordPress + MariaDB staging run
 or qualified Ethiopian tax/pension sign-off.
@@ -63,8 +63,11 @@ def main():
         vault = files["includes/class-stockland-hr-private-vault.php"].decode()
         css = files["assets/app.css"].decode()
         app_min_css = files["assets/app.min.css"].decode()
-        require("Version:           16.2.8" in main and "define( 'STOCKLAND_VERSION', '16.2.8' );" in main, "plugin version/header matches 16.2.8")
-        require(manifest.get("release") == "16.2.8" and modules.get("release") == "16.2.8", "release manifest and CSS module metadata agree")
+        require(r"\n#hrPage .sl-hrlc-social-icon" not in css and r"\n#hrPage .sl-hrlc-social-copy" not in css and r"\n#hrPage .sl-hrlc-social-icon" not in app_min_css,
+                "HR/social CSS contains real selector boundaries, not literal backslash-n escape damage")
+        app_min_css = files["assets/app.min.css"].decode()
+        require("Version:           16.2.9" in main and "define( 'STOCKLAND_VERSION', '16.2.9' );" in main, "plugin version/header matches 16.2.9")
+        require(manifest.get("release") == "16.2.9" and modules.get("release") == "16.2.9", "release manifest and CSS module metadata agree")
         required_css_tail = [
             "07-dashboard-operations.css",
             "08-reporting-worksheet.css",
