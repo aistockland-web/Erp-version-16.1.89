@@ -25,7 +25,10 @@ final class Stockland_REST_HR_Payroll_Cycle extends Stockland_REST_Base {
 	}
 	private function row( $key, $id, $lock = false ) {
 		global $wpdb;
-		return Stockland_DB::read_row( $wpdb->prepare( 'SELECT * FROM %i WHERE id=%d' . ( $lock ? ' FOR UPDATE' : '' ), $this->table( $key ), (int) $id ), ARRAY_A );
+		if ( $lock ) {
+			return Stockland_DB::read_row( $wpdb->prepare( 'SELECT * FROM %i WHERE id=%d FOR UPDATE', $this->table( $key ), (int) $id ), ARRAY_A );
+		}
+		return Stockland_DB::read_row( $wpdb->prepare( 'SELECT * FROM %i WHERE id=%d', $this->table( $key ), (int) $id ), ARRAY_A );
 	}
 	private function json( $value ) {
 		$out = wp_json_encode( $value );
@@ -542,11 +545,22 @@ final class Stockland_REST_HR_Payroll_Cycle extends Stockland_REST_Base {
 		$role = strtoupper( sanitize_key( (string) Stockland_Authority::role() ) );
 		$manager = Stockland_Authority::can_manage_hr() || $this->is_owner();
 		if ( $manager ) {
-			$sql = "SELECT id,resource_code,title,description,role_code,language_code,resource_type,version_label,supersedes_resource_id,file_sha256,file_name,mime_type,status,created_by,approved_by,approved_at,created_at FROM %i WHERE status IN ('DRAFT','APPROVED','SUPERSEDED') ORDER BY COALESCE(supersedes_resource_id,id) DESC,created_at DESC,id DESC";
-			$rows = Stockland_DB::read_results( $wpdb->prepare( $sql, $this->table( 'hr_resources' ) ), ARRAY_A );
+			$rows = Stockland_DB::read_results(
+				$wpdb->prepare(
+					"SELECT id,resource_code,title,description,role_code,language_code,resource_type,version_label,supersedes_resource_id,file_sha256,file_name,mime_type,status,created_by,approved_by,approved_at,created_at FROM %i WHERE status IN ('DRAFT','APPROVED','SUPERSEDED') ORDER BY COALESCE(supersedes_resource_id,id) DESC,created_at DESC,id DESC",
+					$this->table( 'hr_resources' )
+				),
+				ARRAY_A
+			);
 		} else {
-			$sql = "SELECT id,resource_code,title,description,role_code,language_code,resource_type,version_label,supersedes_resource_id,file_sha256,file_name,mime_type,status,created_by,approved_by,approved_at,created_at FROM %i WHERE status='APPROVED' AND (UPPER(role_code)='ALL' OR UPPER(role_code)=%s) ORDER BY role_code,title";
-			$rows = Stockland_DB::read_results( $wpdb->prepare( $sql, $this->table( 'hr_resources' ), $role ), ARRAY_A );
+			$rows = Stockland_DB::read_results(
+				$wpdb->prepare(
+					"SELECT id,resource_code,title,description,role_code,language_code,resource_type,version_label,supersedes_resource_id,file_sha256,file_name,mime_type,status,created_by,approved_by,approved_at,created_at FROM %i WHERE status='APPROVED' AND (UPPER(role_code)='ALL' OR UPPER(role_code)=%s) ORDER BY role_code,title",
+					$this->table( 'hr_resources' ),
+					$role
+				),
+				ARRAY_A
+			);
 		}
 		return rest_ensure_response( is_array( $rows ) ? $rows : array() );
 	}
