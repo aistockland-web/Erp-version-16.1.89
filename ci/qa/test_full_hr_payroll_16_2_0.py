@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Source/package acceptance for the isolated 16.2.2 full HR/payroll-cycle candidate.
+"""Source/package acceptance for the isolated 16.2.3 full HR/payroll-cycle candidate.
 
 Static ZIP tests are not a substitute for a live WordPress + MariaDB staging run
 or qualified Ethiopian tax/pension sign-off.
@@ -51,8 +51,8 @@ def main():
         calc = files["includes/class-stockland-hr-payroll-calculator.php"].decode()
         vault = files["includes/class-stockland-hr-private-vault.php"].decode()
         css = files["assets/app.css"].decode()
-        require("Version:           16.2.2" in main and "define( 'STOCKLAND_VERSION', '16.2.2' );" in main, "plugin version/header matches 16.2.2")
-        require(manifest.get("release") == "16.2.2" and modules.get("release") == "16.2.2", "release manifest and CSS module metadata agree")
+        require("Version:           16.2.3" in main and "define( 'STOCKLAND_VERSION', '16.2.3' );" in main, "plugin version/header matches 16.2.3")
+        require(manifest.get("release") == "16.2.3" and modules.get("release") == "16.2.3", "release manifest and CSS module metadata agree")
         required_css_tail = [
             "07-dashboard-operations.css",
             "08-reporting-worksheet.css",
@@ -127,10 +127,18 @@ def main():
                 "Refresh HR & Payroll button remains wired after the dashboard refactor")
         require("function bindHRLCSectionState()" in app and "state.hrlcOpenSections" in app,
                 "expanded HR accordion state is preserved across workflow refreshes")
+        require("function bindHRLCSectionSearch()" in app and "state.hrlcSearchTerm" in app and "data-hrlc-visible-count" in app,
+                "HR module search filters sections and preserves its query across refreshes")
+        require("root.querySelectorAll('[data-hrlc-section][open]')" in app and "if(other!==s)other.open=false" in app,
+                "the accordion handler keeps only one HR workflow section open at a time")
+        require("aria-expanded" in app and "aria-controls" in app and 'aria-level="3"' in app,
+                "each section has accessible heading and expanded/collapsed semantics")
         require("sl-hrlc-social-card" in app and "sl-hrlc-social-icon" in app and "Product reels, outfit stories and engagement insights" in app and "MANUAL EXPORT" in app,
                 "social platform cards show icons, practical content descriptions and manual-export disclosure")
         require("sl-hrlc-section-summary" in css and "sl-hrlc-section-toggle" in css and "sl-hrlc-social-grid" in css and "sl-hrlc-social-card" in css,
                 "responsive accordion holders and social channel cards are styled in generated app.css")
+        require("sl-hrlc-toolbar" in css and "sl-hrlc-search:focus-within" in css and "[data-hrlc-section][hidden]" in css and ".sl-hrlc-section[open]" in css,
+                "SaaS search, keyboard focus, no-result and active accordion states are styled")
         for url in ["https://business.facebook.com/","https://www.instagram.com/","https://business.tiktok.com/","https://studio.youtube.com/"]:
             require(url in app, "direct social sign-in link " + url)
         require("STOCKLAND_PRIVATE_VAULT_DIR" in manifest.get("release_gate_note","") or "private vault configuration" in manifest.get("release_gate_note",""), "manifest records private vault configuration as a release gate")
