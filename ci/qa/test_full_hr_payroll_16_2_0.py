@@ -58,6 +58,7 @@ def main():
         calc = files["includes/class-stockland-hr-payroll-calculator.php"].decode()
         vault = files["includes/class-stockland-hr-private-vault.php"].decode()
         css = files["assets/app.css"].decode()
+        app_min_css = files["assets/app.min.css"].decode()
         require("Version:           16.2.5" in main and "define( 'STOCKLAND_VERSION', '16.2.5' );" in main, "plugin version/header matches 16.2.5")
         require(manifest.get("release") == "16.2.5" and modules.get("release") == "16.2.5", "release manifest and CSS module metadata agree")
         required_css_tail = [
@@ -146,6 +147,13 @@ def main():
                 "social platform cards show icons, practical content descriptions and manual-export disclosure")
         require("sl-hrlc-section-summary" in css and "sl-hrlc-section-toggle" in css and "sl-hrlc-social-grid" in css and "sl-hrlc-social-card" in css and "sl-hrlc-icon-art" in css,
                 "responsive accordion holders, consistent line icons and social channel cards are styled in generated app.css")
+        icon_guard = "#stockland-app #hrPage .sl-hrlc-section-icon>svg.sl-hrlc-icon-art{display:block!important;box-sizing:content-box;width:22px!important;height:22px!important;min-width:22px!important;min-height:22px!important;max-width:22px!important;max-height:22px!important;flex:0 0 22px!important;flex-shrink:0!important;overflow:visible!important;fill:none!important;stroke:currentColor!important;stroke-width:1.7!important;stroke-linecap:round!important;stroke-linejoin:round!important;vector-effect:non-scaling-stroke}"
+        require(icon_guard in css and "width:20px!important" in css and "height:20px!important" in css and "fill:none!important" in css and "stroke:currentColor!important" in css,
+                "HR SVG icons have protected desktop/mobile geometry and explicit no-fill/current-color stroke rules")
+        require(icon_guard in app_min_css and "width:20px!important" in app_min_css,
+                "icon CSS protection survives the production minification build")
+        require(manifest.get("hr_icon_css_contract") == "SCOPED_INLINE_SVG_FIXED_22PX_DESKTOP_20PX_MOBILE; FORCE_NO_FILL; CURRENT_COLOR_STROKE",
+                "release manifest records the explicit HR icon rendering contract")
         require("sl-hrlc-toolbar" in css and "sl-hrlc-search:focus-within" in css and "[data-hrlc-section][hidden]" in css and ".sl-hrlc-section[open]" in css,
                 "SaaS search, keyboard focus, no-result and active accordion states are styled")
         require("#hrPage{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))" in css and ".sl-hrlc-cycle{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))" in css and "@media(max-width:700px){#hrPage{grid-template-columns:minmax(0,1fr)" in css,
