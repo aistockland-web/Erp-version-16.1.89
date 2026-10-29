@@ -663,6 +663,13 @@ def patch_pos_qty_safety(files):
 def patch_pos_cart_ui(files):
     """Install a responsive multi-line cart UI backed by the atomic /sales/cart endpoint."""
     app = text(files, "assets/app.js")
+    # Extend the role-scoped SKU search with sales-safe Master price and UOM only.
+    # Do not expose purchase cost here; cost/profit remains capability-gated elsewhere.
+    rest_app = text(files, "includes/rest/class-rest-app.php")
+    sku_select_old = "SELECT variant_id,sku,product_name,product_type,parent_sku,style_code,brand,color,size,barcode,gtin FROM %i"
+    sku_select_new = "SELECT variant_id,sku,product_name,product_type,parent_sku,style_code,brand,color,size,unit,retail_price,barcode,gtin FROM %i"
+    rest_app = many(rest_app, sku_select_old, sku_select_new, 2, "return Master retail price and UOM for POS cart SKU selection")
+    put(files, "includes/rest/class-rest-app.php", rest_app)
     source = (Path(__file__).resolve().parent / "hr_payroll_overlay_16_2_0" / "pos-cart-ui.js").read_text(encoding="utf-8")
     app = once(app, "function businessCalendarPage(){", source + "\nfunction businessCalendarPage(){", "insert atomic POS cart runtime")
 
