@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic 16.1.95 -> 16.2.5 SaaS HR icon and layout CSS hardening builder.
+"""Deterministic 16.1.95 -> 16.2.6 SaaS HR icon and layout CSS hardening builder.
 Build only. It never connects to WordPress or mutates ERP/employee data.
 """
 from __future__ import annotations
@@ -8,7 +8,7 @@ from pathlib import Path, PurePosixPath
 
 ROOT = "stockland-erp-app/"
 BASE_SHA256 = "494e777247508d009dfdb216c9607bb1bc96717197e94a0e8ad3459b7cc81625"
-RELEASE = "16.2.5"
+RELEASE = "16.2.6"
 
 def sha256(b: bytes) -> str:
     return hashlib.sha256(b).hexdigest()
@@ -352,7 +352,7 @@ def patch_health(files):
             m["stock_availability_error_policy"] = "FAIL_CLOSED_ON_LEDGER_OR_RESERVATION_QUERY_ERROR"
             m["pos_cart_scope"] = "SINGLE_LINE_ATOMIC_POS; MULTI_LINE_CART_WIDE_TRANSACTION_NOT_IMPLEMENTED"
             m["finance_calculation_policy"] = "SERVER_DECIMAL_MINOR_UNITS; CLIENT_TOTALS_ARE_PREVIEW_ONLY"
-            m["hr_icon_css_contract"] = "SCOPED_INLINE_SVG_FIXED_22PX_DESKTOP_20PX_MOBILE; FORCE_NO_FILL; CURRENT_COLOR_STROKE"
+            m["hr_icon_css_contract"] = "HRPAGE_SCOPED_WRAPPER_44PX_38PX; SVG_FIXED_22PX_20PX; CHILD_STROKE_1_7PX_1_6PX; FORCE_NO_FILL_CURRENT_COLOR"
             m["classification"] = "Cumulative 16.1.95 source/package plus additive HRIS lifecycle and source-level POS/stock safety hardening. No production or employee data changed by build."
             m["release_changes"] = list(m.get("release_changes", [])) + [
                 "Adds workforce planning, recruitment/selection, contract/onboarding, attendance/shifts/leave, effective-dated compensation, approved legal rules, payroll events/payments/adjustments and final settlement handlers.",
