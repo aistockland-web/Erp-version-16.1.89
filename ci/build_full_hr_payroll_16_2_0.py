@@ -352,8 +352,10 @@ def patch_health(files):
             m["social_reporting_mode"] = "MANUAL_EXPORT_TIMESTAMPED_NOT_REALTIME"
             m["pos_retry_contract"] = "CLIENT_SALE_ID_STABLE_UNTIL_VERIFIED_CLOSED; SERVER_IDEMPOTENT_REPLAY"
             m["stock_availability_error_policy"] = "FAIL_CLOSED_ON_LEDGER_OR_RESERVATION_QUERY_ERROR"
-            m["pos_cart_scope"] = "SINGLE_LINE_ATOMIC_POS; MULTI_LINE_CART_WIDE_TRANSACTION_NOT_IMPLEMENTED"
+            m["pos_cart_scope"] = "MULTI_LINE_ATOMIC_TRANSACTION; SHARED_VAT_MODE; NO_CART_DISCOUNTS_OR_SPLIT_TENDER"
             m["finance_calculation_policy"] = "SERVER_DECIMAL_MINOR_UNITS; CLIENT_TOTALS_ARE_PREVIEW_ONLY"
+            m["uom_precision_policy"] = "WHOLE_UNITS_REQUIRED_FOR_PCS_EA_PIECE_UNIT_UOM_IN_POS_AND_CART; OTHER_UOMS_ALLOW_TWO_DECIMALS"
+            m["hr_document_control"] = "PRIVATE_VAULT; VERSIONED_DRAFTS; INDEPENDENT_APPROVAL; APPROVED_VERSION_SUPERSEDED_ATOMICALLY"
             m["hr_icon_css_contract"] = "HRPAGE_SCOPED_WRAPPER_44PX_38PX; SVG_FIXED_22PX_20PX; CHILD_STROKE_1_7PX_1_6PX; FORCE_NO_FILL_CURRENT_COLOR"
             m["classification"] = "Cumulative 16.1.95 source/package plus additive HRIS lifecycle and source-level POS/stock safety hardening. No production or employee data changed by build."
             m["release_changes"] = list(m.get("release_changes", [])) + [
@@ -363,7 +365,9 @@ def patch_health(files):
                 "New payroll runs require an approved rule set covering the full payroll period and pin the exact rule-set ID/version to each line and period.",
                 "POS checkout now sends a stable sale_id so a network retry can recover the same committed sale instead of creating a second one.",
                 "Inventory availability reads fail closed when physical-ledger or active-reservation queries fail; unknown reservations are never treated as zero reservations.",
-                "The current Retail POS remains a single-line transaction; no cart-wide multi-line transaction, line discounts or split tender is claimed by this release.",
+                "Retail POS now posts 1–50 distinct SKU lines in one server-side transaction with cart-wide stable ID, per-line master/override price, server VAT/money math, stock-ledger/GL/audit posting and all-lines rollback.",
+                "POS and atomic-cart server paths reject fractional quantities for piece/unit UOMs; a full cross-module quantity contract for PO/receiving/count/import paths remains an acceptance item.",
+                "HR resource library exposes manager-visible drafts, signed employment-contract upload type, authenticated downloads and immutable new-version drafts with independent approval and atomic supersession.",
                 "HR/payroll module SVG icons now have isolated fixed desktop/mobile geometry, explicit no-fill/current-color stroke, and selector specificity to resist host theme overrides.",
                 "No live WordPress activation, production deployment or employee data mutation was performed by the builder."
             ]
@@ -844,7 +848,7 @@ def build(input_zip: Path, output_zip: Path):
         "candidate_schema_contract_changed":True,"schema_contract_approved":False,
         "production_ready":False,"new_tables":37,"statutory_rates_or_exemption_caps_seeded":False,
         "production_database_touched":False,"wordpress_activated":False,
-        "required_external_acceptance":["official Ethiopian gazette text/effective dates and independent payroll/tax sign-off","private-document vault integration and access tests","full isolated WordPress/MariaDB lifecycle E2E","backup/restore/rollback","deep-integrity and source-parity receipts","atomic multi-line POS cart endpoint with cart-wide idempotency, discounts/tender mapping and partial-failure rollback","isolated order-to-cash/AP-AR/PLEDGER/GL and quantity reconciliation using independently calculated expected ETB and unit balances"]
+        "required_external_acceptance":["official Ethiopian gazette text/effective dates and independent payroll/tax sign-off","private-document vault integration and access tests","full isolated WordPress/MariaDB lifecycle E2E","backup/restore/rollback","deep-integrity and source-parity receipts","live POS-cart database concurrency/retry/rollback tests including partial-failure injection","shared UOM precision policy across purchase orders, receiving, reservations, transfers, returns, adjustments, physical counts and imports","isolated order-to-cash/AP-AR/PLEDGER/GL and quantity reconciliation using independently calculated expected ETB and unit balances"]
     }
     output_zip.with_suffix(".receipt.json").write_text(json.dumps(receipt,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
     print(json.dumps(receipt,ensure_ascii=False,indent=2))
