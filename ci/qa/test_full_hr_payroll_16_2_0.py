@@ -191,6 +191,11 @@ def main():
                 "manifest records live-field cart validation before safe idempotent submit")
         require("'EMPLOYMENT_CONTRACT'" in cycle and "function revise_resource(" in cycle and "supersedes_resource_id" in cycle,
                 "HR private document API supports employment contracts and immutable version drafts")
+        require(r"'/hr/resources/(?P<id>\d+)/revise'" in cycle and r"'/hr/resources/(?P<id>\\d+)/revise'" not in cycle,
+                "resource revision route uses the same single-backslash numeric capture as approve/download routes")
+        download_handler = cycle[cycle.index("public function download_resource"):cycle.index("public function list_reimbursements")]
+        require("hr_resource_download_audit_failed" in download_handler and "! $this->event(" in download_handler,
+                "private document download fails closed when durable audit logging fails")
         require("status IN ('DRAFT','APPROVED','SUPERSEDED')" in cycle and "RESOURCE_SUPERSEDED" in cycle,
                 "HR managers can view drafts/history and approval supersedes the old document atomically")
         require("hrlcCycleTable(resources" in app and "Edit / save new version" in app and "function openHRResourceRevisionDialog" in app,
