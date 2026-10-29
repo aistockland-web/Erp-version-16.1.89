@@ -210,6 +210,11 @@ def patch_health(files: dict[str, bytes]) -> None:
         "$checks['live_ready'] = ( $checks['db'] && $checks['php_runtime'] && $checks['xlsx_upload_capacity'] && $checks['balance_model_contract'] && $checks['core_schema'] && $checks['full_schema'] && $checks['schema_contract_exact_49'] &&",
         "$checks['live_ready'] = ( $checks['db'] && $checks['php_runtime'] && $checks['xlsx_upload_capacity'] && $checks['balance_model_contract'] && $checks['core_schema'] && $checks['full_schema'] && $checks['schema_contract_hrx_exact'] &&",
     )
+    # Rename every dependent read-only health gate; no legacy exact-49 contract may remain.
+    p = p.replace("schema_contract_exact_49", "schema_contract_hrx_exact")
+    p = p.replace("exact 49-table contract is not healthy", "exact HRX schema contract is not healthy")
+    p = p.replace("All 49 ERP schema tables", "All core/accounting ERP tables and the complete HRX schema")
+    p = p.replace("        $diagnostics['hrx_replacement'] = $hrx_health;", "        $diagnostics['hrx_replacement'] = $hrx_health;\n        $diagnostics['hr_schema_upgrade_gaps'] = $hr_schema_gaps;")
     if "schema_contract_exact_49" in p:
         raise SystemExit("old 49-table health check is still referenced")
     put(files, "includes/rest/class-rest-app.php", p)
