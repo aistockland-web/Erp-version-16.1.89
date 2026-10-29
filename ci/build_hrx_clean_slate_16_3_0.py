@@ -144,8 +144,8 @@ def patch_health(files: dict[str, bytes]) -> None:
         "$checks['schema_contract_exact_49']       = count( $found_keys ) === 49 && empty( $missing_full ) && empty( $unexpected_full );",
         "$checks['schema_contract_hrx_exact']      = ! empty( $hr_expected ) && empty( $missing_full ) && empty( $unexpected_full );",
     )
-    if "schema_contract_exact_49" in p or p.count("schema_contract_hrx_exact") != 2:
-        raise SystemExit("legacy exact-49 check was not fully replaced")
+    if p.count("schema_contract_hrx_exact") != 2:
+        raise SystemExit("both primary schema check expressions must be rewritten")
 
     start = p.find("\t\t$accounting_schema_gaps = array( 'accounting_upgrade_check_failed' );")
     end = p.find("\n\t\t$diagnostics['accounting_schema_upgrade_gaps'] = $accounting_schema_gaps;", start)
