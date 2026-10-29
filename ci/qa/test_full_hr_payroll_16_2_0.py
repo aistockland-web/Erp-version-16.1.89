@@ -212,7 +212,7 @@ def main():
                 "cart retries retain the exact ID/payload across page reload within the same browser tab session")
         require("data-cart-qty" in app and "data-cart-price" in app and "posCartGross" in app and "posCartVat" in app and "posCartNet" in app,
                 "cart provides line quantity/price editing and live gross/VAT/net preview totals")
-        require("POS cart now posts 1–50 distinct SKU lines" in " ".join(manifest.get("release_changes",[])),
+        require("Retail POS now posts 1–50 distinct SKU lines in one server-side transaction" in " ".join(manifest.get("release_changes",[])),
                 "release manifest records real atomic cart behavior")
         require(rest_app_php.count("SELECT variant_id,sku,product_name,product_type,parent_sku,style_code,brand,color,size,unit,retail_price,barcode,gtin FROM %i") == 2,
                 "role-scoped POS SKU search exposes retail price/UOM but not purchase-cost data")
