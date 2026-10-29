@@ -1,0 +1,13 @@
+HRX domain QA: 727 assertions, 0 failures
+Schema contract QA: 12 assertions, 0 failures
+Runtime alarm QA: 13 assertions, 0 failures
+Health contract QA: 21 assertions, 0 failures
+Integrity batch QA: 37 assertions, 0 failures; batches=7
+PHP syntax: 56 files passed (51 application PHP + 5 standalone test harnesses)
+Node syntax: assets/app.js PASS; assets/pwa.js PASS
+JSON manifests: RELEASE_MANIFEST.json, assets/manifest.json, resources/erp-sops/manifest.json PASS
+SOP manifest file SHA-256: 24/24 PASS
+Candidate ZIP: 103 unique members, CRC PASS, 51 PHP, 24 SOP DOCX, no tests/ folder
+Live WordPress/MariaDB E2E: NOT RUN; target hostname failed DNS resolution in this environment.
+Exact deployed 16.1.98 source/package parity: NOT VERIFIED.
+Production readiness: NO-GO pending exact source, staging E2E, migration, statutory review, parallel payroll, and restore/rollback acceptance.
