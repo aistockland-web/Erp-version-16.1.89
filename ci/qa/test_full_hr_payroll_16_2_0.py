@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Source/package acceptance for the isolated 16.2.4 full HR/payroll-cycle candidate.
+"""Source/package acceptance for the isolated 16.2.5 full HR/payroll-cycle candidate.
 
 Static ZIP tests are not a substitute for a live WordPress + MariaDB staging run
 or qualified Ethiopian tax/pension sign-off.
@@ -58,8 +58,8 @@ def main():
         calc = files["includes/class-stockland-hr-payroll-calculator.php"].decode()
         vault = files["includes/class-stockland-hr-private-vault.php"].decode()
         css = files["assets/app.css"].decode()
-        require("Version:           16.2.4" in main and "define( 'STOCKLAND_VERSION', '16.2.4' );" in main, "plugin version/header matches 16.2.4")
-        require(manifest.get("release") == "16.2.4" and modules.get("release") == "16.2.4", "release manifest and CSS module metadata agree")
+        require("Version:           16.2.5" in main and "define( 'STOCKLAND_VERSION', '16.2.5' );" in main, "plugin version/header matches 16.2.5")
+        require(manifest.get("release") == "16.2.5" and modules.get("release") == "16.2.5", "release manifest and CSS module metadata agree")
         required_css_tail = [
             "07-dashboard-operations.css",
             "08-reporting-worksheet.css",
