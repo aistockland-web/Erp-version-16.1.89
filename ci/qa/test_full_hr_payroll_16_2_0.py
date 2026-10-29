@@ -74,7 +74,7 @@ def main():
         require(manifest.get("schema_contract_status") == "PROVISIONAL_CANDIDATE_NOT_ARCHITECTURE_APPROVAL", "physical table count is explicitly marked provisional")
         require(manifest.get("schema_contract") == {"total":86,"core_operations":29,"accounting_procurement":16,"hr_payroll":41}, "provisional source-mapped 86-table candidate contract agrees")
         health_lines = health_php.splitlines()
-        schema_gate_lines = [line for line in health_lines if "$checks['schema_contract_expected']" in line]
+        schema_gate_lines = [line for line in health_lines if re.search(r"\$checks\['schema_contract_expected'\]\s*=", line)]
         require(len(schema_gate_lines) == 2 and all("empty( $missing_full )" in line and "count( $found_keys ) === 86" not in line and "empty( $unexpected_full )" not in line for line in schema_gate_lines),
                 "quick and deep runtime gates check required tables, not an exact physical count")
         require(health_php.count("$diagnostics['schema_contract_status']") == 2 and health_php.count("$diagnostics['schema_contract_extra_table_count']") == 2,
