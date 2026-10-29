@@ -1191,8 +1191,10 @@ public function approve_payee_request( $request ) {
 		$file=$_FILES['file'];$max=8*1024*1024;
 		if(!isset($file['tmp_name'],$file['size'])||!is_uploaded_file($file['tmp_name'])||(int)$file['size']<1||(int)$file['size']>$max)return $this->error('hrx_document_size_invalid','Private document size must be between 1 byte and 8 MiB.',413);
 		$entity_type=strtoupper(sanitize_key((string)$request->get_param('entity_type')));$entity_id=(int)$request->get_param('entity_id');$type=strtoupper(sanitize_key((string)$request->get_param('document_type')));
-		$allowed_types=array('APPLICATION','EMPLOYMENT_CONTRACT','IDENTITY_VERIFICATION','ONBOARDING','TRAINING','TIME_EVIDENCE','LEAVE_EVIDENCE','COMPENSATION_APPROVAL','PAYROLL_EVIDENCE','PAYSLIP','EXIT_CLEARANCE','FINAL_SETTLEMENT','PAYEE_CONTRACT','PAYEE_DELIVERABLE','TAX_REMITTANCE_RECEIPT','PENSION_REMITTANCE_RECEIPT','LEGAL_REVIEW_OPINION','SOP_ACKNOWLEDGEMENT','OTHER_HR');
-		if(!$entity_id||!in_array($entity_type,array('APPLICATION','EMPLOYMENT','CONTRACT','PAYROLL_RUN','PAYROLL_LINE','EXIT_SETTLEMENT','PAYEE_REQUEST','LEGAL_RULE','REMITTANCE'),true)||!in_array($type,$allowed_types,true))return $this->error('hrx_document_target_invalid','Document owner or document type is not in the approved allow-list.',422);
+		$allowed_types=array('APPLICATION','EMPLOYMENT_CONTRACT','IDENTITY_VERIFICATION','ONBOARDING','TRAINING','TIME_EVIDENCE','LEAVE_EVIDENCE','COMPENSATION_APPROVAL','PAYROLL_EVIDENCE','PAYSLIP','EXIT_CLEARANCE','FINAL_SETTLEMENT','PAYEE_CONTRACT','PAYEE_DELIVERABLE','TAX_REMITTANCE_RECEIPT','PENSION_REMITTANCE_RECEIPT','LEGAL_REVIEW_OPINION','SOP_ACKNOWLEDGEMENT','ROLE_JD','HR_SOP','CODE_OF_CONDUCT','CONTRACT_TEMPLATE','ALLOWANCE_CATALOGUE','OTHER_HR');
+		$is_resource='HR_RESOURCE'===$entity_type;
+		if((!$is_resource&&!$entity_id)||!in_array($entity_type,array('APPLICATION','EMPLOYMENT','CONTRACT','PAYROLL_RUN','PAYROLL_LINE','EXIT_SETTLEMENT','PAYEE_REQUEST','LEGAL_RULE','REMITTANCE','HR_RESOURCE'),true)||!in_array($type,$allowed_types,true))return $this->error('hrx_document_target_invalid','Document owner or document type is not in the approved allow-list.',422);
+		if($is_resource&&!$this->manage_hr())return $this->error('hrx_resource_upload_forbidden','Only authorized HR Management may upload HR Process Center resources.',403);
 		$target=$this->document_target($entity_type,$entity_id);if(is_wp_error($target))return $target;
 		$mime='';if(class_exists('finfo')){$fi=new finfo(FILEINFO_MIME_TYPE);$mime=(string)$fi->file($file['tmp_name']);}
 		$ext=strtolower(pathinfo((string)($file['name']??''),PATHINFO_EXTENSION));
@@ -1216,6 +1218,7 @@ public function approve_payee_request( $request ) {
 
 	private function document_target( $entity_type, $entity_id ) {
 		global $wpdb;
+		if('HR_RESOURCE'===$entity_type){return array('id'=>0,'status'=>'ACTIVE','resource_library'=>true);}
 		$tables=array('APPLICATION'=>'hrx_applications','EMPLOYMENT'=>'hrx_employments','CONTRACT'=>'hrx_contracts','PAYROLL_RUN'=>'hrx_payroll_runs','PAYROLL_LINE'=>'hrx_payroll_lines','EXIT_SETTLEMENT'=>'hrx_exit_settlements','PAYEE_REQUEST'=>'hrx_payee_requests','LEGAL_RULE'=>'hrx_legal_rules','REMITTANCE'=>'hrx_remittances');
 		if(!isset($tables[$entity_type]))return $this->error('hrx_document_owner_type_invalid','Unknown document owner type.',422);
 		$row=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d',Stockland_HR_Replacement::table($tables[$entity_type]),$entity_id),ARRAY_A);
@@ -1228,6 +1231,7 @@ public function approve_payee_request( $request ) {
 		global $wpdb;
 		if(!is_array($document)||!is_user_logged_in())return false;
 		$type=strtoupper((string)$document['entity_type']);$id=(int)$document['entity_id'];
+		if('HR_RESOURCE'===$type)return $this->view_hr();
 		$target=$this->document_target($type,$id);if(is_wp_error($target))return false;
 		if(in_array($type,array('PAYROLL_RUN','PAYROLL_LINE','PAYEE_REQUEST','REMITTANCE'),true)&&!$this->view_payroll())return false;
 		$employment_id=0;
