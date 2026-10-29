@@ -1,0 +1,59 @@
+# Stockland ERP 16.2.7 — SaaS remediation and commit plan
+**Date:** 2026-10-30  
+**Status:** isolated candidate / staging only; production is **NO-GO**.
+
+## Source of truth
+- Repository: `aistockland-web/Erp-version-16.1.89`
+- Current implementation branch: `feature/hr-payroll-full-cycle-16-2-0`
+- Candidate version reported by the deterministic builder: `16.2.7`
+- Locked package input: 16.1.95 installer SHA-256 `494e777247508d009dfdb216c9607bb1bc96717197e94a0e8ad3459b7cc81625`.
+- The current workflow/overlay path retains `16_2_0` for pipeline continuity while the generated candidate version is 16.2.7. This naming mismatch must remain explicit in receipts and should be normalized in a later refactor without hiding the exact input/output lineage.
+
+## Changes committed for this candidate
+- Corrected the package test to detect the PHP method `function revise_resource(` rather than Python syntax `def revise_resource`. The failing assertion had blocked both PHP 8.3 and 8.4 jobs before package lint, CSS, POS, audit-chain and payroll tests.
+- Replaced social platform text glyphs with local inline SVG geometry for Facebook, Instagram, TikTok and YouTube.
+- Added scoped social SVG sizing, fixed box geometry, current-color strokes and no-fill rules to resist WordPress/theme SVG and font overrides.
+- Added a package regression assertion so the old glyph implementation cannot silently return; added the SVG contract to the generated release manifest.
+- No production deployment, live database operation, employee-data change or schema migration has been performed by these commits.
+
+## Front-end design contract
+- Use the local, SHA-256-pinned Bootstrap 5.3.8 asset. No remote CDN dependency.
+- Keep the HR workspace two columns on desktop and one column on small screens. Use a concise heading/description per collapsible section; do not duplicate dashboard/navigation cards inside the workspace.
+- Use consistent local inline SVGs for controls; preserve visible focus, keyboard operation, reduced-motion behavior, responsive touch targets, and icon labels.
+- Social reporting must remain clearly disclosed as timestamped manual/export snapshots unless a separately approved real API integration exists.
+- Social Media must ultimately be a distinct ERP navigation/module with its own capability checks. Separate accordions under HR alone do not satisfy this requirement.
+
+## Document-control gap list (do not claim complete yet)
+Current candidate source contains private upload/download, role-scoped listing, immutable new-version drafts, file hashes, independent maker-checker approval and atomic supersession. The next implementation slice must complete and test:
+1. Document metadata preview with Issue Date, Prepared By, Reviewed By, Approved By, Version and Status. Keep sign-off fields blank until an authorized review/approval exists; do not fabricate reviewer identities.
+2. Safe preview of supported PDF/image resources through a permission-checked endpoint; for formats not safely rendered in-browser, show a metadata preview and an authenticated download action.
+3. Export the current permission-filtered document register to a formal CSV schema: Document ID, Document Type, Function, Role, Language, Version, Owner, Status, Issue Date, Prepared By, Reviewed By, Approved By, Updated At, Hash / Checksum, File Link. Never create public links to private-vault files.
+4. Make “Edit / save new version”, independent approval, audit logging, history download and status visible in the actual document library workflow. A prior approved version must remain active until the new draft is approved.
+5. Test private-file access, role scope, invalid IDs, path traversal, tampered hashes, download/preview audit failure, editor lock conflicts and exports.
+
+## Release blockers carried forward
+- CAP-03: authenticated target-host acceptance, verified database/uploads backup, restore and rollback receipt.
+- CAP-04: nine active employee compensation records require authorized, effective-dated values; never autofill or guess.
+- CAP-05/CAP-21: independent review of the current Ethiopian tax/pension rules and calculation basis.
+- CAP-07: complete ETB, VAT, COGS, stock, AP/AR and general-ledger reconciliation.
+- CAP-12/CAP-13/CAP-14: authorization/IDOR/concurrency, warehouse-to-sale-to-close and import replay/idempotency acceptance.
+- CAP-16/CAP-26: complete read-only deep-integrity receipt; `SCAN_INCOMPLETE` is not PASS.
+- CAP-22: completed HR-to-final-settlement lifecycle with payout/remittance evidence.
+- CAP-28: exact installed artifact/source checksum and source parity.
+- CAP-29: signed master SOP and end-to-end acceptance.
+- Exact-candidate CI: all required jobs must run; a skipped job is not a pass.
+- Architecture: 86-table HRX candidate inventory remains provisional. Do not override the historical 49-table contract or migrate/drop/rename tables before architecture approval and a tested additive migration plan.
+
+## Ordered commit plan
+1. **CI and responsive SVG correction** — the present focused source change; require exact-head PHP 8.3/8.4 package tests to continue beyond the former assertion.
+2. **Document workflow** — preview, metadata, CSV export and fail-closed audit/download behavior, with backend capability tests and version-chain tests.
+3. **SaaS navigation separation** — separate Social Media page/module, independent capability boundary, responsive cards, timestamped export reporting.
+4. **Runtime QA** — install the exact artifact into a restored isolated WordPress/MariaDB clone; test actual user roles, mobile/keyboard/print behavior, POS/stock/ledger and HR operations.
+5. **Release decision** — verify exact ZIP/hash/manifest/receipt and backup/restore; obtain Owner, HR, Finance and qualified local statutory sign-off before production promotion.
+
+## Evidence links
+- PR #39: https://github.com/aistockland-web/Erp-version-16.1.89/pull/39
+- SaaS design and gates: https://github.com/aistockland-web/Erp-version-16.1.89/blob/feature/hr-payroll-full-cycle-16-2-0/docs/engineering/STOCKLAND_SAAS_ENGINEERING_BLUEPRINT_2026-10-29.md
+- Notion ERP-wide audit: https://app.notion.com/p/4076db0f767e815eba7cc49314197c22
+- Notion canonical release gates: https://app.notion.com/p/3fc6db0f767e81f2a3bbe644048054f9
+
