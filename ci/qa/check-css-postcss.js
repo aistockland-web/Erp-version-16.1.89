@@ -145,7 +145,11 @@ if (scope === 'release-candidate') {
   const candidateSelectors = [
     ['.sl-overlay .sl-req-drawer .sl-approval-grid', 'body-level requisition approval drawer layout'],
     ['.sl-overlay .sl-req-drawer .sl-approval-person small', 'approval name and timestamp wrapping'],
-    ['body[data-sl-view="pos"] #stockland-app #posForm', 'Retail POS responsive checkout form'],
+    ['body[data-sl-view="pos"] #stockland-app #posForm', 'legacy Retail POS compatibility selector'],
+    ['#stockland-app #posCartForm', 'modern atomic POS cart form'],
+    ['#stockland-app .sl-pos-cart-summary', 'POS cart total preview cards'],
+    ['#stockland-app .sl-pos-cart-table', 'POS cart line editing table'],
+    ['#stockland-app .sl-pos-cart-meta', 'POS cart filter and checkout metadata grid'],
     ['#stockland-app .sl-global-search', 'desktop global-search sizing'],
     ['#stockland-app #slGlobalSearchResults', 'desktop global-search popup bounds'],
     ['#stockland-app .sl-content-inner>.sl-page-title>.sl-actions', 'desktop Product Master title-action hit-target layer'],
@@ -167,7 +171,13 @@ if (scope === 'release-candidate') {
       !/@media\s*\(max-width\s*:\s*359px\)/.test(source)) {
     throw new Error('Responsive POS checkout touch targets or narrow-phone breakpoint are missing');
   }
-  console.log('PASS requisition approval phone/tablet/desktop CSS guards');
+  if (!/#stockland-app\s+\.sl-pos-cart-summary/.test(source) ||
+      !/#stockland-app\s+\.sl-pos-cart-table/.test(source) ||
+      !/#stockland-app\s+\.sl-pos-cart-meta/.test(source) ||
+      !/@media\s*\(max-width\s*:\s*620px\)/.test(source)) {
+    throw new Error('Atomic POS cart table, summary, checkout metadata or mobile breakpoints are missing');
+  }
+  console.log('PASS requisition approval and POS cart phone/tablet/desktop CSS guards');
 }
 if (!/@media\s*\(max-width/.test(source)) {
   throw new Error('Responsive max-width media query is missing');
