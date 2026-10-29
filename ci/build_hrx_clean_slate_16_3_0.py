@@ -77,6 +77,7 @@ def patch_entrypoint(files: dict[str, bytes]) -> None:
     p = once(p, "define( 'STOCKLAND_HR_SCHEMA_VERSION', '16.1.3' );", "define( 'STOCKLAND_HR_SCHEMA_VERSION', '16.3.0' );", "retired HR schema marker")
     p = p.replace("require_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-payroll-statutory.php';\n", "")
     p = p.replace("require_once STOCKLAND_PLUGIN_DIR . 'includes/rest/class-rest-hr.php';\n", "")
+    p = once(p, "\t\tnew Stockland_REST_HR();", "", "retire legacy HR REST controller instance")
     p = once(
         p,
         "require_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-authority.php';",
