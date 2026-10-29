@@ -149,6 +149,11 @@ def main():
                 "initialization normalizes legacy multi-open state into one active section")
         require("sl-hrlc-social-card" in app and "sl-hrlc-social-icon" in app and "Product reels, outfit stories and engagement insights" in app and "MANUAL EXPORT" in app,
                 "social platform cards show icons, practical content descriptions and manual-export disclosure")
+        require("function hrlcSocialIcon(key)" in app and "hrlcSocialIcon(x.key)" in app
+                and "icon:'◎'" not in app and "icon:'♪'" not in app and "icon:'▶'" not in app
+                and ".sl-hrlc-social-icon>svg.sl-hrlc-social-icon-art" in css
+                and "Social platform cards use scoped inline SVGs instead of font/text glyphs with fixed geometry." in " ".join(manifest.get("release_changes", [])),
+                "social platform cards use accessible inline SVGs and protected responsive geometry")
         require("sl-hrlc-section-summary" in css and "sl-hrlc-section-toggle" in css and "sl-hrlc-social-grid" in css and "sl-hrlc-social-card" in css and "sl-hrlc-icon-art" in css,
                 "responsive accordion holders, consistent line icons and social channel cards are styled in generated app.css")
         icon_guard = "#hrPage .sl-hrlc-section-icon>svg.sl-hrlc-icon-art{display:block!important;box-sizing:content-box!important;width:22px!important;height:22px!important;min-width:22px!important;min-height:22px!important;max-width:22px!important;max-height:22px!important;flex:0 0 22px!important;flex-shrink:0!important;margin:0!important;padding:0!important;position:static!important;inset:auto!important;transform:none!important;zoom:1!important;overflow:visible!important;fill:none!important;stroke:currentColor!important;stroke-width:1.7px!important;stroke-linecap:round!important;stroke-linejoin:round!important;vector-effect:non-scaling-stroke!important;filter:none!important}"
