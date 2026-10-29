@@ -1,0 +1,75 @@
+{
+  "audit_date": "2026-10-30",
+  "status": "REVIEW_ONLY_NOT_PRODUCTION_READY",
+  "owner_supplied_live_snapshot": {
+    "plugin": "16.1.98-HRX-REVIEW-ONLY",
+    "wordpress": "7.1.4",
+    "php": "8.4.27",
+    "database": "MariaDB 11.4.13",
+    "db_marker": "16.1.1",
+    "core_schema": "29/29",
+    "baseline_erp_schema": "49/49",
+    "rest_v16_routes": 121,
+    "schema_contract_exact_49": "FAIL",
+    "supplemental_integrity_scan": "SCAN_INCOMPLETE",
+    "reported_non_zero_or_unknown_count": 0,
+    "count_interpretation": "UNKNOWN_NOT_PASS"
+  },
+  "locked_baseline": {
+    "version": "16.1.95",
+    "sha256": "494e777247508d009dfdb216c9607bb1bc96717197e94a0e8ad3459b7cc81625",
+    "archive_files": 75,
+    "php_files": 48,
+    "table_keys": 49
+  },
+  "artifacts": [
+    {
+      "name": "STOCKLAND_ERP_16.1.99_HRX_HEALTH_FIX_REVIEW_ONLY.zip",
+      "sha256": "e6a647e9def4a33bb75b7ae05078945803454a91691426beab64d648bffbbdae",
+      "bytes": 2085551,
+      "unique_members": 103,
+      "packaged_php_files": 51,
+      "packaged_sop_docx": 24,
+      "crc": "PASS"
+    },
+    {
+      "name": "STOCKLAND_ERP_ALL_ERP_SOP_LIBRARY_v1.0_DRAFT.zip",
+      "sha256": "78bd9148367450102774c5cedab65049b0902faef6110b8adb9fb8ff50b15869",
+      "bytes": 964458,
+      "members": 28,
+      "documents": 24,
+      "master_register_docx": 1,
+      "crc": "PASS"
+    },
+    {
+      "name": "STOCKLAND_ERP_16.1.99_HRX_HEALTH_QA_TESTS.zip",
+      "sha256": "9b98a29282e198fea27605e07288831f2db810645bba381e0f774e48d139215f",
+      "bytes": 11368,
+      "php_harnesses": 5,
+      "crc": "PASS"
+    }
+  ],
+  "local_test_results": {
+    "hrx_domain": "727 assertions; 0 failures",
+    "schema_contract": "12 assertions; 0 failures",
+    "runtime_alarm": "13 assertions; 0 failures",
+    "health_contract": "21 assertions; 0 failures",
+    "integrity_batch": "37 assertions; 0 failures; 7 batches",
+    "php_syntax": "56 files; PASS",
+    "node_app_js": "PASS",
+    "node_pwa_js": "PASS",
+    "json_manifests": "PASS",
+    "docx_sha256": "24/24 PASS",
+    "wordpress_activation_and_mariadb_e2e": "NOT RUN"
+  },
+  "important_gates": {
+    "live_source_hash_parity": "NOT VERIFIED",
+    "live_schema_contract_root_cause": "UNCONFIRMED without schema_contract_details",
+    "private_document_vault": "NOT CONFIGURED",
+    "current_ethiopian_statutory_review": "REQUIRED",
+    "migration_and_two_parallel_payroll_periods": "NOT RUN",
+    "production_ready": false
+  },
+  "github_pr": "https://github.com/aistockland-web/Erp-version-16.1.89/pull/46",
+  "notion_audit": "https://app.notion.com/p/4076db0f767e815eba7cc49314197c22"
+}
