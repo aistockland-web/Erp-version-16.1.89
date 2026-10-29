@@ -18,7 +18,7 @@ const chunks = manifest.modules.map(name => fs.readFileSync(path.join(assets, 'c
 const built = chunks.join('\n\n') + '\n';
 const appCss = fs.readFileSync(path.join(assets, 'app.css'), 'utf8');
 const appMin = fs.readFileSync(path.join(assets, 'app.min.css'), 'utf8').trim();
-if (appCss.includes('\\\\n#hrPage .sl-hrlc-social-icon') || appCss.includes('\\\\n#hrPage .sl-hrlc-social-copy') || appMin.includes('\\\\n#hrPage .sl-hrlc-social-icon')) {
+if (appCss.includes('\\n#hrPage .sl-hrlc-social-icon') || appCss.includes('\\n#hrPage .sl-hrlc-social-copy') || appMin.includes('\\n#hrPage .sl-hrlc-social-icon')) {
   throw new Error('HR/social SVG stylesheet contains literal backslash-n characters that break selector boundaries');
 }
 
