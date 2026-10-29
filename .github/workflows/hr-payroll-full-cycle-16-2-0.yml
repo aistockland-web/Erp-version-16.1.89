@@ -1,4 +1,4 @@
-name: Stockland ERP 16.2.1 schema-contract-corrected HR and payroll candidate
+name: Stockland ERP 16.2.2 accordion UI + schema-contract corrected HR and payroll candidate
 
 on:
   push:
@@ -34,7 +34,7 @@ concurrency:
 
 jobs:
   package-and-php:
-    name: Build exact 16.2.1 source-locked candidate (PHP ${{ matrix.php-version }})
+    name: Build exact 16.2.2 source-locked candidate (PHP ${{ matrix.php-version }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -80,17 +80,17 @@ jobs:
       - name: Build deterministic candidate package
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/stockland-16.2.1"
-          python ci/build_full_hr_payroll_16_2_0.py --input "$BASELINE" --output "$RUNNER_TEMP/stockland-16.2.1/STOCKLAND_ERP_16.2.1_HR_PAYROLL_CANDIDATE.zip"
+          mkdir -p "$RUNNER_TEMP/stockland-16.2.2"
+          python ci/build_full_hr_payroll_16_2_0.py --input "$BASELINE" --output "$RUNNER_TEMP/stockland-16.2.2/STOCKLAND_ERP_16.2.2_HR_PAYROLL_CANDIDATE.zip"
       - name: Run package-level acceptance tests
-        run: python ci/qa/test_full_hr_payroll_16_2_0.py "$RUNNER_TEMP/stockland-16.2.1/STOCKLAND_ERP_16.2.1_HR_PAYROLL_CANDIDATE.zip"
+        run: python ci/qa/test_full_hr_payroll_16_2_0.py "$RUNNER_TEMP/stockland-16.2.2/STOCKLAND_ERP_16.2.2_HR_PAYROLL_CANDIDATE.zip"
       - name: Lint every PHP file in the exact generated installer
         shell: bash
         run: |
           set -euo pipefail
-          OUT="$RUNNER_TEMP/stockland-16.2.1/extracted"
+          OUT="$RUNNER_TEMP/stockland-16.2.2/extracted"
           mkdir -p "$OUT"
-          unzip -q "$RUNNER_TEMP/stockland-16.2.1/STOCKLAND_ERP_16.2.1_HR_PAYROLL_CANDIDATE.zip" -d "$OUT"
+          unzip -q "$RUNNER_TEMP/stockland-16.2.2/STOCKLAND_ERP_16.2.2_HR_PAYROLL_CANDIDATE.zip" -d "$OUT"
           find "$OUT/stockland-erp-app" -type f -name '*.php' -print0 | xargs -0 -n1 php -l
           node --check "$OUT/stockland-erp-app/assets/app.js"
           node --check ci/hr_payroll_overlay_16_2_0/hr-lifecycle-ui.js
@@ -99,11 +99,11 @@ jobs:
       - name: Validate ordered CSS modules, Bootstrap asset hash and compiled stylesheet
         env:
           NODE_PATH: ${{ github.workspace }}/ci/cssqa/node_modules
-          STOCKLAND_APP: ${{ runner.temp }}/stockland-16.2.1/extracted/stockland-erp-app
+          STOCKLAND_APP: ${{ runner.temp }}/stockland-16.2.2/extracted/stockland-erp-app
         run: node ci/qa/check-css-postcss.js "$STOCKLAND_APP" --scope release-candidate
       - name: Verify audit-chain hash and continuity behavior with synthetic records
         env:
-          STOCKLAND_APP: ${{ runner.temp }}/stockland-16.2.1/extracted/stockland-erp-app
+          STOCKLAND_APP: ${{ runner.temp }}/stockland-16.2.2/extracted/stockland-erp-app
         run: php ci/qa/test_audit_chain_synthetic.php "$STOCKLAND_APP"
       - name: Test pure payroll calculator with synthetic-only fixtures
         run: php ci/hr_payroll_overlay_16_2_0/test-calculator-overlay.php
@@ -113,7 +113,7 @@ jobs:
           set -euo pipefail
           python - <<'PY'
           import hashlib, json, os, zipfile
-          p=os.path.join(os.environ["RUNNER_TEMP"],"stockland-16.2.1","STOCKLAND_ERP_16.2.1_HR_PAYROLL_CANDIDATE.zip")
+          p=os.path.join(os.environ["RUNNER_TEMP"],"stockland-16.2.2","STOCKLAND_ERP_16.2.2_HR_PAYROLL_CANDIDATE.zip")
           with zipfile.ZipFile(p) as z:
               m=json.loads(z.read("stockland-erp-app/RELEASE_MANIFEST.json"))
               assert m.get("schema_contract_status") == "PROVISIONAL_CANDIDATE_NOT_ARCHITECTURE_APPROVAL"
@@ -126,10 +126,10 @@ jobs:
         if: matrix.php-version == '8.3'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: STOCKLAND-ERP-16.2.1-HR-PAYROLL-CANDIDATE
+          name: STOCKLAND-ERP-16.2.2-HR-PAYROLL-CANDIDATE
           path: |
-            ${{ runner.temp }}/stockland-16.2.1/STOCKLAND_ERP_16.2.1_HR_PAYROLL_CANDIDATE.zip
-            ${{ runner.temp }}/stockland-16.2.1/STOCKLAND_ERP_16.2.1_HR_PAYROLL_CANDIDATE.sha256
-            ${{ runner.temp }}/stockland-16.2.1/STOCKLAND_ERP_16.2.1_HR_PAYROLL_CANDIDATE.receipt.json
+            ${{ runner.temp }}/stockland-16.2.2/STOCKLAND_ERP_16.2.2_HR_PAYROLL_CANDIDATE.zip
+            ${{ runner.temp }}/stockland-16.2.2/STOCKLAND_ERP_16.2.2_HR_PAYROLL_CANDIDATE.sha256
+            ${{ runner.temp }}/stockland-16.2.2/STOCKLAND_ERP_16.2.2_HR_PAYROLL_CANDIDATE.receipt.json
           if-no-files-found: error
           retention-days: 30
