@@ -177,7 +177,7 @@ def main():
         require("STOCKLAND_PRIVATE_VAULT_DIR" in manifest.get("release_gate_note","") or "private vault configuration" in manifest.get("release_gate_note",""), "manifest records private vault configuration as a release gate")
         require(manifest.get("hr_document_control") == "PRIVATE_VAULT; VERSIONED_DRAFTS; INDEPENDENT_APPROVAL; APPROVED_VERSION_SUPERSEDED_ATOMICALLY",
                 "manifest records safe immutable HR document version/approval contract")
-        require("'EMPLOYMENT_CONTRACT'" in cycle and "def revise_resource" in cycle and "supersedes_resource_id" in cycle,
+        require("'EMPLOYMENT_CONTRACT'" in cycle and "function revise_resource(" in cycle and "supersedes_resource_id" in cycle,
                 "HR private document API supports employment contracts and immutable version drafts")
         require("status IN ('DRAFT','APPROVED','SUPERSEDED')" in cycle and "RESOURCE_SUPERSEDED" in cycle,
                 "HR managers can view drafts/history and approval supersedes the old document atomically")
