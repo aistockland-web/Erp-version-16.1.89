@@ -86,11 +86,21 @@ function hrxActions(entity,row,cap){
   if(status==='SUBMITTED'&&cap.owner_approve)buttons+=hrxActionButton('Owner approve','payroll-approve',id,'primary');
   if(status==='APPROVED'&&cap.owner_approve)buttons+=hrxActionButton('Create payout batch','payout-create',id);
   if(['APPROVED','PAID'].includes(status)&&cap.payroll_manage)buttons+=hrxActionButton('Create remittance','remittance-create',id);
-  if(status==='APPROVED'&&cap.owner_approve)buttons+=hrxActionButton('Close period','payroll-close',id);
- }else if(entity==='employments'&&status==='PENDING_ACTIVATION'&&cap.owner_approve)buttons+=hrxActionButton('Activate hire','employment-activate',id,'primary');
+  if(['SETTLEMENT_PENDING','SETTLED'].includes(status)&&cap.owner_approve)buttons+=hrxActionButton('Close reconciled period','payroll-close',id);
+ }else if(entity==='offers'&&status==='ACCEPTED'&&cap.owner_approve)buttons+=hrxActionButton('Create pending employment','offer-create-employment',id,'primary');
+ else if(entity==='contracts'&&['DRAFT','SUBMITTED'].includes(status)&&!row.signed_by_person_at&&cap.hr_manage)buttons+=hrxActionButton('Record signed contract','contract-sign',id);
+ else if(entity==='payout-items'&&['PENDING','FAILED','RETURNED'].includes(status)&&cap.payroll_manage)buttons+=hrxActionButton('Record payment outcome','payout-outcome',id);
+ else if(entity==='payout-batches'&&status==='READY'&&cap.owner_approve)buttons+=hrxActionButton('Reconcile bank / cash','payout-reconcile',id,'primary');
+ else if(entity==='remittances'&&status==='SUBMITTED'&&cap.owner_approve)buttons+=hrxActionButton('Verify receipt & post','remittance-verify',id,'primary');
+ else if(entity==='payee-requests'&&['DRAFT','LEGAL_TAX_REVIEW','NEEDS_INFORMATION'].includes(status)&&cap.payroll_manage)buttons+=hrxActionButton('Classify tax treatment','payee-classify',id);
+ else if(entity==='payee-requests'&&status==='DRAFT'&&row.classification_status==='APPROVED'&&cap.payroll_manage)buttons+=hrxActionButton('Calculate payee amount','payee-calculate',id);
+ else if(entity==='payee-requests'&&status==='SUBMITTED'&&cap.owner_approve)buttons+=hrxActionButton('Owner approve AP','payee-approve',id,'primary');
+ else if(entity==='payee-requests'&&status==='APPROVED'&&cap.payroll_manage)buttons+=hrxActionButton('Record AP payment','payee-pay',id);
+ else if(entity==='employments'&&status==='PENDING_ACTIVATION'&&cap.owner_approve)buttons+=hrxActionButton('Activate hire','employment-activate',id,'primary');
  else if(entity==='employments'&&status==='ACTIVE'&&cap.owner_approve)buttons+=hrxActionButton('Revoke access','employment-revoke',id);
  else if(entity==='exit-settlements'){
   if(status==='DRAFT'&&cap.hr_manage)buttons+=hrxActionButton('Calculate settlement','exit-calculate',id);
+  if(status==='DRAFT'&&cap.hr_manage)buttons+=hrxActionButton('Add settlement item','exit-add-item',id);
   if(status==='CALCULATED'&&cap.owner_approve)buttons+=hrxActionButton('Approve settlement','exit-approve',id,'primary');
   if(status==='APPROVED'&&cap.payroll_manage)buttons+=hrxActionButton('Record payout','exit-payout',id);
  }else if(entity==='documents'&&status==='DRAFT'&&cap.owner_approve)buttons+=hrxActionButton('Review / approve','document-review',id);
@@ -100,6 +110,7 @@ function hrxActions(entity,row,cap){
   if(['DRAFT','RECEIVED'].includes(status))transitions.push(['SUBMIT','Submit']);
   if(status==='LEGAL_REVIEW'&&entity==='leave-policies')transitions.push(['SUBMIT','Submit for review']);
   if(status==='LEGAL_REVIEW'&&entity==='legal-rules')transitions.push(['SUBMIT_LEGAL_REVIEW','Start review']);
+  if(status==='APPROVED'&&entity==='offers')transitions.push(['ACCEPT','Record candidate acceptance']);
   if(status==='SUBMITTED'&&cap.owner_approve&&!['applications','interviews','time-events','leave-transactions','onboarding-tasks'].includes(entity))transitions.push(['APPROVE','Approve']);
   if(status==='SUBMITTED')transitions.push(['REJECT','Reject']);
   if(status==='APPROVED'&&entity==='requisitions')transitions.push(['OPEN','Open vacancy']);
@@ -125,7 +136,7 @@ function hrxTable(entity,data,cap){
  if(!rows.length)return top+'<div class="sl-empty-rich"><b>No records returned.</b><span>Use the authorized creation flow above or verify the record’s access scope.</span></div>';
  let cols=meta.cols||[];if(!cols.length)cols=Object.keys(rows[0]).filter(k=>!['created_by','updated_by','created_at','updated_at','private_storage_key','notes','terms_json','snapshot_json','formula_parameters','applicability','exceptions'].includes(k)).slice(0,7);
  const head=cols.map(k=>'<th>'+hrxEsc(k.replace(/_/g,' '))+'</th>').join('');
- const body=rows.map(row=>'<tr><td class="sl-hrx-title-cell" colspan="0"><strong>'+hrxEsc(hrxRecordTitle(entity,row))+'</strong><div class="sl-sub">#'+hrxEsc(row.id)+' · '+hrxEsc(row.status||row.review_status||row.approval_status||row.stage||row.line_status||'RECORDED')+'</div></td>'+cols.map(k=>'<td data-label="'+hrxEsc(k.replace(/_/g,' '))+'">'+hrxEsc(hrxValueText(row[k]))+'</td>').join('')+'<td data-label="Actions"><div class="sl-hrx-row-actions">'+hrxActions(entity,row,cap)+'</div></td></tr>').join('');
+ const body=rows.map(row=>'<tr><td class="sl-hrx-title-cell" data-label="Record"><strong>'+hrxEsc(hrxRecordTitle(entity,row))+'</strong><div class="sl-sub">#'+hrxEsc(row.id)+' · '+hrxEsc(row.status||row.review_status||row.approval_status||row.stage||row.line_status||'RECORDED')+'</div></td>'+cols.map(k=>'<td data-label="'+hrxEsc(k.replace(/_/g,' '))+'">'+hrxEsc(hrxValueText(row[k]))+'</td>').join('')+'<td data-label="Actions"><div class="sl-hrx-row-actions">'+hrxActions(entity,row,cap)+'</div></td></tr>').join('');
  return top+'<div class="sl-table-wrap sl-hrx-table-wrap"><table class="sl-table sl-responsive-cards"><thead><tr><th>Record</th>'+head+'<th>Actions</th></tr></thead><tbody>'+body+'</tbody></table></div>';
 }
 function hrxDocumentsUI(data,cap){
