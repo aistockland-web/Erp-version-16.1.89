@@ -8,7 +8,7 @@
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 final class Stockland_HR_Lifecycle {
-	const SCHEMA_VERSION = '16.2.0';
+	const SCHEMA_VERSION = '16.2.1';
 
 	public static function table_keys() {
 		return array(
@@ -678,6 +678,7 @@ final class Stockland_HR_Lifecycle {
 			language_code VARCHAR(12) NOT NULL DEFAULT 'en-am',
 			resource_type VARCHAR(40) NOT NULL,
 			version_label VARCHAR(40) NOT NULL,
+			supersedes_resource_id BIGINT UNSIGNED NULL,
 			private_file_ref VARCHAR(100) NOT NULL,
 			file_sha256 CHAR(64) NOT NULL,
 			file_name VARCHAR(190) NOT NULL,
@@ -687,7 +688,7 @@ final class Stockland_HR_Lifecycle {
 			approved_by BIGINT UNSIGNED NULL,
 			approved_at DATETIME NULL,
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			PRIMARY KEY (id), UNIQUE KEY resource_code (resource_code), UNIQUE KEY private_file_ref (private_file_ref), KEY role_status (role_code,status), KEY type_language (resource_type,language_code)
+			PRIMARY KEY (id), UNIQUE KEY resource_code (resource_code), UNIQUE KEY private_file_ref (private_file_ref), KEY role_status (role_code,status), KEY type_language (resource_type,language_code), KEY supersedes_resource (supersedes_resource_id)
 		) ENGINE=InnoDB {$cc};";
 		$t[] = "CREATE TABLE {$p}hr_social_campaigns (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
