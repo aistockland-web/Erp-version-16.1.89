@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Source/package acceptance for the isolated 16.2.0 full HR/payroll-cycle candidate.
+"""Source/package acceptance for the isolated 16.2.1 full HR/payroll-cycle candidate.
 
 Static ZIP tests are not a substitute for a live WordPress + MariaDB staging run
 or qualified Ethiopian tax/pension sign-off.
@@ -44,13 +44,15 @@ def main():
         modules = json.loads(files["assets/css/modules.json"].decode())
         app = files["assets/app.js"].decode()
         schema = files["includes/class-stockland-hr-lifecycle.php"].decode()
+        health_php = files["includes/rest/class-rest-app.php"].decode()
+        system_control_php = files["includes/class-stockland-admin.php"].decode()
         rest = files["includes/rest/class-rest-hr-lifecycle.php"].decode()
         cycle = files["includes/rest/class-rest-hr-payroll-cycle.php"].decode()
         calc = files["includes/class-stockland-hr-payroll-calculator.php"].decode()
         vault = files["includes/class-stockland-hr-private-vault.php"].decode()
         css = files["assets/app.css"].decode()
-        require("Version:           16.2.0" in main and "define( 'STOCKLAND_VERSION', '16.2.0' );" in main, "plugin version/header matches 16.2.0")
-        require(manifest.get("release") == "16.2.0" and modules.get("release") == "16.2.0", "release manifest and CSS module metadata agree")
+        require("Version:           16.2.1" in main and "define( 'STOCKLAND_VERSION', '16.2.1' );" in main, "plugin version/header matches 16.2.1")
+        require(manifest.get("release") == "16.2.1" and modules.get("release") == "16.2.1", "release manifest and CSS module metadata agree")
         required_css_tail = [
             "07-dashboard-operations.css",
             "08-reporting-worksheet.css",
@@ -71,6 +73,18 @@ def main():
                 "local Bootstrap 5.3.8 source hash matches release manifest")
         require(manifest.get("schema_contract_status") == "PROVISIONAL_CANDIDATE_NOT_ARCHITECTURE_APPROVAL", "physical table count is explicitly marked provisional")
         require(manifest.get("schema_contract") == {"total":86,"core_operations":29,"accounting_procurement":16,"hr_payroll":41}, "provisional source-mapped 86-table candidate contract agrees")
+        health_lines = health_php.splitlines()
+        schema_gate_lines = [line for line in health_lines if "$checks['schema_contract_expected']" in line]
+        require(len(schema_gate_lines) == 2 and all("empty( $missing_full )" in line and "count( $found_keys ) === 86" not in line and "empty( $unexpected_full )" not in line for line in schema_gate_lines),
+                "quick and deep runtime gates check required tables, not an exact physical count")
+        require(health_php.count("$diagnostics['schema_contract_status']") == 2 and health_php.count("$diagnostics['schema_contract_extra_table_count']") == 2,
+                "quick and deep runtime diagnostics distinguish missing tables from extras")
+        require("Database unavailable or one or more required ERP schema tables are missing" in health_php and "All required ERP schema tables in the versioned contract" in health_php,
+                "runtime deep-scan rules no longer cite a stale 49-table contract")
+        require("Stockland_HR_Lifecycle::table_keys()" in system_control_php and "$full_expected = array_values( array_unique( array_merge( $expected_core, $expected_accounting, $expected_hr ) ) );" in system_control_php,
+                "WordPress System Control includes the full HR/payroll lifecycle schema")
+        require("Additional ERP tables detected" in app and "do not block the read-only integrity scan" in app,
+                "health UI explains extra tables as a review warning rather than a false failed gate")
         require(manifest.get("statutory_rates_or_exemption_caps_seeded") is False, "no automatic statutory rates or exemption caps are seeded")
         required_table_names = [
             "hr_workforce_plans","hr_positions","hr_requisitions","hr_candidates","hr_applications","hr_interviews",
