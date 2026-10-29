@@ -518,6 +518,125 @@ def patch_app_js(files):
     app = app.replace("16.1.95", RELEASE)
     put(files, "assets/app.js", app)
 
+def patch_pos_qty_safety(files):
+    """Patch retry identity and fail-closed quantity reads in the source package."""
+    app = text(files, "assets/app.js")
+    old = """    if(d.selling_price!=='')d.selling_price=Number(d.selling_price);else delete d.selling_price;
+    try{
+        const out=await api16('/sales',{method:'POST',body:JSON.stringify(d)});"""
+    new = """    if(d.selling_price!=='')d.selling_price=Number(d.selling_price);else delete d.selling_price;
+    // Keep one stable sale_id for retries on this form. If the response is lost after
+    // the server commits, retrying identical details recovers the original sale.
+    if(!f.dataset.saleRequestId){const requestSuffix=window.crypto&&typeof window.crypto.getRandomValues==='function'?Array.from(window.crypto.getRandomValues(new Uint8Array(6)),v=>v.toString(16).padStart(2,'0')).join('').toUpperCase():Math.random().toString(36).slice(2,14).toUpperCase();f.dataset.saleRequestId=('P'+Date.now().toString(36).toUpperCase().slice(-7)+requestSuffix).slice(0,20);}
+    d.sale_id=f.dataset.saleRequestId;
+    try{
+        const out=await api16('/sales',{method:'POST',body:JSON.stringify(d)});"""
+    app = once(app, old, new, "stable POS sale_id across ambiguous retries")
+    old = """            return;
+        }
+        const box=document.getElementById('posResult');
+        if(box)box.innerHTML='<div class="sl-notice"><b>Sale '+esc(saleId)+' posted and verified.</b>"""
+    new = """            return;
+        }
+        // Clear the retry key only after the server confirms a persisted CLOSED sale.
+        delete f.dataset.saleRequestId;
+        const box=document.getElementById('posResult');
+        if(box)box.innerHTML='<div class="sl-notice"><b>Sale '+esc(saleId)+' posted and verified.</b>"""
+    app = once(app, old, new, "clear POS retry key only after verified commit")
+    put(files, "assets/app.js", app)
+
+    sales = text(files, "includes/rest/class-rest-sales.php")
+    old = """                        strtoupper( (string) $p['vat_mode'] ) !== (string) $existing['vat_mode'] ) {"""
+    new = """                        strtoupper( (string) $p['vat_mode'] ) !== (string) $existing['vat_mode'] ||
+                        (string) ( $existing['external_receipt_no'] ?? '' ) !== (string) ( $p['external_receipt_no'] ?? '' ) ) {"""
+    sales = once(sales, old, new, "idempotent POS retry also matches external receipt identity")
+    old = """            $available = Stockland_DB::get_available_stock( $branch_location_id, $sku );
+            if ( $available < $quantity ) {"""
+    new = """            $wpdb->last_error = '';
+            $available = Stockland_DB::get_available_stock( $branch_location_id, $sku );
+            if ( '' !== (string) $wpdb->last_error ) {
+                throw new Exception( 'Stock availability could not be verified because the physical-ledger or active-reservation lookup failed. No sale was posted.' );
+            }
+            if ( $available < $quantity ) {"""
+    sales = once(sales, old, new, "POS fails closed on stock/reservation query error")
+    put(files, "includes/rest/class-rest-sales.php", sales)
+
+    db = text(files, "includes/class-stockland-db.php")
+    start = db.find("public static function get_available_stock( $location_id, $sku ) {")
+    end_marker = "\n\t}\n}"
+    end = db.find(end_marker, start)
+    if start < 0 or end < 0:
+        raise ValueError("Could not locate Stockland_DB::get_available_stock method.")
+    replacement = """public static function get_available_stock( $location_id, $sku ) {
+        global $wpdb;
+        $products = self::table( 'products' );
+        $transactions = self::table( 'transactions' );
+        $reservations = self::table( 'reservations' );
+        $wpdb->last_error = '';
+        $product = self::read_row(
+            $wpdb->prepare( 'SELECT variant_id,sku FROM %i WHERE sku=%s AND is_active=1 LIMIT 1', $products, (string) $sku ),
+            ARRAY_A
+        );
+        if ( '' !== (string) $wpdb->last_error ) {
+            return 0.0;
+        }
+        $variant_id = is_array( $product ) ? (int) ( $product['variant_id'] ?? 0 ) : 0;
+        $wpdb->last_error = '';
+        if ( $variant_id > 0 ) {
+            $physical_raw = self::read_var(
+                $wpdb->prepare(
+                    'SELECT COALESCE(SUM(quantity_signed),0) FROM %i WHERE location_id=%d AND (variant_id=%d OR (variant_id IS NULL AND sku=%s))',
+                    $transactions,
+                    (int) $location_id,
+                    $variant_id,
+                    (string) $sku
+                )
+            );
+        } else {
+            $physical_raw = self::read_var(
+                $wpdb->prepare(
+                    'SELECT COALESCE(SUM(quantity_signed),0) FROM %i WHERE location_id=%d AND sku=%s',
+                    $transactions,
+                    (int) $location_id,
+                    (string) $sku
+                )
+            );
+        }
+        // Null results or SQL errors are unknown stock, never available stock.
+        if ( '' !== (string) $wpdb->last_error || null === $physical_raw ) {
+            return 0.0;
+        }
+        $wpdb->last_error = '';
+        if ( $variant_id > 0 ) {
+            $reserved_raw = self::read_var(
+                $wpdb->prepare(
+                    "SELECT COALESCE(SUM(quantity_reserved),0) FROM %i WHERE location_id=%d AND status='Active' AND (variant_id=%d OR (variant_id IS NULL AND sku=%s))",
+                    $reservations,
+                    (int) $location_id,
+                    $variant_id,
+                    (string) $sku
+                )
+            );
+        } else {
+            $reserved_raw = self::read_var(
+                $wpdb->prepare(
+                    "SELECT COALESCE(SUM(quantity_reserved),0) FROM %i WHERE location_id=%d AND sku=%s AND status='Active'",
+                    $reservations,
+                    (int) $location_id,
+                    (string) $sku
+                )
+            );
+        }
+        // If reservation lookup fails, return zero and preserve wpdb->last_error so
+        // transaction handlers can reject the operation rather than assume no reservations.
+        if ( '' !== (string) $wpdb->last_error || null === $reserved_raw ) {
+            return 0.0;
+        }
+        return max( 0.0, (float) $physical_raw - (float) $reserved_raw );
+    }"""
+    db = db[:start] + replacement + db[end + len("\n\t}"):]
+    put(files, "includes/class-stockland-db.php", db)
+
 def patch_misc_versions(files):
     for path in ("assets/pwa.js","assets/manifest.json","includes/class-stockland-frontend.php","assets/css/modules.json"):
         if ROOT + path not in files: continue
@@ -600,6 +719,7 @@ def build(input_zip: Path, output_zip: Path):
     patch_health(files)
     rebuild_css(files)
     patch_app_js(files)
+    patch_pos_qty_safety(files)
     patch_misc_versions(files)
     # Add the ordered CSS modules created by rebuild_css plus five new HR runtime PHP files.
     # CI source/build scripts are never shipped inside the WordPress installer.
