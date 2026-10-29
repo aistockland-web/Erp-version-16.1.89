@@ -133,10 +133,12 @@ def main():
                 "the accordion handler keeps only one HR workflow section open at a time")
         require("aria-expanded" in app and "aria-controls" in app and 'aria-level="3"' in app,
                 "each section has accessible heading and expanded/collapsed semantics")
+        require("openSections.length>1" in app and "state.hrlcOpenSections=[keep.getAttribute('data-hrlc-section')]" in app,
+                "initialization normalizes legacy multi-open state into one active section")
         require("sl-hrlc-social-card" in app and "sl-hrlc-social-icon" in app and "Product reels, outfit stories and engagement insights" in app and "MANUAL EXPORT" in app,
                 "social platform cards show icons, practical content descriptions and manual-export disclosure")
-        require("sl-hrlc-section-summary" in css and "sl-hrlc-section-toggle" in css and "sl-hrlc-social-grid" in css and "sl-hrlc-social-card" in css,
-                "responsive accordion holders and social channel cards are styled in generated app.css")
+        require("sl-hrlc-section-summary" in css and "sl-hrlc-section-toggle" in css and "sl-hrlc-social-grid" in css and "sl-hrlc-social-card" in css and "sl-hrlc-icon-art" in css,
+                "responsive accordion holders, consistent line icons and social channel cards are styled in generated app.css")
         require("sl-hrlc-toolbar" in css and "sl-hrlc-search:focus-within" in css and "[data-hrlc-section][hidden]" in css and ".sl-hrlc-section[open]" in css,
                 "SaaS search, keyboard focus, no-result and active accordion states are styled")
         for url in ["https://business.facebook.com/","https://www.instagram.com/","https://business.tiktok.com/","https://studio.youtube.com/"]:
