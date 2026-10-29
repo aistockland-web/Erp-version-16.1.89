@@ -26,7 +26,7 @@ def main():
         require(z.testzip() is None, "ZIP CRC and archive integrity")
         infos = [i for i in z.infolist() if not i.is_dir()]
         names = [i.filename for i in infos]
-        require(len(names) == 86 and len(set(names)) == 86, "86 unique runtime files: 75 baseline + 5 HR/payroll files + 6 ordered CSS modules")
+        require(len(names) == 87 and len(set(names)) == 87, "87 unique runtime files: 75 baseline + 6 HR/payroll/POS controllers + 6 ordered CSS modules")
         require(all(n.startswith("stockland-erp-app/") and ".." not in n.split("/") for n in names), "single plugin root and safe archive paths")
         root = "stockland-erp-app/"
         files = {n[len(root):]: z.read(n) for n in names}
@@ -36,6 +36,7 @@ def main():
             "includes/class-stockland-hr-payroll-calculator.php",
             "includes/class-stockland-hr-private-vault.php",
             "includes/rest/class-rest-hr-payroll-cycle.php",
+            "includes/rest/class-rest-pos-cart.php",
         ]
         for path in required_files:
             require(path in files, "runtime file included: " + path)
@@ -55,6 +56,7 @@ def main():
         rest_accounting_php = files["includes/rest/class-rest-accounting.php"].decode()
         rest = files["includes/rest/class-rest-hr-lifecycle.php"].decode()
         cycle = files["includes/rest/class-rest-hr-payroll-cycle.php"].decode()
+        cart = files["includes/rest/class-rest-pos-cart.php"].decode()
         calc = files["includes/class-stockland-hr-payroll-calculator.php"].decode()
         vault = files["includes/class-stockland-hr-private-vault.php"].decode()
         css = files["assets/app.css"].decode()
@@ -171,12 +173,40 @@ def main():
         for url in ["https://business.facebook.com/","https://www.instagram.com/","https://business.tiktok.com/","https://studio.youtube.com/"]:
             require(url in app, "direct social sign-in link " + url)
         require("STOCKLAND_PRIVATE_VAULT_DIR" in manifest.get("release_gate_note","") or "private vault configuration" in manifest.get("release_gate_note",""), "manifest records private vault configuration as a release gate")
+        require(manifest.get("hr_document_control") == "PRIVATE_VAULT; VERSIONED_DRAFTS; INDEPENDENT_APPROVAL; APPROVED_VERSION_SUPERSEDED_ATOMICALLY",
+                "manifest records safe immutable HR document version/approval contract")
+        require("'EMPLOYMENT_CONTRACT'" in cycle and "def revise_resource" in cycle and "supersedes_resource_id" in cycle,
+                "HR private document API supports employment contracts and immutable version drafts")
+        require("status IN ('DRAFT','APPROVED','SUPERSEDED')" in cycle and "RESOURCE_SUPERSEDED" in cycle,
+                "HR managers can view drafts/history and approval supersedes the old document atomically")
+        require("hrlcCycleTable(resources" in app and "Edit / save new version" in app and "function openHRResourceRevisionDialog" in app,
+                "HR document library renders a controlled edit/save-new-version form")
+        require("EMPLOYMENT_CONTRACT" in app and "data-hrcycle-action=\"approve-resource\"" in app and "/hr/resources/'+id+'/revise" in app,
+                "job descriptions and approved employment contracts are uploadable, approval-gated and revision-capable")
+        require(".sl-hrlc-resource-dialog" in css and ".sl-hrlc-resource-grid" in css and "@media(max-width:620px){.sl-hrlc-resource-dialog" in css,
+                "document revision editor has responsive desktop/mobile form styling")
         require(manifest.get("pos_retry_contract") == "CLIENT_SALE_ID_STABLE_UNTIL_VERIFIED_CLOSED; SERVER_IDEMPOTENT_REPLAY",
                 "release manifest records stable POS request identity for ambiguous network retries")
         require(manifest.get("stock_availability_error_policy") == "FAIL_CLOSED_ON_LEDGER_OR_RESERVATION_QUERY_ERROR",
                 "release manifest records fail-closed stock availability reads")
-        require(manifest.get("pos_cart_scope") == "SINGLE_LINE_ATOMIC_POS; MULTI_LINE_CART_WIDE_TRANSACTION_NOT_IMPLEMENTED",
-                "release manifest does not misrepresent single-line POS as a multi-line cart")
+        require(manifest.get("pos_cart_scope") == "MULTI_LINE_ATOMIC_TRANSACTION; SHARED_VAT_MODE; NO_CART_DISCOUNTS_OR_SPLIT_TENDER",
+                "manifest declares supported multi-line atomic cart scope and explicitly excluded tender/discount features")
+        require(manifest.get("uom_precision_policy") == "WHOLE_UNITS_REQUIRED_FOR_PCS_EA_PIECE_UNIT_UOM_IN_POS_AND_CART; OTHER_UOMS_ALLOW_TWO_DECIMALS",
+                "manifest records whole-unit validation for discrete Product Master UOMs")
+        require("register_rest_route" in cart and "'/sales/cart'" in cart and "count($existing_rows) !== count($lines)" in cart,
+                "cart endpoint has one route and rejects partial/different-line idempotent replays")
+        require("START TRANSACTION" in cart and "ROLLBACK" in cart and "Stockland_Ledger::post_sale_closed" in cart and "Stockland_Accounting::post_journal" in cart and "Stockland_Audit::log" in cart,
+                "all cart lines, stock ledger, GL and audit share one transaction/rollback boundary")
+        require("'/sales/cart'" in app and "function submitPOSCart(e)" in app and "function bindPosCart()" in app and "function renderPosCart()" in app,
+                "Retail POS exposes a real multi-line cart bound to the atomic server endpoint")
+        require("sessionStorage" in app and "pendingPayload" in app and "RETRY SAME CART" in app,
+                "cart retries retain the exact ID/payload across page reload within the same browser tab session")
+        require("data-cart-qty" in app and "data-cart-price" in app and "posCartGross" in app and "posCartVat" in app and "posCartNet" in app,
+                "cart provides line quantity/price editing and live gross/VAT/net preview totals")
+        require("POS cart now posts 1–50 distinct SKU lines" in " ".join(manifest.get("release_changes",[])),
+                "release manifest records real atomic cart behavior")
+        require("#stockland-app .sl-pos-cart-summary" in css and "#stockland-app .sl-pos-cart-table" in css and "@media(max-width:620px){#stockland-app .sl-pos-cart-meta" in css,
+                "POS cart summary, table and mobile layout have responsive styling")
         require("d.sale_id=f.dataset.saleRequestId" in app and "delete f.dataset.saleRequestId;" in app,
                 "Retail POS sends one stable sale id and clears it only after CLOSED confirmation")
         require("external_receipt_no" in sales_php and "(string) ( $existing['external_receipt_no'] ?? '' ) !== (string) ( $p['external_receipt_no'] ?? '' )" in sales_php,
