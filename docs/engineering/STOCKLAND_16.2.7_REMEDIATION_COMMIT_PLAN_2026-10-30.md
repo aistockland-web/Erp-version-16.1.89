@@ -57,3 +57,17 @@ Current candidate source contains private upload/download, role-scoped listing, 
 - Notion ERP-wide audit: https://app.notion.com/p/4076db0f767e815eba7cc49314197c22
 - Notion canonical release gates: https://app.notion.com/p/3fc6db0f767e81f2a3bbe644048054f9
 
+## Verified exact-candidate rerun — 30 October 2026
+
+- Workflow: [run 40962728289](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/40962728289) — **SUCCESS**, commit `3548981c39dbbd23f1e7b74bc90517f43dac54c1`.
+- PHP 8.3 job: success. PHP 8.4 job: success. The only intentionally skipped step was artifact publishing in the PHP 8.4 matrix job; the PHP 8.3 job published the candidate artifact.
+- Candidate Actions artifact: `STOCKLAND-ERP-16.2.7-HR-PAYROLL-CANDIDATE`, artifact ID `12935933940`, Actions archive digest SHA-256 `17bce474e57c1cbd8b84114f2b6d895c6e78e318090ab9c1621ccc3fbff9c743`.
+- Inner installable plugin ZIP: `STOCKLAND_ERP_16.2.7_HR_PAYROLL_CANDIDATE.zip`, SHA-256 `063d87578adc29308e0bd77611359ddd4a9a6bac0c1600daf29f1fc019bec4ea`; matches the included receipt's `installer_sha256`.
+- Verified local downloaded artifact ZIP CRC and inner plugin ZIP CRC; both passed. Independent local `node --check` also passed for packaged `assets/app.js` and `assets/pwa.js`.
+- CI passed package-level acceptance, PHP syntax across the installer, Node syntax, synthetic POS/VAT/COGS fixtures, PostCSS parsing of `app.css`, `app.min.css`, and `bootstrap.min.css`, pinned Bootstrap 5.3.8 hash, CSS-module/build parity, the synthetic audit-chain regression, the synthetic payroll-calculator contract, and the fail-closed/no-production-write receipt assertions.
+- Candidate receipt explicitly says `schema_contract_approved=false` and `production_ready=false`. It records 37 new proposed tables and an 86-table inventory; that remains provisional and must not be applied as a production migration.
+
+## Immediate next slice
+
+The engineering build gate is now green for this exact candidate. Continue with authenticated, isolated WordPress/MariaDB staging acceptance, actual visual verification at desktop/mobile widths, private HR vault access/restore tests, complete document preview/metadata/CSV export, standalone Social Media navigation/capability separation, POS concurrency/retry/rollback tests, deep-inventory/accounting parity and the external Owner/HR/Finance/legal approvals. Do not activate this candidate on production based solely on CI.
+
