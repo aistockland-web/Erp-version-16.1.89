@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Source/package acceptance for the isolated 16.2.1 full HR/payroll-cycle candidate.
+"""Source/package acceptance for the isolated 16.2.2 full HR/payroll-cycle candidate.
 
 Static ZIP tests are not a substitute for a live WordPress + MariaDB staging run
 or qualified Ethiopian tax/pension sign-off.
@@ -51,8 +51,8 @@ def main():
         calc = files["includes/class-stockland-hr-payroll-calculator.php"].decode()
         vault = files["includes/class-stockland-hr-private-vault.php"].decode()
         css = files["assets/app.css"].decode()
-        require("Version:           16.2.1" in main and "define( 'STOCKLAND_VERSION', '16.2.1' );" in main, "plugin version/header matches 16.2.1")
-        require(manifest.get("release") == "16.2.1" and modules.get("release") == "16.2.1", "release manifest and CSS module metadata agree")
+        require("Version:           16.2.2" in main and "define( 'STOCKLAND_VERSION', '16.2.2' );" in main, "plugin version/header matches 16.2.2")
+        require(manifest.get("release") == "16.2.2" and modules.get("release") == "16.2.2", "release manifest and CSS module metadata agree")
         required_css_tail = [
             "07-dashboard-operations.css",
             "08-reporting-worksheet.css",
@@ -121,6 +121,12 @@ def main():
         require("hrlcPayrollCyclePanel" in app and "bindHRPayrollCycleForms" in app, "new HR/payroll cycle UI is wired into the ERP app")
         require("hr/payroll-runs" in app and "hr/employee-reimbursements" in app and "hr/individual-payees" in app, "UI uses frozen payroll, reimbursements and individual payee APIs")
         require("MANUAL_EXPORT" in app and "recovery tokens" in app, "social reporting and credential safety are described in the UI")
+        require("sl-hrlc-section-summary" in app and "sl-hrlc-section-body" in app and "function hrlcSectionIcon" in app,
+                "HR lifecycle and payroll modules use accessible native dropdown sections with clear icons")
+        require("sl-hrlc-social-card" in app and "sl-hrlc-social-icon" in app and "Product reels, outfit stories and engagement insights" in app and "MANUAL EXPORT" in app,
+                "social platform cards show icons, practical content descriptions and manual-export disclosure")
+        require("sl-hrlc-section-summary" in css and "sl-hrlc-section-toggle" in css and "sl-hrlc-social-grid" in css and "sl-hrlc-social-card" in css,
+                "responsive accordion holders and social channel cards are styled in generated app.css")
         for url in ["https://business.facebook.com/","https://www.instagram.com/","https://business.tiktok.com/","https://studio.youtube.com/"]:
             require(url in app, "direct social sign-in link " + url)
         require("STOCKLAND_PRIVATE_VAULT_DIR" in manifest.get("release_gate_note","") or "private vault configuration" in manifest.get("release_gate_note",""), "manifest records private vault configuration as a release gate")
