@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic 16.1.95 -> 16.2.7 SaaS HR/document workflows and atomic POS cart builder.
+"""Deterministic 16.1.95 -> 16.2.8 SaaS HR/document workflows and atomic POS cart builder.
 Build only. It never connects to WordPress or mutates ERP/employee data.
 """
 from __future__ import annotations
@@ -8,7 +8,7 @@ from pathlib import Path, PurePosixPath
 
 ROOT = "stockland-erp-app/"
 BASE_SHA256 = "494e777247508d009dfdb216c9607bb1bc96717197e94a0e8ad3459b7cc81625"
-RELEASE = "16.2.7"
+RELEASE = "16.2.8"
 
 def sha256(b: bytes) -> str:
     return hashlib.sha256(b).hexdigest()
@@ -362,6 +362,9 @@ def patch_health(files):
             m["finance_calculation_policy"] = "SERVER_DECIMAL_MINOR_UNITS; CLIENT_TOTALS_ARE_PREVIEW_ONLY"
             m["uom_precision_policy"] = "WHOLE_UNITS_REQUIRED_FOR_PCS_EA_PIECE_UNIT_UOM_IN_POS_AND_CART; OTHER_UOMS_ALLOW_TWO_DECIMALS"
             m["hr_document_control"] = "PRIVATE_VAULT; VERSIONED_DRAFTS; INDEPENDENT_APPROVAL; APPROVED_VERSION_SUPERSEDED_ATOMICALLY"
+            m["hr_document_download_contract"] = "SAME_ORIGIN; WP_REST_NONCE; BLOB_DOWNLOAD; ROLE_AND_APPROVAL_GATED"
+            m["hr_policy_resource_types"] = ["JOB_DESCRIPTION", "EMPLOYMENT_CONTRACT", "EMPLOYMENT_TERMS_DRAFT", "EMPLOYMENT_POLICY", "POLICY", "SOP", "FORM", "CODE_OF_CONDUCT"]
+            m["pos_cart_input_contract"] = "CHECK_FORM_VALIDITY; NORMALIZE_LIVE_EDITED_QUANTITY_AND_PRICE; REJECT_INVALID_UOM; FREEZE_EXACT_PENDING_PAYLOAD"
             m["hr_icon_css_contract"] = "HRPAGE_SCOPED_WRAPPER_44PX_38PX; SVG_FIXED_22PX_20PX; CHILD_STROKE_1_7PX_1_6PX; FORCE_NO_FILL_CURRENT_COLOR"
             m["classification"] = "Cumulative 16.1.95 source/package plus additive HRIS lifecycle and source-level POS/stock safety hardening. No production or employee data changed by build."
             m["release_changes"] = list(m.get("release_changes", [])) + [
@@ -373,8 +376,10 @@ def patch_health(files):
                 "Inventory availability reads fail closed when physical-ledger or active-reservation queries fail; unknown reservations are never treated as zero reservations.",
                 "Retail POS now posts 1–50 distinct SKU lines in one server-side transaction with cart-wide stable ID, per-line master/override price, server VAT/money math, stock-ledger/GL/audit posting and all-lines rollback.",
                 "POS and atomic-cart server paths reject fractional quantities for piece/unit UOMs; a full cross-module quantity contract for PO/receiving/count/import paths remains an acceptance item.",
-                "HR resource library exposes manager-visible drafts, signed employment-contract upload type, authenticated downloads and immutable new-version drafts with independent approval and atomic supersession.",
-                "HR/payroll module SVG icons now have isolated fixed desktop/mobile geometry, explicit no-fill/current-color stroke, and selector specificity to resist host theme overrides.",
+                "HR resource library exposes job descriptions, employment contracts, employment/company policies, SOPs and forms with private authenticated downloads, versioned drafts, independent approval and atomic supersession.",
+                "Private HR document downloads send the WordPress REST nonce and verify the response before saving a local file.",
+                "POS cart checkout revalidates the live edited quantity and price controls immediately before freezing the exact idempotent transaction payload.",
+                "HR/payroll module SVG icons use theme-independent scoped selectors and explicit child-path stroke/fill rules that survive CSS compilation and minification.",
                 "Social platform cards use scoped inline SVGs instead of font/text glyphs with fixed geometry.",
                 "No live WordPress activation, production deployment or employee data mutation was performed by the builder."
             ]
