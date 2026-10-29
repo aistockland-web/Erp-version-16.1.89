@@ -116,7 +116,7 @@
 
 /* Retail POS cart — compact SaaS workspace, responsive line editing and total preview. */
 #stockland-app .sl-pos-cart-panel{min-width:0;overflow:hidden}
-#stockland-app .sl-pos-cart-form{display:flex;flex-direction:column;gap:16px}
+#stockland-app #posCartForm,#stockland-app .sl-pos-cart-form{display:flex;flex-direction:column;gap:16px}
 #stockland-app .sl-pos-cart-meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;padding:18px;border:1px solid #e1e8f1;border-radius:14px;background:linear-gradient(120deg,#fbfcff,#fff)}
 #stockland-app .sl-pos-cart-meta .full{grid-column:1/-1;min-width:0}
 #stockland-app .sl-pos-cart-add-row{display:flex;align-items:center;flex-wrap:wrap;gap:12px}
