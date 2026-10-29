@@ -375,6 +375,7 @@ def patch_health(files):
                 "POS and atomic-cart server paths reject fractional quantities for piece/unit UOMs; a full cross-module quantity contract for PO/receiving/count/import paths remains an acceptance item.",
                 "HR resource library exposes manager-visible drafts, signed employment-contract upload type, authenticated downloads and immutable new-version drafts with independent approval and atomic supersession.",
                 "HR/payroll module SVG icons now have isolated fixed desktop/mobile geometry, explicit no-fill/current-color stroke, and selector specificity to resist host theme overrides.",
+                "Social platform cards use scoped inline SVGs instead of font/text glyphs with fixed geometry.",
                 "No live WordPress activation, production deployment or employee data mutation was performed by the builder."
             ]
             m.setdefault("payroll_integrity", {})
