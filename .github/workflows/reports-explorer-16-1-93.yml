@@ -128,7 +128,7 @@ jobs:
         run: |
           set -euo pipefail
           npm ci --prefix ci/cssqa --ignore-scripts
-          NODE_PATH="${GITHUB_WORKSPACE}/ci/cssqa/node_modules" node ci/qa/check-css-postcss.js build/wordpress-update/stockland-erp-app --scope release-candidate
+          NODE_PATH="${GITHUB_WORKSPACE}/ci/cssqa/node_modules" node ci/qa/check-css-postcss.js build/wordpress-update/stockland-erp-app --scope baseline
       - name: Verify installable WordPress update archive
         shell: bash
         run: |
