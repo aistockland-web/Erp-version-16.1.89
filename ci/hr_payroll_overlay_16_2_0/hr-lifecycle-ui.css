@@ -40,12 +40,12 @@
 #hrPage .sl-hrlc-social-card{display:flex;align-items:center;gap:13px;min-width:0;padding:15px;border:1px solid var(--sl-border,#d9e1e8);border-radius:14px;background:#fff;color:var(--sl-ink,#233147);text-decoration:none;transition:border-color .16s ease,box-shadow .16s ease,transform .16s ease}
 #hrPage .sl-hrlc-social-card:hover{border-color:rgba(47,95,233,.45);box-shadow:0 7px 22px rgba(30,64,175,.09);transform:translateY(-1px);text-decoration:none}
 #hrPage .sl-hrlc-social-card:focus-visible{outline:3px solid var(--sl-primary,#2f5fe9);outline-offset:2px}
-#hrPage .sl-hrlc-social-icon{display:flex;align-items:center;justify-content:center;flex:0 0 46px;width:46px;height:46px;border-radius:14px;color:#fff;font-size:27px;font-weight:800;line-height:1}
-#hrPage .sl-hrlc-social-icon.facebook{background:#1877f2;font-family:Arial,sans-serif}
-#hrPage .sl-hrlc-social-icon.instagram{background:linear-gradient(135deg,#7444c8,#d94885 58%,#f7a33b);font-size:32px}
-#hrPage .sl-hrlc-social-icon.tiktok{background:#151515;text-shadow:2px 1px #25f4ee,-2px -1px #fe2c55;font-size:29px}
-#hrPage .sl-hrlc-social-icon.youtube{background:#ff0033;font-size:20px}
-#hrPage .sl-hrlc-social-copy{display:flex;flex:1;flex-direction:column;gap:5px;min-width:0}
+#hrPage .sl-hrlc-social-icon{display:flex;align-items:center;justify-content:center;flex:0 0 46px;width:46px;height:46px;min-width:46px;min-height:46px;max-width:46px;max-height:46px;box-sizing:border-box;border-radius:14px;color:#fff;overflow:hidden}
+#hrPage .sl-hrlc-social-icon.facebook{background:#1877f2}
+#hrPage .sl-hrlc-social-icon.instagram{background:linear-gradient(135deg,#7444c8,#d94885 58%,#f7a33b)}
+#hrPage .sl-hrlc-social-icon.tiktok{background:#151515}
+#hrPage .sl-hrlc-social-icon.youtube{background:#ff0033}
+#hrPage .sl-hrlc-social-icon>svg.sl-hrlc-social-icon-art{display:block!important;box-sizing:border-box!important;width:24px!important;height:24px!important;min-width:24px!important;min-height:24px!important;max-width:24px!important;max-height:24px!important;flex:0 0 24px!important;margin:0!important;padding:0!important;transform:none!important;zoom:1!important;fill:none!important;stroke:currentColor!important;stroke-width:1.8px!important;stroke-linecap:round!important;stroke-linejoin:round!important;vector-effect:non-scaling-stroke!important;filter:none!important}\n#hrPage .sl-hrlc-social-icon>svg.sl-hrlc-social-icon-art *{fill:none!important;stroke:currentColor!important;stroke-width:1.8px!important;stroke-linecap:round!important;stroke-linejoin:round!important;vector-effect:non-scaling-stroke!important;filter:none!important}\n#hrPage .sl-hrlc-social-copy{display:flex;flex:1;flex-direction:column;gap:5px;min-width:0}
 #hrPage .sl-hrlc-social-copy strong{font-size:13px;line-height:1.4;font-weight:750;overflow-wrap:anywhere}
 #hrPage .sl-hrlc-social-copy small{font-size:12px;line-height:1.5;color:var(--sl-muted,#64748b);overflow-wrap:anywhere}
 #hrPage .sl-hrlc-social-open{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:3px;color:var(--sl-primary,#2f5fe9);font-size:12px;font-weight:700}
