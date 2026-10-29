@@ -113,3 +113,17 @@ The receipt's 86-table model (29 core/operations + 16 accounting/procurement + 4
 
 **Disposition:** the exact 16.2.8 candidate CI is green, but production is still **NO-GO**. Keep working on the feature branch and re-run exact-head CI after each implementation commit; do not merge or activate solely from static CI evidence.
 
+### Completed fresh exact-head rerun — commit 14b55f8d0ca45458f3e854ee641edfd931504bf1
+
+The fresh CI initiated by the handover commit completed successfully:
+
+- [16.2.8 candidate run #40968625943](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/40968625943): PASS, PHP 8.3 and PHP 8.4.
+- [Cumulative 16.1.95 baseline run #40968625953](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/40968625953): PASS, including browser regressions, CSS/PostCSS/source parity, ZIP verification, PHP/JS syntax, WPCS/security invariants, Semgrep and dependency/license review; baseline artifact publication completed.
+- [Enterprise security run #40968625965](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/40968625965): PASS, including secret scanning, CodeQL JavaScript/TypeScript, CodeQL Actions and dependency/license inventory.
+- [Local release gates #40968625981](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/40968625981): PASS.
+- [Review-only remediation gate #40968625982](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/40968625982): PASS. The optional non-deployable remediation build step is explicitly skipped by workflow policy and is not counted as a production test.
+
+Candidate artifact from the fresh run: ID `12939945079`; outer artifact ZIP SHA-256 `92e03f29ad8737ca8bac11fa9b1d8de61de55d78c0fc840495f815d8d8ac310d`. The installable inner ZIP remains SHA-256 `3068747abced50000f593a7d5c8e86a55a1acdff6af75f54036badd71fa0b1f8`; the current-head receipt matches. The fresh baseline artifact from the same head is ID `12939506592`.
+
+This is a fresh CI pass for the exact candidate branch head. It does not change the receipt's `production_ready=false` / `schema_contract_approved=false`, does not prove parity with the installed 16.2.6/site ZIP, and does not close any owner, legal, database backup/restore, live runtime, CAP-04 compensation, or schema approval gate.
+
