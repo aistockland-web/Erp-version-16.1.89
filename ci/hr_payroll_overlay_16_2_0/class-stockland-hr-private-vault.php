@@ -25,7 +25,11 @@ final class Stockland_HR_Private_Vault {
 		}
 		$real = realpath( $path );
 		$web  = realpath( ABSPATH );
-		$doc  = isset( $_SERVER['DOCUMENT_ROOT'] ) ? realpath( (string) $_SERVER['DOCUMENT_ROOT'] ) : false;
+		$document_root = '';
+		if ( isset( $_SERVER['DOCUMENT_ROOT'] ) ) {
+			$document_root = sanitize_text_field( wp_unslash( (string) $_SERVER['DOCUMENT_ROOT'] ) );
+		}
+		$doc = '' !== $document_root ? realpath( $document_root ) : false;
 		if ( false === $real || ( false !== $web && ( $real === $web || str_starts_with( $real . DIRECTORY_SEPARATOR, rtrim( $web, DIRECTORY_SEPARATOR ) . DIRECTORY_SEPARATOR ) ) ) || ( false !== $doc && ( $real === $doc || str_starts_with( $real . DIRECTORY_SEPARATOR, rtrim( $doc, DIRECTORY_SEPARATOR ) . DIRECTORY_SEPARATOR ) ) ) ) {
 			return self::error( 'hr_private_vault_public_path', 'The configured HR vault is within the public web root. Private documents are disabled until the vault is moved outside it.', 503 );
 		}
