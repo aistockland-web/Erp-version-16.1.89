@@ -1234,10 +1234,17 @@ public function approve_payee_request( $request ) {
 		array_unshift($args,Stockland_HR_Replacement::table('hrx_document_refs'));
 		$rows=Stockland_DB::read_results($wpdb->prepare($sql,$args),ARRAY_A);
 		if($wpdb->last_error)return $this->error('hrx_document_list_failed','Could not list private document metadata.',500);
-		foreach((array)$rows as &$row){
-			$row['download_url']=('APPROVED'===$row['approval_status']&&$this->document_accessible($row))?wp_nonce_url(add_query_arg(array('action'=>'stockland_hrx_document_download','document_id'=>(int)$row['id']),admin_url('admin-post.php')),'stockland_hrx_document_download_'.(int)$row['id'],'_wpnonce'):'';
+		$visible = array();
+		foreach ( (array) $rows as $row ) {
+			// Do not disclose even metadata for a document whose underlying HR/payroll record
+			// cannot be viewed by this user's role/location scope.
+			if ( ! $this->document_accessible( $row ) ) { continue; }
+			$row['download_url'] = ( 'APPROVED' === $row['approval_status'] )
+				? wp_nonce_url( add_query_arg( array( 'action' => 'stockland_hrx_document_download', 'document_id' => (int) $row['id'] ), admin_url( 'admin-post.php' ) ), 'stockland_hrx_document_download_' . (int) $row['id'], '_wpnonce' )
+				: '';
+			$visible[] = $row;
 		}
-		return rest_ensure_response(array('documents'=>$rows,'storage'=>'private-database-vault','limit'=>100));
+		return rest_ensure_response( array( 'documents' => $visible, 'storage' => 'private-database-vault', 'limit' => 100 ) );
 	}
 
 	public function upload_document( $request ) {
