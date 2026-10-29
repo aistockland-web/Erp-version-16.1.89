@@ -867,7 +867,7 @@ def build(input_zip: Path, output_zip: Path):
     side.write_text(f"{digest}  {output_zip.name}\n",encoding="ascii")
     receipt={
         "release":RELEASE,"baseline_release":"16.1.95","baseline_sha256":BASE_SHA256,
-        "installer":output_zip.name,"installer_sha256":digest,"runtime_file_count":86,
+        "installer":output_zip.name,"installer_sha256":digest,"runtime_file_count":len(out_names),
         "frontend":{
             "bootstrap_version":"5.3.8",
             "bootstrap_sha256":sha256(files[ROOT+"assets/bootstrap.min.css"]),
