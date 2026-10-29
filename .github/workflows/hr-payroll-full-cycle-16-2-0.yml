@@ -55,7 +55,7 @@ jobs:
         with:
           php-version: ${{ matrix.php-version }}
           coverage: none
-          tools: none
+          tools: composer
       - name: Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -115,6 +115,39 @@ jobs:
         run: php ci/qa/test_audit_chain_synthetic.php "$STOCKLAND_APP"
       - name: Test pure payroll calculator with synthetic-only fixtures
         run: php ci/hr_payroll_overlay_16_2_0/test-calculator-overlay.php
+      - name: Install locked PHPCS/WPCS dependencies
+        env:
+          COMPOSER_ALLOW_SUPERUSER: "1"
+        run: |
+          set -euo pipefail
+          composer validate --working-dir=ci/phpcs --strict
+          composer install --working-dir=ci/phpcs --no-interaction --prefer-dist --no-progress
+          composer audit --working-dir=ci/phpcs --locked --format=table
+      - name: Run PHPCS/WPCS source-aware gate on exact 16.2.9 installer
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/stockland-16.2.9/extracted/stockland-erp-app"
+          REPORT="$RUNNER_TEMP/stockland-16.2.9/phpcs-results-${{ matrix.php-version }}.json"
+          set +e
+          ci/phpcs/vendor/bin/phpcs --standard=ci/qa/stockland-phpcs.xml --extensions=php --report=json --report-file="$REPORT" "$APP"
+          code=$?
+          set -e
+          test -s "$REPORT"
+          echo "PHPCS exit code: $code (source-aware security gate determines release-blocking findings)"
+          python ci/qa/test-phpcs-security-review.py "$APP" "$REPORT"
+      - name: Install pinned Semgrep CLI for exact candidate source
+        run: python -m pip install --disable-pip-version-check 'pydantic==2.12.5' 'semgrep==1.139.0'
+      - name: Run Semgrep PHP/security-audit rules on exact 16.2.9 installer
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/stockland-16.2.9/extracted/stockland-erp-app"
+          REPORT="$RUNNER_TEMP/stockland-16.2.9/semgrep-results-${{ matrix.php-version }}.json"
+          semgrep scan --metrics=off --config p/php --config p/security-audit --include '*.php' --json --output "$REPORT" "$APP"
+          PHP_COUNT="$(find "$APP" -type f -name '*.php' | wc -l | tr -d ' ')"
+          test "$PHP_COUNT" -gt 0
+          python ci/qa/summarize-semgrep.py "$REPORT" --expected-targets "$PHP_COUNT"
       - name: Verify candidate receipt, no-production-write and fail-closed manifest
         shell: bash
         run: |
@@ -150,5 +183,7 @@ jobs:
             ${{ runner.temp }}/stockland-16.2.9/STOCKLAND_ERP_16.2.9_HR_PAYROLL_CANDIDATE.zip
             ${{ runner.temp }}/stockland-16.2.9/STOCKLAND_ERP_16.2.9_HR_PAYROLL_CANDIDATE.sha256
             ${{ runner.temp }}/stockland-16.2.9/STOCKLAND_ERP_16.2.9_HR_PAYROLL_CANDIDATE.receipt.json
+            ${{ runner.temp }}/stockland-16.2.9/phpcs-results-8.3.json
+            ${{ runner.temp }}/stockland-16.2.9/semgrep-results-8.3.json
           if-no-files-found: error
           retention-days: 30
