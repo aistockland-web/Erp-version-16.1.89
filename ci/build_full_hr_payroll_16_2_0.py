@@ -513,7 +513,7 @@ def patch_app_js(files):
     wrapper = """function hr(){if(!state.hrLifecycleLoaded){return title('HR & People Operations','Loading the full employee lifecycle, legal rule registry and payroll workflow…','')+'<div id=\"hrPage\"><div class=\"sl-panel\"><div class=\"sl-skeleton\"><div class=\"sl-skeleton-line w85\"></div><div class=\"sl-skeleton-line w60\"></div><div class=\"sl-skeleton-line w40\"></div></div></div></div>';}return hrlcLifecycleLists(state.hrLifecycle||{})+hrlcPayrollCyclePanel(state.hrLifecycle||{});}\n"""
     app = app[:start] + wrapper + overlay.strip() + "\n" + app[end:]
     old_bind = "if($('#usersTable')){loadUsers();loadAvailableWPUsers();}if($('#locationsRegistry'))loadLocationsRegistry();if($('#hrPage'))loadHR();if($('#refreshHR'))$('#refreshHR').onclick=loadHR;"
-    new_bind = "if($('#usersTable')){loadUsers();loadAvailableWPUsers();}if($('#locationsRegistry'))loadLocationsRegistry();if($('#hrPage')&&!state.hrLifecycleLoaded&&!state.hrLifecycleLoading)loadHRLifecycle();bindHRLifecycleForms();bindHRPayrollCycleForms();"
+    new_bind = "if($('#usersTable')){loadUsers();loadAvailableWPUsers();}if($('#locationsRegistry'))loadLocationsRegistry();if($('#hrPage')&&!state.hrLifecycleLoaded&&!state.hrLifecycleLoading)loadHRLifecycle();if($('#refreshHR'))$('#refreshHR').onclick=()=>{if(!state.hrLifecycleLoading)loadHRLifecycle();};bindHRLifecycleForms();bindHRPayrollCycleForms();"
     app = once(app, old_bind, new_bind, "replace legacy HR dashboard event binding")
     app = app.replace("16.1.95", RELEASE)
     put(files, "assets/app.js", app)
