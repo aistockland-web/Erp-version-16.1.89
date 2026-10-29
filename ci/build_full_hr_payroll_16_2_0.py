@@ -45,6 +45,8 @@ def patch_main(files, schema, rest, calculator, vault, payroll_cycle):
     p = once(p, "require_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-money.php';",
         "require_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-money.php';\nrequire_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-hr-payroll-calculator.php';\nrequire_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-hr-private-vault.php';\nrequire_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-hr-lifecycle.php';",
         "HR lifecycle/calculator/vault includes")
+    p = once(p, "require_once STOCKLAND_PLUGIN_DIR . 'includes/rest/class-rest-sales.php';", "require_once STOCKLAND_PLUGIN_DIR . 'includes/rest/class-rest-sales.php';\nrequire_once STOCKLAND_PLUGIN_DIR . 'includes/rest/class-rest-pos-cart.php';", "atomic POS cart controller include")
+    p = once(p, "new Stockland_REST_Sales();", "new Stockland_REST_Sales();\n\t\tnew Stockland_REST_POS_Cart();", "register POS cart controller")
     p = once(p, "require_once STOCKLAND_PLUGIN_DIR . 'includes/rest/class-rest-hr.php';",
         "require_once STOCKLAND_PLUGIN_DIR . 'includes/rest/class-rest-hr.php';\nrequire_once STOCKLAND_PLUGIN_DIR . 'includes/rest/class-rest-hr-lifecycle.php';\nrequire_once STOCKLAND_PLUGIN_DIR . 'includes/rest/class-rest-hr-payroll-cycle.php';",
         "HR lifecycle REST include")
@@ -568,6 +570,13 @@ def patch_pos_qty_safety(files):
 \t\t\t}
 \t\t\tif ( $available < $quantity ) {"""
     sales = once(sales, old, new, "POS fails closed on stock/reservation query error")
+    uom_anchor = """\t\t\t$master_price  = Stockland_Money::decimal( Stockland_Money::minor( $product['retail_price'] ) );"""
+    uom_guard = """\t\t\t$unit_code = strtoupper( trim( (string) ( $product['unit'] ?? 'PCS' ) ) );
+\t\t\tif ( in_array( $unit_code, array( '', 'PCS', 'PC', 'PIECE', 'PIECES', 'EA', 'EACH', 'UNIT', 'UNITS' ), true ) && abs( $quantity - round( $quantity ) ) > 0.000001 ) {
+\t\t\t\tthrow new Exception( 'This Product Master UOM counts whole pieces/units. Fractional quantity is not allowed for ' . $sku . '.' );
+\t\t\t}
+""" + uom_anchor
+    sales = once(sales, uom_anchor, uom_guard, "reject fractional POS quantities for discrete UOM")
     put(files, "includes/rest/class-rest-sales.php", sales)
 
     db = text(files, "includes/class-stockland-db.php")
@@ -729,6 +738,7 @@ def build(input_zip: Path, output_zip: Path):
     rebuild_css(files)
     patch_app_js(files)
     patch_pos_qty_safety(files)
+    patch_pos_cart_ui(files)
     patch_misc_versions(files)
     # Add the ordered CSS modules created by rebuild_css plus five new HR runtime PHP files.
     # CI source/build scripts are never shipped inside the WordPress installer.
@@ -745,12 +755,13 @@ def build(input_zip: Path, output_zip: Path):
         ROOT+"includes/class-stockland-hr-payroll-calculator.php",
         ROOT+"includes/class-stockland-hr-private-vault.php",
         ROOT+"includes/rest/class-rest-hr-payroll-cycle.php",
+        ROOT+"includes/rest/class-rest-pos-cart.php",
     )
     for addition in additions:
         if addition not in out_names:
             out_names.append(addition)
-    if len(out_names) != 86 or len(set(out_names)) != 86:
-        raise ValueError(f"Final runtime package inventory mismatch: {len(out_names)} files; expected 86.")
+    if len(out_names) != 87 or len(set(out_names)) != 87:
+        raise ValueError(f"Final runtime package inventory mismatch: {len(out_names)} files; expected 87.")
     if out_names.count(ROOT+"includes/class-stockland-hr-lifecycle.php") != 1 or out_names.count(ROOT+"includes/rest/class-rest-hr-lifecycle.php") != 1:
         raise ValueError("New HR runtime controllers must be included exactly once.")
     manifest = json.loads(files[ROOT+"RELEASE_MANIFEST.json"].decode("utf-8"))
