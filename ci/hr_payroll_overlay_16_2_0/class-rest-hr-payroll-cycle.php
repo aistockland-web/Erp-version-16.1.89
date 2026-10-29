@@ -557,7 +557,7 @@ final class Stockland_REST_HR_Payroll_Cycle extends Stockland_REST_Base {
 		$role = strtoupper( sanitize_key( (string) ( $p['role_code'] ?? 'ALL' ) ) );
 		$lang = strtolower( sanitize_text_field( (string) ( $p['language_code'] ?? 'en-am' ) ) );
 		$version = sanitize_text_field( (string) ( $p['version_label'] ?? '1.0' ) );
-		$types = array( 'JOB_DESCRIPTION','EMPLOYMENT_CONTRACT','EMPLOYMENT_TERMS_DRAFT','CODE_OF_CONDUCT','SOP','FORM','TAX_RECEIPT','PENSION_RECEIPT','STATUTORY_RECEIPT','AGREEMENT','IDENTITY_EVIDENCE','OTHER','EXPENSE_RECEIPT','IN_KIND_SETTLEMENT_EVIDENCE' );
+		$types = array( 'JOB_DESCRIPTION','EMPLOYMENT_CONTRACT','EMPLOYMENT_POLICY','POLICY','EMPLOYMENT_TERMS_DRAFT','CODE_OF_CONDUCT','SOP','FORM','TAX_RECEIPT','PENSION_RECEIPT','STATUTORY_RECEIPT','AGREEMENT','IDENTITY_EVIDENCE','OTHER','EXPENSE_RECEIPT','IN_KIND_SETTLEMENT_EVIDENCE' );
 		if ( '' === $title || strlen( $title ) > 190 || ! in_array( $type, $types, true ) || ! preg_match( '/^[A-Z0-9_-]{1,60}$/D', $role ) || ! in_array( $lang, array( 'en-am','en','am' ), true ) || '' === $version || strlen( $version ) > 40 ) {
 			return $this->bad( 'hr_resource_metadata_invalid', 'Valid title, resource type, role, language and version are required before upload.', 400 );
 		}
@@ -596,7 +596,7 @@ final class Stockland_REST_HR_Payroll_Cycle extends Stockland_REST_Base {
 		$role = strtoupper( sanitize_key( (string) ( $p['role_code'] ?? $parent['role_code'] ) ) );
 		$lang = strtolower( sanitize_text_field( (string) ( $p['language_code'] ?? $parent['language_code'] ) ) );
 		$version = sanitize_text_field( (string) ( $p['version_label'] ?? '' ) );
-		$types = array( 'JOB_DESCRIPTION','EMPLOYMENT_CONTRACT','EMPLOYMENT_TERMS_DRAFT','CODE_OF_CONDUCT','SOP','FORM','TAX_RECEIPT','PENSION_RECEIPT','STATUTORY_RECEIPT','AGREEMENT','IDENTITY_EVIDENCE','OTHER','EXPENSE_RECEIPT','IN_KIND_SETTLEMENT_EVIDENCE' );
+		$types = array( 'JOB_DESCRIPTION','EMPLOYMENT_CONTRACT','EMPLOYMENT_POLICY','POLICY','EMPLOYMENT_TERMS_DRAFT','CODE_OF_CONDUCT','SOP','FORM','TAX_RECEIPT','PENSION_RECEIPT','STATUTORY_RECEIPT','AGREEMENT','IDENTITY_EVIDENCE','OTHER','EXPENSE_RECEIPT','IN_KIND_SETTLEMENT_EVIDENCE' );
 		if ( '' === $title || ! in_array( $type, $types, true ) || $type !== $parent['resource_type'] || $role !== $parent['role_code'] || $lang !== $parent['language_code'] || '' === $version || strlen( $version ) > 40 || $version === $parent['version_label'] ) {
 			return $this->bad( 'hr_resource_revision_metadata_invalid', 'A new version must retain the approved document type, role and language, and use a different version label.', 400 );
 		}
