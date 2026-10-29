@@ -123,6 +123,8 @@ def main():
         require("MANUAL EXPORT" in app and "recovery tokens" in app, "social reporting and credential safety are described in the UI")
         require("sl-hrlc-section-summary" in app and "sl-hrlc-section-body" in app and "function hrlcSectionIcon" in app,
                 "HR lifecycle and payroll modules use accessible native dropdown sections with clear icons")
+        require("if($('#refreshHR'))$('#refreshHR').onclick" in app,
+                "Refresh HR & Payroll button remains wired after the dashboard refactor")
         require("sl-hrlc-social-card" in app and "sl-hrlc-social-icon" in app and "Product reels, outfit stories and engagement insights" in app and "MANUAL EXPORT" in app,
                 "social platform cards show icons, practical content descriptions and manual-export disclosure")
         require("sl-hrlc-section-summary" in css and "sl-hrlc-section-toggle" in css and "sl-hrlc-social-grid" in css and "sl-hrlc-social-card" in css,
