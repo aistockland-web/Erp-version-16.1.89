@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Source/package acceptance for the isolated 16.2.7 full HR/payroll-cycle candidate.
+"""Source/package acceptance for the isolated 16.2.8 full HR/payroll-cycle candidate.
 
 Static ZIP tests are not a substitute for a live WordPress + MariaDB staging run
 or qualified Ethiopian tax/pension sign-off.
@@ -63,8 +63,8 @@ def main():
         vault = files["includes/class-stockland-hr-private-vault.php"].decode()
         css = files["assets/app.css"].decode()
         app_min_css = files["assets/app.min.css"].decode()
-        require("Version:           16.2.7" in main and "define( 'STOCKLAND_VERSION', '16.2.7' );" in main, "plugin version/header matches 16.2.7")
-        require(manifest.get("release") == "16.2.7" and modules.get("release") == "16.2.7", "release manifest and CSS module metadata agree")
+        require("Version:           16.2.8" in main and "define( 'STOCKLAND_VERSION', '16.2.8' );" in main, "plugin version/header matches 16.2.8")
+        require(manifest.get("release") == "16.2.8" and modules.get("release") == "16.2.8", "release manifest and CSS module metadata agree")
         required_css_tail = [
             "07-dashboard-operations.css",
             "08-reporting-worksheet.css",
@@ -182,6 +182,10 @@ def main():
         require("STOCKLAND_PRIVATE_VAULT_DIR" in manifest.get("release_gate_note","") or "private vault configuration" in manifest.get("release_gate_note",""), "manifest records private vault configuration as a release gate")
         require(manifest.get("hr_document_control") == "PRIVATE_VAULT; VERSIONED_DRAFTS; INDEPENDENT_APPROVAL; APPROVED_VERSION_SUPERSEDED_ATOMICALLY",
                 "manifest records safe immutable HR document version/approval contract")
+        require(manifest.get("hr_document_download_contract") == "SAME_ORIGIN; WP_REST_NONCE; BLOB_DOWNLOAD; ROLE_AND_APPROVAL_GATED",
+                "manifest records nonce-authenticated private HR resource downloads")
+        require(manifest.get("pos_cart_input_contract") == "CHECK_FORM_VALIDITY; NORMALIZE_LIVE_EDITED_QUANTITY_AND_PRICE; REJECT_INVALID_UOM; FREEZE_EXACT_PENDING_PAYLOAD",
+                "manifest records live-field cart validation before safe idempotent submit")
         require("'EMPLOYMENT_CONTRACT'" in cycle and "function revise_resource(" in cycle and "supersedes_resource_id" in cycle,
                 "HR private document API supports employment contracts and immutable version drafts")
         require("status IN ('DRAFT','APPROVED','SUPERSEDED')" in cycle and "RESOURCE_SUPERSEDED" in cycle,
@@ -190,6 +194,12 @@ def main():
                 "HR document library renders a controlled edit/save-new-version form")
         require("EMPLOYMENT_CONTRACT" in app and "data-hrcycle-action=\"approve-resource\"" in app and "/hr/resources/'+id+'/revise" in app,
                 "job descriptions and approved employment contracts are uploadable, approval-gated and revision-capable")
+        require("['EMPLOYMENT_POLICY','Employment policy'],['POLICY','Company policy']" in app and "'EMPLOYMENT_POLICY','POLICY'" in cycle,
+                "employment and company policy documents are supported by UI and private document API")
+        require("async function downloadHRResourceFile(id)" in app and "'X-WP-Nonce':A.nonce" in app and "credentials:'same-origin'" in app and "URL.createObjectURL(blob)" in app,
+                "private HR document download uses nonce-authenticated same-origin fetch and a verified file blob")
+        require("The server returned JSON instead of the private document" in app and "Content-Disposition" in app,
+                "document download rejects JSON/error responses and uses the server filename")
         require("form.elements[k].readOnly=true" in app,
                 "document type, role and language stay locked during version revision")
         require(".sl-hrlc-resource-dialog" in css and ".sl-hrlc-resource-grid" in css and "@media(max-width:620px){.sl-hrlc-resource-dialog" in css,
@@ -212,6 +222,10 @@ def main():
                 "cart retries retain the exact ID/payload across page reload within the same browser tab session")
         require("data-cart-qty" in app and "data-cart-price" in app and "posCartGross" in app and "posCartVat" in app and "posCartNet" in app,
                 "cart provides line quantity/price editing and live gross/VAT/net preview totals")
+        require("function normalizePosCartLineInput(quantityRaw,priceRaw,unit)" in app and "if(!f.reportValidity())" in app and "normalizePosCartLineInput(qty?qty.value:'',price?price.value:'',line.unit)" in app,
+                "cart validates the live edited quantity and price fields before freezing checkout payload")
+        require("c.lines.length>=50" in app and "Fractional quantity is not allowed" in app,
+                "cart enforces the 50-line limit and discrete-unit quantity policy in the client before submit")
         require("Retail POS now posts 1–50 distinct SKU lines in one server-side transaction" in " ".join(manifest.get("release_changes",[])),
                 "release manifest records real atomic cart behavior")
         require(rest_app_php.count("SELECT variant_id,sku,product_name,product_type,parent_sku,style_code,brand,color,size,unit,retail_price,barcode,gtin FROM %i") == 2,
