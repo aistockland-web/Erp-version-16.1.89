@@ -1295,6 +1295,8 @@ public function approve_payee_request( $request ) {
 		if(!is_array($document)||!is_user_logged_in())return false;
 		$type=strtoupper((string)$document['entity_type']);$id=(int)$document['entity_id'];
 		if('HR_RESOURCE'===$type)return $this->view_hr();
+		// Personnel and payroll document relations are not exposed to branch-only scope yet.
+		if(!Stockland_Authority::company_scope())return false;
 		$target=$this->document_target($type,$id);if(is_wp_error($target))return false;
 		if(in_array($type,array('PAYROLL_RUN','PAYROLL_LINE','PAYEE_REQUEST','REMITTANCE'),true)&&!$this->view_payroll())return false;
 		$employment_id=0;
