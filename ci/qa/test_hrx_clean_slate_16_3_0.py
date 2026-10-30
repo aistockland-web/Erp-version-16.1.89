@@ -124,6 +124,8 @@ def main():
     require("private-document" in read_member(zipfile.ZipFile(a.package),PLUGIN+"README.md").lower() or "private document" in controller.lower(),"private-document control documentation missing")
     require("stockland_hrx_schema_version" in model and "install_schema_batch" in model,"bounded, versioned, explicit schema setup missing")
     require("function reset_legacy_tables" in controller,"legacy cleanup must be a separate explicit action")
+    require("normalize_sql_type" in model and "column_type_mismatch" in model,"HRX readiness does not validate SQL column types and numeric precision")
+    require("SHOW INDEX FROM %i" in model and "missing_indexes" in model and "index_mismatch" in model,"HRX readiness does not validate required indexes and uniqueness")
     # Security/data-integrity regressions from the latest Codex review:
     require("$this->apply_location_scope($entity,$row,0)" in controller,"single-record HR reads do not enforce location scope")
     require("$direct = array( 'org-units', 'requisitions', 'time-events', 'assignments' );" in controller,"branch lists must fail closed for entities without a direct location column")
