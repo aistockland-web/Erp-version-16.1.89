@@ -100,7 +100,7 @@ final class Stockland_HR_Replacement {
 			$name = $match[1];
 			$key = substr( $name, strlen( $wpdb->prefix . 'stock_' ) );
 			$cols = array(); $types = array(); $indexes = array();
-			if ( preg_match_all( '/(?:^|,)\\s*([a-z][a-z0-9_]*)\\s+(BIGINT|VARCHAR|TEXT|LONGTEXT|MEDIUMBLOB|CHAR|DATE|DATETIME|DECIMAL|INT|TINYINT)(?:\\(([^)]*)\\))?(\\s+UNSIGNED)?\\b/i', $match[2], $column_matches, PREG_SET_ORDER ) ) {
+			if ( preg_match_all( '/(?:^|,)\\s*([a-z][a-z0-9_]*)\\s+(BIGINT|VARCHAR|TEXT|LONGTEXT|MEDIUMBLOB|CHAR|DATE|DATETIME|DECIMAL|INT|TINYINT)(?:\\(([^)]*)\\))?(\\s+UNSIGNED)?(?=\\s|,|$)/i', $match[2], $column_matches, PREG_SET_ORDER ) ) {
 				foreach ( $column_matches as $cm ) {
 					$column = strtolower( $cm[1] );
 					$size = isset( $cm[3] ) && '' !== $cm[3] ? '(' . preg_replace( '/\\s+/', '', $cm[3] ) . ')' : '';
