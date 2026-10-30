@@ -317,7 +317,7 @@ async function hrxClick(event){
   if(action.startsWith('transition:')){
    const parts=action.split(':'),entityName=parts[1],decision=parts[2];let extra={action:decision,idempotency_key:'ui-'+crypto.randomUUID(),reason:'Workflow decision entered through the authorized HRX workspace.'};
    if(['APPROVE','ACCEPT','SELECT','RETIRE'].includes(decision)){const note=prompt('Enter the documented independent approval / decision rationale (minimum 30 characters):');if(!note||note.trim().length<30)throw new Error('A decision rationale of at least 30 characters is required.');extra.reason=note;if(decision==='ACCEPT')extra.acceptance_evidence=note;if(entityName==='legal-rules'||entityName==='leave-policies')extra.review_attestation=note}
-   const r=await api16('/hr/replacement/entities/'+encodeURIComponent(entityName)+'/'+id+'/transition',{method:'POST',body:JSON.stringify(extra)});toast('HR workflow transition saved.');await hrxLoadCurrent();return;
+   await api16('/hr/replacement/entities/'+encodeURIComponent(entityName)+'/'+id+'/transition',{method:'POST',body:JSON.stringify(extra)});toast('HR workflow transition saved.');await hrxLoadCurrent();return;
   }
   if(action==='legal-review'){
    const reviewer=prompt('Name of qualified Ethiopian payroll/tax/legal reviewer:');if(!reviewer)throw new Error('Qualified reviewer is required.');
