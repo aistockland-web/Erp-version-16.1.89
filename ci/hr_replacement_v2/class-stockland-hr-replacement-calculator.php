@@ -71,7 +71,8 @@ final class Stockland_HR_Replacement_Calculator {
 		$tax_numerator = 0;
 		$seen_unbounded = false;
 		foreach ( $bands as $i => $band ) {
-			if ( ! isset( $band['lower_bound'], $band['rate'], $band['band_order'] ) ) { return self::fail( 'hrx_tax_band_invalid', 'A tax band is missing a required bound, order or rate.' ); }
+			if ( ! isset( $band['lower_bound'], $band['rate'], $band['band_order'], $band['calculation_method'] ) ) { return self::fail( 'hrx_tax_band_invalid', 'A tax band is missing a required bound, order, rate or calculation method.' ); }
+			if ( 'PROGRESSIVE_MARGINAL_RATE' !== strtoupper( (string) $band['calculation_method'] ) || Stockland_Money::minor( $band['constant_credit'] ?? '0.00' ) !== 0 ) { return self::fail( 'hrx_tax_band_method_unsupported', 'Only zero-credit PROGRESSIVE_MARGINAL_RATE bands are supported; other credits/methods require an approved calculator implementation.' ); }
 			$lower = Stockland_Money::minor( $band['lower_bound'] );
 			if ( $lower !== $expected_lower ) { return self::fail( 'hrx_tax_band_gap', 'Approved tax bands are not contiguous from zero; calculation is blocked.' ); }
 			try { $rate_units = self::rate_units( $band['rate'] ); } catch ( Throwable $e ) { return self::fail( 'hrx_tax_band_rate_invalid', 'An approved tax band has an invalid rate.' ); }
@@ -125,6 +126,8 @@ final class Stockland_HR_Replacement_Calculator {
 		$noncash_benefit_minor = 0;
 		$line_items = array( array( 'item_code'=>'BASE_SALARY','item_label'=>'Base salary','item_type'=>'EARNING','amount'=>$base,'cash_payable'=>1,'taxable_status'=>$params['taxable_status'],'pensionable_status'=>$params['pensionable_status'],'legal_rule_id'=>(int) ( $rules['base_salary_classification']['id'] ?? 0 ),'source_type'=>'COMPENSATION_ASSIGNMENT','source_id'=>(int) ( $input['compensation_assignment_id'] ?? 0 ),'calculation_trace'=>'Base salary copied from the approved effective assignment; no salary was inferred.' ) );
 		foreach ( (array) ( $input['items'] ?? array() ) as $item ) {
+			$frequency = strtoupper( sanitize_key( (string) ( $item['frequency'] ?? '' ) ) );
+			if ( 'MONTHLY' !== $frequency ) { return self::fail( 'hrx_component_frequency_unsupported', 'Only MONTHLY compensation components are supported by this calculator; ONE_TIME, HOURLY and DAILY items require a frequency-aware rule implementation.' ); }
 			$amount = Stockland_Money::decimal( Stockland_Money::minor( $item['amount'] ?? '0.00' ) );
 			$minor = Stockland_Money::minor( $amount );
 			if ( $minor < 0 ) { return self::fail( 'hrx_negative_component', 'Compensation item amounts must be non-negative; use a typed deduction/correction entry instead.' ); }
