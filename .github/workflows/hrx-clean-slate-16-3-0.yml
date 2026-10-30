@@ -93,7 +93,7 @@ jobs:
           set -euo pipefail
           OUT="$RUNNER_TEMP/STOCKLAND_ERP_16.3.0_HRX_CLEAN_SLATE_CANDIDATE.zip"
           python ci/build_hrx_clean_slate_16_3_0.py --input "$BASELINE" --output "$OUT" | tee "$RUNNER_TEMP/hrx-build-receipt.stdout.json"
-          sha256sum --check "$OUT.sha256"
+          (cd "$RUNNER_TEMP" && sha256sum --check "$(basename "$OUT").sha256")
           test -s "$OUT.receipt.json"
           echo "CANDIDATE_ZIP=$OUT" >> "$GITHUB_ENV"
           echo "CANDIDATE_RECEIPT=$OUT.receipt.json" >> "$GITHUB_ENV"
