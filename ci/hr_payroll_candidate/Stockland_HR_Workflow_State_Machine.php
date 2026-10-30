@@ -178,6 +178,9 @@ final class Stockland_HR_Workflow_State_Machine {
 		}
 		$approval_transition = in_array( $to, self::APPROVER_TARGETS, true );
 		if ( $approval_transition ) {
+			if ( $creator <= 0 ) {
+				throw new DomainException( 'Trusted record creator identity is required before an approval transition.' );
+			}
 			if ( empty( $context['can_approve'] ) ) {
 				throw new DomainException( 'Independent approval authority is required for this transition.' );
 			}
@@ -187,8 +190,8 @@ final class Stockland_HR_Workflow_State_Machine {
 			if ( $creator > 0 && $creator === $actor ) {
 				throw new DomainException( 'The record maker cannot approve the same high-impact record.' );
 			}
-		} elseif ( empty( $context['can_manage'] ) && empty( $context['can_approve'] ) ) {
-			throw new DomainException( 'Permission to manage this workflow is required.' );
+		} elseif ( empty( $context['can_manage'] ) ) {
+			throw new DomainException( 'Manage authority is required for non-approval workflow transitions; approval authority alone is insufficient.' );
 		}
 
 		self::validate_evidence( $entity, $from, $to, $context );
@@ -235,6 +238,24 @@ final class Stockland_HR_Workflow_State_Machine {
 				if ( empty( $context[ $required ] ) ) {
 					throw new DomainException( 'Payroll approval blocked: ' . str_replace( '_', ' ', $required ) . ' is required.' );
 				}
+			}
+		}
+		if ( 'payroll_run' === $entity && 'SETTLED' === $to ) {
+			$required_count = $context['required_payout_count'] ?? null;
+			$settled_count = $context['settled_payout_count'] ?? null;
+			$unresolved_count = $context['unresolved_payout_count'] ?? null;
+			$net_payable_minor = $context['net_payable_minor'] ?? null;
+			$settled_amount_minor = $context['settled_amount_minor'] ?? null;
+			$reconciliation_reference = trim( (string) ( $context['settlement_reconciliation_reference'] ?? '' ) );
+			$evidence_hash = strtolower( (string) ( $context['settlement_evidence_sha256'] ?? '' ) );
+			if ( ! is_int( $required_count ) || $required_count <= 0 || ! is_int( $settled_count ) || $settled_count !== $required_count || ! is_int( $unresolved_count ) || 0 !== $unresolved_count ) {
+				throw new DomainException( 'Payroll run settlement requires every expected payout to be individually settled with no failed, returned or unresolved payment.' );
+			}
+			if ( ! is_int( $net_payable_minor ) || ! is_int( $settled_amount_minor ) || $net_payable_minor < 0 || $settled_amount_minor !== $net_payable_minor ) {
+				throw new DomainException( 'Aggregate settled payout amount must exactly equal the approved net-payable amount in minor currency units.' );
+			}
+			if ( '' === $reconciliation_reference || ! preg_match( '/^[a-f0-9]{64}$/', $evidence_hash ) ) {
+				throw new DomainException( 'Payroll settlement requires a reconciliation reference and a SHA-256 evidence bundle.' );
 			}
 		}
 		if ( 'payout_instruction' === $entity && 'SETTLED' === $to ) {
