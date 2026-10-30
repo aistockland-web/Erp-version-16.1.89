@@ -97,13 +97,16 @@ jobs:
           set -euo pipefail
           OUT="$RUNNER_TEMP/STOCKLAND_ERP_16.1.98_CANONICAL_WORDPRESS_UPDATE.zip"
           python ci/build_release_16_1_98.py --input "$BASELINE" --output "$OUT" | tee "$RUNNER_TEMP/STOCKLAND_ERP_16.1.98_BUILD_RECEIPT.json"
-          sha256sum --check "$OUT.sha256"
+          (cd "$(dirname "$OUT")" && sha256sum --check "$(basename "$OUT").sha256")
           echo "CANDIDATE_ZIP=$OUT" >> "$GITHUB_ENV"
           echo "CANDIDATE_RECEIPT=$RUNNER_TEMP/STOCKLAND_ERP_16.1.98_BUILD_RECEIPT.json" >> "$GITHUB_ENV"
 
       - name: Exact changed-file, schema, version, workflow and functional contracts
         run: |
           python ci/qa/test_release_16_1_98.py --baseline "$BASELINE" --package "$CANDIDATE_ZIP" --receipt "$CANDIDATE_RECEIPT"
+
+      - name: Confirm legacy HR schema is additive-only and activator is unchanged
+        run: python ci/qa/test_hr_schema_additive.py --baseline "$BASELINE" --candidate "$CANDIDATE_ZIP"
 
       - name: Extract the exact built installer
         shell: bash
@@ -143,9 +146,9 @@ jobs:
       - name: Audit release receipt and artifact evidence
         run: |
           mkdir -p build/stockland-16.1.98
-          cp "$CANDIDATE_ZIP" "$CANDIDATE_ZIP.sha256" "$CANDIDATE_RECEIPT" build/stockland-16.1.98/
+          cp "$CANDIDATE_ZIP" "$CANDIDATE_ZIP.sha256" build/stockland-16.1.98/
+          cp "$CANDIDATE_RECEIPT" build/stockland-16.1.98/STOCKLAND_ERP_16.1.98_BUILD.receipt.json
           cp "$RUNNER_TEMP/php-lint.txt" build/stockland-16.1.98/
-          cp "$RUNNER_TEMP/STOCKLAND_ERP_16.1.98_BUILD_RECEIPT.json" build/stockland-16.1.98/
           python - <<'PY'
           import json, os, hashlib
           from pathlib import Path
@@ -154,9 +157,13 @@ jobs:
           receipt=json.loads(next(p.glob('*.receipt.json')).read_text())
           assert hashlib.sha256(zipfile.read_bytes()).hexdigest()==receipt['installer_sha256']
           assert receipt.get('release')=='16.1.98'
-          assert receipt.get('schema_changed') is False
-          assert receipt.get('live_business_data_changed') is False
-          print('PASS receipt matches exact final ZIP hash; no live data mutation by builder')
+          assert receipt.get('schema_changed') is True
+          assert receipt.get('schema_contract_approved') is False
+          assert receipt.get('production_ready') is False
+          assert receipt.get('production_database_touched') is False
+          assert receipt.get('wordpress_activated') is False
+          assert 'Owner-approved minimal additive schema/migration plan' in ' '.join(receipt.get('required_external_acceptance', []))
+          print('PASS receipt matches exact ZIP hash; schema change is explicit, unapproved and not production-ready')
           PY
 
       - name: Upload exact final installer and receipts
