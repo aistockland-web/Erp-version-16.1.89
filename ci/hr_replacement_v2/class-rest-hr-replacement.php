@@ -132,7 +132,7 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 			}
 			return $this->error( 'hrx_location_scope_unresolved', 'This record has no direct, verified location scope. A company-scope HR/payroll role is required until relation-aware scope is available.', 403 );
 		}
-		$direct = array( 'org-units', 'positions', 'workforce-plans', 'requisitions', 'time-events', 'assignments', 'social-snapshots' );
+		$direct = array( 'org-units', 'requisitions', 'time-events', 'assignments' );
 		if ( ! in_array( $entity, $direct, true ) || $location < 1 ) {
 			return $this->error( 'hrx_location_scope_required', 'Select an authorized location. This entity requires a verified relation-aware scope and is not exposed to branch-scoped listing yet.', 403 );
 		}
@@ -267,7 +267,7 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		$row=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d LIMIT 1',$table,(int)$id),ARRAY_A);
 		if($wpdb->last_error)return $this->error('hrx_read_failed','Could not read HR record.',500);
 		if(!$row)return $this->error('hrx_not_found','HR record not found.',404);
-		if(isset($row['location_id']) && (int)$row['location_id']>0 && !Stockland_Authority::can_access_location((int)$row['location_id']))return $this->error('hrx_location_forbidden','This HR record is outside your authorized location scope.',403);
+		$scope=$this->apply_location_scope($entity,$row,0);if(is_wp_error($scope))return $scope;
 		unset($row['private_storage_key']);
 		if(!$this->view_payroll()) foreach(array('base_salary','band_min','band_max','budget_amount','gross_total','taxable_total','paye_total','employee_pension_total','employer_pension_total','deduction_total','net_total','employer_cost_total','cash_amount','in_kind_value','gross_amount','withholding_amount','net_amount') as $sensitive){unset($row[$sensitive]);}
 		return $row;
@@ -907,8 +907,11 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		if(Stockland_Money::minor($req['in_kind_value'])<=0)return $this->error('hrx_in_kind_not_present','This payee request does not have a positive in-kind component.',409);
 		if(!in_array($req['status'],array('DRAFT','LEGAL_TAX_REVIEW','NEEDS_INFORMATION'),true))return $this->error('hrx_payee_locked','In-kind consideration cannot be changed after submission.',409);
 		$parts=explode(':',$ref,2);
-		$stock_ref=Stockland_DB::read_row($wpdb->prepare("SELECT COUNT(*) movements,COALESCE(SUM(quantity_signed),0) quantity_delta FROM %i WHERE reference_type=%s AND reference_id=%s AND quantity_signed<0",Stockland_DB::table('transactions'),$parts[0],$parts[1]),ARRAY_A);
-		if(!$stock_ref||(int)$stock_ref['movements']<1||Stockland_Money::minor($stock_ref['quantity_delta'])>=0)return $this->error('hrx_stock_issue_not_found','The reference does not resolve to posted negative stock movements in the authoritative Stockland transaction ledger.',409);
+		if ( ! in_array( strtoupper( $parts[0] ), array( 'PAYEE_REQUEST', 'HRX_PAYEE_REQUEST' ), true ) || (string) (int) $parts[1] !== (string) $id ) {
+			return $this->error( 'hrx_stock_issue_not_bound_to_request', 'The stock ledger reference must identify this exact payee request; unrelated stock issues are not accepted.', 409 );
+		}
+		$stock_ref=Stockland_DB::read_row($wpdb->prepare("SELECT COUNT(*) movements,COUNT(DISTINCT product_id) products,COALESCE(SUM(quantity_signed),0) quantity_delta FROM %i WHERE reference_type=%s AND reference_id=%s AND quantity_signed<0",Stockland_DB::table('transactions'),$parts[0],$parts[1]),ARRAY_A);
+		if(!$stock_ref||(int)$stock_ref['movements']<1||(int)$stock_ref['products']<1||Stockland_Money::minor($stock_ref['quantity_delta'])>=0)return $this->error('hrx_stock_issue_not_found','The request-bound reference does not resolve to posted negative Stockland stock movements.',409);
 		$valuation=Stockland_DB::read_row($wpdb->prepare("SELECT id FROM %i WHERE id=%d AND entity_type='PAYEE_REQUEST' AND entity_id=%d AND document_type='COMPENSATION_APPROVAL' AND approval_status='APPROVED'",Stockland_HR_Replacement::table('hrx_document_refs'),$doc_id,$id),ARRAY_A);
 		if(!$valuation)return $this->error('hrx_in_kind_valuation_missing','Attach an independently approved private valuation/approval record to this payee request.',409);
 		$ok=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_payee_requests'),array('in_kind_stock_reference'=>$ref,'in_kind_posting_verified'=>1,'updated_at'=>Stockland_HR_Replacement::now()),array('id'=>$id,'status'=>$req['status']));
@@ -930,7 +933,7 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		$rule=Stockland_DB::read_row($wpdb->prepare("SELECT * FROM %i WHERE id=%d AND review_status='APPROVED' AND effective_from<=%s AND (effective_to IS NULL OR effective_to>=%s)",Stockland_HR_Replacement::table('hrx_legal_rules'),(int)$class['rule_id'],$req['service_period_end']?:current_time('Y-m-d'),$req['service_period_start']?:current_time('Y-m-d')),ARRAY_A);
 		if(!$rule||'PAYEE_WITHHOLDING'!==strtoupper((string)$rule['rule_family'])||'RATE_ON_TOTAL_CONSIDERATION'!==strtoupper((string)$rule['formula_key']))return $this->error('hrx_payee_rule_invalid','A currently effective approved PAYEE_WITHHOLDING rule is required.',409);
 		$params=json_decode((string)$rule['formula_parameters'],true);if(!is_array($params)||!isset($params['rate'])||'HALF_AWAY_FROM_ZERO_CENT'!==($params['rounding_method']??''))return $this->error('hrx_payee_rule_parameters','Approved payee rule lacks a valid rate/rounding method.',409);
-		if(!empty($req['in_kind_value'])&&((int)$req['in_kind_posting_verified']!==1||empty($req['in_kind_stock_reference'])))return $this->error('hrx_in_kind_stock_evidence_missing','In-kind consideration requires verified Stockland stock-transaction source evidence before tax calculation.',409);
+		if(Stockland_Money::minor($req['in_kind_value'])>0&&((int)$req['in_kind_posting_verified']!==1||empty($req['in_kind_stock_reference'])))return $this->error('hrx_in_kind_stock_evidence_missing','In-kind consideration requires verified Stockland stock-transaction source evidence before tax calculation.',409);
 		$deliverables=Stockland_DB::read_row($wpdb->prepare("SELECT COUNT(*) total,SUM(CASE WHEN status='ACCEPTED' THEN 1 ELSE 0 END) accepted FROM %i WHERE payee_request_id=%d",Stockland_HR_Replacement::table('hrx_payee_deliverables'),$id),ARRAY_A);
 		if(!$deliverables||(int)$deliverables['total']<1||(int)$deliverables['accepted']!==(int)$deliverables['total'])return $this->error('hrx_payee_deliverables_missing','All contract deliverables must be accepted by authorized staff before payment approval.',409);
 		$cash=Stockland_Money::decimal(Stockland_Money::minor($req['cash_amount']));$inkind=Stockland_Money::decimal(Stockland_Money::minor($req['in_kind_value']));
