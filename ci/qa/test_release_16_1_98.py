@@ -203,6 +203,11 @@ def main():
     require("Content-Disposition: attachment" in handler and MIME in handler, "DOCX MIME/content-disposition missing")
     hr_schema = new[ROOT_IN_ZIP + "includes/class-stockland-hr.php"].decode()
     require("private static function migration_columns()" in hr_schema and "'approval_status'" in hr_schema and "VARCHAR(24) NOT NULL DEFAULT 'DRAFT'" in hr_schema, "lifecycle compensation approvals use the separate additive migration allowlist")
+    hr_rest = new[ROOT_IN_ZIP + "includes/rest/class-rest-hr-lifecycle.php"].decode()
+    require("array('PENDING','RECOMMENDED','APPROVED')" in hr_rest, "Owner-approved applications must be selectable by the lifecycle Create pending hire action")
+    require("taxablePart" in hr_rest and "exemptPart" in hr_rest and "Stockland_Money::add($taxablePart,$exemptPart)" in hr_rest, "capped allowance approval must reconcile the saved taxable and exempt portions, not classify the full amount as exempt")
+    require("format('Y-m-d 00:00:00')" in hr_rest and "Invalid consent date." in hr_rest, "date-only candidate consent must be validated and represented without inventing a time")
+    require("if($entity==='candidates'&&empty($row['consent_at']))" not in hr_rest, "candidate registration must not fabricate a consent timestamp when consent was not recorded")
     print("PASS 16.1.98 exact-package full HR/Payroll lifecycle and resource download source/package contracts.")
     print("PENDING: live target-host lifecycle/payment E2E, private vault tests, legal/tax/pension review, source parity with live 16.1.97, two-period parallel payroll, backup/restore/rollback and Owner/HR/Finance sign-off.")
 
