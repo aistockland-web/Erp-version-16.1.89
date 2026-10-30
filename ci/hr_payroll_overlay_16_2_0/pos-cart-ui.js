@@ -53,7 +53,7 @@ function updatePosCartPreview(){
 }
 function addPosCartLine(){
  const f=document.getElementById('posCartForm');if(!f)return;const c=ensurePosCartState();if(c.pendingPayload){toast('This cart is pending. Retry this same cart or verify Recent Posted Sales before clearing.',true);return;}
- const picker=f.querySelector('[data-sku-picker]'),hidden=picker?.querySelector('[data-sku-value]'),sku=String(hidden?.value||'').trim();let r=null;try{r=JSON.parse(picker?.dataset.selectedRecord||'null')}catch(_e){}
+ const picker=f.querySelector('[data-sku-picker]'),hidden=picker?.querySelector('[data-sku-value]'),sku=String(hidden?.value||'').trim();let r=null;try{r=JSON.parse(picker?.dataset.selectedRecord||'null');}catch(_e){}
  if(!sku||!r||String(r.sku||'')!==sku){toast('Choose an active Product Master result before adding a line.',true);return;}
  if(String(r.product_type||'SIMPLE').toUpperCase()==='STYLE'){toast('Choose a sellable size/color variant, not a style template.',true);return;}
  if(c.lines.length>=50){toast('A cart can contain at most 50 distinct SKU lines.',true);return;}
