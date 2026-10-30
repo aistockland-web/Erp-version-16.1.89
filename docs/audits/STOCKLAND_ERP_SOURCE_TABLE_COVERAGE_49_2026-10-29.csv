@@ -46,5 +46,5 @@ table_key,domain,baseline_ddl_path,baseline_ddl_line,mapped_sop_ids,baseline_sha
 "transfers","Core/Operations","includes/class-stockland-activator.php","361","006;007;017","494e777247508d009dfdb216c9607bb1bc96717197e94a0e8ad3459b7cc81625","UNKNOWN_NOT_LIVE_VERIFIED"
 "user_locations","Core/Operations","includes/class-stockland-activator.php","286","002;006;007","494e777247508d009dfdb216c9607bb1bc96717197e94a0e8ad3459b7cc81625","UNKNOWN_NOT_LIVE_VERIFIED"
 "users","Core/Operations","includes/class-stockland-activator.php","269","002;018","494e777247508d009dfdb216c9607bb1bc96717197e94a0e8ad3459b7cc81625","UNKNOWN_NOT_LIVE_VERIFIED"
-"wholesale_sales","Legacy HR/Payroll","includes/class-stockland-activator.php","497","012;015;017","494e777247508d009dfdb216c9607bb1bc96717197e94a0e8ad3459b7cc81625","UNKNOWN_NOT_LIVE_VERIFIED"
+"wholesale_sales","Core/Operations","includes/class-stockland-activator.php","497","012;015;017","494e777247508d009dfdb216c9607bb1bc96717197e94a0e8ad3459b7cc81625","UNKNOWN_NOT_LIVE_VERIFIED"
 "workflow_events","Core/Operations","includes/class-stockland-activator.php","610","001;002;005;006;007;008;009;010;011;018;019;020;021;022;023;024","494e777247508d009dfdb216c9607bb1bc96717197e94a0e8ad3459b7cc81625","UNKNOWN_NOT_LIVE_VERIFIED"
