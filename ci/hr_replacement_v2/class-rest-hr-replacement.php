@@ -360,12 +360,18 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		if(empty($data))return $this->error('hrx_payload_empty','No mutable fields supplied.',422);
 		unset($data['status'],$data['review_status'],$data['approval_status'],$data['stage'],$data['recommendation']);
 		if(!$data)return $this->error('hrx_transition_required','Workflow state changes require the transition endpoint.',422);
-		$data['updated_at']=Stockland_HR_Replacement::now();
+		// Apply metadata only when the installed table contract contains those columns.
+		$update_where=array('id'=>(int)$request['id']);
+		foreach($data as $field=>$value){if(array_key_exists($field,$current))$update_where[$field]=$current[$field];}
+		if(isset($current[$map['state']]))$update_where[$map['state']]=$current[$map['state']];
+		if(array_key_exists('version_no',$current)){$update_where['version_no']=(int)$current['version_no'];$data['version_no']=(int)$current['version_no']+1;}
+		if(array_key_exists('updated_at',$current)){$update_where['updated_at']=$current['updated_at'];$data['updated_at']=Stockland_HR_Replacement::now();}
 		if(false===$this->begin())return $this->error('hrx_tx_begin_failed','Could not start HR transaction.',500);
-		$ok=Stockland_DB::update_record($this->table($entity),$data,array('id'=>(int)$request['id']));
+		$ok=Stockland_DB::update_record($this->table($entity),$data,$update_where);
+		if(false===$ok||0===(int)$ok){$this->rollback();return $this->error('hrx_update_conflict','The record changed or no row was updated. Refresh it before retrying; no approval or audit event was written.',409);}
 		$event=Stockland_HR_Replacement::approval_event($entity,(int)$request['id'],'UPDATED',$current[$map['state']]??null,$current[$map['state']]??'DRAFT','Mutable draft fields updated',wp_generate_uuid4());
 		$audit=Stockland_HR_Replacement::audit('updated',$entity,(int)$request['id'],'HRX draft updated',isset($current['location_id'])?(int)$current['location_id']:null);
-		if(false===$ok||is_wp_error($event)||is_wp_error($audit)||false===$audit){$this->rollback();return $this->error('hrx_update_failed','Update/audit failed and was rolled back.',500);}
+		if(is_wp_error($event)||is_wp_error($audit)||false===$audit){$this->rollback();return $this->error('hrx_update_failed','Update/audit failed and was rolled back.',500);}
 		$this->commit();return rest_ensure_response($this->entity_row($entity,(int)$request['id']));
 	}
 
@@ -430,7 +436,9 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 			global $wpdb;$items=Stockland_DB::read_results($wpdb->prepare('SELECT taxable_status,pensionable_status,amount FROM %i WHERE compensation_assignment_id=%d',Stockland_HR_Replacement::table('hrx_compensation_items'),$id),ARRAY_A);
 			foreach((array)$items as $item){if(!in_array($item['taxable_status'],array('TAXABLE','EXEMPT'),true)||!in_array($item['pensionable_status'],array('PENSIONABLE','NON_PENSIONABLE'),true))return $this->error('hrx_compensation_classification','Compensation component classification remains LEGAL_REVIEW and blocks approval.',409);}
 		}
-		$to=$rule[1];$extra=array('updated_at'=>Stockland_HR_Replacement::now());
+		$to=$rule[1];$extra=array();
+		if(array_key_exists('updated_at',$current))$extra['updated_at']=Stockland_HR_Replacement::now();
+		if(array_key_exists('version_no',$current))$extra['version_no']=(int)$current['version_no']+1;
 		if('org-units'===$entity)$extra['active']='ACTIVATE'===$action?1:0;
 		elseif('interviews'===$entity)$extra[$state_field]=$to;
 		else $extra[$state_field]=$to;
@@ -453,8 +461,10 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 			$extra['completed_by']=get_current_user_id();$extra['completed_at']=Stockland_HR_Replacement::now();$extra['resolution_note']=$note;
 		}
 		if(false===$this->begin())return $this->error('hrx_tx_begin_failed','Could not start HR transaction.',500);
-		$ok=Stockland_DB::update_record($this->table($entity),$extra,array('id'=>$id,$state_field=>$current[$state_field]));
-		if(false===$ok){$this->rollback();return $this->error('hrx_transition_write_failed','Record state update failed; no transition was recorded.',500);}
+		$update_where=array('id'=>$id,$state_field=>$current[$state_field]);
+		if(array_key_exists('version_no',$current))$update_where['version_no']=(int)$current['version_no'];
+		$ok=Stockland_DB::update_record($this->table($entity),$extra,$update_where);
+		if(false===$ok||0===(int)$ok){$this->rollback();return $this->error('hrx_transition_conflict','The record changed before the transition could be applied. Refresh it; no approval or audit event was written.',409);}
 		$evt=Stockland_HR_Replacement::approval_event($entity,$id,$action,$from,$to,$reason,$key,isset($body['evidence_ref_id'])?(int)$body['evidence_ref_id']:null,$is_approval?get_current_user_id():null);
 		$audit=Stockland_HR_Replacement::audit('transition_'.$action,$entity,$id,$reason,isset($current['location_id'])?(int)$current['location_id']:null,$is_approval?get_current_user_id():null);
 		if(is_wp_error($evt)||is_wp_error($audit)||false===$audit){$this->rollback();return $this->error('hrx_transition_audit_failed','Workflow was rolled back because audit evidence could not be written.',500);}
