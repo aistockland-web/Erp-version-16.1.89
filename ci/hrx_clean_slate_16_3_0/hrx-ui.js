@@ -354,7 +354,7 @@ async function hrxSubmit(event){
    if(d.notice_date==='')delete d.notice_date;
    if(d.exit_reason.trim().length<20)throw new Error('Provide an exit rationale of at least 20 characters.');
    if(d.effective_end_date<d.final_working_date)throw new Error('Employment effective end date cannot be earlier than final working date.');
-   const out=await api16('/hr/replacement/exits',{method:'POST',body:JSON.stringify(d)});
+   await api16('/hr/replacement/exits',{method:'POST',body:JSON.stringify(d)});
    toast('Exit process created. Complete clearance tasks and approved rule-backed settlement items before review.');form.reset();await hrxLoadCurrent();return;
   }
   if(form.id==='hrxDocumentUpload'){
