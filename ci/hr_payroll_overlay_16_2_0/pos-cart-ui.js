@@ -20,18 +20,18 @@ function normalizePosCartLineInput(quantityRaw,priceRaw,unit){
 }
 function posCartMoney(n){return money(Math.round((Number(n)||0)*100)/100)}
 function posCartMetaFromForm(f){return {sale_date:f.elements.sale_date?.value||localDate(),branch_location_id:String(f.elements.branch_location_id?.value||''),vat_mode:String(f.elements.vat_mode?.value||'VAT_INCLUDED'),external_receipt_no:String(f.elements.external_receipt_no?.value||'').trim()}}
-function posCartRate(){const n=state.boot?.settings?.vat_rate;if(n===undefined||n===null||n===''||!Number.isFinite(Number(n))||Number(n)<0)return null;return Number(n)>1?Number(n)/100:Number(n)}
+function posCartRate(){const n=state.boot?.settings?.vat_rate;if(n===undefined||n===null||n===''||!Number.isFinite(Number(n))||Number(n)<0)return null;return Number(n)>1?Number(n)/100:Number(n);}
 function posCartLineMath(line,mode,rate){
  const q=Number(line.quantity_sold)||0,p=Number(line.selling_price_override==null?line.masterPrice:line.selling_price_override)||0,base=Math.round(q*p*100)/100;
  if(rate===null)return {gross:null,vat:null,net:null};
  if(mode==='VAT_INCLUDED'){const vat=Math.round(base*rate/(1+rate)*100)/100;return {gross:base,vat,net:Math.round((base-vat)*100)/100};}
  const vat=Math.round(base*rate*100)/100;return {gross:Math.round((base+vat)*100)/100,vat,net:base};
 }
-function posCartTotals(lines,mode,rate){return lines.reduce((a,line)=>{const m=posCartLineMath(line,mode,rate);if(m.gross===null){a.unknown=true;return a}a.gross=Math.round((a.gross+m.gross)*100)/100;a.vat=Math.round((a.vat+m.vat)*100)/100;a.net=Math.round((a.net+m.net)*100)/100;return a;},{gross:0,vat:0,net:0,unknown:false});}
+function posCartTotals(lines,mode,rate){return lines.reduce((a,line)=>{const m=posCartLineMath(line,mode,rate);if(m.gross===null){a.unknown=true;return a;}a.gross=Math.round((a.gross+m.gross)*100)/100;a.vat=Math.round((a.vat+m.vat)*100)/100;a.net=Math.round((a.net+m.net)*100)/100;return a;},{gross:0,vat:0,net:0,unknown:false});}
 function renderPosCart(){
  const f=document.getElementById('posCartForm');if(!f)return;
  const c=ensurePosCartState(),locked=!!c.pendingPayload,container=f.querySelector('#posCartItems'),rate=posCartRate(),mode=f.elements.vat_mode?.value||c.meta?.vat_mode||'VAT_INCLUDED';
- f.querySelectorAll('[name="sale_date"],[name="branch_location_id"],[name="vat_mode"],[name="external_receipt_no"]').forEach(x=>{x.disabled=locked});
+ f.querySelectorAll('[name="sale_date"],[name="branch_location_id"],[name="vat_mode"],[name="external_receipt_no"]').forEach(x=>{x.disabled=locked;});
  const add=f.querySelector('#posCartAddLine'),clear=f.querySelector('#posCartClear'),submit=f.querySelector('#posCartSubmit');
  if(add)add.disabled=locked;if(clear)clear.textContent=locked?'Clear after verification':'Clear cart';if(submit)submit.textContent=locked?'RETRY SAME CART':'POST COMPLETE CART';
  if(!c.lines.length){container.innerHTML='<div class="sl-empty">Your cart is empty. Search and add a Product Master SKU above.</div>'; }
@@ -48,7 +48,7 @@ function renderPosCart(){
 }
 function updatePosCartPreview(){
  const f=document.getElementById('posCartForm');if(!f)return;const c=ensurePosCartState(),t=posCartTotals(c.lines,f.elements.vat_mode?.value||'VAT_INCLUDED',posCartRate());
- [['#posCartGross','gross'],['#posCartVat','vat'],['#posCartNet','net']].forEach(([sel,k])=>{const el=f.querySelector(sel);if(el)el.textContent=t.unknown?'Server calculated':posCartMoney(t[k])});
+ [['#posCartGross','gross'],['#posCartVat','vat'],['#posCartNet','net']].forEach(([sel,k])=>{const el=f.querySelector(sel);if(el)el.textContent=t.unknown?'Server calculated':posCartMoney(t[k]);});
  f.querySelectorAll('tbody tr').forEach((tr,i)=>{const l=c.lines[i];if(!l)return;const m=posCartLineMath(l,f.elements.vat_mode?.value||'VAT_INCLUDED',posCartRate()),td=tr.querySelector('td[data-label="Line total preview"]');if(td)td.innerHTML='<b>'+(m.gross===null?'Server calculated':posCartMoney(m.gross))+'</b><small class="sl-pos-cart-product">'+(m.vat===null?'VAT preview unavailable':'VAT '+posCartMoney(m.vat))+'</small>';});
 }
 function addPosCartLine(){
@@ -71,7 +71,7 @@ function bindPosCart(){
  f.querySelector('#posCartAddLine')?.addEventListener('click',addPosCartLine);
  f.querySelector('#posCartClear')?.addEventListener('click',()=>{const x=ensurePosCartState();if(x.pendingPayload&&!confirm('The previous response may have been lost. Check Recent Posted Sales for all cart lines before clearing this exact retry payload. Clear anyway?'))return;if(x.lines.length&&!x.pendingPayload&&!confirm('Clear all unposted cart lines?'))return;x.lines=[];x.cartId='';x.pendingPayload=null;x.meta=posCartMetaFromForm(f);const out=document.getElementById('posCartResult');if(out)out.innerHTML='';savePosCartState();renderPosCart();});
  f.addEventListener('change',e=>{const x=ensurePosCartState();if(x.pendingPayload)return;if(e.target.matches('[name="sale_date"],[name="branch_location_id"],[name="vat_mode"],[name="external_receipt_no"]')){x.meta=posCartMetaFromForm(f);savePosCartState();updatePosCartPreview();}});
- f.addEventListener('input',e=>{const x=ensurePosCartState();if(x.pendingPayload)return;if(e.target.matches('[data-cart-qty]')){const i=Number(e.target.dataset.cartQty),line=x.lines[i],q=Number(e.target.value);if(line&&Number.isFinite(q)&&q>0&&(!posCartDiscrete(line.unit)||Math.abs(q-Math.round(q))<0.000001)){line.quantity_sold=q;savePosCartState();updatePosCartPreview()}}else if(e.target.matches('[data-cart-price]')){const i=Number(e.target.dataset.cartPrice),line=x.lines[i],raw=e.target.value;if(line){if(raw==='')line.selling_price_override=null;else{const p=Number(raw);if(Number.isFinite(p)&&p>0)line.selling_price_override=Math.round(p*100)/100}savePosCartState();updatePosCartPreview()}}else if(e.target.matches('[name="sale_date"],[name="branch_location_id"],[name="vat_mode"],[name="external_receipt_no"]')){x.meta=posCartMetaFromForm(f);savePosCartState();updatePosCartPreview()}});
+ f.addEventListener('input',e=>{const x=ensurePosCartState();if(x.pendingPayload)return;if(e.target.matches('[data-cart-qty]')){const i=Number(e.target.dataset.cartQty),line=x.lines[i],q=Number(e.target.value);if(line&&Number.isFinite(q)&&q>0&&(!posCartDiscrete(line.unit)||Math.abs(q-Math.round(q))<0.000001)){line.quantity_sold=q;savePosCartState();updatePosCartPreview()}}else if(e.target.matches('[data-cart-price]')){const i=Number(e.target.dataset.cartPrice),line=x.lines[i],raw=e.target.value;if(line){if(raw==='')line.selling_price_override=null;else{const p=Number(raw);if(Number.isFinite(p)&&p>0)line.selling_price_override=Math.round(p*100)/100;}savePosCartState();updatePosCartPreview()}}else if(e.target.matches('[name="sale_date"],[name="branch_location_id"],[name="vat_mode"],[name="external_receipt_no"]')){x.meta=posCartMetaFromForm(f);savePosCartState();updatePosCartPreview()}});
  f.addEventListener('click',e=>{const b=e.target.closest('[data-cart-remove]');if(!b)return;const x=ensurePosCartState();if(x.pendingPayload)return;const i=Number(b.dataset.cartRemove);if(!Number.isInteger(i)||!x.lines[i])return;x.lines.splice(i,1);if(!x.lines.length)x.cartId='';savePosCartState();renderPosCart();});
  f.addEventListener('submit',submitPOSCart);bindSkuPickers();renderPosCart();
 }
