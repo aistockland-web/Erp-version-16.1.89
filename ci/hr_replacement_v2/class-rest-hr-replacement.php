@@ -532,6 +532,10 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 			if($time_count)$issues[]=array('code'=>'UNAPPROVED_TIME','employment_code'=>$e['employment_code'],'message'=>'Unapproved attendance/time exceptions remain in the pay period.');
 			$leave_count=(int)Stockland_DB::read_var($wpdb->prepare("SELECT COUNT(*) FROM %i WHERE employment_id=%d AND start_date<=%s AND (end_date IS NULL OR end_date>=%s) AND status IN ('DRAFT','SUBMITTED')",Stockland_HR_Replacement::table('hrx_leave_transactions'),(int)$e['id'],$run['period_end'],$run['period_start']));
 			if($leave_count)$issues[]=array('code'=>'UNAPPROVED_LEAVE','employment_code'=>$e['employment_code'],'message'=>'Unapproved leave transactions overlap the pay period.');
+			$pay_affecting_time=(int)Stockland_DB::read_var($wpdb->prepare("SELECT COUNT(*) FROM %i WHERE employment_id=%d AND event_date BETWEEN %s AND %s AND status='APPROVED' AND (overtime_minutes>0 OR night_minutes>0 OR rest_day_minutes>0 OR holiday_minutes>0)",Stockland_HR_Replacement::table('hrx_time_events'),(int)$e['id'],$run['period_start'],$run['period_end']));
+			if($pay_affecting_time)$issues[]=array('code'=>'APPROVED_TIME_PAYROLL_RULE_UNSUPPORTED','employment_code'=>$e['employment_code'],'message'=>'Approved overtime/night/rest-day/holiday time exists, but no effective approved payroll calculation method consumes these minutes. Payroll calculation is blocked rather than omitting the pay effect.');
+			$unpaid_leave=(int)Stockland_DB::read_var($wpdb->prepare("SELECT COUNT(*) FROM %i t LEFT JOIN %i p ON p.id=t.leave_policy_id WHERE t.employment_id=%d AND t.start_date<=%s AND (t.end_date IS NULL OR t.end_date>=%s) AND t.status='APPROVED' AND COALESCE(UPPER(p.paid_status),'') NOT IN ('PAID','FULLY_PAID')",Stockland_HR_Replacement::table('hrx_leave_transactions'),Stockland_HR_Replacement::table('hrx_leave_policies'),(int)$e['id'],$run['period_end'],$run['period_start']));
+			if($unpaid_leave)$issues[]=array('code'=>'APPROVED_UNPAID_LEAVE_PAYROLL_RULE_UNSUPPORTED','employment_code'=>$e['employment_code'],'message'=>'Approved unpaid or partially paid leave exists, but no effective approved salary-deduction calculation consumes it. Payroll calculation is blocked.');
 		}
 		$families=array('BASE_SALARY','PAYE_BASE','PAYE','EMPLOYEE_PENSION','EMPLOYER_PENSION');
 		$rules=array();foreach($families as $family){$r=$this->active_rule($family,$run['period_start'],$run['period_end']);if(!$r)$issues[]=array('code'=>'LEGAL_RULE_UNAVAILABLE','rule_family'=>$family,'message'=>'No single approved effective-dated rule covers the entire pay period.');else $rules[$family]=$r;}
@@ -639,6 +643,35 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		return $due_month->setDate((int)$due_month->format('Y'),(int)$due_month->format('m'),$due_day)->format('Y-m-d');
 	}
 
+	private function frozen_payroll_sources_current( $run ) {
+		global $wpdb;
+		$period_start=(string)$run['period_start'];$period_end=(string)$run['period_end'];$run_id=(int)$run['id'];
+		$current=Stockland_DB::read_results($wpdb->prepare("SELECT e.id,e.person_id,e.employment_code FROM %i e INNER JOIN %i p ON p.id=e.person_id WHERE e.status='ACTIVE' AND e.start_date<=%s AND (e.end_date IS NULL OR e.end_date>=%s) ORDER BY e.id",Stockland_HR_Replacement::table('hrx_employments'),Stockland_HR_Replacement::table('hrx_people'),$period_end,$period_start),ARRAY_A);
+		if($wpdb->last_error)return $this->error('hrx_frozen_employee_read_failed','Could not re-read the active employee set; payroll approval is blocked.',500);
+		$frozen=Stockland_DB::read_results($wpdb->prepare("SELECT employment_id,source_id,source_version,source_kind,snapshot_json FROM %i WHERE payroll_run_id=%d AND eligibility_status='READY' ORDER BY employment_id",Stockland_HR_Replacement::table('hrx_payroll_inputs'),$run_id),ARRAY_A);
+		if($wpdb->last_error||!is_array($frozen))return $this->error('hrx_frozen_input_read_failed','Could not read the frozen payroll input set; approval is blocked.',500);
+		$current_ids=array_map(static function($row){return (int)$row['id'];},(array)$current);
+		$frozen_ids=array_map(static function($row){return (int)$row['employment_id'];},(array)$frozen);
+		if($current_ids!==$frozen_ids||(int)$run['employee_count']!==count($current_ids))return $this->error('hrx_frozen_employee_set_changed','The currently eligible employee set differs from the frozen payroll inputs. Recalculate in a new draft before approval.',409);
+		foreach($current as $employee){
+			$employment_id=(int)$employee['id'];$input=null;
+			foreach($frozen as $candidate){if((int)$candidate['employment_id']===$employment_id){$input=$candidate;break;}}
+			if(!$input||'COMPENSATION'!==strtoupper((string)$input['source_kind']))return $this->error('hrx_frozen_input_identity_changed','A frozen payroll input is missing or has an unsupported source type.',409);
+			$comp=Stockland_DB::read_row($wpdb->prepare("SELECT * FROM %i WHERE id=%d AND employment_id=%d AND status='APPROVED' AND effective_from<=%s AND (effective_to IS NULL OR effective_to>=%s)",Stockland_HR_Replacement::table('hrx_compensation_assignments'),(int)$input['source_id'],$employment_id,$period_end,$period_start),ARRAY_A);
+			if(!$comp||(int)$comp['version_no']!==(int)$input['source_version'])return $this->error('hrx_frozen_compensation_changed','An approved compensation assignment was changed or is no longer effective after calculation. Approval is blocked.',409);
+			$items=Stockland_DB::read_results($wpdb->prepare("SELECT * FROM %i WHERE compensation_assignment_id=%d AND status='APPROVED' ORDER BY id",Stockland_HR_Replacement::table('hrx_compensation_items'),(int)$comp['id']),ARRAY_A);
+			if($wpdb->last_error)return $this->error('hrx_frozen_compensation_read_failed','Could not re-read approved compensation items; approval is blocked.',500);
+			$current_items=array();foreach((array)$items as $item)$current_items[]=array('id'=>(int)$item['id'],'component_code'=>$item['component_code'],'component_name'=>$item['component_name'],'component_type'=>$item['component_type'],'amount'=>$item['amount'],'cash_payable'=>(int)$item['cash_payable'],'taxable_status'=>$item['taxable_status'],'pensionable_status'=>$item['pensionable_status'],'legal_rule_id'=>(int)$item['legal_rule_id']);
+			$snapshot=json_decode((string)$input['snapshot_json'],true);
+			if(!is_array($snapshot)||Stockland_Money::minor($snapshot['base_salary']??'-1')!==Stockland_Money::minor($comp['base_salary'])||wp_json_encode($snapshot['items']??null)!==wp_json_encode($current_items)||(int)($snapshot['compensation_assignment_id']??0)!==(int)$comp['id'])return $this->error('hrx_frozen_compensation_items_changed','Current salary or allowance items differ from the approved frozen calculation inputs. Recalculate before approval.',409);
+		}
+		$rules=array();foreach(array('BASE_SALARY','PAYE_BASE','PAYE','EMPLOYEE_PENSION','EMPLOYER_PENSION') as $family)$rules[strtolower($family)]=$this->active_rule($family,$period_start,$period_end);
+		foreach($rules as $rule){if(!$rule)return $this->error('hrx_frozen_rules_changed','An approved effective-dated payroll rule changed or is unavailable after calculation.',409);}
+		$rule_hash=hash('sha256',wp_json_encode($rules));
+		if(!hash_equals((string)$run['rule_bundle_sha256'],$rule_hash))return $this->error('hrx_frozen_rules_changed','The effective payroll rule bundle differs from the bundle used for calculation. Recalculate before approval.',409);
+		return true;
+	}
+
 	public function approve_payroll_run( $request ) {
 		global $wpdb;
 		$ready=$this->require_schema();if(is_wp_error($ready))return $ready;$id=(int)$request['id'];$run=$this->run_row($id);if(is_wp_error($run))return $run;
@@ -648,6 +681,7 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		$body=$this->body($request);$note=sanitize_textarea_field((string)($body['approval_note']??''));$key=sanitize_text_field((string)($body['idempotency_key']??''));
 		if(strlen(trim($note))<30||!$key)return $this->error('hrx_approval_evidence_required','Owner approval note (30+ characters) and idempotency key are required.',422);
 		$pre=$this->payroll_preflight($request);$pd=(array)$pre->get_data();if(empty($pd['ready']))return $this->error('hrx_preflight_changed','Current source data or legal rules no longer pass preflight. Do not approve this stale run.',409);
+		$frozen_check=$this->frozen_payroll_sources_current($run);if(is_wp_error($frozen_check))return $frozen_check;
 		$config=Stockland_DB::read_row($wpdb->prepare("SELECT * FROM %i WHERE status='APPROVED' AND effective_from<=%s AND (effective_to IS NULL OR effective_to>=%s) ORDER BY effective_from DESC,id DESC LIMIT 1",Stockland_HR_Replacement::table('hrx_accounting_config'),$run['period_end'],$run['period_start']),ARRAY_A);
 		if(!$config)return $this->error('hrx_gl_mapping_missing','No approved effective-dated payroll GL account mapping is available.',409);
 		$line_totals=Stockland_DB::read_row($wpdb->prepare('SELECT COUNT(*) n,COALESCE(SUM(gross_pay),0) gross,COALESCE(SUM(paye),0) paye,COALESCE(SUM(employee_pension),0) employee_pension,COALESCE(SUM(employer_pension),0) employer_pension,COALESCE(SUM(other_deductions),0) other_deductions,COALESCE(SUM(net_pay),0) net FROM %i WHERE payroll_run_id=%d',Stockland_HR_Replacement::table('hrx_payroll_lines'),$id),ARRAY_A);
