@@ -1,4 +1,9 @@
 <?php
+if ( ! function_exists( 'esc_html' ) ) {
+    function esc_html( $value ) {
+        return htmlspecialchars( (string) $value, ENT_QUOTES, 'UTF-8' );
+    }
+}
 require_once __DIR__ . '/class-stockland-hr-payroll-calculator.php';
 
 function assertSameValue($expected, $actual, $message) {
