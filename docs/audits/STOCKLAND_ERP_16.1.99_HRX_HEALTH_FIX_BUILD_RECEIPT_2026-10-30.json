@@ -33,13 +33,14 @@
       "crc": "PASS"
     },
     {
-      "name": "STOCKLAND_ERP_ALL_ERP_SOP_LIBRARY_v1.0_DRAFT.zip",
+      "name": "STOCKLAND_ERP_ALL_ERP_SOP_LIBRARY_DOCX_ONLY_v1.0_DRAFT.zip",
       "sha256": "78bd9148367450102774c5cedab65049b0902faef6110b8adb9fb8ff50b15869",
       "bytes": 964458,
       "members": 28,
       "documents": 24,
       "master_register_docx": 1,
-      "crc": "PASS"
+      "crc": "PASS",
+      "artifact_role": "DOCX_ONLY_SUBSET_24_PROCEDURES_PLUS_REGISTER"
     },
     {
       "name": "STOCKLAND_ERP_16.1.99_HRX_HEALTH_QA_TESTS.zip",
