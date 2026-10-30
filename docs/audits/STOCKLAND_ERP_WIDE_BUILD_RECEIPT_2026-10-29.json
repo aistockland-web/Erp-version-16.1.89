@@ -27,11 +27,13 @@
   },
   "sop_library": {
     "name": "STOCKLAND_ERP_ALL_ERP_SOP_LIBRARY_v1.0_DRAFT.zip",
-    "sha256": "f7649480d0f45d35cc799f505abf102807dc77ca86a5ea09b0c96193b5b18d80",
+    "sha256": "22a48035e7cb70635f2fc01dd508c33db1da5f8363cacc35a1aca981a3c33f66",
     "count": 24,
     "legacy_table_coverage": "49/49",
     "hrx_logical_table_coverage": "33/33",
-    "status": "DRAFT_NOT_APPROVED"
+    "status": "DRAFT_NOT_APPROVED",
+    "supersedes_sha256": "f7649480d0f45d35cc799f505abf102807dc77ca86a5ea09b0c96193b5b18d80",
+    "receipt_status": "CURRENT_PACK_HASH_RECONCILED"
   },
   "local_tests": {
     "hrx_domain_assertions": 727,
