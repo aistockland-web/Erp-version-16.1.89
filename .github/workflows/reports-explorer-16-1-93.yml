@@ -4,7 +4,7 @@ on:
   # Run the cumulative release gate on the exact branch head after every release-source
   # or verifier change. Pull-request-only receipts are insufficient for artifact release.
   push:
-    branches: [feat/reports-explorer-16-1-93, feature/full-hr-payroll-lifecycle-16-1-96]
+    branches: [feat/reports-explorer-16-1-93, feature/full-hr-payroll-lifecycle-16-1-96, fix/release-ci-baseline-patch-chain-16-1-97]
     paths:
       - 'ci/**'
       - '.github/workflows/reports-explorer-16-1-93.yml'
