@@ -84,18 +84,44 @@ final class Stockland_HR_Replacement {
 		return $out;
 	}
 
-	/** Read-only schema state; this function never tries to repair or alter existing tables. */
+	/** Normalize integer display widths while preserving signedness and precision-bearing types. */
+	private static function normalize_sql_type( $type ) {
+		$type = strtolower( trim( preg_replace( '/\\s+/', ' ', (string) $type ) ) );
+		return preg_replace( '/\\b(bigint|int|tinyint|smallint|mediumint)\\(\\d+\\)/i', '$1', $type );
+	}
+
+	/** Read-only physical schema state: names, SQL types and required indexes; never repairs the database. */
 	public static function schema_status() {
 		global $wpdb;
 		$present = array(); $missing = array(); $drift = array();
 		$expected = array();
 		foreach ( self::ddl() as $sql ) {
 			if ( ! preg_match( '/CREATE TABLE IF NOT EXISTS ([A-Za-z0-9_]+)\\s*\\((.*)\\) ENGINE=InnoDB/s', $sql, $match ) ) { continue; }
-			$name = $match[1]; $key = substr( $name, strlen( $wpdb->prefix . 'stock_' ) ); $cols = array();
-			foreach ( explode( ',', $match[2] ) as $part ) {
-				if ( preg_match( '/^\\s*([a-z][a-z0-9_]*)\\s+(?:BIGINT|VARCHAR|TEXT|LONGTEXT|MEDIUMBLOB|CHAR|DATE|DATETIME|DECIMAL|INT|TINYINT)\\b/i', $part, $cm ) ) { $cols[] = strtolower( $cm[1] ); }
+			$name = $match[1];
+			$key = substr( $name, strlen( $wpdb->prefix . 'stock_' ) );
+			$cols = array(); $types = array(); $indexes = array();
+			if ( preg_match_all( '/(?:^|,)\\s*([a-z][a-z0-9_]*)\\s+(BIGINT|VARCHAR|TEXT|LONGTEXT|MEDIUMBLOB|CHAR|DATE|DATETIME|DECIMAL|INT|TINYINT)(?:\\(([^)]*)\\))?(\\s+UNSIGNED)?\\b/i', $match[2], $column_matches, PREG_SET_ORDER ) ) {
+				foreach ( $column_matches as $cm ) {
+					$column = strtolower( $cm[1] );
+					$size = isset( $cm[3] ) && '' !== $cm[3] ? '(' . preg_replace( '/\\s+/', '', $cm[3] ) . ')' : '';
+					$unsigned = ! empty( $cm[4] ) ? ' UNSIGNED' : '';
+					$cols[] = $column;
+					$types[$column] = self::normalize_sql_type( strtoupper( $cm[2] ) . $size . $unsigned );
+				}
 			}
-			$expected[$key] = $cols;
+			if ( preg_match( '/PRIMARY KEY\\s*\\(([^)]+)\\)/i', $match[2], $primary ) ) {
+				$indexes['primary'] = array( 'unique'=>true, 'columns'=>array_map( static function( $v ) { return strtolower( trim( str_replace( '`', '', $v ) ) ); }, explode( ',', $primary[1] ) ) );
+			}
+			if ( preg_match_all( '/(UNIQUE KEY|KEY)\\s+([A-Za-z0-9_]+)\\s*\\(([^)]+)\\)/i', $match[2], $index_matches, PREG_SET_ORDER ) ) {
+				foreach ( $index_matches as $im ) {
+					$index_name = strtolower( $im[2] );
+					$indexes[$index_name] = array(
+						'unique' => 0 === stripos( $im[1], 'UNIQUE' ),
+						'columns' => array_map( static function( $v ) { return strtolower( trim( str_replace( '`', '', $v ) ) ); }, explode( ',', $im[3] ) ),
+					);
+				}
+			}
+			$expected[$key] = array( 'columns'=>$cols, 'types'=>$types, 'indexes'=>$indexes );
 		}
 		foreach ( self::table_keys() as $key ) {
 			$name = Stockland_DB::table( $key );
@@ -103,10 +129,47 @@ final class Stockland_HR_Replacement {
 			if ( ! empty( $wpdb->last_error ) || (int) $exists !== 1 ) { $missing[] = $key; continue; }
 			$present[] = $key;
 			$actual_rows = Stockland_DB::read_results( $wpdb->prepare( 'SHOW COLUMNS FROM %i', $name ), ARRAY_A );
-			if ( ! empty( $wpdb->last_error ) || ! is_array( $actual_rows ) ) { $drift[$key] = array( 'missing_columns'=>$expected[$key] ?? array(), 'unexpected_columns'=>array(), 'reason'=>'Could not inspect column metadata.' ); continue; }
-			$actual = array_map( 'strtolower', array_column( $actual_rows, 'Field' ) ); $wanted = $expected[$key] ?? array();
-			$miss = array_values( array_diff( $wanted, $actual ) ); $extra = array_values( array_diff( $actual, $wanted ) );
-			if ( $miss || $extra ) { $drift[$key] = array( 'missing_columns'=>$miss, 'unexpected_columns'=>$extra, 'reason'=>'Physical schema does not exactly match the candidate contract. No automatic ALTER is attempted.' ); }
+			if ( ! empty( $wpdb->last_error ) || ! is_array( $actual_rows ) ) {
+				$drift[$key] = array( 'missing_columns'=>$expected[$key]['columns'] ?? array(), 'unexpected_columns'=>array(), 'column_type_mismatch'=>array(), 'missing_indexes'=>array(), 'index_mismatch'=>array(), 'reason'=>'Could not inspect column metadata.' );
+				continue;
+			}
+			$actual = array_map( 'strtolower', array_column( $actual_rows, 'Field' ) );
+			$wanted = $expected[$key]['columns'] ?? array();
+			$miss = array_values( array_diff( $wanted, $actual ) );
+			$extra = array_values( array_diff( $actual, $wanted ) );
+			$actual_types = array();
+			foreach ( $actual_rows as $column_row ) { $actual_types[strtolower( $column_row['Field'] )] = self::normalize_sql_type( $column_row['Type'] ); }
+			$type_mismatch = array();
+			foreach ( ( $expected[$key]['types'] ?? array() ) as $column => $type ) {
+				if ( isset( $actual_types[$column] ) && $type !== $actual_types[$column] ) { $type_mismatch[$column] = array( 'expected'=>$type, 'actual'=>$actual_types[$column] ); }
+			}
+			$index_rows = Stockland_DB::read_results( $wpdb->prepare( 'SHOW INDEX FROM %i', $name ), ARRAY_A );
+			$index_missing = array(); $index_mismatch = array(); $actual_indexes = array();
+			if ( ! empty( $wpdb->last_error ) || ! is_array( $index_rows ) ) {
+				$index_missing = array_keys( $expected[$key]['indexes'] ?? array() );
+				$index_mismatch['metadata'] = 'Could not inspect index metadata.';
+			} else {
+				foreach ( $index_rows as $index_row ) {
+					$index_name = strtolower( (string) $index_row['Key_name'] );
+					if ( ! isset( $actual_indexes[$index_name] ) ) { $actual_indexes[$index_name] = array( 'unique'=>0 === (int) $index_row['Non_unique'], 'columns'=>array() ); }
+					$actual_indexes[$index_name]['columns'][(int) $index_row['Seq_in_index']] = strtolower( (string) $index_row['Column_name'] );
+				}
+				foreach ( $actual_indexes as &$actual_index ) { ksort( $actual_index['columns'] ); $actual_index['columns'] = array_values( $actual_index['columns'] ); } unset( $actual_index );
+				foreach ( ( $expected[$key]['indexes'] ?? array() ) as $index_name => $index ) {
+					if ( ! isset( $actual_indexes[$index_name] ) ) { $index_missing[] = $index_name; continue; }
+					if ( $actual_indexes[$index_name]['unique'] !== $index['unique'] || $actual_indexes[$index_name]['columns'] !== $index['columns'] ) {
+						$index_mismatch[$index_name] = array( 'expected'=>$index, 'actual'=>$actual_indexes[$index_name] );
+					}
+				}
+			}
+			if ( $miss || $extra || $type_mismatch || $index_missing || $index_mismatch ) {
+				$drift[$key] = array(
+					'missing_columns'=>$miss, 'unexpected_columns'=>$extra,
+					'column_type_mismatch'=>$type_mismatch, 'missing_indexes'=>$index_missing,
+					'index_mismatch'=>$index_mismatch,
+					'reason'=>'Physical schema does not match the full column-type and required-index contract. No automatic ALTER is attempted.',
+				);
+			}
 		}
 		$recorded = (string) get_option( self::OPTION_SCHEMA_VERSION, '' );
 		return array(
