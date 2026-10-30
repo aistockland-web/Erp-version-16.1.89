@@ -37,13 +37,13 @@ def text(files, path):
 def put(files, path, value):
     files[ROOT + path] = value.encode("utf-8")
 
-def patch_main(files, schema, rest, calculator, vault, payroll_cycle):
+def patch_main(files, schema, rest, calculator, vault, payroll_cycle, schema_contract):
     p = text(files, "stockland-inventory.php")
     p = once(p, " * Version:           16.1.95", f" * Version:           {RELEASE}", "plugin header version")
     p = once(p, "define( 'STOCKLAND_VERSION', '16.1.95' );", f"define( 'STOCKLAND_VERSION', '{RELEASE}' );", "version constant")
     p = once(p, "define( 'STOCKLAND_HR_SCHEMA_VERSION', '16.1.3' );", "define( 'STOCKLAND_HR_SCHEMA_VERSION', '16.2.1' );", "HR schema version")
     p = once(p, "require_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-money.php';",
-        "require_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-money.php';\nrequire_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-hr-payroll-calculator.php';\nrequire_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-hr-private-vault.php';\nrequire_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-hr-lifecycle.php';",
+        "require_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-money.php';\nrequire_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-hr-payroll-calculator.php';\nrequire_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-hr-private-vault.php';\nrequire_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-hr-lifecycle.php';\\nrequire_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-schema-contract.php';",
         "HR lifecycle/calculator/vault includes")
     p = once(p, "require_once STOCKLAND_PLUGIN_DIR . 'includes/rest/class-rest-sales.php';", "require_once STOCKLAND_PLUGIN_DIR . 'includes/rest/class-rest-sales.php';\nrequire_once STOCKLAND_PLUGIN_DIR . 'includes/rest/class-rest-pos-cart.php';", "atomic POS cart controller include")
     p = once(p, "new Stockland_REST_Sales();", "new Stockland_REST_Sales();\n\t\tnew Stockland_REST_POS_Cart();", "register POS cart controller")
@@ -53,6 +53,7 @@ def patch_main(files, schema, rest, calculator, vault, payroll_cycle):
     p = once(p, "new Stockland_REST_HR();", "new Stockland_REST_HR();\n\t\tnew Stockland_REST_HR_Lifecycle();\n\t\tnew Stockland_REST_HR_Payroll_Cycle();", "register lifecycle controllers")
     put(files, "stockland-inventory.php", p)
     put(files, "includes/class-stockland-hr-lifecycle.php", schema)
+    put(files, "includes/class-stockland-schema-contract.php", schema_contract)
     put(files, "includes/rest/class-rest-hr-lifecycle.php", rest)
     put(files, "includes/class-stockland-hr-payroll-calculator.php", calculator)
     put(files, "includes/class-stockland-hr-private-vault.php", vault)
@@ -790,6 +791,7 @@ def build(input_zip: Path, output_zip: Path):
         files = {i.filename: zin.read(i.filename) for i in infos}
     schema = (Path(__file__).resolve().parent / "hr_payroll_overlay_16_2_0" / "class-stockland-hr-lifecycle.php").read_text(encoding="utf-8")
     schema = transform_allowance_split(schema)
+    schema_contract = (Path(__file__).resolve().parent / "hr_payroll_overlay_16_2_0" / "class-stockland-schema-contract.php").read_text(encoding="utf-8")
     # Add the employer-side pension ledger amount required to balance exit settlement journals.
     schema = once(schema,
         "employee_pension_total DECIMAL(14,2) NOT NULL DEFAULT 0.00,\n\t\t\tother_deductions_total DECIMAL(14,2) NOT NULL DEFAULT 0.00,",
@@ -800,7 +802,7 @@ def build(input_zip: Path, output_zip: Path):
     vault = (Path(__file__).resolve().parent / "hr_payroll_overlay_16_2_0" / "class-stockland-hr-private-vault.php").read_text(encoding="utf-8")
     payroll_cycle = (Path(__file__).resolve().parent / "hr_payroll_overlay_16_2_0" / "class-rest-hr-payroll-cycle.php").read_text(encoding="utf-8")
     pos_cart_api = (Path(__file__).resolve().parent / "hr_payroll_overlay_16_2_0" / "class-rest-pos-cart.php").read_text(encoding="utf-8")
-    patch_main(files, schema, rest, calculator, vault, payroll_cycle)
+    patch_main(files, schema, rest, calculator, vault, payroll_cycle, schema_contract)
     put(files, "includes/rest/class-rest-pos-cart.php", pos_cart_api)
     patch_hr_schema(files)
     patch_statutory(files)
