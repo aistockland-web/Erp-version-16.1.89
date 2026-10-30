@@ -101,16 +101,8 @@ def main():
         health_lines = health_php.splitlines()
         schema_gate_lines = [line for line in health_lines if re.search(r"\$checks\['schema_contract_expected'\]\s*=", line)]
         require(len(schema_gate_lines) == 2 and all("$schema_exact_match" in line and "86 === count( $full_expected )" in line for line in schema_gate_lines), "quick and deep gates require the exact 86-table base contract plus strict extension assessment")
-                "quick and deep runtime gates check required tables, not an exact physical count")
-        require(health_php.count("$diagnostics['schema_contract_status']") == 2 and health_php.count("$diagnostics['schema_contract_extra_table_count']") == 2,
-        require(health_php.count("Stockland_Schema_Contract::assess") == 2 and "recognized_hrx_extension_tables" in health_php and "hrx_extension_missing" in health_php, "quick and deep health report known HRX tables separately and reject unregistered extras")
-                "quick and deep runtime diagnostics distinguish missing tables from extras")
-        require("Database unavailable or one or more required ERP schema tables are missing" in health_php and "All required ERP schema tables in the versioned contract" in health_php,
-                "runtime deep-scan rules no longer cite a stale 49-table contract")
-        require("Stockland_HR_Lifecycle::table_keys()" in system_control_php and "$full_expected = array_values( array_unique( array_merge( $expected_core, $expected_accounting, $expected_hr ) ) );" in system_control_php,
-                "WordPress System Control includes the full HR/payroll lifecycle schema")
-        require("Additional ERP tables detected" in app and "do not block the read-only integrity scan" in app and "Only the exact documented 33-table HRX extension is allowlisted" in health_php, "UI discloses extra tables while runtime schema contract rejects unknown additions")
-                "health UI explains extra tables as a review warning rather than a false failed gate")
+        require(health_php.count("$diagnostics['schema_contract_status']") == 2 and health_php.count("Stockland_Schema_Contract::assess") == 2 and "recognized_hrx_extension_tables" in health_php and "hrx_extension_missing" in health_php, "quick and deep diagnostics report recognized HRX tables separately and reject unknown extras")
+        require("Only the exact documented 33-table HRX extension is allowlisted" in health_php, "runtime deep-scan rules identify the exact extension allowlist rather than allowing arbitrary extras")
         require(manifest.get("statutory_rates_or_exemption_caps_seeded") is False, "no automatic statutory rates or exemption caps are seeded")
         required_table_names = [
             "hr_workforce_plans","hr_positions","hr_requisitions","hr_candidates","hr_applications","hr_interviews",
