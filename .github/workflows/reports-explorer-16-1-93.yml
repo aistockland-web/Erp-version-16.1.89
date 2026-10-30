@@ -357,7 +357,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 ci/qa/test_hr_schema_additive.py \\
+          python3 ci/qa/test_hr_schema_additive.py \
             --baseline STOCKLAND_ERP_16.1.95_CANONICAL_WORDPRESS_UPDATE.zip \\
             --candidate STOCKLAND_ERP_16.1.96_FULL_HR_PAYROLL_LIFECYCLE_CANDIDATE_WORDPRESS_UPDATE.zip
       - name: Publish the verified 16.1.96 WordPress update and audit receipts
