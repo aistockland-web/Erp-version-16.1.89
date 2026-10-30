@@ -18,8 +18,7 @@ final class Stockland_HR_Payroll_Calculator {
 		if ( ! is_string( $code ) || 1 !== preg_match( '/^[a-z0-9_]{3,64}$/D', $code ) ) {
 			$code = 'validation_failed';
 		}
-		$safe_code = function_exists( 'esc_html' ) ? esc_html( $code ) : htmlspecialchars( $code, ENT_QUOTES, 'UTF-8' );
-		throw new InvalidArgumentException( $safe_code . ': Payroll calculation validation failed.' );
+		throw new InvalidArgumentException( esc_html( $code ) . ': Payroll calculation validation failed.' );
 	}
 
 	private static function is_money_string( $value ) {
