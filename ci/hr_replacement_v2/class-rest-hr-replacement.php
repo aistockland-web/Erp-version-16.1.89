@@ -464,15 +464,23 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 	public function create_employment_from_offer( $request ) {
 		global $wpdb;
 		$ready=$this->require_schema();if(is_wp_error($ready))return $ready;
-		$id=(int)$request['id'];$offer=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',Stockland_HR_Replacement::table('hrx_offers'),$id),ARRAY_A);
-		if(!$offer||'ACCEPTED'!==strtoupper((string)$offer['status']))return $this->error('hrx_offer_not_accepted','Only an approved and accepted offer may create a pending employment relationship.',409);
-		$app=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d',Stockland_HR_Replacement::table('hrx_applications'),(int)$offer['application_id']),ARRAY_A);
-		if(!$app||'OPEN'!==strtoupper((string)$app['status'])||'SELECTED'!==strtoupper((string)$app['stage'])||empty($app['selection_rationale'])||strlen(trim((string)$app['selection_rationale']))<20)return $this->error('hrx_human_selection_missing','A documented human selection decision and open approved application are required.',409);
+		$id=(int)$request['id'];
+		if($id<1)return $this->error('hrx_offer_not_found','Offer not found.',404);
+		if(false===$this->begin())return $this->error('hrx_tx_begin_failed','Could not start HR transaction.',500);
+		$offer=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',Stockland_HR_Replacement::table('hrx_offers'),$id),ARRAY_A);
+		if(!$offer){$this->rollback();return $this->error('hrx_offer_not_found','Offer not found.',404);}
+		$existing=Stockland_DB::read_row($wpdb->prepare('SELECT e.id,e.employment_code,e.status,c.id contract_id FROM %i e LEFT JOIN %i c ON c.employment_id=e.id WHERE e.offer_id=%d ORDER BY c.contract_version DESC LIMIT 1 FOR UPDATE',Stockland_HR_Replacement::table('hrx_employments'),Stockland_HR_Replacement::table('hrx_contracts'),$id),ARRAY_A);
+		if($existing){
+			$this->commit();
+			return rest_ensure_response(array('employment_id'=>(int)$existing['id'],'employment_code'=>$existing['employment_code'],'status'=>$existing['status'],'contract_id'=>(int)($existing['contract_id']??0),'idempotent_replay'=>true,'message'=>'This accepted offer already has its pending employment record; no duplicate contract or onboarding tasks were created.'));
+		}
+		if('ACCEPTED'!==strtoupper((string)$offer['status'])){$this->rollback();return $this->error('hrx_offer_not_accepted','Only an approved and accepted offer may create a pending employment relationship.',409);}
+		$app=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',Stockland_HR_Replacement::table('hrx_applications'),(int)$offer['application_id']),ARRAY_A);
+		if(!$app||'OPEN'!==strtoupper((string)$app['status'])||'SELECTED'!==strtoupper((string)$app['stage'])||empty($app['selection_rationale'])||strlen(trim((string)$app['selection_rationale']))<20){$this->rollback();return $this->error('hrx_human_selection_missing','A documented human selection decision and open approved application are required.',409);}
 		$person=(int)$app['person_id'];$employment_code='EMPX-'.gmdate('Ymd').'-'.wp_generate_password(8,false,false);
 		$row=array('employment_code'=>$employment_code,'person_id'=>$person,'offer_id'=>$id,'legal_employer_code'=>sanitize_key((string)($request->get_param('legal_employer_code')?:'STOCKLAND_ET_PLC')),'employment_type'=>sanitize_key((string)$offer['employment_type'],'full_time'),'start_date'=>$offer['proposed_start'],'end_date'=>$offer['proposed_end'],'status'=>'PENDING_ACTIVATION','created_by'=>get_current_user_id(),'created_at'=>Stockland_HR_Replacement::now(),'version_no'=>1);
-		if(false===$this->begin())return $this->error('hrx_tx_begin_failed','Could not start HR transaction.',500);
 		$ok=Stockland_DB::insert_record(Stockland_HR_Replacement::table('hrx_employments'),$row);
-		if(false===$ok){$this->rollback();return $this->error('hrx_employment_insert_failed','Could not create pending employment. Check unique identity/offer constraints.',409);}
+		if(false===$ok){$this->rollback();return $this->error('hrx_employment_insert_failed','Could not create pending employment. Recheck the accepted offer and existing employment link.',409);}
 		$eid=(int)$wpdb->insert_id;
 		$contract=array('employment_id'=>$eid,'contract_code'=>'CTX-'.wp_generate_password(12,false,false),'contract_version'=>1,'contract_type'=>$row['employment_type'],'start_date'=>$row['start_date'],'end_date'=>$row['end_date'],'probation_end'=>null,'terms_hash'=>hash('sha256',(string)$offer['terms_version']),'status'=>'DRAFT','created_by'=>get_current_user_id(),'created_at'=>Stockland_HR_Replacement::now());
 		$ok2=Stockland_DB::insert_record(Stockland_HR_Replacement::table('hrx_contracts'),$contract);
@@ -485,9 +493,9 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		);
 		$task_failed=false;foreach($tasks as $task){$taskrow=array('employment_id'=>$eid,'task_code'=>$task[0],'task_title'=>$task[1],'owner_role'=>$task[2],'status'=>'OPEN','created_by'=>get_current_user_id(),'created_at'=>Stockland_HR_Replacement::now());if(false===Stockland_DB::insert_record(Stockland_HR_Replacement::table('hrx_onboarding_tasks'),$taskrow)){$task_failed=true;break;}}
 		$evt=Stockland_HR_Replacement::approval_event('employment',$eid,'PENDING_HIRE_CREATED',null,'PENDING_ACTIVATION','From accepted offer',$employment_code);
-		$audit=Stockland_HR_Replacement::audit('pending_hire_created','employment',$eid,'From approved offer');
-		if(false===$ok2||$task_failed||is_wp_error($evt)||is_wp_error($audit)||false===$audit){$this->rollback();return $this->error('hrx_hire_transaction_failed','Hire creation was rolled back because contract/audit did not complete.',500);}
-		$this->commit();return rest_ensure_response(array('employment_id'=>$eid,'employment_code'=>$employment_code,'status'=>'PENDING_ACTIVATION','contract_id'=>$contract_id,'message'=>'Pending hire created; signed contract, verified documents, onboarding and approved compensation must be completed before activation.'));
+		$audit=Stockland_HR_Replacement::audit('pending_hire_created','employment',$eid,'From accepted offer');
+		if(false===$ok2||$task_failed||is_wp_error($evt)||is_wp_error($audit)||false===$audit){$this->rollback();return $this->error('hrx_hire_transaction_failed','Hire creation was rolled back because contract, onboarding or audit did not complete.',500);}
+		$this->commit();return rest_ensure_response(array('employment_id'=>$eid,'employment_code'=>$employment_code,'status'=>'PENDING_ACTIVATION','contract_id'=>$contract_id,'idempotent_replay'=>false,'message'=>'Pending hire created; signed contract, verified documents, onboarding and approved compensation must be completed before activation.'));
 	}
 
 	public function create_payroll_run( $request ) {
@@ -928,12 +936,25 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		return rest_ensure_response(array('id'=>$id,'in_kind_posting_verified'=>true,'stock_reference'=>$ref,'valuation_document_id'=>$doc_id,'message'=>'Existing inventory ledger evidence and approved valuation were linked; this endpoint did not mutate stock.'));
 	}
 
+	private function approved_payee_engagement( $payee_request ) {
+		global $wpdb;
+		$engagement_id=(int)($payee_request['engagement_id']??0);
+		$engagement=$engagement_id>0?Stockland_DB::read_row($wpdb->prepare("SELECT * FROM %i WHERE id=%d AND status='APPROVED'",Stockland_HR_Replacement::table('hrx_payee_engagements'),$engagement_id),ARRAY_A):null;
+		if(!$engagement)return $this->error('hrx_payee_engagement_unapproved','An existing independently approved payee engagement is required before calculation, approval or payment.',409);
+		$start=Stockland_HR_Replacement::valid_date($payee_request['service_period_start']??'');
+		$end=Stockland_HR_Replacement::valid_date($payee_request['service_period_end']??'');
+		if(!$start||!$end||$start>$end)return $this->error('hrx_payee_service_period_invalid','A valid service-period start and end are required.',422);
+		if($start<(string)$engagement['start_date']||(!empty($engagement['end_date'])&&$end>(string)$engagement['end_date']))return $this->error('hrx_payee_service_period_outside_engagement','The requested service period falls outside the approved engagement dates.',409);
+		return $engagement;
+	}
+
 	public function calculate_payee_request( $request ) {
 		global $wpdb;
 		$ready=$this->require_schema();if(is_wp_error($ready))return $ready;
 		$id=(int)$request['id'];$body=$this->body($request);
 		$req=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',Stockland_HR_Replacement::table('hrx_payee_requests'),$id),ARRAY_A);if(!$req)return $this->error('hrx_payee_request_not_found','Payee request not found.',404);
 		if(!in_array($req['status'],array('DRAFT','LEGAL_TAX_REVIEW','NEEDS_INFORMATION'),true))return $this->error('hrx_payee_state_invalid','Only an editable payee request may be calculated.',409);
+		$engagement=$this->approved_payee_engagement($req);if(is_wp_error($engagement))return $engagement;
 		$class=Stockland_DB::read_row($wpdb->prepare("SELECT * FROM %i WHERE payee_request_id=%d AND status='APPROVED' ORDER BY id DESC LIMIT 1",Stockland_HR_Replacement::table('hrx_payee_classifications'),$id),ARRAY_A);
 		if(!$class||empty($class['rule_id']))return $this->error('hrx_payee_classification_required','An independently approved legal/tax classification is required before calculation.',409);
 		$rule=Stockland_DB::read_row($wpdb->prepare("SELECT * FROM %i WHERE id=%d AND review_status='APPROVED' AND effective_from<=%s AND (effective_to IS NULL OR effective_to>=%s)",Stockland_HR_Replacement::table('hrx_legal_rules'),(int)$class['rule_id'],$req['service_period_end']?:current_time('Y-m-d'),$req['service_period_start']?:current_time('Y-m-d')),ARRAY_A);
@@ -962,6 +983,7 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		$id=(int)$request['id'];$body=$this->body($request);$ref=sanitize_text_field((string)($body['external_reference']??''));$key=sanitize_text_field((string)($body['idempotency_key']??''));$note=sanitize_textarea_field((string)($body['payment_note']??''));$doc_id=(int)($body['evidence_document_id']??0);
 		if(strlen(trim($ref))<4||!$key||strlen(trim($note))<20)return $this->error('hrx_payee_payment_evidence','Payee settlement requires a unique external payment ref, note and idempotency key.',422);
 		$req=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',Stockland_HR_Replacement::table('hrx_payee_requests'),$id),ARRAY_A);if(!$req)return $this->error('hrx_payee_request_not_found','Payee request not found.',404);
+		$engagement=$this->approved_payee_engagement($req);if(is_wp_error($engagement))return $engagement;
 		if('APPROVED'!==strtoupper((string)$req['status']))return $this->error('hrx_payee_not_approved','Only an independently approved AP request can be paid.',409);
 		if((int)$req['approved_by']===get_current_user_id())return $this->error('hrx_no_self_payment','The AP approver cannot record the payout as an independent settlement.',403);
 		$doc=$doc_id?Stockland_DB::read_row($wpdb->prepare("SELECT id FROM %i WHERE id=%d AND entity_type='PAYEE_REQUEST' AND entity_id=%d AND approval_status='APPROVED' AND document_type IN('PAYEE_DELIVERABLE','OTHER_HR')",Stockland_HR_Replacement::table('hrx_document_refs'),$doc_id,$id),ARRAY_A):null;
@@ -1052,10 +1074,12 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		$review_doc_id=(int)($body['review_evidence_document_id']??0);
 		if('APPROVE'===$decision){$review_doc=$review_doc_id?Stockland_DB::read_row($wpdb->prepare("SELECT id FROM %i WHERE id=%d AND entity_type='LEGAL_RULE' AND entity_id=%d AND document_type='LEGAL_REVIEW_OPINION' AND approval_status='APPROVED'",Stockland_HR_Replacement::table('hrx_document_refs'),$review_doc_id,$id),ARRAY_A):null;if(!$review_doc)return $this->error('hrx_legal_opinion_missing','An independently reviewed private legal opinion/source review is required before a statutory rule can be activated.',409);}
 		$to='APPROVE'===$decision?'APPROVED':'LEGAL_REVIEW';if('APPROVE'===$decision&&'LEGAL_REVIEW'!==$rule['review_status'])return $this->error('hrx_rule_state_invalid','Only a LEGAL_REVIEW rule can be approved.',409);
+		if(false===$this->begin())return $this->error('hrx_tx_begin_failed','Could not start legal-rule review transaction.',500);
 		$ok=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_legal_rules'),array('review_status'=>$to,'reviewer_name'=>sanitize_text_field($body['reviewer_name']??''),'reviewer_qualification'=>sanitize_text_field($body['reviewer_qualification']??$rule['reviewer_qualification']),'review_evidence_ref_id'=>'APPROVE'===$decision?$review_doc_id:null,'reviewed_at'=>Stockland_HR_Replacement::now(),'approved_by'=>'APPROVE'===$decision?get_current_user_id():null,'approved_at'=>'APPROVE'===$decision?Stockland_HR_Replacement::now():null),array('id'=>$id,'review_status'=>$rule['review_status']));
-		if(false===$ok)return $this->error('hrx_rule_update_failed','Rule review did not persist.',500);
+		if(false===$ok){$this->rollback();return $this->error('hrx_rule_update_failed','Rule review did not persist.',500);}
 		$evt=Stockland_HR_Replacement::approval_event('legal-rule',$id,'LEGAL_RULE_'.$decision,$rule['review_status'],$to,$note,$key,null,get_current_user_id());$audit=Stockland_HR_Replacement::audit('legal_rule_'.$decision,'legal-rule',$id,'Legal rule review state changed.');
-		if(is_wp_error($evt)||is_wp_error($audit)||false===$audit)return $this->error('hrx_rule_audit_failed','Rule state changed but the audit write failed; investigate immediately and do not use this rule.');
+		if(is_wp_error($evt)||is_wp_error($audit)||false===$audit){$this->rollback();return $this->error('hrx_rule_audit_failed','Rule review was rolled back because approval evidence could not be persisted.',500);}
+		$this->commit();
 		return rest_ensure_response(array('id'=>$id,'review_status'=>$to,'message'=>'Rule review captured. Do not enable any payroll rule until the qualified professional confirms the authoritative instrument and effective dates.'));
 	}
 
@@ -1091,6 +1115,7 @@ public function approve_payee_request( $request ) {
 		$id=(int)$request['id'];$body=$this->body($request);
 		$req=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',Stockland_HR_Replacement::table('hrx_payee_requests'),$id),ARRAY_A);
 		if(!$req)return $this->error('hrx_payee_request_not_found','Payee request not found.',404);
+		$engagement=$this->approved_payee_engagement($req);if(is_wp_error($engagement))return $engagement;
 		if('APPROVED'!==strtoupper((string)$req['classification_status'])||'SUBMITTED'!==strtoupper((string)$req['status']))return $this->error('hrx_payee_state_invalid','Payee request must be calculated and independently tax-classified before approval.',409);
 		if((int)$req['created_by']===get_current_user_id())return $this->error('hrx_no_self_approval','Request creator cannot approve the request.',403);
 		$reason=sanitize_textarea_field((string)($body['approval_note']??''));$key=sanitize_text_field((string)($body['idempotency_key']??''));
