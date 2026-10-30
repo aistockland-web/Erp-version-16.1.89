@@ -362,5 +362,5 @@ async function hrxSubmit(event){
    const out=await api16('/hr/replacement/documents',{method:'POST',body:fd});
    toast('Private resource stored as draft '+(out.document_code||out.id||'')+'. Independent review is required before download.');form.reset();await hrxLoadCurrent();return;
   }
- }catch(e){toast(e.message||String(e),true)}finally{if(button)button.disabled=false;}
+ }catch(e){toast(e.message||String(e),true);}finally{if(button)button.disabled=false;}
 }
