@@ -337,7 +337,7 @@ def patch_health(files):
 
             t = once(t, "Missing exact schema skips SQL joins and fails closed rather than masking errors.", "Missing required contract tables skip SQL joins and fail closed rather than masking errors.", "accurate deep scan comment")
             t = once(t, "Database or exact 86-table candidate contract is not healthy; integrity joins were not run.", "Database unavailable or one or more required ERP schema tables are missing; integrity joins were not run.", "accurate deep scan skip reason")
-            t = once(t, "All 49 ERP schema tables, runtime routes, streaming XLSX reader, ledger/audit integrity, AP/AR-to-GL reconciliation, procurement/PLEDGER-to-GRNI consistency, role authority, accounting invariants, payroll classification and the supplementary read-only relational integrity scan must be healthy.", "All required ERP schema tables in the versioned contract, runtime routes, streaming XLSX reader, ledger/audit integrity, AP/AR-to-GL reconciliation, procurement/PLEDGER-to-GRNI consistency, role authority, accounting invariants, payroll classification and the supplementary read-only relational integrity scan must be healthy. Additional prefixed tables are reported for review but do not by themselves block the read-only integrity scan.", "versioned live-readiness rule")
+            t = once(t, "All 49 ERP schema tables, runtime routes, streaming XLSX reader, ledger/audit integrity, AP/AR-to-GL reconciliation, procurement/PLEDGER-to-GRNI consistency, role authority, accounting invariants, payroll classification and the supplementary read-only relational integrity scan must be healthy.", "All required ERP schema tables in the versioned contract, runtime routes, streaming XLSX reader, ledger/audit integrity, AP/AR-to-GL reconciliation, procurement/PLEDGER-to-GRNI consistency, role authority, accounting invariants, payroll classification and the supplementary read-only relational integrity scan must be healthy. Only the exact documented 33-table HRX extension is allowlisted; other unregistered ERP tables block the schema contract and read-only integrity scan.", "versioned live-readiness rule")
 
         if path == "includes/class-stockland-admin.php":
             old = "$full_expected = array_values( array_unique( array_merge( $expected_core, $expected_accounting, array( 'employees', 'employee_compensation', 'payroll_periods', 'payroll_lines' ) ) ) );"
@@ -829,6 +829,7 @@ def build(input_zip: Path, output_zip: Path):
         ROOT+"assets/css/10-bootstrap-desktop-search.css",
         ROOT+"assets/css/11-operational-workflows.css",
         ROOT+"assets/css/12-hr-payroll-lifecycle.css",
+        ROOT+"includes/class-stockland-schema-contract.php",
         ROOT+"includes/class-stockland-hr-lifecycle.php",
         ROOT+"includes/rest/class-rest-hr-lifecycle.php",
         ROOT+"includes/class-stockland-hr-payroll-calculator.php",
@@ -839,8 +840,8 @@ def build(input_zip: Path, output_zip: Path):
     for addition in additions:
         if addition not in out_names:
             out_names.append(addition)
-    if len(out_names) != 87 or len(set(out_names)) != 87:
-        raise ValueError(f"Final runtime package inventory mismatch: {len(out_names)} files; expected 87.")
+    if len(out_names) != 88 or len(set(out_names)) != 88:
+        raise ValueError(f"Final runtime package inventory mismatch: {len(out_names)} files; expected 88.")
     if out_names.count(ROOT+"includes/class-stockland-hr-lifecycle.php") != 1 or out_names.count(ROOT+"includes/rest/class-rest-hr-lifecycle.php") != 1:
         raise ValueError("New HR runtime controllers must be included exactly once.")
     manifest = json.loads(files[ROOT+"RELEASE_MANIFEST.json"].decode("utf-8"))
