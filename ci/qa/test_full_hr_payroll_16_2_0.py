@@ -22,12 +22,6 @@ def main():
     if len(sys.argv) != 2:
         raise SystemExit("usage: test_full_hr_payroll_16_2_0.py <installer.zip>")
     package = Path(sys.argv[1])
-        with tempfile.TemporaryDirectory() as tmp:
-            contract_path = Path(tmp) / "class-stockland-schema-contract.php"
-            contract_path.write_text(schema_contract_php, encoding="utf-8")
-            php_test = """define('ABSPATH', '/'); require $argv[1]; $base=array_map(static function($i){return 'base_'.$i;},range(1,86)); $ext=Stockland_Schema_Contract::hrx_extension_keys(); $full=Stockland_Schema_Contract::assess(array_merge($base,$ext),$base,$ext); if(!$full['base_contract_exact'] || !$full['extension_complete'] || 119!==$full['physical_table_count']) exit(1); $partial=Stockland_Schema_Contract::assess(array_merge($base,array_slice($ext,0,4)),$base,$ext); if(!$partial['base_contract_exact'] || $partial['extension_complete']) exit(2); $unknown=Stockland_Schema_Contract::assess(array_merge($base,$ext,array('hrx_unknown_table')),$base,$ext); if($unknown['base_contract_exact'] || !in_array('hrx_unknown_table',$unknown['unexpected_keys'],true)) exit(3); $missing=$base; array_pop($missing); $bad=Stockland_Schema_Contract::assess(array_merge($missing,$ext),$base,$ext); if($bad['base_contract_exact']) exit(4);"""
-            php_result = subprocess.run(["php", "-r", php_test, str(contract_path)], capture_output=True, text=True)
-            require(php_result.returncode == 0, "PHP schema contract accepts 86+33 known tables, reports partial HRX, and rejects missing/unknown tables")
     require(package.is_file() and package.stat().st_size > 100_000, "candidate installer exists and is non-empty")
     print("Installer SHA-256: " + hashlib.sha256(package.read_bytes()).hexdigest())
     with zipfile.ZipFile(package) as z:
@@ -55,6 +49,12 @@ def main():
         app = files["assets/app.js"].decode()
         schema = files["includes/class-stockland-hr-lifecycle.php"].decode()
         schema_contract_php = files["includes/class-stockland-schema-contract.php"].decode()
+        with tempfile.TemporaryDirectory() as tmp:
+            contract_path = Path(tmp) / "class-stockland-schema-contract.php"
+            contract_path.write_text(schema_contract_php, encoding="utf-8")
+            php_test = """define('ABSPATH', '/'); require $argv[1]; $base=array_map(static function($i){return 'base_'.$i;},range(1,86)); $ext=Stockland_Schema_Contract::hrx_extension_keys(); $full=Stockland_Schema_Contract::assess(array_merge($base,$ext),$base,$ext); if(!$full['base_contract_exact'] || !$full['extension_complete'] || 119!==$full['physical_table_count']) exit(1); $partial=Stockland_Schema_Contract::assess(array_merge($base,array_slice($ext,0,4)),$base,$ext); if(!$partial['base_contract_exact'] || $partial['extension_complete']) exit(2); $unknown=Stockland_Schema_Contract::assess(array_merge($base,$ext,array('hrx_unknown_table')),$base,$ext); if($unknown['base_contract_exact'] || !in_array('hrx_unknown_table',$unknown['unexpected_keys'],true)) exit(3); $missing=$base; array_pop($missing); $bad=Stockland_Schema_Contract::assess(array_merge($missing,$ext),$base,$ext); if($bad['base_contract_exact']) exit(4);"""
+            php_result = subprocess.run(["php", "-r", php_test, str(contract_path)], capture_output=True, text=True)
+            require(php_result.returncode == 0, "PHP schema contract accepts 86+33 known tables, reports partial HRX, and rejects missing/unknown tables")
         health_php = files["includes/rest/class-rest-app.php"].decode()
         system_control_php = files["includes/class-stockland-admin.php"].decode()
         sales_php = files["includes/rest/class-rest-sales.php"].decode()
