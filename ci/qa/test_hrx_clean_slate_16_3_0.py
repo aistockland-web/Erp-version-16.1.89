@@ -135,6 +135,7 @@ def main():
     require("PROGRESSIVE_MARGINAL_RATE" in calc and "constant_credit" in calc and "hrx_tax_band_method_unsupported" in calc,"tax-band methods/credits are not fail-closed")
     require("hrx_remittance_overpayment" in controller and "hrx_remittance_reconcile_read_failed" in controller,"remittance overpayment and aggregate read failures are not blocked")
     require("hrx_payout_batch_reconciliation_incomplete" in controller and "hrx_payout_journal_link_missing" in controller,"payroll close does not require reconciled payout batches and journal links")
+    require("LEFT JOIN %i l ON l.source_id=b.id AND l.source_type='HRX_PAYOUT_BATCH'" in controller and "l.id IS NULL" in controller,"payroll close does not verify a journal link for each individual payout batch")
     require("hrx_stock_issue_not_bound_to_request" in controller,"in-kind stock issue is not bound to the exact payee request")
     require("Stockland_Money::minor($req['in_kind_value'])>0" in controller,"cash-only 0.00 in-kind requests are incorrectly blocked")
     require("approved_payee_engagement" in controller and "hrx_payee_engagement_unapproved" in controller,"payee calculation/approval/payment does not require an approved engagement")
