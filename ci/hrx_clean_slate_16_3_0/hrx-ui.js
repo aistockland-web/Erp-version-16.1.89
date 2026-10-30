@@ -345,7 +345,7 @@ async function hrxSubmit(event){
   if(form.matches('[data-hrx-payroll-create]')){
    const month=String(new FormData(form).get('month')||'');if(!/^\\d{4}-(0[1-9]|1[0-2])$/.test(month))throw new Error('Select a valid payroll month.');
    const [y,m]=month.split('-').map(Number);const last=String(new Date(y,m,0).getDate()).padStart(2,'0');const period_start=month+'-01',period_end=month+'-'+last;
-   const out=await api16('/hr/replacement/payroll/runs',{method:'POST',body:JSON.stringify({period_start,period_end,idempotency_key:'ui-'+crypto.randomUUID()})});
+   await api16('/hr/replacement/payroll/runs',{method:'POST',body:JSON.stringify({period_start,period_end,idempotency_key:'ui-'+crypto.randomUUID()})});
    toast('Payroll draft created. Run preflight before any calculation.');form.reset();await hrxLoadCurrent();return;
   }
   if(form.matches('[data-hrx-exit-create]')){
