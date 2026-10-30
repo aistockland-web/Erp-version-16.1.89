@@ -141,7 +141,25 @@ def main():
     require("approved_payee_engagement" in controller and "hrx_payee_engagement_unapproved" in controller,"payee calculation/approval/payment does not require an approved engagement")
     require("idempotent_replay" in controller and "SELECT * FROM %i WHERE id=%d FOR UPDATE" in controller,"accepted offer hire creation is not idempotent under a row lock")
     require("hrx_rule_audit_failed" in controller and "$this->rollback()" in controller,"legal-rule approval can persist without approval/audit evidence")
-    print("PASS HRX exact-package identity, runtime, clean-slate/schema, protected reset, CSS, lifecycle and security regressions")
+    # $wpdb->update() returns an affected-row count: both false and zero must stop before approval/audit writes.
+    update_start=controller.index("public function update_entity( $request )")
+    transition_start=controller.index("public function transition_entity( $request )")
+    employment_start=controller.find("public function create_employment_from_offer( $request )",transition_start)
+    if employment_start < 0: employment_start=controller.find("\\n\\tpublic function ",transition_start+20)
+    update_fn=controller[update_start:controller.index("private function transitions( $entity )",update_start)]
+    transition_fn=controller[transition_start:employment_start if employment_start>0 else len(controller)]
+    update_guard=update_fn.find("0===(int)$ok")
+    update_event=update_fn.find("Stockland_HR_Replacement::approval_event")
+    require(update_guard>=0 and update_event>update_guard,"zero-row HR entity updates must fail before writing approval/audit events")
+    require("array_key_exists('updated_at',$current)" in update_fn and "$data['updated_at']=Stockland_HR_Replacement::now()" in update_fn,"generic HR edits must only write updated_at when the physical table has that column")
+    require("array_key_exists('version_no',$current)" in update_fn and "$update_where['version_no']=(int)$current['version_no']" in update_fn,"versioned HR drafts must use compare-and-swap version checks")
+    require("foreach($data as $field=>$value)" in update_fn and "$update_where[$field]=$current[$field]" in update_fn,"HR draft updates must compare edited fields against the values originally read")
+    transition_guard=transition_fn.find("0===(int)$ok")
+    transition_event=transition_fn.find("Stockland_HR_Replacement::approval_event")
+    require(transition_guard>=0 and transition_event>transition_guard,"zero-row HR transitions must fail before writing approval/audit events")
+    require("array_key_exists('updated_at',$current)" in transition_fn and "$extra['updated_at']=Stockland_HR_Replacement::now()" in transition_fn,"HR transitions must not write updated_at to tables without that column")
+    require("array_key_exists('version_no',$current)" in transition_fn and "$update_where['version_no']=(int)$current['version_no']" in transition_fn,"versioned HR transitions must use compare-and-swap checks")
+    print("PASS HRX exact-package identity, runtime, clean-slate/schema, protected reset, CSS, lifecycle, zero-row concurrency and security regressions")
     print("NOTE: source/package evidence only. Live WordPress/MariaDB E2E, legal review, backup/restore, and Owner/HR/Finance acceptance remain separate gates.")
 
 if __name__=="__main__":
