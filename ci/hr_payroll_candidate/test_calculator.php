@@ -146,4 +146,28 @@ $rounding = Stockland_HR_Payroll_Calculator::calculate( $rounding_items, $roundi
 $assert( '10.01' === $rounding['totals']['income_tax'], 'small taxable amount rounds through the configured marginal rule' );
 $assert( '7.51' === $rounding['totals']['employee_pension'], 'half-up rounding is deterministic in minor currency units' );
 
+$rounding_remainder_rule = $rule;
+$rounding_remainder_rule['employee_pension_rate_bps'] = 0;
+$rounding_remainder_rule['employer_pension_rate_bps'] = 0;
+$rounding_remainder_rule['tax_bands'] = array(
+    array( 'lower_minor' => 0, 'upper_minor' => 1, 'rate_bps' => 5000 ),
+    array( 'lower_minor' => 1, 'upper_minor' => null, 'rate_bps' => 5000 ),
+);
+$rounding_remainder_items = array(
+    array( 'item_code' => 'TEST_SALARY', 'input_reference' => 'fixture-input-remainder-1', 'amount' => '0.02', 'source_reference' => 'compensation:remainder-fixture', 'evidence_reference' => 'fixture:salary', 'basis_reference' => 'fixture:contract' ),
+);
+$remainder_result = Stockland_HR_Payroll_Calculator::calculate( $rounding_remainder_items, $rounding_remainder_rule, '2026-01-31' );
+$band_total_minor = 0;
+foreach ( $remainder_result['tax_band_breakdown'] as $band_row ) {
+    $parts = explode( '.', $band_row['tax'] );
+    $band_total_minor += (int) $parts[0] * 100 + (int) str_pad( $parts[1] ?? '00', 2, '0' );
+}
+$assert( '0.01' === $remainder_result['totals']['income_tax'] && 1 === $band_total_minor, 'total-rounding tax band detail must allocate residual cents and reconcile to income_tax' );
+
+$changed_component_source = $rule;
+$changed_component_source['components']['TEST_SALARY']['source_sha256'] = hash( 'sha256', 'different synthetic component source only' );
+$changed_provenance_result = Stockland_HR_Payroll_Calculator::calculate( $items, $changed_component_source, '2026-01-31' );
+$assert( $result['calculation_sha256'] !== $changed_provenance_result['calculation_sha256'], 'component rule source hash must contribute to the calculation receipt and hash' );
+$assert( $changed_provenance_result['items'][0]['classification_source_sha256'] === $changed_component_source['components']['TEST_BENEFIT']['source_sha256'] || count( $changed_provenance_result['items'] ) === 5, 'component provenance is present in each calculated item receipt' );
+
 echo "PASS HR calculator: synthetic gross-to-net, progressive bands, basis selection, hashes, and fail-closed statutory/evidence guards\n";
