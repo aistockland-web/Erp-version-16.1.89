@@ -8,6 +8,8 @@ import hashlib
 import json
 import re
 import sys
+import subprocess
+import tempfile
 import zipfile
 from pathlib import Path
 
@@ -20,18 +22,25 @@ def main():
     if len(sys.argv) != 2:
         raise SystemExit("usage: test_full_hr_payroll_16_2_0.py <installer.zip>")
     package = Path(sys.argv[1])
+        with tempfile.TemporaryDirectory() as tmp:
+            contract_path = Path(tmp) / "class-stockland-schema-contract.php"
+            contract_path.write_text(schema_contract_php, encoding="utf-8")
+            php_test = """define('ABSPATH', '/'); require $argv[1]; $base=array_map(static function($i){return 'base_'.$i;},range(1,86)); $ext=Stockland_Schema_Contract::hrx_extension_keys(); $full=Stockland_Schema_Contract::assess(array_merge($base,$ext),$base,$ext); if(!$full['base_contract_exact'] || !$full['extension_complete'] || 119!==$full['physical_table_count']) exit(1); $partial=Stockland_Schema_Contract::assess(array_merge($base,array_slice($ext,0,4)),$base,$ext); if(!$partial['base_contract_exact'] || $partial['extension_complete']) exit(2); $unknown=Stockland_Schema_Contract::assess(array_merge($base,$ext,array('hrx_unknown_table')),$base,$ext); if($unknown['base_contract_exact'] || !in_array('hrx_unknown_table',$unknown['unexpected_keys'],true)) exit(3); $missing=$base; array_pop($missing); $bad=Stockland_Schema_Contract::assess(array_merge($missing,$ext),$base,$ext); if($bad['base_contract_exact']) exit(4);"""
+            php_result = subprocess.run(["php", "-r", php_test, str(contract_path)], capture_output=True, text=True)
+            require(php_result.returncode == 0, "PHP schema contract accepts 86+33 known tables, reports partial HRX, and rejects missing/unknown tables")
     require(package.is_file() and package.stat().st_size > 100_000, "candidate installer exists and is non-empty")
     print("Installer SHA-256: " + hashlib.sha256(package.read_bytes()).hexdigest())
     with zipfile.ZipFile(package) as z:
         require(z.testzip() is None, "ZIP CRC and archive integrity")
         infos = [i for i in z.infolist() if not i.is_dir()]
         names = [i.filename for i in infos]
-        require(len(names) == 87 and len(set(names)) == 87, "87 unique runtime files: 75 baseline + 6 HR/payroll/POS controllers + 6 ordered CSS modules")
+        require(len(names) == 88 and len(set(names)) == 88, "88 unique runtime files: 75 baseline plus 12 HR/POS/CSS runtime files plus schema classifier")
         require(all(n.startswith("stockland-erp-app/") and ".." not in n.split("/") for n in names), "single plugin root and safe archive paths")
         root = "stockland-erp-app/"
         files = {n[len(root):]: z.read(n) for n in names}
         required_files = [
             "includes/class-stockland-hr-lifecycle.php",
+            "includes/class-stockland-schema-contract.php",
             "includes/rest/class-rest-hr-lifecycle.php",
             "includes/class-stockland-hr-payroll-calculator.php",
             "includes/class-stockland-hr-private-vault.php",
@@ -45,6 +54,7 @@ def main():
         modules = json.loads(files["assets/css/modules.json"].decode())
         app = files["assets/app.js"].decode()
         schema = files["includes/class-stockland-hr-lifecycle.php"].decode()
+        schema_contract_php = files["includes/class-stockland-schema-contract.php"].decode()
         health_php = files["includes/rest/class-rest-app.php"].decode()
         system_control_php = files["includes/class-stockland-admin.php"].decode()
         sales_php = files["includes/rest/class-rest-sales.php"].decode()
@@ -90,15 +100,16 @@ def main():
         require(manifest.get("schema_contract") == {"total":86,"core_operations":29,"accounting_procurement":16,"hr_payroll":41}, "provisional source-mapped 86-table candidate contract agrees")
         health_lines = health_php.splitlines()
         schema_gate_lines = [line for line in health_lines if re.search(r"\$checks\['schema_contract_expected'\]\s*=", line)]
-        require(len(schema_gate_lines) == 2 and all("empty( $missing_full )" in line and "count( $found_keys ) === 86" not in line and "empty( $unexpected_full )" not in line for line in schema_gate_lines),
+        require(len(schema_gate_lines) == 2 and all("$schema_exact_match" in line and "86 === count( $full_expected )" in line for line in schema_gate_lines), "quick and deep gates require the exact 86-table base contract plus strict extension assessment")
                 "quick and deep runtime gates check required tables, not an exact physical count")
         require(health_php.count("$diagnostics['schema_contract_status']") == 2 and health_php.count("$diagnostics['schema_contract_extra_table_count']") == 2,
+        require(health_php.count("Stockland_Schema_Contract::assess") == 2 and "recognized_hrx_extension_tables" in health_php and "hrx_extension_missing" in health_php, "quick and deep health report known HRX tables separately and reject unregistered extras")
                 "quick and deep runtime diagnostics distinguish missing tables from extras")
         require("Database unavailable or one or more required ERP schema tables are missing" in health_php and "All required ERP schema tables in the versioned contract" in health_php,
                 "runtime deep-scan rules no longer cite a stale 49-table contract")
         require("Stockland_HR_Lifecycle::table_keys()" in system_control_php and "$full_expected = array_values( array_unique( array_merge( $expected_core, $expected_accounting, $expected_hr ) ) );" in system_control_php,
                 "WordPress System Control includes the full HR/payroll lifecycle schema")
-        require("Additional ERP tables detected" in app and "do not block the read-only integrity scan" in app,
+        require("Additional ERP tables detected" in app and "do not block the read-only integrity scan" in app and "Only the exact documented 33-table HRX extension is allowlisted" in health_php, "UI discloses extra tables while runtime schema contract rejects unknown additions")
                 "health UI explains extra tables as a review warning rather than a false failed gate")
         require(manifest.get("statutory_rates_or_exemption_caps_seeded") is False, "no automatic statutory rates or exemption caps are seeded")
         required_table_names = [
