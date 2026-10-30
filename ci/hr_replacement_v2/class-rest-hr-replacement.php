@@ -879,6 +879,10 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		$type=strtoupper((string)$obligation['obligation_type']);
 		$payable=array('PAYE'=>$config['paye_payable_account'],'EMPLOYEE_PENSION'=>$config['employee_pension_payable_account'],'EMPLOYER_PENSION'=>$config['employer_pension_payable_account']);
 		if(empty($payable[$type]))return $this->error('hrx_obligation_type_unsupported','This statutory obligation has no reviewed GL mapping.',409);
+		$paid_before=Stockland_DB::read_var($wpdb->prepare("SELECT COALESCE(SUM(amount),0) FROM %i WHERE obligation_id=%d AND status='RECONCILED'",Stockland_HR_Replacement::table('hrx_remittances'),(int)$rem['obligation_id']));
+		if($wpdb->last_error||null===$paid_before)return $this->error('hrx_remittance_reconcile_read_failed','Could not verify previously reconciled remittances.',500);
+		$paid_with_current=Stockland_Money::add($paid_before,$rem['amount']);
+		if(Stockland_Money::minor($paid_with_current)>Stockland_Money::minor($obligation['amount_due']))return $this->error('hrx_remittance_overpayment','This remittance would exceed the outstanding statutory obligation; correct the amount before verification.',409);
 		$lines=array(
 			array('account_code'=>$payable[$type],'debit'=>$rem['amount'],'credit'=>'0.00','memo'=>'Remittance '.$rem['remittance_code'].' clearing payable'),
 			array('account_code'=>$config['cash_account_code'],'debit'=>'0.00','credit'=>$rem['amount'],'memo'=>'Statutory payment '.$rem['government_reference'])
@@ -888,7 +892,9 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		if(!$journal){$this->rollback();return $this->error('hrx_remittance_journal_failed','Remittance accounting journal did not post.',500);}
 		$link=Stockland_DB::insert_record(Stockland_HR_Replacement::table('hrx_accounting_links'),array('source_type'=>'HRX_REMITTANCE','source_id'=>$id,'journal_id'=>(int)$journal,'journal_hash'=>hash('sha256',wp_json_encode($lines)),'posted_at'=>Stockland_HR_Replacement::now(),'posted_by'=>get_current_user_id()));
 		$ok=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_remittances'),array('status'=>'RECONCILED','verified_by'=>get_current_user_id(),'verified_at'=>Stockland_HR_Replacement::now(),'journal_id'=>(int)$journal,'payment_reference'=>sanitize_text_field((string)($body['payment_reference']??$rem['government_reference'])), 'receipt_document_ref_id'=>$doc_id),array('id'=>$id,'status'=>'SUBMITTED','prepared_by'=>(int)$rem['prepared_by']));
-		$paid=Stockland_Money::add(Stockland_DB::read_var($wpdb->prepare("SELECT COALESCE(SUM(amount),0) FROM %i WHERE obligation_id=%d AND status='RECONCILED'",Stockland_HR_Replacement::table('hrx_remittances'),(int)$rem['obligation_id'])),$rem['amount']);
+		$paid=Stockland_DB::read_var($wpdb->prepare("SELECT COALESCE(SUM(amount),0) FROM %i WHERE obligation_id=%d AND status='RECONCILED'",Stockland_HR_Replacement::table('hrx_remittances'),(int)$rem['obligation_id']));
+		if($wpdb->last_error||null===$paid){$this->rollback();return $this->error('hrx_remittance_reconcile_read_failed','Could not verify the reconciled remittance total; posting was rolled back.',500);}
+		$paid=Stockland_Money::decimal(Stockland_Money::minor($paid));
 		$ob_status=Stockland_Money::minor($paid)>=Stockland_Money::minor($obligation['amount_due'])?'RECONCILED':'PARTIALLY_SETTLED';
 		$ok2=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_statutory_obligations'),array('status'=>$ob_status),array('id'=>(int)$rem['obligation_id']));
 		$evt=Stockland_HR_Replacement::approval_event('remittance',$id,'REMITTANCE_RECONCILED','SUBMITTED','RECONCILED',$note,$key,$doc_id,get_current_user_id());
@@ -1021,6 +1027,10 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		$ready=$this->require_schema();if(is_wp_error($ready))return $ready;$id=(int)$request['id'];$run=$this->run_row($id);if(is_wp_error($run))return $run;
 		$body=$this->body($request);$note=sanitize_textarea_field((string)($body['reconciliation_note']??''));$key=sanitize_text_field((string)($body['idempotency_key']??''));
 		if(!in_array($run['status'],array('SETTLEMENT_PENDING','SETTLED'),true)||strlen(trim($note))<30||!$key)return $this->error('hrx_close_evidence_required','Close requires settlement state, bank/payout and remittance reconciliation evidence, and an idempotency key.',422);
+		$batch_summary=Stockland_DB::read_row($wpdb->prepare("SELECT COUNT(*) total,SUM(CASE WHEN status='RECONCILED' THEN 1 ELSE 0 END) reconciled FROM %i WHERE payroll_run_id=%d",Stockland_HR_Replacement::table('hrx_payout_batches'),$id),ARRAY_A);
+		if(!$batch_summary||$wpdb->last_error||(int)$batch_summary['total']<1||(int)$batch_summary['reconciled']!==(int)$batch_summary['total'])return $this->error('hrx_payout_batch_reconciliation_incomplete','Every payout batch must be reconciled to bank/cash and the net-payable journal before the payroll period can close.',409);
+		$linked=(int)Stockland_DB::read_var($wpdb->prepare("SELECT COUNT(*) FROM %i l INNER JOIN %i b ON b.id=l.source_id AND l.source_type='HRX_PAYOUT_BATCH' WHERE b.payroll_run_id=%d",Stockland_HR_Replacement::table('hrx_accounting_links'),Stockland_HR_Replacement::table('hrx_payout_batches'),$id));
+		if($wpdb->last_error||$linked!==(int)$batch_summary['total'])return $this->error('hrx_payout_journal_link_missing','Every reconciled payout batch must have its accounting journal link before close.',409);
 		$payout=Stockland_DB::read_row($wpdb->prepare("SELECT COUNT(*) total,SUM(CASE WHEN status='SETTLED' THEN 1 ELSE 0 END) settled,SUM(CASE WHEN status IN ('FAILED','RETURNED') THEN 1 ELSE 0 END) failed FROM %i WHERE payout_batch_id IN (SELECT id FROM %i WHERE payroll_run_id=%d)",Stockland_HR_Replacement::table('hrx_payout_items'),Stockland_HR_Replacement::table('hrx_payout_batches'),$id),ARRAY_A);
 		if(!$payout||(int)$payout['total']===0||(int)$payout['settled']!==(int)$payout['total']||(int)$payout['failed']>0)return $this->error('hrx_payout_reconciliation_incomplete','Every employee payout must be individually settled. Failed/returned payments need a resolved recovery workflow before close.',409);
 		$open= (int)Stockland_DB::read_var($wpdb->prepare("SELECT COUNT(*) FROM %i WHERE payroll_run_id=%d AND status NOT IN('RECONCILED','NOT_REQUIRED')",Stockland_HR_Replacement::table('hrx_statutory_obligations'),$id));
