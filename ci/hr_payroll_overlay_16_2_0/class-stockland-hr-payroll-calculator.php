@@ -13,9 +13,12 @@ final class Stockland_HR_Payroll_Calculator {
 	const RATE_SCALE = 1000000;
 
 	private static function fail( $code, $message ) {
-		// This calculator is synthetic-test-only; keep raw rule/input details out of exception text.
-		unset( $code, $message );
-		throw new InvalidArgumentException( 'Payroll calculation validation failed.' );
+		// Expose a safe machine-readable error code only; never echo rule or payroll input details.
+		unset( $message );
+		if ( ! is_string( $code ) || 1 !== preg_match( '/^[a-z0-9_]{3,64}$/D', $code ) ) {
+			$code = 'validation_failed';
+		}
+		throw new InvalidArgumentException( $code . ': Payroll calculation validation failed.' );
 	}
 
 	private static function is_money_string( $value ) {
