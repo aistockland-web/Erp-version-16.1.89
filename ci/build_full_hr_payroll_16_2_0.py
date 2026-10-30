@@ -319,14 +319,20 @@ def patch_health(files):
             # Presence of every declared table is the contract. Extra prefixed tables are
             # reported separately and must not prevent the read-only known-schema scan.
             quick_old = "$checks['schema_contract_expected']       = $checks['db'] && count( $found_keys ) === 49 && empty( $missing_full ) && empty( $unexpected_full );"
-            quick_new = "$checks['schema_contract_expected']       = $checks['db'] && ! empty( $full_expected ) && empty( $missing_full );"
+            quick_new = "$checks['schema_contract_expected']       = $checks['db'] && 86 === count( $full_expected ) && $schema_exact_match;\n\t\t$checks['schema_contract_exact_86'] = $checks['db'] && 86 === count( $full_expected ) && $schema_exact_match;"
+            quick_classify_old = "$missing_full                             = array_values( array_diff( $full_expected, $found_keys ) );\n\t\t$unexpected_full                          = array_values( array_diff( $found_keys, $full_expected ) );"
+            quick_classify_new = quick_classify_old + "\n\t\t$schema_contract = Stockland_Schema_Contract::assess( $found_keys, $full_expected, Stockland_Schema_Contract::hrx_extension_keys() );\n\t\t$missing_full = $schema_contract['base_missing'];\n\t\t$unexpected_full = $schema_contract['unexpected_keys'];\n\t\t$schema_exact_match = ! empty( $schema_contract['base_contract_exact'] );"
+            t = once(t, quick_classify_old, quick_classify_new, "quick schema classifies recognized HRX extension and unknown extras")
             t = once(t, quick_old, quick_new, "quick health uses required tables rather than physical count")
             deep_old = "$checks['schema_contract_expected']       = count( $found_keys ) === 49 && empty( $missing_full ) && empty( $unexpected_full );"
-            deep_new = "$checks['schema_contract_expected']       = ! empty( $full_expected ) && empty( $missing_full );"
+            deep_new = "$checks['schema_contract_expected']       = 86 === count( $full_expected ) && $schema_exact_match;\n\t\t$checks['schema_contract_exact_86'] = 86 === count( $full_expected ) && $schema_exact_match;"
+            deep_classify_old = "$missing_full    = array_values( array_diff( $full_expected, $found_keys ) );\n\t\t$unexpected_full = array_values( array_diff( $found_keys, $full_expected ) );"
+            deep_classify_new = deep_classify_old + "\n\t\t$schema_contract = Stockland_Schema_Contract::assess( $found_keys, $full_expected, Stockland_Schema_Contract::hrx_extension_keys() );\n\t\t$missing_full = $schema_contract['base_missing'];\n\t\t$unexpected_full = $schema_contract['unexpected_keys'];\n\t\t$schema_exact_match = ! empty( $schema_contract['base_contract_exact'] );"
+            t = once(t, deep_classify_old, deep_classify_new, "deep schema classifies recognized HRX extension and unknown extras")
             t = once(t, deep_old, deep_new, "deep health scans when all required tables exist")
 
             schema_count_line = "$diagnostics['schema_table_count']        = count( $found_keys );"
-            schema_status_lines = schema_count_line + "\n\t\t$diagnostics['schema_contract_status'] = empty( $missing_full ) ? ( empty( $unexpected_full ) ? 'REQUIRED_TABLES_PRESENT' : 'REQUIRED_TABLES_PRESENT_WITH_EXTRA_TABLES' ) : 'REQUIRED_TABLES_MISSING';\n\t\t$diagnostics['schema_contract_extra_table_count'] = count( $unexpected_full );"
+            schema_status_lines = schema_count_line + "\n\t\t$diagnostics['schema_contract_status'] = $schema_exact_match ? ( $schema_contract['extension_present_count'] > 0 ? 'BASELINE_EXACT_WITH_RECOGNIZED_HRX_EXTENSION' : 'BASELINE_EXACT' ) : ( empty( $missing_full ) ? 'UNRECOGNIZED_EXTRA_TABLES' : 'REQUIRED_TABLES_MISSING' );\n\t\t$diagnostics['schema_contract_extra_table_count'] = count( $unexpected_full );\n\t\t$diagnostics['recognized_hrx_extension_tables'] = $schema_contract['extension_present'];\n\t\t$diagnostics['hrx_extension_missing'] = $schema_contract['extension_missing'];\n\t\t$diagnostics['hrx_extension_complete'] = $schema_contract['extension_complete'];"
             t = many(t, schema_count_line, schema_status_lines, 2, "quick/deep schema contract diagnostics")
 
             t = once(t, "Missing exact schema skips SQL joins and fails closed rather than masking errors.", "Missing required contract tables skip SQL joins and fail closed rather than masking errors.", "accurate deep scan comment")
