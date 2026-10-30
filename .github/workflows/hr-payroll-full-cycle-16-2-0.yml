@@ -161,7 +161,7 @@ jobs:
           with zipfile.ZipFile(p) as z:
               actual=[i.filename for i in z.infolist() if not i.is_dir()]
               m=json.loads(z.read("stockland-erp-app/RELEASE_MANIFEST.json"))
-              assert len(actual)==87 and len(set(actual))==87
+              assert len(actual)==88 and len(set(actual))==88
               assert receipt.get("runtime_file_count")==len(actual), "build receipt runtime file count mismatches installer"
               assert receipt.get("installer_sha256")==digest, "build receipt installer SHA-256 mismatch"
               assert m.get("schema_contract_status") == "PROVISIONAL_CANDIDATE_NOT_ARCHITECTURE_APPROVAL"
