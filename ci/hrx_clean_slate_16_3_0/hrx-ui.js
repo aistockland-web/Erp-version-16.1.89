@@ -305,7 +305,7 @@ async function hrxClick(event){
  const entity=event.target.closest('[data-hrx-entity]');if(entity){window.__stocklandHrxUI.entity=entity.dataset.hrxEntity;await hrxLoadCurrent();return}
  const refresh=event.target.closest('[data-hrx-refresh]');if(refresh){await hrxLoadCurrent();return}
  const b=event.target.closest('[data-hrx-action]');if(!b)return;
- const action=b.dataset.hrxAction,id=Number(b.dataset.hrxId||0),s=window.__stocklandHrxUI||{},boot=s.bootstrap||{};
+ const action=b.dataset.hrxAction,id=Number(b.dataset.hrxId||0),s=window.__stocklandHrxUI||{};
  b.disabled=true;
  try{
   if(action==='reload'){await loadHR();return}
