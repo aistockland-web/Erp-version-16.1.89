@@ -126,6 +126,8 @@ final class Stockland_HR_Payroll_Calculator {
 				'tax_treatment' => $tax_treatment,
 				'pension_treatment' => $pension_treatment,
 				'rule_version' => (string) $rule['version'],
+				'classification_source_reference' => (string) $classification['source_reference'],
+				'classification_source_sha256' => strtolower( (string) $classification['source_sha256'] ),
 				'input_reference' => $input_ref,
 				'source_reference' => $source_ref,
 				'evidence_reference' => $evidence,
@@ -292,7 +294,7 @@ final class Stockland_HR_Payroll_Calculator {
 			}
 			$numerator = $slice * $band['rate_bps'];
 			$numerator_total = self::safe_add_integer( $numerator_total, $numerator );
-			$band_tax = self::round_ratio( $numerator, 10000 );
+			$band_tax = self::ROUND_TOTAL === $rounding_mode ? intdiv( $numerator, 10000 ) : self::round_ratio( $numerator, 10000 );
 			if ( self::ROUND_PER_BAND === $rounding_mode ) {
 				$tax_total = self::safe_add_minor( $tax_total, $band_tax );
 			}
@@ -301,12 +303,36 @@ final class Stockland_HR_Payroll_Calculator {
 				'upper_minor' => $upper,
 				'rate_bps' => $band['rate_bps'],
 				'taxable_slice' => self::minor_to_money( $slice ),
-				'tax' => self::minor_to_money( $band_tax ),
+				'tax_minor' => $band_tax,
+				'remainder' => $numerator % 10000,
 			);
 		}
 		if ( self::ROUND_TOTAL === $rounding_mode ) {
 			$tax_total = self::round_ratio( $numerator_total, 10000 );
+			$floor_total = 0;
+			$remainder_order = array();
+			foreach ( $breakdown as $index => $row ) {
+				$floor_total = self::safe_add_minor( $floor_total, (int) $row['tax_minor'] );
+				$remainder_order[] = array( 'index'=>$index, 'remainder'=>(int) $row['remainder'] );
+			}
+			$remaining = $tax_total - $floor_total;
+			if ( $remaining < 0 || $remaining > count( $remainder_order ) ) {
+				throw new DomainException( 'Aggregate tax rounding could not be allocated to the band breakdown.' );
+			}
+			usort( $remainder_order, static function ( $left, $right ) {
+				if ( $left['remainder'] === $right['remainder'] ) { return $left['index'] <=> $right['index']; }
+				return $right['remainder'] <=> $left['remainder'];
+			} );
+			for ( $i = 0; $i < $remaining; $i++ ) {
+				$index = $remainder_order[$i]['index'];
+				$breakdown[$index]['tax_minor'] = self::safe_add_minor( (int) $breakdown[$index]['tax_minor'], 1 );
+			}
 		}
+		foreach ( $breakdown as &$row ) {
+			$row['tax'] = self::minor_to_money( (int) $row['tax_minor'] );
+			unset( $row['tax_minor'], $row['remainder'] );
+		}
+		unset( $row );
 		return array( 'tax_minor' => $tax_total, 'bands' => $breakdown );
 	}
 
