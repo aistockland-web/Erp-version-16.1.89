@@ -124,7 +124,21 @@ def main():
     require("private-document" in read_member(zipfile.ZipFile(a.package),PLUGIN+"README.md").lower() or "private document" in controller.lower(),"private-document control documentation missing")
     require("stockland_hrx_schema_version" in model and "install_schema_batch" in model,"bounded, versioned, explicit schema setup missing")
     require("function reset_legacy_tables" in controller,"legacy cleanup must be a separate explicit action")
-    print("PASS HRX exact-package identity, runtime, clean-slate/schema, protected reset, CSS and lifecycle UI contracts")
+    # Security/data-integrity regressions from the latest Codex review:
+    require("$this->apply_location_scope($entity,$row,0)" in controller,"single-record HR reads do not enforce location scope")
+    require("$direct = array( 'org-units', 'requisitions', 'time-events', 'assignments' );" in controller,"branch lists must fail closed for entities without a direct location column")
+    require("hrx_frozen_employee_set_changed" in controller and "hrx_frozen_compensation_items_changed" in controller,"payroll approval does not compare active employees and compensation to frozen inputs")
+    require("APPROVED_TIME_PAYROLL_RULE_UNSUPPORTED" in controller and "APPROVED_UNPAID_LEAVE_PAYROLL_RULE_UNSUPPORTED" in controller,"approved pay-affecting time/leave can be silently omitted by payroll")
+    require("frequency" in calc and "hrx_component_frequency_unsupported" in calc and "'MONTHLY' !== $frequency" in calc,"unsupported ONE_TIME/HOURLY/DAILY compensation frequencies are not rejected")
+    require("PROGRESSIVE_MARGINAL_RATE" in calc and "constant_credit" in calc and "hrx_tax_band_method_unsupported" in calc,"tax-band methods/credits are not fail-closed")
+    require("hrx_remittance_overpayment" in controller and "hrx_remittance_reconcile_read_failed" in controller,"remittance overpayment and aggregate read failures are not blocked")
+    require("hrx_payout_batch_reconciliation_incomplete" in controller and "hrx_payout_journal_link_missing" in controller,"payroll close does not require reconciled payout batches and journal links")
+    require("hrx_stock_issue_not_bound_to_request" in controller,"in-kind stock issue is not bound to the exact payee request")
+    require("Stockland_Money::minor($req['in_kind_value'])>0" in controller,"cash-only 0.00 in-kind requests are incorrectly blocked")
+    require("approved_payee_engagement" in controller and "hrx_payee_engagement_unapproved" in controller,"payee calculation/approval/payment does not require an approved engagement")
+    require("idempotent_replay" in controller and "SELECT * FROM %i WHERE id=%d FOR UPDATE" in controller,"accepted offer hire creation is not idempotent under a row lock")
+    require("hrx_rule_audit_failed" in controller and "$this->rollback()" in controller,"legal-rule approval can persist without approval/audit evidence")
+    print("PASS HRX exact-package identity, runtime, clean-slate/schema, protected reset, CSS, lifecycle and security regressions")
     print("NOTE: source/package evidence only. Live WordPress/MariaDB E2E, legal review, backup/restore, and Owner/HR/Finance acceptance remain separate gates.")
 
 if __name__=="__main__":
