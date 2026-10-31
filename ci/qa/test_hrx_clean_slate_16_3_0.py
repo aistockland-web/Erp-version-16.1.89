@@ -190,6 +190,11 @@ def main():
     require("if(is_wp_error($evt)||is_wp_error($audit)||false===$audit){$this->rollback();" in controller,"in-kind verification must roll back when audit evidence cannot persist")
     require("hrx_payee_currency_unsupported" in controller,"non-ETB payee calculation, verification and AP posting must fail closed")
     require("verified_valuation_amount:amount" in app,"in-kind UI must transmit the entered valuation amount")
+    require("array('id'=>$id,'status'=>'DRAFT','version_no'=>(int)$run['version_no'])" in controller and "hrx_run_update_conflict" in controller,"payroll calculation must use version-checked affected-row persistence")
+    require("hrx_submit_conflict" in controller and "hrx_payroll_approval_conflict" in controller and "hrx_close_conflict" in controller,"payroll submit, approve and close must reject concurrent zero-row updates")
+    require("array('id'=>$id,'status'=>$req['status'],'classification_status'=>'APPROVED','version_no'=>(int)$req['version_no'])" in controller and "hrx_payee_calculation_conflict" in controller,"payee calculation must use version-checked affected-row persistence")
+    exit_calc=controller[controller.index("public function calculate_exit_settlement"):controller.index("public function approve_exit_settlement")]
+    require("$this->begin()" in exit_calc and "0===(int)$ok" in exit_calc and "$this->rollback()" in exit_calc and "$this->commit()" in exit_calc,"exit calculation and audit evidence must be one versioned transaction")
     print("PASS HRX exact-package identity, schema, creator/approval mapping, payroll/payee currency and exit guards, privacy redaction, valuation evidence, legal review, UI actions, concurrency and security regressions")
     print("NOTE: source/package evidence only. Live WordPress/MariaDB E2E, legal review, backup/restore, and Owner/HR/Finance acceptance remain separate gates.")
 
