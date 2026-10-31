@@ -78,7 +78,7 @@ function hrxActionButton(label,action,id,cls){
  return '<button type="button" class="sl-btn sl-btn-sm '+(cls||'')+'" data-hrx-action="'+hrxEsc(action)+'" data-hrx-id="'+hrxEsc(id||'')+'">'+hrxEsc(label)+'</button>';
 }
 function hrxActions(entity,row,cap){
- const id=Number(row.id||0),status=String(row.status||row.review_status||row.approval_status||row.stage||row.line_status||'').toUpperCase();
+ const id=Number(row.id||0),stateValue=entity==='applications'?row.stage:(row.status||row.review_status||row.approval_status||row.stage||row.line_status||''),status=String(stateValue||'').toUpperCase();
  let buttons='';
  if(entity==='payroll-runs'){
   if(status==='DRAFT')buttons+=hrxActionButton('Preflight','payroll-preflight',id)+hrxActionButton('Calculate frozen run','payroll-calculate',id,'primary');
@@ -119,6 +119,7 @@ function hrxActions(entity,row,cap){
   if(status==='SCREENING'&&entity==='applications')transitions.push(['SHORTLIST','Shortlist']);
   if(status==='SHORTLISTED'&&entity==='applications')transitions.push(['SELECT','Select with human rationale']);
   if(status==='PENDING'&&entity==='interviews')transitions.push(['RECOMMEND','Recommend']);
+  if(status==='PENDING'&&entity==='payee-deliverables')transitions.push(['SUBMIT','Submit deliverable evidence']);
   if(status==='OPEN'&&['onboarding-tasks','exit-clearance-tasks'].includes(entity))transitions.push(['COMPLETE','Mark complete']);
   if(status==='DRAFT'&&entity==='time-events')transitions.push(['SUBMIT','Submit time']);
   if(status==='DRAFT'&&entity==='leave-transactions')transitions.push(['SUBMIT','Submit leave']);
@@ -153,7 +154,7 @@ function hrxPayrollSpecial(entity,id,action){
  const docId=()=>{const x=ask('Enter the ID of the independently approved private evidence document: ',1);if(!x||!/^\d+$/.test(x))throw new Error('A valid approved private document ID is required.');return Number(x)};
  if(action==='payroll-preflight')return api16('/hr/replacement/payroll/runs/'+id+'/preflight');
  if(action==='payroll-calculate')return post('/hr/replacement/payroll/runs/'+id+'/calculate',{});
- if(action==='payroll-submit')return post('/hr/replacement/payroll/runs/'+id+'/submit',{});
+ if(action==='payroll-submit')return post('/hr/replacement/payroll/runs/'+id+'/submit',{idempotency_key:key()});
  if(action==='payroll-approve'){
   const note=ask('Independent Owner approval note (minimum 30 characters): ',30);if(!note)throw new Error('A documented independent approval note is required.');
   return post('/hr/replacement/payroll/runs/'+id+'/approve',{approval_note:note,idempotency_key:key()});
@@ -315,8 +316,14 @@ async function hrxClick(event){
    toast(r.message||'Schema batch processed.');await loadHR();return;
   }
   if(action.startsWith('transition:')){
-   const parts=action.split(':'),entityName=parts[1],decision=parts[2];let extra={action:decision,idempotency_key:'ui-'+crypto.randomUUID(),reason:'Workflow decision entered through the authorized HRX workspace.'};
+   const parts=action.split(':'),entityName=parts[1],decision=parts[2],idempotency='ui-'+((window.crypto&&window.crypto.randomUUID)?window.crypto.randomUUID():Date.now()+'-'+Math.random().toString(16).slice(2));
+   let extra={action:decision,idempotency_key:idempotency,reason:'Workflow decision entered through the authorized HRX workspace.'};
    if(['APPROVE','ACCEPT','SELECT','RETIRE'].includes(decision)){const note=prompt('Enter the documented independent approval / decision rationale (minimum 30 characters):');if(!note||note.trim().length<30)throw new Error('A decision rationale of at least 30 characters is required.');extra.reason=note;if(decision==='ACCEPT')extra.acceptance_evidence=note;if(entityName==='legal-rules'||entityName==='leave-policies')extra.review_attestation=note}
+   if(entityName==='exit-clearance-tasks'&&decision==='COMPLETE'){
+    const note=prompt('Resolution evidence note (minimum 20 characters):');if(!note||note.trim().length<20)throw new Error('A resolution note of at least 20 characters is required.');extra.resolution_note=note;
+    const task=await api16('/hr/replacement/entities/exit-clearance-tasks/'+id);
+    if(String(task.task_code||'').toUpperCase()!=='ACCESS_REVOKED'){const evidence=prompt('ID of the independently approved private EXIT_CLEARANCE document for this settlement:');if(!evidence||!/^\d+$/.test(evidence))throw new Error('An approved private EXIT_CLEARANCE document ID is required.');extra.evidence_ref_id=Number(evidence);}
+   }
    await api16('/hr/replacement/entities/'+encodeURIComponent(entityName)+'/'+id+'/transition',{method:'POST',body:JSON.stringify(extra)});toast('HR workflow transition saved.');await hrxLoadCurrent();return;
   }
   if(action==='legal-review'){
