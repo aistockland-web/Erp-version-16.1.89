@@ -255,9 +255,11 @@ function hrxPayrollSpecial(entity,id,action){
  }
  if(action==='payee-calculate')return post('/hr/replacement/payee-requests/'+id+'/calculate',{});
  if(action==='payee-verify-in-kind'){
-  const ref=ask('Posted negative stock transaction reference in TYPE:REFERENCE format: ',4);
-  const doc=docId();const note=ask('Explain verified stock issue and independently approved valuation evidence (minimum 30 characters): ',30);
-  return post('/hr/replacement/payee-requests/'+id+'/verify-in-kind',{stock_transaction_reference:ref,valuation_document_id:doc,verification_note:note,idempotency_key:key()});
+  const ref=ask('Posted negative stock transaction reference in PAYEE_REQUEST:<request ID> format: ',4);
+  const amount=ask('Approved private valuation amount in ETB; must exactly match this request amount: ',1);
+  if(!/^\d{1,12}(?:\.\d{1,2})?$/.test(amount))throw new Error('Enter a valid ETB amount with up to two decimal places.');
+  const doc=docId();const note=ask('Explain how the request-bound stock issue and approved valuation document support this amount (minimum 30 characters): ',30);
+  return post('/hr/replacement/payee-requests/'+id+'/verify-in-kind',{stock_transaction_reference:ref,verified_valuation_amount:amount,valuation_document_id:doc,verification_note:note,idempotency_key:key()});
  }
  if(action==='payee-approve'){
   const note=ask('Independent Owner approval note for the central AP posting (minimum 30 characters): ',30);
