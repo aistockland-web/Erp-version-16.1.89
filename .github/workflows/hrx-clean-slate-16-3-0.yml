@@ -119,6 +119,41 @@ jobs:
           test "$(grep -c 'No syntax errors detected' "$RUNNER_TEMP/php83-lint.txt")" -eq "$(find "$APP" -type f -name '*.php' | wc -l)"
           echo "STOCKLAND_APP=$APP" >> "$GITHUB_ENV"
 
+      - name: Install locked PHPCS/WPCS dependencies and audit the toolchain
+        env:
+          COMPOSER_ALLOW_SUPERUSER: "1"
+        run: |
+          set -euo pipefail
+          composer validate --working-dir=ci/phpcs --strict
+          composer install --working-dir=ci/phpcs --no-interaction --prefer-dist --no-progress
+          composer audit --working-dir=ci/phpcs --locked --format=table
+
+      - name: Run PHPCS/WPCS against every PHP file in the exact installer
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPORT="$RUNNER_TEMP/hrx-16.3.0-phpcs.json"
+          set +e
+          ci/phpcs/vendor/bin/phpcs --standard=ci/qa/stockland-phpcs.xml --extensions=php --report=json --report-file="$REPORT" "$STOCKLAND_APP"
+          CODE=$?
+          set -e
+          test -s "$REPORT"
+          echo "PHPCS/WPCS diagnostic exit code: $CODE (full style diagnostics retained; exact security/database triage is the release gate)"
+          python ci/qa/test-phpcs-hrx-review.py "$STOCKLAND_APP" "$REPORT"
+
+      - name: Install pinned Semgrep PHP/security scanner
+        run: python -m pip install --disable-pip-version-check 'pydantic==2.12.5' 'semgrep==1.139.0'
+
+      - name: Scan the exact installer with Semgrep PHP and security-audit rules
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPORT="$RUNNER_TEMP/hrx-16.3.0-semgrep.json"
+          semgrep scan --metrics=off --config p/php --config p/security-audit --include '*.php' --json --output "$REPORT" "$STOCKLAND_APP"
+          PHP_COUNT="$(find "$STOCKLAND_APP" -type f -name '*.php' | wc -l | tr -d ' ')"
+          test "$PHP_COUNT" -gt 0
+          python ci/qa/summarize-semgrep.py "$REPORT" --expected-targets "$PHP_COUNT"
+
       - name: Verify JavaScript syntax
         run: |
           node --check "$STOCKLAND_APP/assets/app.js"
