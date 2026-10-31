@@ -1293,9 +1293,14 @@ public function approve_payee_request( $request ) {
 		if(empty($rows))return $this->error('hrx_exit_items_missing','Add rule-backed settlement items before calculation.',409);
 		$items=array();foreach($rows as $r)$items[]=array('item_type'=>$r['item_type'],'amount'=>$r['amount'],'approved'=>'APPROVED'===$r['review_status'],'rule_id'=>(int)$r['rule_id'],'rule_source_sha256'=>$r['source_sha256']);
 		$calc=Stockland_HR_Replacement_Calculator::final_settlement($items);if(is_wp_error($calc))return $calc;
-		$hash=hash('sha256',wp_json_encode($rows));$ok=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_exit_settlements'),array_merge($calc,array('status'=>'CALCULATED','rule_bundle_sha256'=>$hash,'updated_at'=>Stockland_HR_Replacement::now(),'version_no'=>(int)$exit['version_no']+1)),array('id'=>$id));
-		if(false===$ok)return $this->error('hrx_exit_calculation_failed','Final settlement calculation did not save.',500);
-		Stockland_HR_Replacement::approval_event('exit-settlement',$id,'EXIT_CALCULATED',$exit['status'],'CALCULATED','Item/rule evidence hash pinned',wp_generate_uuid4());Stockland_HR_Replacement::audit('exit_calculated','exit-settlement',$id,'Calculated rule-backed final settlement.');
+		$hash=hash('sha256',wp_json_encode($rows));
+		if(false===$this->begin())return $this->error('hrx_tx_begin_failed','Could not start final settlement calculation transaction.',500);
+		$ok=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_exit_settlements'),array_merge($calc,array('status'=>'CALCULATED','rule_bundle_sha256'=>$hash,'updated_at'=>Stockland_HR_Replacement::now(),'version_no'=>(int)$exit['version_no']+1)),array('id'=>$id,'status'=>$exit['status'],'version_no'=>(int)$exit['version_no']));
+		if(false===$ok||0===(int)$ok){$this->rollback();return $this->error('hrx_exit_calculation_conflict','Settlement changed while calculating; no calculation/audit event was committed.',409);}
+		$evt=Stockland_HR_Replacement::approval_event('exit-settlement',$id,'EXIT_CALCULATED',$exit['status'],'CALCULATED','Item/rule evidence hash pinned',wp_generate_uuid4());
+		$audit=Stockland_HR_Replacement::audit('exit_calculated','exit-settlement',$id,'Calculated rule-backed final settlement.');
+		if(is_wp_error($evt)||is_wp_error($audit)||false===$audit){$this->rollback();return $this->error('hrx_exit_calculation_audit_failed','Settlement calculation was rolled back because audit evidence failed.',500);}
+		$this->commit();
 		return rest_ensure_response(array('id'=>$id,'status'=>'CALCULATED','gross_final_amount'=>$calc['gross_final_amount'],'deduction_total'=>$calc['deduction_total'],'net_final_amount'=>$calc['net_final_amount'],'rule_bundle_sha256'=>$hash));
 	}
 
