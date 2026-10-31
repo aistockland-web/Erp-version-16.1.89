@@ -1,0 +1,209 @@
+name: Stockland HRX clean-slate 16.3.0 exact-package gates
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'ci/build_hrx_clean_slate_16_3_0.py'
+      - 'ci/hr_replacement_v2/**'
+      - 'ci/hrx_clean_slate_16_3_0/**'
+      - 'ci/qa/test_hrx_clean_slate_16_3_0.py'
+      - '.github/workflows/hrx-clean-slate-16-3-0.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'ci/build_hrx_clean_slate_16_3_0.py'
+      - 'ci/hr_replacement_v2/**'
+      - 'ci/hrx_clean_slate_16_3_0/**'
+      - 'ci/qa/test_hrx_clean_slate_16_3_0.py'
+      - '.github/workflows/hrx-clean-slate-16-3-0.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+concurrency:
+  group: stockland-hrx-16-3-0-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  exact-package:
+    name: Build and verify HRX candidate from locked baseline
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+
+      - name: Set up PHP 8.3
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
+        with:
+          php-version: "8.3"
+          coverage: none
+
+      - name: Retrieve exact audited 16.1.95 installer artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: STOCKLAND-ERP-16.1.95-Cumulative-WordPress-Update
+          repository: aistockland-web/Erp-version-16.1.89
+          run-id: 40036018031
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/stockland-16.1.95-source
+
+      - name: Verify baseline checksum and archive inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASELINE="$RUNNER_TEMP/stockland-16.1.95-source/STOCKLAND_ERP_16.1.95_CANONICAL_WORDPRESS_UPDATE.zip"
+          test -s "$BASELINE"
+          test "$(stat -c %s "$BASELINE")" -eq 1102405
+          echo "494e777247508d009dfdb216c9607bb1bc96717197e94a0e8ad3459b7cc81625  $BASELINE" | sha256sum --check -
+          unzip -t "$BASELINE"
+          python - "$BASELINE" <<'PY'
+          import sys, zipfile
+          from pathlib import PurePosixPath
+          with zipfile.ZipFile(sys.argv[1]) as z:
+              names=[x.filename for x in z.infolist() if not x.is_dir()]
+              assert len(names)==75 and len(set(names))==75
+              assert z.testzip() is None
+              assert all(PurePosixPath(n).parts[0]=='stockland-erp-app' and '..' not in PurePosixPath(n).parts for n in names)
+              assert 'stockland-erp-app/stockland-inventory.php' in names
+          print('PASS locked 16.1.95 installer identity and safe archive inventory')
+          PY
+          echo "BASELINE=$BASELINE" >> "$GITHUB_ENV"
+
+      - name: Compile Python build and QA sources
+        run: python -m compileall -q ci
+
+      - name: Build HRX candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/STOCKLAND_ERP_16.3.0_HRX_CLEAN_SLATE_CANDIDATE.zip"
+          python ci/build_hrx_clean_slate_16_3_0.py --input "$BASELINE" --output "$OUT" | tee "$RUNNER_TEMP/hrx-build-receipt.stdout.json"
+          (cd "$RUNNER_TEMP" && sha256sum --check "$(basename "$OUT").sha256")
+          test -s "$OUT.receipt.json"
+          echo "CANDIDATE_ZIP=$OUT" >> "$GITHUB_ENV"
+          echo "CANDIDATE_RECEIPT=$OUT.receipt.json" >> "$GITHUB_ENV"
+
+      - name: Test exact package, schema contract, reset guard, UI and receipts
+        run: |
+          python ci/qa/test_hrx_clean_slate_16_3_0.py \
+            --baseline "$BASELINE" \
+            --package "$CANDIDATE_ZIP" \
+            --receipt "$CANDIDATE_RECEIPT" \
+            --source-root ci/hr_replacement_v2 \
+            --ui-root ci/hrx_clean_slate_16_3_0
+
+      - name: Verify every packaged PHP file on PHP 8.3
+        shell: bash
+        run: |
+          set -euo pipefail
+          DEST="$RUNNER_TEMP/hrx-16.3.0-php83"
+          mkdir -p "$DEST"
+          unzip -q "$CANDIDATE_ZIP" -d "$DEST"
+          APP="$DEST/stockland-erp-app"
+          find "$APP" -type f -name '*.php' -print0 | xargs -0 -n1 php -l | tee "$RUNNER_TEMP/php83-lint.txt"
+          test "$(grep -c 'No syntax errors detected' "$RUNNER_TEMP/php83-lint.txt")" -eq "$(find "$APP" -type f -name '*.php' | wc -l)"
+          echo "STOCKLAND_APP=$APP" >> "$GITHUB_ENV"
+
+      - name: Install locked PHPCS/WPCS dependencies and audit the toolchain
+        env:
+          COMPOSER_ALLOW_SUPERUSER: "1"
+        run: |
+          set -euo pipefail
+          composer validate --working-dir=ci/phpcs --strict
+          composer install --working-dir=ci/phpcs --no-interaction --prefer-dist --no-progress
+          composer audit --working-dir=ci/phpcs --locked --format=table
+
+      - name: Run PHPCS/WPCS against every PHP file in the exact installer
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPORT="$RUNNER_TEMP/hrx-16.3.0-phpcs.json"
+          set +e
+          ci/phpcs/vendor/bin/phpcs --standard=ci/qa/stockland-phpcs.xml --extensions=php --report=json --report-file="$REPORT" "$STOCKLAND_APP"
+          CODE=$?
+          set -e
+          test -s "$REPORT"
+          echo "PHPCS/WPCS diagnostic exit code: $CODE (full style diagnostics retained; exact security/database triage is the release gate)"
+          python ci/qa/test-phpcs-hrx-review.py "$STOCKLAND_APP" "$REPORT"
+
+      - name: Install pinned Semgrep PHP/security scanner
+        run: python -m pip install --disable-pip-version-check 'pydantic==2.12.5' 'semgrep==1.139.0'
+
+      - name: Scan the exact installer with Semgrep PHP and security-audit rules
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPORT="$RUNNER_TEMP/hrx-16.3.0-semgrep.json"
+          semgrep scan --metrics=off --config p/php --config p/security-audit --include '*.php' --json --output "$REPORT" "$STOCKLAND_APP"
+          PHP_COUNT="$(find "$STOCKLAND_APP" -type f -name '*.php' | wc -l | tr -d ' ')"
+          test "$PHP_COUNT" -gt 0
+          python ci/qa/summarize-semgrep.py "$REPORT" --expected-targets "$PHP_COUNT"
+
+      - name: Verify JavaScript syntax
+        run: |
+          node --check "$STOCKLAND_APP/assets/app.js"
+          node --check "$STOCKLAND_APP/assets/pwa.js"
+
+      - name: Install locked CSS QA dependencies
+        run: npm ci --prefix ci/cssqa --ignore-scripts --no-audit --no-fund
+
+      - name: Validate CSS modules, PostCSS, mobile selectors and search
+        env:
+          NODE_PATH: ${{ github.workspace }}/ci/cssqa/node_modules
+        run: node ci/qa/check-css-postcss.js "$STOCKLAND_APP"
+
+      - name: Switch to PHP 8.4
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
+        with:
+          php-version: "8.4"
+          coverage: none
+
+      - name: Verify every packaged PHP file on PHP 8.4
+        shell: bash
+        run: |
+          set -euo pipefail
+          find "$STOCKLAND_APP" -type f -name '*.php' -print0 | xargs -0 -n1 php -l | tee "$RUNNER_TEMP/php84-lint.txt"
+          test "$(grep -c 'No syntax errors detected' "$RUNNER_TEMP/php84-lint.txt")" -eq "$(find "$STOCKLAND_APP" -type f -name '*.php' | wc -l)"
+
+      - name: Assemble auditable candidate evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/hrx-evidence" build/stockland-hrx-16.3.0
+          cp "$CANDIDATE_ZIP" "$CANDIDATE_ZIP.sha256" "$CANDIDATE_RECEIPT" "$RUNNER_TEMP/hrx-evidence/"
+          cp "$RUNNER_TEMP/php83-lint.txt" "$RUNNER_TEMP/php84-lint.txt" "$RUNNER_TEMP/hrx-evidence/"
+          cp "$RUNNER_TEMP/hrx-build-receipt.stdout.json" "$RUNNER_TEMP/hrx-evidence/"
+          python - "$RUNNER_TEMP/hrx-evidence" <<'PY'
+          import hashlib, json, pathlib, sys
+          p=pathlib.Path(sys.argv[1])
+          z=next(p.glob('*.zip'))
+          r=json.loads(next(p.glob('*.receipt.json')).read_text())
+          assert hashlib.sha256(z.read_bytes()).hexdigest()==r['installer_sha256']
+          assert r['release']=='16.3.0' and r['production_ready'] is False
+          assert r['business_data_changed_by_builder'] is False
+          print('PASS evidence matches exact candidate hash; release remains uncertified')
+          PY
+          cp -a "$RUNNER_TEMP/hrx-evidence/." build/stockland-hrx-16.3.0/
+
+      - name: Upload exact candidate and receipts
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: STOCKLAND-ERP-16.3.0-HRX-CLEAN-SLATE-CANDIDATE
+          path: build/stockland-hrx-16.3.0/
+          if-no-files-found: error
+          retention-days: 30
