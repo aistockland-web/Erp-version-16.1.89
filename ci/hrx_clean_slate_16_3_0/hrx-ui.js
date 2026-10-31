@@ -78,7 +78,7 @@ function hrxActionButton(label,action,id,cls){
  return '<button type="button" class="sl-btn sl-btn-sm '+(cls||'')+'" data-hrx-action="'+hrxEsc(action)+'" data-hrx-id="'+hrxEsc(id||'')+'">'+hrxEsc(label)+'</button>';
 }
 function hrxActions(entity,row,cap){
- const id=Number(row.id||0),stateValue=entity==='applications'?row.stage:(row.status||row.review_status||row.approval_status||row.stage||row.line_status||''),status=String(stateValue||'').toUpperCase();
+ const id=Number(row.id||0),stateValue=entity==='applications'?row.stage:(entity==='org-units'?row.active:(row.status||row.review_status||row.approval_status||row.stage||row.line_status||'')),status=String(stateValue??'').toUpperCase();
  let buttons='';
  if(entity==='payroll-runs'){
   if(status==='DRAFT')buttons+=hrxActionButton('Preflight','payroll-preflight',id)+hrxActionButton('Calculate frozen run','payroll-calculate',id,'primary');
@@ -111,7 +111,7 @@ function hrxActions(entity,row,cap){
   if(status==='LEGAL_REVIEW'&&entity==='leave-policies')transitions.push(['SUBMIT','Submit for review']);
   if(status==='LEGAL_REVIEW'&&entity==='legal-rules')transitions.push(['SUBMIT_LEGAL_REVIEW','Start review']);
   if(status==='APPROVED'&&entity==='offers')transitions.push(['ACCEPT','Record candidate acceptance']);
-  if(status==='SUBMITTED'&&cap.owner_approve&&!['applications','interviews','time-events','leave-transactions','onboarding-tasks'].includes(entity))transitions.push(['APPROVE','Approve']);
+  if(status==='SUBMITTED'&&cap.owner_approve&&!['applications','interviews','time-events','leave-transactions','onboarding-tasks','payee-deliverables'].includes(entity))transitions.push(['APPROVE','Approve']);
   if(status==='SUBMITTED')transitions.push(['REJECT','Reject']);
   if(status==='APPROVED'&&entity==='requisitions')transitions.push(['OPEN','Open vacancy']);
   if(status==='OPEN'&&entity==='requisitions')transitions.push(['CLOSE','Close vacancy']);
@@ -120,6 +120,9 @@ function hrxActions(entity,row,cap){
   if(status==='SHORTLISTED'&&entity==='applications')transitions.push(['SELECT','Select with human rationale']);
   if(status==='PENDING'&&entity==='interviews')transitions.push(['RECOMMEND','Recommend']);
   if(status==='PENDING'&&entity==='payee-deliverables')transitions.push(['SUBMIT','Submit deliverable evidence']);
+  if(status==='SUBMITTED'&&entity==='payee-deliverables'&&cap.owner_approve)transitions.push(['ACCEPT','Accept deliverable']);
+  if(status==='0'&&entity==='org-units'&&cap.owner_approve)transitions.push(['ACTIVATE','Activate organization unit']);
+  if(status==='1'&&entity==='org-units'&&cap.owner_approve)transitions.push(['DEACTIVATE','Deactivate organization unit']);
   if(status==='OPEN'&&['onboarding-tasks','exit-clearance-tasks'].includes(entity))transitions.push(['COMPLETE','Mark complete']);
   if(status==='DRAFT'&&entity==='time-events')transitions.push(['SUBMIT','Submit time']);
   if(status==='DRAFT'&&entity==='leave-transactions')transitions.push(['SUBMIT','Submit leave']);
@@ -329,7 +332,7 @@ async function hrxClick(event){
   if(action==='legal-review'){
    const reviewer=prompt('Name of qualified Ethiopian payroll/tax/legal reviewer:');if(!reviewer)throw new Error('Qualified reviewer is required.');
    const qualification=prompt('Reviewer qualification / licence:');if(!qualification)throw new Error('Reviewer qualification is required.');
-   const doc=prompt('ID of independently approved private LEGAL_REVIEW_OPINION document:');if(!doc||!/^\\d+$/.test(doc))throw new Error('Approved private legal opinion document ID is required.');
+   const doc=prompt('ID of independently approved private LEGAL_REVIEW_OPINION document:');if(!doc||!/^\d+$/.test(doc))throw new Error('Approved private legal opinion document ID is required.');
    const note=prompt('Evidence-backed legal review note, source clauses and effective-date confirmation (40+ characters):');if(!note||note.trim().length<40)throw new Error('Detailed reviewer evidence is required.');
    await api16('/hr/replacement/legal-rules/'+id+'/review',{method:'POST',body:JSON.stringify({decision:'APPROVE',reviewer_name:reviewer,reviewer_qualification:qualification,review_note:note,review_evidence_document_id:Number(doc),idempotency_key:'ui-'+crypto.randomUUID()})});toast('Legal rule review decision recorded.');await hrxLoadCurrent();return;
   }
