@@ -636,7 +636,8 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 			}
 		}
 		$update=array('status'=>'CALCULATED','input_snapshot_sha256'=>$snapshot_hash,'rule_bundle_sha256'=>$rule_hash,'employee_count'=>count($lines),'gross_total'=>$sum['gross'],'taxable_total'=>$sum['taxable'],'paye_total'=>$sum['paye'],'employee_pension_total'=>$sum['employee_pension'],'employer_pension_total'=>$sum['employer_pension'],'deduction_total'=>$sum['deductions'],'net_total'=>$sum['net'],'employer_cost_total'=>$sum['employer_cost'],'updated_at'=>Stockland_HR_Replacement::now(),'version_no'=>(int)$run['version_no']+1);
-		if(false===Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_payroll_runs'),$update,array('id'=>$id,'status'=>'DRAFT'))){$this->rollback();return $this->error('hrx_run_update_failed','Run state changed concurrently; calculation was rolled back.',409);}
+		$run_saved=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_payroll_runs'),$update,array('id'=>$id,'status'=>'DRAFT','version_no'=>(int)$run['version_no']));
+		if(false===$run_saved||0===(int)$run_saved){$this->rollback();return $this->error('hrx_run_update_conflict','Run state changed concurrently; calculation and all frozen lines were rolled back.',409);}
 		$evt=Stockland_HR_Replacement::approval_event('payroll-run',$id,'CALCULATED','DRAFT','CALCULATED','Frozen inputs and approved rules calculated',wp_generate_uuid4());
 		$audit=Stockland_HR_Replacement::audit('payroll_calculated','payroll-run',$id,'Input/rule hashes pinned; no real employee data enters source artifacts.');
 		if(is_wp_error($evt)||is_wp_error($audit)||false===$audit){$this->rollback();return $this->error('hrx_calculation_audit_failed','Calculation was rolled back because audit evidence failed.',500);}
@@ -649,7 +650,8 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		if((int)$run['created_by']!==get_current_user_id())return $this->error('hrx_submitter_mismatch','Only the Management preparer may submit this run.',403);
 		$key=sanitize_text_field((string)($this->body($request)['idempotency_key']??''));if(!$key)return $this->error('hrx_idempotency_required','Submission idempotency key is required.',422);
 		if(false===$this->begin())return $this->error('hrx_tx_begin_failed','Could not start payroll submission transaction.',500);
-		$ok=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_payroll_runs'),array('status'=>'SUBMITTED','submitted_by'=>get_current_user_id(),'submitted_at'=>Stockland_HR_Replacement::now(),'updated_at'=>Stockland_HR_Replacement::now()),array('id'=>$id,'status'=>'CALCULATED'));
+		$ok=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_payroll_runs'),array('status'=>'SUBMITTED','submitted_by'=>get_current_user_id(),'submitted_at'=>Stockland_HR_Replacement::now(),'updated_at'=>Stockland_HR_Replacement::now(),'version_no'=>(int)$run['version_no']+1),array('id'=>$id,'status'=>'CALCULATED','version_no'=>(int)$run['version_no']));
+		if(false===$ok||0===(int)$ok){$this->rollback();return $this->error('hrx_submit_conflict','Payroll run changed before submission; no approval event was written.',409);}
 		$evt=Stockland_HR_Replacement::approval_event('payroll-run',$id,'SUBMITTED','CALCULATED','SUBMITTED','Submitted by preparer',$key);
 		$audit=Stockland_HR_Replacement::audit('payroll_submitted','payroll-run',$id,'Submitted for Owner approval');
 		if(false===$ok||is_wp_error($evt)||is_wp_error($audit)||false===$audit){$this->rollback();return $this->error('hrx_submit_failed','Submission was rolled back.',500);}
@@ -756,7 +758,8 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		if($obligation_failed){$this->rollback();return $this->error('hrx_obligation_persist_failed','Payroll was not approved because statutory obligation records could not be created atomically.',500);}
 		$link=array('source_type'=>'HRX_PAYROLL_RUN','source_id'=>$id,'journal_id'=>(int)$journal,'posted_at'=>Stockland_HR_Replacement::now(),'posted_by'=>get_current_user_id());
 		if(false===Stockland_DB::insert_record(Stockland_HR_Replacement::table('hrx_accounting_links'),$link)){$this->rollback();return $this->error('hrx_gl_link_failed','Could not link payroll run to its journal; transaction rolled back.',500);}
-		$ok=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_payroll_runs'),array('status'=>'APPROVED','approved_by'=>get_current_user_id(),'approved_at'=>Stockland_HR_Replacement::now(),'journal_id'=>(int)$journal,'payout_state'=>'NOT_STARTED','updated_at'=>Stockland_HR_Replacement::now()),array('id'=>$id,'status'=>'SUBMITTED'));
+		$ok=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_payroll_runs'),array('status'=>'APPROVED','approved_by'=>get_current_user_id(),'approved_at'=>Stockland_HR_Replacement::now(),'journal_id'=>(int)$journal,'payout_state'=>'NOT_STARTED','updated_at'=>Stockland_HR_Replacement::now(),'version_no'=>(int)$run['version_no']+1),array('id'=>$id,'status'=>'SUBMITTED','version_no'=>(int)$run['version_no']));
+		if(false===$ok||0===(int)$ok){$this->rollback();return $this->error('hrx_payroll_approval_conflict','Payroll run changed before approval; GL posting and audit were rolled back.',409);}
 		$evt=Stockland_HR_Replacement::approval_event('payroll-run',$id,'OWNER_APPROVED','SUBMITTED','APPROVED',$note,$key,null,get_current_user_id());
 		$audit=Stockland_HR_Replacement::audit('payroll_owner_approved','payroll-run',$id,'Approved and posted through existing GL service');
 		if(false===$ok||is_wp_error($evt)||is_wp_error($audit)||false===$audit){$this->rollback();return $this->error('hrx_payroll_approval_failed','Approval/GL linking was rolled back due to audit/state failure.',500);}
@@ -1043,7 +1046,8 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		$net=Stockland_Money::subtract($cash,$withholding);
 		$update=array('gross_amount'=>$gross,'withholding_amount'=>$withholding,'net_amount'=>$net,'withholding_rule_id'=>(int)$rule['id'],'status'=>'SUBMITTED','classification_status'=>'APPROVED','updated_at'=>Stockland_HR_Replacement::now(),'version_no'=>(int)$req['version_no']+1);
 		if(false===$this->begin())return $this->error('hrx_tx_begin_failed','Could not start payee calculation transaction.',500);
-		$ok=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_payee_requests'),$update,array('id'=>$id,'status'=>$req['status'],'classification_status'=>'APPROVED'));
+		$ok=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_payee_requests'),$update,array('id'=>$id,'status'=>$req['status'],'classification_status'=>'APPROVED','version_no'=>(int)$req['version_no']));
+		if(false===$ok||0===(int)$ok){$this->rollback();return $this->error('hrx_payee_calculation_conflict','The payee request changed during calculation; no calculation event was recorded.',409);}
 		$evt=Stockland_HR_Replacement::approval_event('payee-request',$id,'PAYEE_CALCULATED',$req['status'],'SUBMITTED','Rule ID '.$rule['id'].'; source hash '.$rule['source_sha256'],wp_generate_uuid4());
 		$audit=Stockland_HR_Replacement::audit('payee_calculated','payee-request',$id,'Cash and in-kind consideration calculated with approved rule; no payment was made.');
 		if(false===$ok||is_wp_error($evt)||is_wp_error($audit)||false===$audit){$this->rollback();return $this->error('hrx_payee_calculation_failed','Payee calculation/audit was rolled back.',500);}
@@ -1131,7 +1135,8 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		$open= (int)Stockland_DB::read_var($wpdb->prepare("SELECT COUNT(*) FROM %i WHERE payroll_run_id=%d AND status NOT IN('RECONCILED','NOT_REQUIRED')",Stockland_HR_Replacement::table('hrx_statutory_obligations'),$id));
 		if($open>0)return $this->error('hrx_remittance_unreconciled','All statutory obligations must have verified, reconciled remittance evidence before period close.',409);
 		if(false===$this->begin())return $this->error('hrx_tx_begin_failed','Could not start close transaction.',500);
-		$ok=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_payroll_runs'),array('status'=>'CLOSED','payout_state'=>'RECONCILED','closed_by'=>get_current_user_id(),'closed_at'=>Stockland_HR_Replacement::now(),'updated_at'=>Stockland_HR_Replacement::now()),array('id'=>$id,'status'=>$run['status']));
+		$ok=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_payroll_runs'),array('status'=>'CLOSED','payout_state'=>'RECONCILED','closed_by'=>get_current_user_id(),'closed_at'=>Stockland_HR_Replacement::now(),'updated_at'=>Stockland_HR_Replacement::now(),'version_no'=>(int)$run['version_no']+1),array('id'=>$id,'status'=>$run['status'],'version_no'=>(int)$run['version_no']));
+		if(false===$ok||0===(int)$ok){$this->rollback();return $this->error('hrx_close_conflict','Payroll run changed during reconciliation; close and audit were rolled back.',409);}
 		$evt=Stockland_HR_Replacement::approval_event('payroll-run',$id,'CLOSED',$run['status'],'CLOSED',$note,$key,null,get_current_user_id());$audit=Stockland_HR_Replacement::audit('payroll_closed','payroll-run',$id,'All employee payouts and statutory remittances reconciled.');
 		if(false===$ok||is_wp_error($evt)||is_wp_error($audit)||false===$audit){$this->rollback();return $this->error('hrx_close_failed','Close was rolled back.',500);}
 		$this->commit();return rest_ensure_response(array('id'=>$id,'status'=>'CLOSED'));
