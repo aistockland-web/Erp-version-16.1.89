@@ -365,6 +365,7 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		}
 		if(empty($data))return $this->error('hrx_payload_empty','No mutable fields supplied.',422);
 		unset($data['status'],$data['review_status'],$data['approval_status'],$data['stage'],$data['recommendation']);
+		if(!empty($map['state']))unset($data[$map['state']]);
 		if(!$data)return $this->error('hrx_transition_required','Workflow state changes require the transition endpoint.',422);
 		// Apply metadata only when the installed table contract contains those columns.
 		$update_where=array('id'=>(int)$request['id']);
