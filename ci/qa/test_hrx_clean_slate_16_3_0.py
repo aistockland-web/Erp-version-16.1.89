@@ -195,7 +195,11 @@ def main():
     require("array('id'=>$id,'status'=>$req['status'],'classification_status'=>'APPROVED','version_no'=>(int)$req['version_no'])" in controller and "hrx_payee_calculation_conflict" in controller,"payee calculation must use version-checked affected-row persistence")
     exit_calc=controller[controller.index("public function calculate_exit_settlement"):controller.index("public function approve_exit_settlement")]
     require("$this->begin()" in exit_calc and "0===(int)$ok" in exit_calc and "$this->rollback()" in exit_calc and "$this->commit()" in exit_calc,"exit calculation and audit evidence must be one versioned transaction")
-    print("PASS HRX exact-package identity, schema, creator/approval mapping, payroll/payee currency and exit guards, privacy redaction, valuation evidence, legal review, UI actions, concurrency and security regressions")
+    workflow=(ROOT/".github/workflows/hrx-clean-slate-16-3-0.yml").read_text(encoding="utf-8")
+    require("composer validate --working-dir=ci/phpcs --strict" in workflow and "composer audit --working-dir=ci/phpcs --locked --format=table" in workflow,"exact-package CI must validate and audit locked PHPCS/WPCS tooling")
+    require("ci/qa/test-phpcs-hrx-review.py" in workflow and "PHPCS/WPCS processed all" in (ROOT/"ci/qa/test-phpcs-hrx-review.py").read_text(encoding="utf-8"),"exact-package CI must run full PHP source coverage and security/database PHPCS review")
+    require("semgrep scan --metrics=off --config p/php --config p/security-audit" in workflow and "summarize-semgrep.py" in workflow,"exact-package CI must scan every packaged PHP file with PHP/security Semgrep rules")
+    print("PASS HRX exact-package identity, schema, creator/approval mapping, payroll/payee currency and exit guards, privacy redaction, valuation evidence, legal review, UI actions, concurrency, security regressions and mandatory PHP static-analysis policy")
     print("NOTE: source/package evidence only. Live WordPress/MariaDB E2E, legal review, backup/restore, and Owner/HR/Finance acceptance remain separate gates.")
 
 if __name__=="__main__":
