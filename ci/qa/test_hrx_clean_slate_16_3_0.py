@@ -185,7 +185,12 @@ def main():
     require("'payee-deliverables'].includes(entity)" in app,"generic APPROVE action must not override the payee deliverable ACCEPT workflow")
     require("if(!doc||!/^\\d+$/.test(doc))" in app,"legal opinion document ID input must accept numeric document IDs")
     require("'payee-deliverables'=>array('SUBMIT'=>array('PENDING','SUBMITTED'),'ACCEPT'=>array('SUBMITTED','ACCEPTED')" in controller,"payee deliverable UI actions must match the server transition map")
-    print("PASS HRX exact-package identity, schema, creator/approval mapping, payroll currency/exit guards, privacy redaction, legal review, UI actions, concurrency and security regressions")
+    require("verified_valuation_amount" in controller and "Stockland_Money::minor($valuation_amount)!==Stockland_Money::minor($req['in_kind_value'])" in controller,"in-kind valuation must exactly match the payee request amount")
+    require("array('id'=>$id,'status'=>$req['status'],'in_kind_posting_verified'=>0,'version_no'=>(int)$req['version_no'])" in controller and "hrx_in_kind_verify_conflict" in controller,"in-kind verification must use an atomic one-time versioned update")
+    require("if(is_wp_error($evt)||is_wp_error($audit)||false===$audit){$this->rollback();" in controller,"in-kind verification must roll back when audit evidence cannot persist")
+    require("hrx_payee_currency_unsupported" in controller,"non-ETB payee calculation, verification and AP posting must fail closed")
+    require("verified_valuation_amount:amount" in app,"in-kind UI must transmit the entered valuation amount")
+    print("PASS HRX exact-package identity, schema, creator/approval mapping, payroll/payee currency and exit guards, privacy redaction, valuation evidence, legal review, UI actions, concurrency and security regressions")
     print("NOTE: source/package evidence only. Live WordPress/MariaDB E2E, legal review, backup/restore, and Owner/HR/Finance acceptance remain separate gates.")
 
 if __name__=="__main__":
