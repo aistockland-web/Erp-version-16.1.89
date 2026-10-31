@@ -983,6 +983,9 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		$ref=sanitize_text_field((string)($body['stock_transaction_reference']??''));$doc_id=(int)($body['valuation_document_id']??0);$note=sanitize_textarea_field((string)($body['verification_note']??''));$key=sanitize_text_field((string)($body['idempotency_key']??''));
 		if(!preg_match('/^[A-Za-z0-9_\-]{2,30}:[A-Za-z0-9_\-]{1,80}$/',$ref)||$doc_id<1||strlen(trim($note))<30||!$key)return $this->error('hrx_in_kind_evidence_required','Provide a posted Stockland stock transaction reference in TYPE:REFERENCE format, approved valuation evidence, a verification note and idempotency key.',422);
 		$req=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d',Stockland_HR_Replacement::table('hrx_payee_requests'),$id),ARRAY_A);if(!$req)return $this->error('hrx_payee_request_not_found','Payee request not found.',404);
+		if('ETB'!==strtoupper((string)($req['currency']??'')))return $this->error('hrx_payee_currency_unsupported','Only ETB payee requests are supported until an approved foreign-currency conversion and AP policy exists.',409);
+		$valuation_amount=sanitize_text_field((string)($body['verified_valuation_amount']??''));
+		if(!preg_match('/^\\d{1,12}(?:\\.\\d{1,2})?$/',$valuation_amount)||Stockland_Money::minor($valuation_amount)!==Stockland_Money::minor($req['in_kind_value']))return $this->error('hrx_in_kind_valuation_amount_mismatch','Enter the approved valuation amount exactly as shown on the attached private valuation document; it must equal this request in-kind amount.',409);
 		if(Stockland_Money::minor($req['in_kind_value'])<=0)return $this->error('hrx_in_kind_not_present','This payee request does not have a positive in-kind component.',409);
 		if(!in_array($req['status'],array('DRAFT','LEGAL_TAX_REVIEW','NEEDS_INFORMATION'),true))return $this->error('hrx_payee_locked','In-kind consideration cannot be changed after submission.',409);
 		$parts=explode(':',$ref,2);
@@ -995,6 +998,7 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		if(!$valuation)return $this->error('hrx_in_kind_valuation_missing','Attach an independently approved private valuation/approval record to this payee request.',409);
 		$ok=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_payee_requests'),array('in_kind_stock_reference'=>$ref,'in_kind_posting_verified'=>1,'updated_at'=>Stockland_HR_Replacement::now()),array('id'=>$id,'status'=>$req['status']));
 		if(false===$ok)return $this->error('hrx_in_kind_verify_failed','Stock issue reference could not be bound to the payee request.',500);
+		$note=trim($note).' Verified independent valuation amount '.Stockland_Money::decimal(Stockland_Money::minor($valuation_amount)).' '.strtoupper((string)$req['currency']).' against this request and its approved private valuation document.';
 		$evt=Stockland_HR_Replacement::approval_event('payee-request',$id,'IN_KIND_VERIFIED',$req['status'],$req['status'],$note,$key,$doc_id,get_current_user_id());
 		$audit=Stockland_HR_Replacement::audit('payee_in_kind_verified','payee-request',$id,'Verified existing negative stock transaction and approved valuation evidence; no inventory was issued by this endpoint.');
 		if(is_wp_error($evt)||is_wp_error($audit)||false===$audit)return $this->error('hrx_in_kind_audit_failed','In-kind evidence changed but audit failed; block payee payment pending investigation.',500);
@@ -1018,6 +1022,7 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		$ready=$this->require_schema();if(is_wp_error($ready))return $ready;
 		$id=(int)$request['id'];$body=$this->body($request);
 		$req=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',Stockland_HR_Replacement::table('hrx_payee_requests'),$id),ARRAY_A);if(!$req)return $this->error('hrx_payee_request_not_found','Payee request not found.',404);
+		if('ETB'!==strtoupper((string)($req['currency']??'')))return $this->error('hrx_payee_currency_unsupported','Only ETB payee requests can be calculated until an approved foreign-currency conversion and AP policy exists.',409);
 		if(!in_array($req['status'],array('DRAFT','LEGAL_TAX_REVIEW','NEEDS_INFORMATION'),true))return $this->error('hrx_payee_state_invalid','Only an editable payee request may be calculated.',409);
 		$engagement=$this->approved_payee_engagement($req);if(is_wp_error($engagement))return $engagement;
 		$class=Stockland_DB::read_row($wpdb->prepare("SELECT * FROM %i WHERE payee_request_id=%d AND status='APPROVED' ORDER BY id DESC LIMIT 1",Stockland_HR_Replacement::table('hrx_payee_classifications'),$id),ARRAY_A);
@@ -1182,6 +1187,7 @@ public function approve_payee_request( $request ) {
 		$id=(int)$request['id'];$body=$this->body($request);
 		$req=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',Stockland_HR_Replacement::table('hrx_payee_requests'),$id),ARRAY_A);
 		if(!$req)return $this->error('hrx_payee_request_not_found','Payee request not found.',404);
+		if('ETB'!==strtoupper((string)($req['currency']??'')))return $this->error('hrx_payee_currency_unsupported','Only ETB payee requests can be approved and posted until an approved foreign-currency conversion and AP policy exists.',409);
 		$engagement=$this->approved_payee_engagement($req);if(is_wp_error($engagement))return $engagement;
 		if('APPROVED'!==strtoupper((string)$req['classification_status'])||'SUBMITTED'!==strtoupper((string)$req['status']))return $this->error('hrx_payee_state_invalid','Payee request must be calculated and independently tax-classified before approval.',409);
 		if((int)$req['created_by']===get_current_user_id())return $this->error('hrx_no_self_approval','Request creator cannot approve the request.',403);
