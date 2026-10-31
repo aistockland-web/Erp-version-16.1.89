@@ -996,13 +996,16 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		if(!$stock_ref||(int)$stock_ref['movements']<1||(int)$stock_ref['products']<1||Stockland_Money::minor($stock_ref['quantity_delta'])>=0)return $this->error('hrx_stock_issue_not_found','The request-bound reference does not resolve to posted negative Stockland stock movements.',409);
 		$valuation=Stockland_DB::read_row($wpdb->prepare("SELECT id FROM %i WHERE id=%d AND entity_type='PAYEE_REQUEST' AND entity_id=%d AND document_type='COMPENSATION_APPROVAL' AND approval_status='APPROVED'",Stockland_HR_Replacement::table('hrx_document_refs'),$doc_id,$id),ARRAY_A);
 		if(!$valuation)return $this->error('hrx_in_kind_valuation_missing','Attach an independently approved private valuation/approval record to this payee request.',409);
-		$ok=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_payee_requests'),array('in_kind_stock_reference'=>$ref,'in_kind_posting_verified'=>1,'updated_at'=>Stockland_HR_Replacement::now()),array('id'=>$id,'status'=>$req['status']));
-		if(false===$ok)return $this->error('hrx_in_kind_verify_failed','Stock issue reference could not be bound to the payee request.',500);
+		if(false===$this->begin())return $this->error('hrx_tx_begin_failed','Could not start in-kind verification transaction.',500);
+		$update=array('in_kind_stock_reference'=>$ref,'in_kind_posting_verified'=>1,'updated_at'=>Stockland_HR_Replacement::now(),'version_no'=>(int)$req['version_no']+1);
+		$ok=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_payee_requests'),$update,array('id'=>$id,'status'=>$req['status'],'in_kind_posting_verified'=>0,'version_no'=>(int)$req['version_no']));
+		if(false===$ok||0===(int)$ok){$this->rollback();return $this->error('hrx_in_kind_verify_conflict','The payee request changed or was already verified; refresh it before retrying.',409);}
 		$note=trim($note).' Verified independent valuation amount '.Stockland_Money::decimal(Stockland_Money::minor($valuation_amount)).' '.strtoupper((string)$req['currency']).' against this request and its approved private valuation document.';
 		$evt=Stockland_HR_Replacement::approval_event('payee-request',$id,'IN_KIND_VERIFIED',$req['status'],$req['status'],$note,$key,$doc_id,get_current_user_id());
-		$audit=Stockland_HR_Replacement::audit('payee_in_kind_verified','payee-request',$id,'Verified existing negative stock transaction and approved valuation evidence; no inventory was issued by this endpoint.');
-		if(is_wp_error($evt)||is_wp_error($audit)||false===$audit)return $this->error('hrx_in_kind_audit_failed','In-kind evidence changed but audit failed; block payee payment pending investigation.',500);
-		return rest_ensure_response(array('id'=>$id,'in_kind_posting_verified'=>true,'stock_reference'=>$ref,'valuation_document_id'=>$doc_id,'message'=>'Existing inventory ledger evidence and approved valuation were linked; this endpoint did not mutate stock.'));
+		$audit=Stockland_HR_Replacement::audit('payee_in_kind_verified','payee-request',$id,'Verified request-bound negative stock movements and approved valuation evidence; no inventory was issued by this endpoint.');
+		if(is_wp_error($evt)||is_wp_error($audit)||false===$audit){$this->rollback();return $this->error('hrx_in_kind_audit_failed','In-kind verification was rolled back because audit evidence could not be persisted.',500);}
+		$this->commit();
+		return rest_ensure_response(array('id'=>$id,'in_kind_posting_verified'=>true,'stock_reference'=>$ref,'valuation_document_id'=>$doc_id,'verified_valuation_amount'=>Stockland_Money::decimal(Stockland_Money::minor($valuation_amount)),'message'=>'Request-bound inventory ledger evidence and approved valuation were linked; this endpoint did not mutate stock.'));
 	}
 
 	private function approved_payee_engagement( $payee_request ) {
