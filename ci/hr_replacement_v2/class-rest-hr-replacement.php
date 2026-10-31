@@ -269,7 +269,7 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		if(!$row)return $this->error('hrx_not_found','HR record not found.',404);
 		$scope=$this->apply_location_scope($entity,$row,0);if(is_wp_error($scope))return $scope;
 		unset($row['private_storage_key']);
-		if(!$this->view_payroll()) foreach(array('base_salary','band_min','band_max','budget_amount','gross_total','taxable_total','paye_total','employee_pension_total','employer_pension_total','deduction_total','net_total','employer_cost_total','cash_amount','in_kind_value','gross_amount','withholding_amount','net_amount') as $sensitive){unset($row[$sensitive]);}
+		if(!$this->view_payroll()) foreach(array('base_salary','band_min','band_max','budget_amount','gross_total','taxable_total','paye_total','employee_pension_total','employer_pension_total','deduction_total','net_total','employer_cost_total','cash_amount','in_kind_value','gross_amount','withholding_amount','net_amount','amount') as $sensitive){unset($row[$sensitive]);}
 		return $row;
 	}
 
@@ -293,7 +293,7 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		if($wpdb->last_error)return $this->error('hrx_list_failed','Could not list HR records.',500);
 		foreach($rows as &$row){
 			unset($row['private_storage_key']);
-			if(!$this->view_payroll())foreach(array('base_salary','band_min','band_max','budget_amount','gross_total','taxable_total','paye_total','employee_pension_total','employer_pension_total','deduction_total','net_total','employer_cost_total','cash_amount','in_kind_value','gross_amount','withholding_amount','net_amount') as $sensitive){unset($row[$sensitive]);}
+			if(!$this->view_payroll())foreach(array('base_salary','band_min','band_max','budget_amount','gross_total','taxable_total','paye_total','employee_pension_total','employer_pension_total','deduction_total','net_total','employer_cost_total','cash_amount','in_kind_value','gross_amount','withholding_amount','net_amount','amount') as $sensitive){unset($row[$sensitive]);}
 		}
 		return rest_ensure_response(array('entity'=>$entity,'records'=>$rows,'limit'=>$limit,'offset'=>$offset,'count'=>count($rows)));
 	}
@@ -334,7 +334,10 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		if('applications'===$entity){$row['stage']='RECEIVED';$row['status']='OPEN';}
 		if('assignments'===$entity){$row['approval_status']='DRAFT';}
 		if('social-snapshots'===$entity){$row['freshness_status']='CURRENT';}
-		$row['created_by']=get_current_user_id();$row['created_at']=Stockland_HR_Replacement::now();
+		if('social-snapshots'===$entity){$row['entered_by']=get_current_user_id();}
+		elseif('accounting-config'===$entity){$row['prepared_by']=get_current_user_id();}
+		elseif(!in_array($entity,array('interviews','legal-rule-bands'),true)){$row['created_by']=get_current_user_id();}
+		$row['created_at']=Stockland_HR_Replacement::now();
 		if(false===$this->begin())return $this->error('hrx_tx_begin_failed','Could not start HR transaction.',500);
 		$ok=Stockland_DB::insert_record($this->table($entity),$row);
 		if(false===$ok){$this->rollback();return $this->error('hrx_insert_failed','Could not create HR record. Check required fields and uniqueness.',409);}
@@ -351,7 +354,10 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		$entity=sanitize_key($request['entity']);$map=self::ENTITY_MAP[$entity]??null;
 		if(!$map||empty($map['update']))return $this->error('hrx_update_forbidden','This entity is immutable or must be changed through a controlled workflow.',403);
 		$current=$this->entity_row($entity,(int)$request['id']);if(is_wp_error($current))return $current;
-		if(isset($map['state'])&&isset($current[$map['state']])&&!in_array(strtoupper((string)$current[$map['state']]),array('DRAFT','OPEN','RECEIVED','PENDING','LEGAL_REVIEW'),true))return $this->error('hrx_record_locked','Only draft or review records may be edited.',409);
+		$editable_states=array('DRAFT','OPEN','RECEIVED','PENDING','LEGAL_REVIEW');
+		if('people'===$entity)$editable_states[]='ACTIVE';
+		if('org-units'===$entity)$editable_states=array_merge($editable_states,array('0','1'));
+		if(isset($map['state'])&&isset($current[$map['state']])&&!in_array(strtoupper((string)$current[$map['state']]),$editable_states,true))return $this->error('hrx_record_locked','Only editable draft/review records and explicitly mutable people/org-unit records may be changed.',409);
 		$payload=$this->body($request);$allowed=$this->allowed_fields($entity);$data=array();
 		foreach($payload as $key=>$value){
 			if(!in_array($key,$allowed,true))continue;
@@ -442,7 +448,14 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		if('org-units'===$entity)$extra['active']='ACTIVATE'===$action?1:0;
 		elseif('interviews'===$entity)$extra[$state_field]=$to;
 		else $extra[$state_field]=$to;
-		if($is_approval){$extra['approved_by']=get_current_user_id();if(in_array($state_field,array('status','approval_status','review_status'),true))$extra['approved_at']=Stockland_HR_Replacement::now();}
+		if($is_approval){
+			if('leave-transactions'===$entity){$extra['decided_by']=get_current_user_id();$extra['decided_at']=Stockland_HR_Replacement::now();}
+			elseif('payee-deliverables'===$entity){$extra['accepted_by']=get_current_user_id();$extra['accepted_at']=Stockland_HR_Replacement::now();}
+			else{
+				if(array_key_exists('approved_by',$current))$extra['approved_by']=get_current_user_id();
+				if(array_key_exists('approved_at',$current))$extra['approved_at']=Stockland_HR_Replacement::now();
+			}
+		}
 		if('offers'===$entity&&'ACCEPT'===$action){$evidence=sanitize_textarea_field((string)($body['acceptance_evidence']??''));if(strlen(trim($evidence))<15)return $this->error('hrx_offer_acceptance_evidence_required','Record the applicant offer-acceptance evidence reference or verified note.',422);$extra['accepted_at']=Stockland_HR_Replacement::now();}
 		if('applications'===$entity&&'SELECT'===$action){$selection=sanitize_textarea_field((string)($body['selection_rationale']??''));if(strlen(trim($selection))<20)return $this->error('hrx_selection_rationale_required','Document the human selection rationale (minimum 20 characters).',422);$extra['selection_rationale']=$selection;}
 		if('applications'===$entity&&'REJECT'===$action){$extra['status']='REJECTED';$extra['retention_until']=Stockland_HR_Replacement::valid_date($body['retention_until']??'')?:null;}
@@ -535,6 +548,10 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		foreach((array)$people as $e){
 			$comp=Stockland_DB::read_row($wpdb->prepare("SELECT * FROM %i WHERE employment_id=%d AND status='APPROVED' AND effective_from<=%s AND (effective_to IS NULL OR effective_to>=%s) ORDER BY effective_from DESC,id DESC LIMIT 1",Stockland_HR_Replacement::table('hrx_compensation_assignments'),(int)$e['id'],$run['period_end'],$run['period_start']),ARRAY_A);
 			if(!$comp){$issues[]=array('code'=>'COMPENSATION_MISSING','employment_code'=>$e['employment_code'],'message'=>'No approved compensation assignment covers the pay period.');continue;}
+			if('ETB'!==strtoupper((string)($comp['currency']??''))){$issues[]=array('code'=>'COMPENSATION_CURRENCY_UNSUPPORTED','employment_code'=>$e['employment_code'],'message'=>'Only ETB compensation is supported by this payroll run. Foreign-currency assignments require a separately approved conversion and accounting policy; no implicit conversion is applied.');}
+			$open_exit=Stockland_DB::read_row($wpdb->prepare("SELECT id,effective_end_date,status FROM %i WHERE employment_id=%d AND status NOT IN('SETTLED','CANCELLED') AND effective_end_date<=%s ORDER BY effective_end_date DESC,id DESC LIMIT 1",Stockland_HR_Replacement::table('hrx_exit_settlements'),(int)$e['id'],$run['period_end']),ARRAY_A);
+			if($wpdb->last_error){$issues[]=array('code'=>'EXIT_ELIGIBILITY_CHECK_FAILED','employment_code'=>$e['employment_code'],'message'=>'Could not verify exit-settlement eligibility; payroll is blocked until the data check succeeds.');}
+			elseif($open_exit){$issues[]=array('code'=>'OPEN_EXIT_SETTLEMENT_OVERLAP','employment_code'=>$e['employment_code'],'message'=>'An unsettled exit is effective on or before the payroll period end. Resolve the final settlement before including this employment in ordinary payroll.');}
 			$items=Stockland_DB::read_results($wpdb->prepare("SELECT * FROM %i WHERE compensation_assignment_id=%d AND status='APPROVED'",Stockland_HR_Replacement::table('hrx_compensation_items'),(int)$comp['id']),ARRAY_A);
 			foreach((array)$items as $item){if(!in_array($item['taxable_status'],array('TAXABLE','EXEMPT'),true)||!in_array($item['pensionable_status'],array('PENSIONABLE','NON_PENSIONABLE'),true)){$issues[]=array('code'=>'COMPENSATION_CLASSIFICATION_REVIEW','employment_code'=>$e['employment_code'],'component'=>$item['component_code'],'message'=>'Compensation item has unresolved tax/pension classification.');}}
 			if($e['start_date']>$run['period_start']||(!empty($e['end_date'])&&$e['end_date']<$run['period_end']))$issues[]=array('code'=>'PARTIAL_PERIOD_LEGAL_RULE_REQUIRED','employment_code'=>$e['employment_code'],'message'=>'Joiner/leaver is inside the pay month. A legally approved partial-period rule must be configured before this run can calculate.');
@@ -580,6 +597,9 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		foreach((array)$people as $e){
 			$comp=Stockland_DB::read_row($wpdb->prepare("SELECT * FROM %i WHERE employment_id=%d AND status='APPROVED' AND effective_from<=%s AND (effective_to IS NULL OR effective_to>=%s) ORDER BY effective_from DESC,id DESC LIMIT 1",Stockland_HR_Replacement::table('hrx_compensation_assignments'),(int)$e['id'],$run['period_end'],$run['period_start']),ARRAY_A);
 			if(!$comp)return $this->error('hrx_compensation_missing','Preflight/data changed: an active employment has no approved compensation assignment.',409);
+			if('ETB'!==strtoupper((string)($comp['currency']??'')))return $this->error('hrx_compensation_currency_unsupported','Only ETB compensation can be calculated. Foreign-currency payroll requires an approved conversion and accounting policy.',409);
+			$open_exit=Stockland_DB::read_row($wpdb->prepare("SELECT id,effective_end_date,status FROM %i WHERE employment_id=%d AND status NOT IN('SETTLED','CANCELLED') AND effective_end_date<=%s ORDER BY effective_end_date DESC,id DESC LIMIT 1",Stockland_HR_Replacement::table('hrx_exit_settlements'),(int)$e['id'],$run['period_end']),ARRAY_A);
+			if($wpdb->last_error||$open_exit)return $this->error('hrx_open_exit_blocks_payroll','Exit-settlement eligibility changed or could not be verified. Resolve the exit or restore a confirmed payroll eligibility state before calculation.',409);
 			$comp_items=Stockland_DB::read_results($wpdb->prepare("SELECT * FROM %i WHERE compensation_assignment_id=%d AND status='APPROVED' ORDER BY id",Stockland_HR_Replacement::table('hrx_compensation_items'),(int)$comp['id']),ARRAY_A);
 			$items=array();foreach((array)$comp_items as $i)$items[]=array('id'=>(int)$i['id'],'component_code'=>$i['component_code'],'component_name'=>$i['component_name'],'component_type'=>$i['component_type'],'amount'=>$i['amount'],'frequency'=>$i['frequency'],'cash_payable'=>(int)$i['cash_payable'],'taxable_status'=>$i['taxable_status'],'pensionable_status'=>$i['pensionable_status'],'legal_rule_id'=>(int)$i['legal_rule_id']);
 			$rule_input=array(
@@ -1114,13 +1134,15 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		$decision=strtoupper(sanitize_key($body['decision']??''));$note=sanitize_textarea_field((string)($body['review_note']??''));$key=sanitize_text_field((string)($body['idempotency_key']??''));
 		if(!in_array($decision,array('APPROVE','RETURN_FOR_REVIEW'),true)||strlen(trim($note))<40||!$key)return $this->error('hrx_rule_review_evidence_required','Decision, detailed qualified reviewer note (40+ characters), and idempotency key required.',422);
 		if((int)$rule['created_by']===get_current_user_id())return $this->error('hrx_no_self_approval','Legal rule creator cannot approve their own rule.',403);
-		if(empty($rule['reviewer_qualification'])||empty($rule['source_sha256'])||empty($rule['test_vectors_sha256']))return $this->error('hrx_rule_evidence_missing','Qualified reviewer, official-source SHA-256 and test-vector SHA-256 are required.',422);
+		$reviewer_name=sanitize_text_field((string)($body['reviewer_name']??''));
+		$reviewer_qualification=sanitize_text_field((string)($body['reviewer_qualification']??$rule['reviewer_qualification']??''));
+		if(('APPROVE'===$decision&&(''===$reviewer_name||strlen($reviewer_qualification)<8))||empty($rule['source_sha256'])||!preg_match('/^[a-f0-9]{64}$/i',(string)$rule['source_sha256'])||empty($rule['test_vectors_sha256'])||!preg_match('/^[a-f0-9]{64}$/i',(string)$rule['test_vectors_sha256']))return $this->error('hrx_rule_evidence_missing','A qualified reviewer identity/qualification, valid official-source SHA-256 and valid test-vector SHA-256 are required.',422);
 		$review_doc_id=(int)($body['review_evidence_document_id']??0);
 		if('APPROVE'===$decision){$review_doc=$review_doc_id?Stockland_DB::read_row($wpdb->prepare("SELECT id FROM %i WHERE id=%d AND entity_type='LEGAL_RULE' AND entity_id=%d AND document_type='LEGAL_REVIEW_OPINION' AND approval_status='APPROVED'",Stockland_HR_Replacement::table('hrx_document_refs'),$review_doc_id,$id),ARRAY_A):null;if(!$review_doc)return $this->error('hrx_legal_opinion_missing','An independently reviewed private legal opinion/source review is required before a statutory rule can be activated.',409);}
 		$to='APPROVE'===$decision?'APPROVED':'LEGAL_REVIEW';if('APPROVE'===$decision&&'LEGAL_REVIEW'!==$rule['review_status'])return $this->error('hrx_rule_state_invalid','Only a LEGAL_REVIEW rule can be approved.',409);
 		if(false===$this->begin())return $this->error('hrx_tx_begin_failed','Could not start legal-rule review transaction.',500);
-		$ok=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_legal_rules'),array('review_status'=>$to,'reviewer_name'=>sanitize_text_field($body['reviewer_name']??''),'reviewer_qualification'=>sanitize_text_field($body['reviewer_qualification']??$rule['reviewer_qualification']),'review_evidence_ref_id'=>'APPROVE'===$decision?$review_doc_id:null,'reviewed_at'=>Stockland_HR_Replacement::now(),'approved_by'=>'APPROVE'===$decision?get_current_user_id():null,'approved_at'=>'APPROVE'===$decision?Stockland_HR_Replacement::now():null),array('id'=>$id,'review_status'=>$rule['review_status']));
-		if(false===$ok){$this->rollback();return $this->error('hrx_rule_update_failed','Rule review did not persist.',500);}
+		$ok=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_legal_rules'),array('review_status'=>$to,'reviewer_name'=>$reviewer_name,'reviewer_qualification'=>$reviewer_qualification,'review_evidence_ref_id'=>'APPROVE'===$decision?$review_doc_id:null,'reviewed_at'=>Stockland_HR_Replacement::now(),'approved_by'=>'APPROVE'===$decision?get_current_user_id():null,'approved_at'=>'APPROVE'===$decision?Stockland_HR_Replacement::now():null),array('id'=>$id,'review_status'=>$rule['review_status']));
+		if(false===$ok||0===(int)$ok){$this->rollback();return $this->error('hrx_rule_update_failed','The legal rule changed or did not update; no review or audit event was written.',409);}
 		$evt=Stockland_HR_Replacement::approval_event('legal-rule',$id,'LEGAL_RULE_'.$decision,$rule['review_status'],$to,$note,$key,null,get_current_user_id());$audit=Stockland_HR_Replacement::audit('legal_rule_'.$decision,'legal-rule',$id,'Legal rule review state changed.');
 		if(is_wp_error($evt)||is_wp_error($audit)||false===$audit){$this->rollback();return $this->error('hrx_rule_audit_failed','Rule review was rolled back because approval evidence could not be persisted.',500);}
 		$this->commit();
