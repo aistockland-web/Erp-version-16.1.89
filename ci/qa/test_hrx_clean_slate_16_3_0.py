@@ -174,7 +174,7 @@ def main():
     require("COMPENSATION_CURRENCY_UNSUPPORTED" in controller and "hrx_compensation_currency_unsupported" in controller,"non-ETB payroll assignments must be rejected rather than silently treated as ETB")
     require("OPEN_EXIT_SETTLEMENT_OVERLAP" in controller and "hrx_open_exit_blocks_payroll" in controller,"unsettled exits must block ordinary payroll through both preflight and calculate-time recheck")
     require("status NOT IN('SETTLED','CANCELLED')" in controller and "effective_end_date<=%s" in controller,"payroll eligibility must be bounded by unsettled exit effective date")
-    require("idempotency_key:key()" in app and "payroll-runs/'+id+'/submit'" in app,"HRX payroll submit UI must send required idempotency key")
+    require("idempotency_key:key()" in app and "payroll/runs/'+id+'/submit'" in app,"HRX payroll submit UI must send required idempotency key")
     require("entity==='applications'?row.stage" in app,"recruitment action renderer must use stage, not the generic OPEN status")
     require("entity==='payee-deliverables')transitions.push(['SUBMIT','Submit deliverable evidence'])" in app,"PENDING payee deliverables must expose the supported SUBMIT action")
     require("if(entityName==='exit-clearance-tasks'&&decision==='COMPLETE')" in app and "extra.evidence_ref_id=Number(evidence)" in app and "extra.resolution_note=note" in app,"exit clearance UI must transmit approved document evidence and resolution note")
