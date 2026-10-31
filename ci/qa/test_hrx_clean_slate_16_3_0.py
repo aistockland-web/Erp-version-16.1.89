@@ -179,6 +179,12 @@ def main():
     require("entity==='payee-deliverables')transitions.push(['SUBMIT','Submit deliverable evidence'])" in app,"PENDING payee deliverables must expose the supported SUBMIT action")
     require("if(entityName==='exit-clearance-tasks'&&decision==='COMPLETE')" in app and "extra.evidence_ref_id=Number(evidence)" in app and "extra.resolution_note=note" in app,"exit clearance UI must transmit approved document evidence and resolution note")
     require("api16('/hr/replacement/entities/exit-clearance-tasks/'+id)" in app,"exit clearance UI must distinguish ACCESS_REVOKED from document-backed tasks")
+    require("entity==='org-units'?row.active" in app,"organization-unit workflow renderer must read the active state column")
+    require("status==='0'&&entity==='org-units'&&cap.owner_approve" in app and "status==='1'&&entity==='org-units'&&cap.owner_approve" in app,"organization-unit activation/deactivation controls must be rendered for authorized owners")
+    require("status==='SUBMITTED'&&entity==='payee-deliverables'&&cap.owner_approve)transitions.push(['ACCEPT','Accept deliverable'])" in app,"submitted payee deliverables must use the supported ACCEPT workflow action")
+    require("'payee-deliverables'].includes(entity)" in app,"generic APPROVE action must not override the payee deliverable ACCEPT workflow")
+    require("if(!doc||!/^\\d+$/.test(doc))" in app,"legal opinion document ID input must accept numeric document IDs")
+    require("'payee-deliverables'=>array('SUBMIT'=>array('PENDING','SUBMITTED'),'ACCEPT'=>array('SUBMITTED','ACCEPTED')" in controller,"payee deliverable UI actions must match the server transition map")
     print("PASS HRX exact-package identity, schema, creator/approval mapping, payroll currency/exit guards, privacy redaction, legal review, UI actions, concurrency and security regressions")
     print("NOTE: source/package evidence only. Live WordPress/MariaDB E2E, legal review, backup/restore, and Owner/HR/Finance acceptance remain separate gates.")
 
