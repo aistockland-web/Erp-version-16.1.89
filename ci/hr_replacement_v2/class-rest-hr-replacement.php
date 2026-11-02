@@ -1608,9 +1608,17 @@ public function approve_payee_request( $request ) {
 		if(false===$audit){status_header(500);wp_die(esc_html__('Download audit could not be recorded. Access was denied.','stockland-erp'),'',array('response'=>500));}
 		if(ob_get_level()){while(ob_get_level())ob_end_clean();}
 		$ext=array('application/pdf'=>'pdf','application/vnd.openxmlformats-officedocument.wordprocessingml.document'=>'docx','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'=>'xlsx','image/jpeg'=>'jpg','image/png'=>'png')[$doc['mime_type']]??'bin';
-		$filename='Stockland-HR-'.$doc['document_code'].'.'.$ext;
+		$document_code=sanitize_file_name((string)$doc['document_code']);
+		if(''===$document_code){$document_code='document-'.$id;}
+		$filename='Stockland-HR-'.$document_code.'.'.$ext;
+		$stream=fopen('php://temp','w+b');
+		if(false===$stream){status_header(500);wp_die(esc_html__('Private document stream could not be prepared.','stockland-erp'),'',array('response'=>500));}
+		$written=fwrite($stream,$bytes);
+		if(false===$written||$written!==strlen($bytes)){fclose($stream);status_header(500);wp_die(esc_html__('Private document stream could not be prepared.','stockland-erp'),'',array('response'=>500));}
+		rewind($stream);
 		nocache_headers();header('Content-Type: '.$doc['mime_type']);header('Content-Disposition: attachment; filename="'.$filename.'"');header('Content-Length: '.strlen($bytes));header('X-Content-Type-Options: nosniff');header('Cache-Control: private, no-store, max-age=0, must-revalidate');
-		echo $bytes; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Private binary document is intentionally streamed.
+		fpassthru($stream);
+		fclose($stream);
 		exit;
 	}
 
