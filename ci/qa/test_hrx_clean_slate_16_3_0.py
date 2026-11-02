@@ -144,9 +144,9 @@ def main():
     require("schema.design_approved" in ui_source and "current 47-table DDL is an implementation proposal" in ui_source,"HRX UI must not offer schema creation before design approval")
     require("Legacy HR REST/write path is disabled; historical records remain preserved" in ui_source,"HRX UI must not refer to a candidate-only legacy state")
     require("no cleanup or reset operation is available in this plugin" in ui_source,"HRX UI must accurately state that no legacy reset operation ships")
-    require("Stockland Ethiopia ERP — WordPress application 16.3.0" in read_member(z,PLUGIN+"README.md"),"package README must describe the consolidated release")
-    require("This candidate replaces the legacy HR runtime" not in read_member(z,PLUGIN+"README.md"),"stale candidate README text remains")
-    require("employee pension at 7%" not in read_member(z,PLUGIN+"README.md") and "employer pension at 11%" not in read_member(z,PLUGIN+"README.md"),"unverified historical pension rates must not be represented as current legal rules")
+    require("Stockland Ethiopia ERP — WordPress application 16.3.0" in read_member(zipfile.ZipFile(a.package),PLUGIN+"README.md"),"package README must describe the consolidated release")
+    require("This candidate replaces the legacy HR runtime" not in read_member(zipfile.ZipFile(a.package),PLUGIN+"README.md"),"stale candidate README text remains")
+    require("employee pension at 7%" not in read_member(zipfile.ZipFile(a.package),PLUGIN+"README.md") and "employer pension at 11%" not in read_member(zipfile.ZipFile(a.package),PLUGIN+"README.md"),"unverified historical pension rates must not be represented as current legal rules")
     require("normalize_sql_type" in model and "column_type_mismatch" in model,"HRX readiness does not validate SQL column types and numeric precision")
     require("SHOW INDEX FROM %i" in model and "missing_indexes" in model and "index_mismatch" in model,"HRX readiness does not validate required indexes and uniqueness")
     # Security/data-integrity regressions from the latest Codex review:
