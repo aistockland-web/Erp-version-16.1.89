@@ -210,6 +210,119 @@ final class Stockland_HR_Replacement {
 		if ( ! in_array( $key, self::table_keys(), true ) ) { throw new InvalidArgumentException( 'Unknown HR replacement table key.' ); }
 		return Stockland_DB::table( $key );
 	}
+
+	/**
+	 * Load the site-owned HR document encryption keyring.
+	 *
+	 * Keys are generated per installation and supplied in wp-config.php. They
+	 * are never embedded in the plugin, database, source repository or ZIP.
+	 * Retain previous key versions until every document blob has been rotated.
+	 */
+	private static function document_keyring() {
+		if ( ! function_exists( 'openssl_encrypt' ) || ! function_exists( 'openssl_decrypt' ) || ! function_exists( 'random_bytes' ) ) {
+			return new WP_Error( 'hrx_document_crypto_unavailable', 'OpenSSL AES-256-GCM and secure random generation are required for private HR documents.', array( 'status' => 503 ) );
+		}
+		if ( ! defined( 'STOCKLAND_HRX_DOCUMENT_KEYRING' ) || ! is_array( STOCKLAND_HRX_DOCUMENT_KEYRING ) || ! defined( 'STOCKLAND_HRX_DOCUMENT_CURRENT_KEY_VERSION' ) ) {
+			return new WP_Error( 'hrx_document_keyring_missing', 'Configure a site-specific HR document encryption keyring in wp-config.php before uploading or downloading private HR documents.', array( 'status' => 503 ) );
+		}
+		$ring = STOCKLAND_HRX_DOCUMENT_KEYRING;
+		$current = (string) STOCKLAND_HRX_DOCUMENT_CURRENT_KEY_VERSION;
+		if ( ! preg_match( '/^[A-Za-z0-9_-]{1,16}$/D', $current ) || ! isset( $ring[ $current ] ) || ! is_string( $ring[ $current ] ) ) {
+			return new WP_Error( 'hrx_document_keyring_invalid', 'The current HR document encryption key version is not present in the configured keyring.', array( 'status' => 503 ) );
+		}
+		$keys = array();
+		foreach ( $ring as $version => $encoded ) {
+			$version = (string) $version;
+			if ( ! preg_match( '/^[A-Za-z0-9_-]{1,16}$/D', $version ) || ! is_string( $encoded ) ) {
+				return new WP_Error( 'hrx_document_keyring_invalid', 'A document encryption key version or value is malformed.', array( 'status' => 503 ) );
+			}
+			$key = base64_decode( $encoded, true );
+			if ( false === $key || 32 !== strlen( $key ) ) {
+				return new WP_Error( 'hrx_document_key_length_invalid', 'Every HR document key must be strict Base64 encoding of exactly 32 random bytes.', array( 'status' => 503 ) );
+			}
+			$keys[ $version ] = $key;
+		}
+		return array( 'keys' => $keys, 'current' => $current );
+	}
+
+	/** Readiness without exposing key material. */
+	public static function document_crypto_status() {
+		$ring = self::document_keyring();
+		if ( is_wp_error( $ring ) ) {
+			return array( 'ready' => false, 'algorithm' => 'AES-256-GCM', 'error_code' => $ring->get_error_code(), 'message' => $ring->get_error_message() );
+		}
+		return array( 'ready' => true, 'algorithm' => 'AES-256-GCM', 'current_key_version' => $ring['current'], 'available_key_versions' => array_keys( $ring['keys'] ) );
+	}
+
+	/** Encrypt a private document with authenticated metadata bound as GCM AAD. */
+	public static function encrypt_document_payload( $plaintext, $document_id, $content_sha256, $mime_type, $key_version = null ) {
+		$ring = self::document_keyring();
+		if ( is_wp_error( $ring ) ) { return $ring; }
+		$document_id = (int) $document_id;
+		$content_sha256 = strtolower( (string) $content_sha256 );
+		$mime_type = (string) $mime_type;
+		$key_version = null === $key_version ? $ring['current'] : (string) $key_version;
+		if ( $document_id < 1 || ! preg_match( '/^[a-f0-9]{64}$/D', $content_sha256 ) || '' === $mime_type || ! isset( $ring['keys'][ $key_version ] ) ) {
+			return new WP_Error( 'hrx_document_encryption_context_invalid', 'Document identity, content hash, MIME type or encryption key version is invalid.', array( 'status' => 422 ) );
+		}
+		try {
+			$nonce = random_bytes( 12 );
+		} catch ( Throwable $e ) {
+			return new WP_Error( 'hrx_document_nonce_failed', 'A secure document encryption nonce could not be generated.', array( 'status' => 500 ) );
+		}
+		$aad = 'Stockland-HRX-document-v1|' . $document_id . '|' . $content_sha256 . '|' . $mime_type;
+		$tag = '';
+		$ciphertext = openssl_encrypt( (string) $plaintext, 'aes-256-gcm', $ring['keys'][ $key_version ], OPENSSL_RAW_DATA, $nonce, $tag, $aad, 16 );
+		if ( false === $ciphertext || 16 !== strlen( $tag ) ) {
+			return new WP_Error( 'hrx_document_encrypt_failed', 'The private document could not be encrypted; no plaintext copy was stored.', array( 'status' => 500 ) );
+		}
+		// Binary envelope: magic(8), key-version-length(1), key-version, nonce(12), tag(16), ciphertext.
+		return 'SHRXGCM1' . chr( strlen( $key_version ) ) . $key_version . $nonce . $tag . $ciphertext;
+	}
+
+	/** Decrypt only with a configured key version and the exact document AAD. */
+	public static function decrypt_document_payload( $payload, $document_id, $content_sha256, $mime_type ) {
+		$ring = self::document_keyring();
+		if ( is_wp_error( $ring ) ) { return $ring; }
+		$payload = (string) $payload;
+		$document_id = (int) $document_id;
+		$content_sha256 = strtolower( (string) $content_sha256 );
+		$mime_type = (string) $mime_type;
+		if ( $document_id < 1 || ! preg_match( '/^[a-f0-9]{64}$/D', $content_sha256 ) || '' === $mime_type || 0 !== strpos( $payload, 'SHRXGCM1' ) || strlen( $payload ) < 38 ) {
+			return new WP_Error( 'hrx_document_ciphertext_invalid', 'Private document ciphertext or metadata is invalid.', array( 'status' => 409 ) );
+		}
+		$version_length = ord( $payload[8] );
+		if ( $version_length < 1 || $version_length > 16 || strlen( $payload ) < 9 + $version_length + 28 + 1 ) {
+			return new WP_Error( 'hrx_document_ciphertext_invalid', 'Private document encryption envelope is incomplete.', array( 'status' => 409 ) );
+		}
+		$key_version = substr( $payload, 9, $version_length );
+		if ( ! isset( $ring['keys'][ $key_version ] ) ) {
+			return new WP_Error( 'hrx_document_key_version_unavailable', 'The key version required by this private document is not present in the configured keyring. Restore the prior key before access or rotation.', array( 'status' => 503 ) );
+		}
+		$offset = 9 + $version_length;
+		$nonce = substr( $payload, $offset, 12 );
+		$tag = substr( $payload, $offset + 12, 16 );
+		$ciphertext = substr( $payload, $offset + 28 );
+		if ( 12 !== strlen( $nonce ) || 16 !== strlen( $tag ) || '' === $ciphertext ) {
+			return new WP_Error( 'hrx_document_ciphertext_invalid', 'Private document encryption envelope is incomplete.', array( 'status' => 409 ) );
+		}
+		$aad = 'Stockland-HRX-document-v1|' . $document_id . '|' . $content_sha256 . '|' . $mime_type;
+		$plaintext = openssl_decrypt( $ciphertext, 'aes-256-gcm', $ring['keys'][ $key_version ], OPENSSL_RAW_DATA, $nonce, $tag, $aad );
+		if ( false === $plaintext ) {
+			return new WP_Error( 'hrx_document_decrypt_failed', 'Private document authentication failed. The file or its metadata may have been changed.', array( 'status' => 409 ) );
+		}
+		return $plaintext;
+	}
+
+	/** Extract only the non-secret key version from an encrypted blob. */
+	public static function document_payload_key_version( $payload ) {
+		$payload = (string) $payload;
+		if ( 0 !== strpos( $payload, 'SHRXGCM1' ) || strlen( $payload ) < 10 ) { return false; }
+		$length = ord( $payload[8] );
+		if ( $length < 1 || $length > 16 || strlen( $payload ) < 9 + $length + 28 + 1 ) { return false; }
+		return substr( $payload, 9, $length );
+	}
+
 	public static function now() { return current_time( 'mysql' ); }
 	public static function valid_date( $value ) {
 		$value = sanitize_text_field( (string) $value );
