@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the integrated Stockland HRX release from the locked 16.1.95 installer.
+"""Build the integrated Stockland HRX release package from the locked 16.1.95 installer.
 
 Deterministic package builder only: it never contacts WordPress or mutates business data.
 """
@@ -279,10 +279,18 @@ def patch_frontend_manifest(files: dict[str, bytes], hrx_count: int) -> None:
         "schema_version": "1.0.0",
         "hrx_table_count_in_current_ddl_proposal": hrx_count,
         "schema_design_approved": False,
+        "schema_design_gate": {
+            "approved": False,
+            "owner_written_approval_required": True,
+            "initial_planning_range": "approximately 14-16 HR-owned tables, subject to dependency audit",
+            "current_ddl_table_count": hrx_count,
+            "installation_enabled": False,
+            "required_evidence": ["49-table dependency map", "shared-service reuse matrix", "SOP-to-entity traceability", "approved logical and physical ERD", "migration and rollback plan"],
+        },
         "legacy_tables": sorted(LEGACY_TABLES),
         "legacy_tables_active_as_system_of_record": False,
         "legacy_reset": "not included in the plugin; legacy HR/payroll tables are preserved as read-only historical sources; any future retirement requires a separately reviewed migration outside the plugin",
-        "schema_setup": "authorized user triggers bounded CREATE-only batches; plugin activation performs no HRX DDL",
+        "schema_setup": "blocked until written Owner approval of the final logical/physical model, ERD and dependency map; after approval, bounded CREATE-only batches; plugin activation performs no HRX DDL",
         "statutory_rates": "none hard-coded by the HRX calculator",
         "source_authority": "Notion HR Design Reset v0.5 and HR/payroll SOP/resource pack; current legal rules require qualified Ethiopian reviewer approval",
         "status": "PRODUCTION_ACCEPTANCE_PENDING — final HRX data-model approval, live E2E, legal review and Owner/HR/Finance acceptance are still required",
@@ -434,7 +442,7 @@ def main() -> None:
     Path(str(args.output) + ".sha256").write_text(digest + "  " + args.output.name + "\n", encoding="utf-8")
     receipt = {
         "release": RELEASE,
-        "status": "CANDIDATE_NOT_PRODUCTION_CERTIFIED",
+        "status": "PRODUCTION_ACCEPTANCE_PENDING",
         "baseline_sha256": BASELINE_SHA256,
         "installer_sha256": digest,
         "installer_size_bytes": len(final_raw),
