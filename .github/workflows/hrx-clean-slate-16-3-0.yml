@@ -118,6 +118,7 @@ jobs:
           find "$APP" -type f -name '*.php' -print0 | xargs -0 -n1 php -l | tee "$RUNNER_TEMP/php83-lint.txt"
           test "$(grep -c 'No syntax errors detected' "$RUNNER_TEMP/php83-lint.txt")" -eq "$(find "$APP" -type f -name '*.php' | wc -l)"
           echo "STOCKLAND_APP=$APP" >> "$GITHUB_ENV"
+          php ci/qa/test_hrx_document_crypto.php
 
       - name: Install locked PHPCS/WPCS dependencies and audit the toolchain
         env:
@@ -182,6 +183,7 @@ jobs:
           set -euo pipefail
           find "$STOCKLAND_APP" -type f -name '*.php' -print0 | xargs -0 -n1 php -l | tee "$RUNNER_TEMP/php84-lint.txt"
           test "$(grep -c 'No syntax errors detected' "$RUNNER_TEMP/php84-lint.txt")" -eq "$(find "$STOCKLAND_APP" -type f -name '*.php' | wc -l)"
+          php ci/qa/test_hrx_document_crypto.php
 
       - name: Assemble auditable candidate evidence
         shell: bash
