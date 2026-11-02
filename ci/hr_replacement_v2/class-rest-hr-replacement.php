@@ -149,6 +149,7 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 			'legacy_tables_read_only'=>array('employees','employee_compensation','payroll_periods','payroll_lines'),
 			'legacy_reset_available'=>$this->legacy_reset_environment_allowed(),
 			'capabilities'=>array('hr_view'=>$this->view_hr(),'hr_manage'=>$this->manage_hr(),'payroll_view'=>$can_payroll,'payroll_manage'=>$this->manage_payroll(),'owner_approve'=>$this->approve_payroll(),'schema_admin'=>$this->schema_admin()),
+			'document_crypto'=>Stockland_HR_Replacement::document_crypto_status(),
 			'workflows'=>array('workforce','recruitment','contract_onboarding','time_leave','compensation','legal_rules','payroll','payout_settlement','statutory_remittance','individual_payees','exit_final_settlement','reporting_audit')
 		) );
 	}
@@ -1374,6 +1375,8 @@ public function approve_payee_request( $request ) {
 	public function upload_document( $request ) {
 		global $wpdb;
 		$ready=$this->require_schema();if(is_wp_error($ready))return $ready;
+		$crypto_status=Stockland_HR_Replacement::document_crypto_status();
+		if(empty($crypto_status['ready']))return $this->error('hrx_document_crypto_unavailable','Configure the site-specific AES-256-GCM HR document keyring in wp-config.php before storing private personnel documents.',503);
 		if(empty($_FILES['file'])||!is_array($_FILES['file'])||!empty($_FILES['file']['error']))return $this->error('hrx_document_upload_missing','Select a document file that completed uploading successfully.',422);
 		$file=$_FILES['file'];$max=8*1024*1024;
 		if(!isset($file['tmp_name'],$file['size'])||!is_uploaded_file($file['tmp_name'])||(int)$file['size']<1||(int)$file['size']>$max)return $this->error('hrx_document_size_invalid','Private document size must be between 1 byte and 8 MiB.',413);
@@ -1395,7 +1398,9 @@ public function approve_payee_request( $request ) {
 		if(false===Stockland_DB::insert_record(Stockland_HR_Replacement::table('hrx_document_refs'),$meta)){$this->rollback();return $this->error('hrx_document_meta_failed','Document metadata could not be saved.',500);}
 		$doc_id=(int)$wpdb->insert_id;
 		Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_document_refs'),array('private_storage_key'=>'dbblob:'.$doc_id),array('id'=>$doc_id));
-		$blob=Stockland_DB::insert_record(Stockland_HR_Replacement::table('hrx_document_blobs'),array('document_ref_id'=>$doc_id,'payload'=>$bytes,'created_at'=>Stockland_HR_Replacement::now()),array('%d','%s','%s'));
+		$encrypted_payload=Stockland_HR_Replacement::encrypt_document_payload($bytes,$doc_id,$hash,$mime);
+		if(is_wp_error($encrypted_payload)){$this->rollback();return $encrypted_payload;}
+		$blob=Stockland_DB::insert_record(Stockland_HR_Replacement::table('hrx_document_blobs'),array('document_ref_id'=>$doc_id,'payload'=>$encrypted_payload,'created_at'=>Stockland_HR_Replacement::now()),array('%d','%s','%s'));
 		$evt=Stockland_HR_Replacement::approval_event('document',$doc_id,'DOCUMENT_UPLOADED',null,'DRAFT','Private document metadata and content hash recorded',$code);
 		$audit=Stockland_HR_Replacement::audit('document_uploaded','document',$doc_id,'Private document uploaded; content remains pending independent verification.');
 		if(false===$blob||is_wp_error($evt)||is_wp_error($audit)||false===$audit){$this->rollback();return $this->error('hrx_document_storage_failed','Private document upload was rolled back because blob or audit persistence failed.',500);}
@@ -1443,7 +1448,8 @@ public function approve_payee_request( $request ) {
 		$note=sanitize_textarea_field((string)($body['review_note']??''));$decision=strtoupper(sanitize_key($body['decision']??''));$key=sanitize_text_field((string)($body['idempotency_key']??''));
 		if(!in_array($decision,array('APPROVE','REJECT'),true)||strlen(trim($note))<30||!$key)return $this->error('hrx_document_review_evidence_required','Review decision, rationale and idempotency key are required.',422);
 		$blob=Stockland_DB::read_row($wpdb->prepare('SELECT payload FROM %i WHERE document_ref_id=%d',Stockland_HR_Replacement::table('hrx_document_blobs'),$id),ARRAY_A);
-		if(!$blob||hash('sha256',(string)$blob['payload'])!==$doc['content_sha256'])return $this->error('hrx_document_hash_mismatch','Stored document does not match its SHA-256 metadata; download and signing are blocked.',409);
+		$plain_payload=$blob?Stockland_HR_Replacement::decrypt_document_payload($blob['payload'],$id,$doc['content_sha256'],$doc['mime_type']):new WP_Error('hrx_document_blob_missing','Encrypted document payload is missing.');
+		if(is_wp_error($plain_payload)||!hash_equals((string)$doc['content_sha256'],hash('sha256',(string)$plain_payload)))return $this->error('hrx_document_hash_mismatch','Encrypted document failed authenticated decryption or plaintext SHA-256 verification; approval is blocked.',409);
 		$to='APPROVE'===$decision?'APPROVED':'REJECTED';
 		if(false===$this->begin())return $this->error('hrx_tx_begin_failed','Could not start document review transaction.',500);
 		$ok=Stockland_DB::update_record(Stockland_HR_Replacement::table('hrx_document_refs'),array('approval_status'=>$to,'verified_by'=>get_current_user_id(),'verified_at'=>Stockland_HR_Replacement::now()),array('id'=>$id,'approval_status'=>'DRAFT','uploaded_by'=>(int)$doc['uploaded_by']));
@@ -1477,8 +1483,8 @@ public function approve_payee_request( $request ) {
 		$doc=Stockland_DB::read_row($wpdb->prepare("SELECT * FROM %i WHERE id=%d AND approval_status='APPROVED'",Stockland_HR_Replacement::table('hrx_document_refs'),$id),ARRAY_A);
 		if(!$doc||!$this->document_accessible($doc)){status_header(403);wp_die(esc_html__('You do not have access to this private HR document.','stockland-erp'),'',array('response'=>403));}
 		$blob=Stockland_DB::read_row($wpdb->prepare('SELECT payload FROM %i WHERE document_ref_id=%d',Stockland_HR_Replacement::table('hrx_document_blobs'),$id),ARRAY_A);
-		$bytes=$blob['payload']??'';
-		if(!is_string($bytes)||hash('sha256',$bytes)!==$doc['content_sha256']){status_header(500);wp_die(esc_html__('Private document integrity check failed.','stockland-erp'),'',array('response'=>500));}
+		$bytes=$blob?Stockland_HR_Replacement::decrypt_document_payload($blob['payload'],$id,$doc['content_sha256'],$doc['mime_type']):new WP_Error('hrx_document_blob_missing','Encrypted document payload is missing.');
+		if(is_wp_error($bytes)||!is_string($bytes)||!hash_equals((string)$doc['content_sha256'],hash('sha256',$bytes))){status_header(500);wp_die(esc_html__('Private document authentication/decryption failed. Access was denied.','stockland-erp'),'',array('response'=>500));}
 		$audit=Stockland_HR_Replacement::audit('document_download','document',$id,'Private document download served to authorized user.');
 		if(false===$audit){status_header(500);wp_die(esc_html__('Download audit could not be recorded. Access was denied.','stockland-erp'),'',array('response'=>500));}
 		if(ob_get_level()){while(ob_get_level())ob_end_clean();}
