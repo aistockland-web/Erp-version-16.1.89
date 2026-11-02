@@ -320,24 +320,53 @@ def patch_frontend_manifest(files: dict[str, bytes], hrx_count: int) -> None:
 
     files[path] = (json.dumps(manifest, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
     readme_path = PLUGIN_ROOT + "README.md"
-    readme = files[readme_path].decode("utf-8")
-    section = """
+    readme = """# Stockland Ethiopia ERP — WordPress application 16.3.0
 
-## HR & Payroll full-cycle implementation 16.3.0
+## Product and installation
 
-This candidate replaces the legacy HR runtime with an independent normalized HRX domain. It does not migrate or write data to the retired employees, employee_compensation, payroll_periods, or payroll_lines tables. HRX tables are created only after an authorized user explicitly starts bounded schema batches from the HR workspace; plugin activation performs no HRX DDL. No legacy reset or table-drop endpoint is included in the plugin. The four legacy HR/payroll tables are retained as protected historical sources.
+Stockland Ethiopia ERP is a WordPress plugin that provides the native Stockland operational application for retail, wholesale, inventory, warehouse, finance, procurement, reporting and people operations. Operational users work through the ERP front end; WordPress administrators retain platform administration.
 
-Payroll calculations use deterministic decimal arithmetic and require approved effective-dated rules with official-source/test-vector evidence. This package contains no hard-coded Ethiopian PAYE or pension rates. Static health is not a substitute for selected-run preflight and independent Owner approval.
+For an existing installation, back up the WordPress files and MySQL/MariaDB database before replacing plugin files. Preserve the `stockland-erp-app` directory identity and existing business tables. Do not uninstall the plugin as an update method. After file replacement, clear application/PWA caches, sign in through the ERP front end, verify System Health and compare the installed files with the release checksum.
 
-### Private HR document encryption key configuration
+## Runtime requirements
 
-Private HR document bytes are encrypted using **AES-256-GCM before they are written to the HRX database blob table**. The file SHA-256 is retained for integrity verification; it is not used as an encryption key. The encryption key is never bundled in this plugin and must be supplied by the site administrator through wp-config.php or a secret manager loaded by wp-config.php.
+- WordPress 6.8 or later
+- PHP 8.3 or later with OpenSSL support
+- MySQL 8.0 or MariaDB 10.11 or later
+- HTTPS
+- Writable WordPress uploads/cache paths only where the relevant WordPress feature requires them
 
-Generate a new 32-byte random key on the server using:
+The plugin runs inside the existing WordPress/PHP service. It does not require a separate Node.js production runtime.
+
+## Operational areas
+
+Command Center; Product Master; Inventory; Retail POS; Wholesale; Central Warehouse and Receiving; Purchase Orders; Requisitions and Reservations; Transfers; Returns, Damage and Adjustments; Finance and Procurement; AP/AR; PLEDGER and General Ledger; People and Payroll; Reports and Analytics; Management Intelligence; Users and Roles; Audit Trail; Notifications and System Health.
+
+## Inventory and finance integrity
+
+Posted stock-ledger movements remain the source of truth for physical movement history. Physical on-hand, active reservations, sellable availability and dispatched-but-unreceived transfers remain separate values. Legacy SKU-only movements and reservations are resolved to a canonical Product Master variant only when a valid mapping exists. Over-reservation remains visible as an integrity exception. An unset reorder threshold does not create a false reorder alert. Suggested replenishment is advisory and does not create a purchase order or change stock.
+
+The ERP uses decimal-safe money and server-side posting workflows. Historical sale prices, VAT, COGS, payroll, journal entries and audit records must not be silently rewritten by later master-data edits. Required report queries fail closed when the database reports an error; unavailable data must not be displayed as zero.
+
+## HR and Payroll
+
+The HRX domain provides workforce planning, recruitment, applications, selection, offers, employment and contracts, onboarding, attendance, shifts, leave, compensation, legal-rule registration, payroll runs, approvals, recipient-level payout outcomes, remittance tracking, private HR resources, payees and exit/settlement workflows.
+
+The four historical tables `employees`, `employee_compensation`, `payroll_periods` and `payroll_lines` are preserved as historical migration sources. The HRX workflow does not write to them. No legacy reset, drop or truncate endpoint is included. Historical reconciliation and an approved reversible migration are separate requirements.
+
+HRX schema creation is an explicit, bounded, authorized operation; plugin activation does not create HRX tables. The current physical HRX DDL inventory is 47 tables and is not an approved final logical data-model count. The final model must be reviewed against the controlling Notion design, shared ERP services, data dependencies, process requirements, security and actual operational necessity before schema installation is authorized.
+
+Payroll uses deterministic decimal arithmetic and fails closed unless effective-dated legal rules, compensation evidence, run preflight and independent approval are present. No PAYE or pension rates are represented as legally approved by this package. Do not infer tax rules from old README examples or historical calculations. Written qualified Ethiopian legal/tax/pension review is required before statutory rules are activated or payroll is certified.
+
+## Private HR document encryption
+
+Private HR document bytes are encrypted using AES-256-GCM before they are written to the HRX database blob table. File SHA-256 is retained for integrity verification and is not used as an encryption key. The key is never bundled in the plugin. A site-specific keyring must be supplied through protected `wp-config.php` configuration or a secret manager loaded by it.
+
+Generate a 32-byte random key on the server:
 
 `php -r 'echo base64_encode(random_bytes(32)), PHP_EOL;'`
 
-Store that generated value outside the plugin and outside the database. Configure a site-specific keyring before enabling uploads:
+Configure a site-specific keyring before enabling private document uploads:
 
 ```php
 define('STOCKLAND_HRX_DOCUMENT_KEYRING', [
@@ -346,14 +375,13 @@ define('STOCKLAND_HRX_DOCUMENT_KEYRING', [
 define('STOCKLAND_HRX_DOCUMENT_CURRENT_KEY_VERSION', 'v1');
 ```
 
-Do not use the example placeholder as a key. Keep the keyring in a protected configuration/secret store, restrict access, include it in encrypted disaster-recovery key escrow, and never commit it to GitHub or expose it in logs, backups or support exports. HR bootstrap reports only readiness and key version identifiers. Without a valid keyring, private document upload fails closed and download/decryption remains blocked.
+Never use the placeholder as a key. Restrict key access, maintain protected disaster-recovery escrow, and never commit key material to GitHub or expose it in logs or support exports. Retain old key versions until every affected document has been re-encrypted and verified. Key rotation is a controlled, backed-up operation; ordinary plugin activation does not rotate keys.
 
-Retain old key versions until every document encrypted under them has been re-encrypted and verified under the new current key. Use the authorized HRX document rekey batch endpoint with `after_id` and a bounded `limit` to migrate legacy plaintext blobs or rotate prior AES-GCM key versions. The operation uses conditional ciphertext updates and append-only audit evidence. Do not remove an old key solely because the current key changed; ordinary plugin activation never rotates keys.
+## Release acceptance
 
-**Production acceptance remains pending** until the exact package, live-host workflows, legal review, backup/restore, and Owner/HR/Finance acceptance gates pass. The build does not mutate ERP or employee data.
+The exact package still requires live WordPress/MySQL-or-MariaDB activation and end-to-end role testing, historical data reconciliation, two complete parallel payroll periods, backup/restore and rollback evidence, installed-file parity, and Owner, HR, Finance and qualified Ethiopian legal/tax/pension acceptance. A successful static or CI run is not a substitute for those production acceptance gates.
 """
-    if "HR & Payroll clean-slate candidate 16.3.0" not in readme:
-        files[readme_path] = (readme.rstrip() + section).encode("utf-8")
+    files[readme_path] = readme.encode("utf-8")
 
 def main() -> None:
     ap = argparse.ArgumentParser()
