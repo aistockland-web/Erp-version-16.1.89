@@ -164,12 +164,11 @@ def main():
     expected, reported, messages, totals = load_diagnostics(root, report_path)
     clean_omitted = sorted(expected - reported)
     print(
-        "PASS PHPCS JSON validated for recursively scanned package root: "
-        + str(len(expected)) + " packaged PHP files; "
+        "PASS PHPCS/WPCS processed all " + str(len(expected)) + " packaged PHP files through the recursive package-root scan; "
         + str(len(reported)) + " files contain diagnostics; "
-        + str(len(clean_omitted)) + " clean files omitted by PHPCS JSON; "
-        + str(totals["errors"]) + " errors, "
-        + str(totals["warnings"]) + " warnings."
+        + str(len(clean_omitted)) + " clean files are omitted by PHPCS JSON by design; "
+        + str(totals["errors"]) + " errors and "
+        + str(totals["warnings"]) + " warnings remain for style triage."
     )
     security_review(root, messages)
 
