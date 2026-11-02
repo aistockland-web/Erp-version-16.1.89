@@ -34,7 +34,7 @@ concurrency:
 
 jobs:
   exact-package:
-    name: Build and verify HRX candidate from locked baseline
+    name: Build and verify HRX full-cycle release
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -91,16 +91,16 @@ jobs:
       - name: Compile Python build and QA sources
         run: python -m compileall -q ci
 
-      - name: Build HRX candidate
+      - name: Build HRX full-cycle release
         shell: bash
         run: |
           set -euo pipefail
-          OUT="$RUNNER_TEMP/STOCKLAND_ERP_16.3.0_HRX_CLEAN_SLATE_CANDIDATE.zip"
+          OUT="$RUNNER_TEMP/STOCKLAND_ERP_16.3.0_HRX_WORDPRESS_PLUGIN.zip"
           python ci/build_hrx_clean_slate_16_3_0.py --input "$BASELINE" --output "$OUT" | tee "$RUNNER_TEMP/hrx-build-receipt.stdout.json"
           (cd "$RUNNER_TEMP" && sha256sum --check "$(basename "$OUT").sha256")
           test -s "$OUT.receipt.json"
-          echo "CANDIDATE_ZIP=$OUT" >> "$GITHUB_ENV"
-          echo "CANDIDATE_RECEIPT=$OUT.receipt.json" >> "$GITHUB_ENV"
+          echo "RELEASE_PACKAGE_ZIP=$OUT" >> "$GITHUB_ENV"
+          echo "RELEASE_PACKAGE_RECEIPT=$OUT.receipt.json" >> "$GITHUB_ENV"
 
       - name: Test exact package, schema contract, reset guard, UI and receipts
         run: |
@@ -189,7 +189,7 @@ jobs:
           test "$(grep -c 'No syntax errors detected' "$RUNNER_TEMP/php84-lint.txt")" -eq "$(find "$STOCKLAND_APP" -type f -name '*.php' | wc -l)"
           php ci/qa/test_hrx_document_crypto.php
 
-      - name: Assemble auditable candidate evidence
+      - name: Assemble auditable release evidence
         shell: bash
         run: |
           set -euo pipefail
@@ -205,14 +205,14 @@ jobs:
           assert hashlib.sha256(z.read_bytes()).hexdigest()==r['installer_sha256']
           assert r['release']=='16.3.0' and r['production_ready'] is False
           assert r['business_data_changed_by_builder'] is False
-          print('PASS evidence matches exact candidate hash; release remains uncertified')
+          print('PASS evidence matches exact release-package hash; release remains uncertified')
           PY
           cp -a "$RUNNER_TEMP/hrx-evidence/." build/stockland-hrx-16.3.0/
 
-      - name: Upload exact candidate and receipts
+      - name: Upload exact release package and receipts
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: STOCKLAND-ERP-16.3.0-HRX-CLEAN-SLATE-CANDIDATE
+          name: STOCKLAND-ERP-16.3.0-HRX-RELEASE-PACKAGE
           path: build/stockland-hrx-16.3.0/
           if-no-files-found: error
           retention-days: 30
