@@ -121,6 +121,8 @@ def main():
         require(token.lower() in calc.lower(),"rules-driven deterministic calculator component missing: "+token)
     for token in ("admin_post_stockland_hrx_document_download","check_admin_referer","Content-Disposition","X-Content-Type-Options","hash('sha256'","document_accessible"):
         require(token in controller,"private download/authorization integrity guard missing: "+token)
+    require("sanitize_file_name((string)$doc['document_code'])" in controller,"private download filename must be sanitized before HTTP header output")
+    require("fopen('php://temp','w+b')" in controller and "fpassthru($stream)" in controller and "echo $bytes" not in controller,"authenticated binary documents must be streamed from a prepared stream, not echoed as request output")
     for token in ("STOCKLAND_HRX_DOCUMENT_KEYRING","STOCKLAND_HRX_DOCUMENT_CURRENT_KEY_VERSION","openssl_encrypt","openssl_decrypt","aes-256-gcm","SHRXGCM1","encrypt_document_payload","decrypt_document_payload","document_crypto_status"):
         require(token in model,"private document AES-256-GCM/keyring contract missing: "+token)
     require("$encrypted_payload=Stockland_HR_Replacement::encrypt_document_payload" in controller,"uploaded HR documents are not encrypted before database persistence")
