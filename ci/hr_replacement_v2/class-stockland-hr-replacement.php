@@ -9,6 +9,9 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 final class Stockland_HR_Replacement {
 	const SCHEMA_VERSION = '1.0.0';
 	const OPTION_SCHEMA_VERSION = 'stockland_hrx_schema_version';
+	// The current 47-table DDL is not an approved final logical/physical design.
+	// Keep schema creation disabled until the owner-approved ERD and dependency map are accepted.
+	const SCHEMA_DESIGN_APPROVED = false;
 
 	public static function table_keys() {
 		return array(
@@ -177,6 +180,8 @@ final class Stockland_HR_Replacement {
 			'total' => count( self::table_keys() ), 'present' => count( $present ),
 			'present_tables' => $present, 'missing_tables' => $missing, 'schema_drift' => $drift,
 			'ready' => empty( $missing ) && empty( $drift ) && self::SCHEMA_VERSION === $recorded,
+			'design_approved' => self::SCHEMA_DESIGN_APPROVED,
+			'design_status' => self::SCHEMA_DESIGN_APPROVED ? 'APPROVED' : 'OWNER_APPROVAL_REQUIRED',
 			'legacy_tables_read_only_sources' => array( 'employees','employee_compensation','payroll_periods','payroll_lines' ),
 			'schema_changes_to_legacy_tables' => false,
 		);
@@ -187,6 +192,9 @@ final class Stockland_HR_Replacement {
 		global $wpdb;
 		if ( ! is_user_logged_in() || ! ( current_user_can( 'manage_options' ) || ( class_exists( 'Stockland_Authority' ) && Stockland_Authority::can_approve_payroll() && current_user_can( 'stockland_manage_hr' ) ) || current_user_can( 'stockland_install_schema' ) ) ) {
 			return new WP_Error( 'hrx_schema_forbidden', 'Only an authorized schema administrator may create the new HR replacement tables.', array( 'status' => 403 ) );
+		}
+		if ( ! self::SCHEMA_DESIGN_APPROVED ) {
+			return new WP_Error( 'hrx_schema_design_not_approved', 'HRX schema creation is blocked until the final logical/physical data model, ERD, shared-service reuse and 49-table dependency map receive written Owner approval.', array( 'status' => 409 ) );
 		}
 		$limit = max( 1, min( 8, (int) $limit ) );
 		$before = self::schema_status(); $todo = array_flip( $before['missing_tables'] ); $created = array(); $checked = 0;
