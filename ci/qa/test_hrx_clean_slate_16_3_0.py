@@ -82,9 +82,8 @@ def main():
     require("class Stockland_HR {" in shim and "return array();" in shim and "return array('installed'=>array(),'missing'=>array(),'complete'=>true" in shim,"legacy compatibility class is not inert")
     for k in ("employees","employee_compensation","payroll_periods","payroll_lines"):
         require(k not in shim,"legacy table "+k+" appears in compatibility shim")
-    require("function reset_legacy_tables" in controller and "RESET_LEGACY_HR_PAYROLL_AFTER_BACKUP" in controller,"explicit legacy reset action missing")
-    require("STOCKLAND_HRX_ALLOW_LEGACY_RESET" in controller and "wp_get_environment_type" in controller,"legacy reset lacks opt-in/non-production check")
-    require("array( 'employees', 'employee_compensation', 'payroll_periods', 'payroll_lines' )" in controller,"legacy reset table allowlist absent")
+    require("reset_legacy_tables" not in controller and "schema/reset-legacy" not in controller,"plugin must not ship a legacy HR table-drop/reset endpoint")
+    require("DROP TABLE" not in controller.upper() and "TRUNCATE TABLE" not in controller.upper(),"HR replacement controller must not contain destructive table operations")
     require("DROP TABLE" not in model.upper() and "TRUNCATE TABLE" not in model.upper() and "ALTER TABLE" not in model.upper(),"HRX schema installer must not include destructive/automatic DDL")
     keys_match=re.search(r"public\s+static\s+function\s+table_keys\s*\(\s*\)\s*\{.*?return\s+array\s*\((.*?)\);",model,re.S)
     require(bool(keys_match),"HRX table-key inventory cannot be parsed")
@@ -136,7 +135,7 @@ def main():
     require("STOCKLAND_HRX_DOCUMENT_KEYRING" in read_member(zipfile.ZipFile(a.package),PLUGIN+"README.md"),"secure per-installation HR document key configuration is not documented")
     require("private-document" in read_member(zipfile.ZipFile(a.package),PLUGIN+"README.md").lower() or "private document" in controller.lower(),"private-document control documentation missing")
     require("stockland_hrx_schema_version" in model and "install_schema_batch" in model,"bounded, versioned, explicit schema setup missing")
-    require("function reset_legacy_tables" in controller,"legacy cleanup must be a separate explicit action")
+    require("reset_legacy_tables" not in controller and "schema/reset-legacy" not in controller,"production plugin contains no legacy-table reset action")
     require("normalize_sql_type" in model and "column_type_mismatch" in model,"HRX readiness does not validate SQL column types and numeric precision")
     require("SHOW INDEX FROM %i" in model and "missing_indexes" in model and "index_mismatch" in model,"HRX readiness does not validate required indexes and uniqueness")
     # Security/data-integrity regressions from the latest Codex review:
