@@ -57,7 +57,7 @@ Role-specific bilingual contracts/JDs, code of conduct, department SOPs, allowan
 - GL posting must use the existing accounting journal service, closed-period guards, balanced lines and a unique HRX source reference. A journal creation is not proof that the bank paid the recipient.
 - Private document reads/downloads require authenticated permission, ownership/location check, payload hash, no-store headers, auditable access, and verified private-storage handling. Do not use predictable public Media Library URLs for signed contracts, identity or payslips.
 - New HRX schema is installed in bounded, explicit Owner/schema-admin batches. The new UI must remain available before schema install so that it can expose the actual status and gated setup button.
-- Any retirement/reset of the four legacy HR tables uses a dedicated command with a strict allowlist, explicit environment/confirmation checks, preflight, backup receipt and audit. It must never run during plugin activation or normal updates.
+- No legacy-table retirement/reset command is included in the plugin. The four legacy HR tables remain protected historical sources. Any future retirement requires a separately reviewed, reversible migration outside the plugin after exact dependency mapping, backup/restore, reconciliation and written Owner/HR/Finance approval.
 
 ## 5. Ethiopian legal and policy release gates
 
