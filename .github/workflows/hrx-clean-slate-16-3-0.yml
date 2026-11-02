@@ -128,6 +128,9 @@ jobs:
           composer install --working-dir=ci/phpcs --no-interaction --prefer-dist --no-progress
           composer audit --working-dir=ci/phpcs --locked --format=table
 
+      - name: Test PHPCS JSON coverage helper
+        run: python ci/qa/test-phpcs-hrx-review.py --self-test
+
       - name: Run PHPCS/WPCS against every PHP file in the exact installer
         shell: bash
         run: |
