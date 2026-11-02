@@ -96,6 +96,7 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		register_rest_route( $ns, '/hr/replacement/exits/(?P<id>\d+)/approve', array( 'methods'=>'POST','callback'=>array( $this,'approve_exit_settlement' ),'permission_callback'=>array( $this,'permission_approve_hr' ) ) );
 		register_rest_route( $ns, '/hr/replacement/documents', array( array( 'methods'=>'GET','callback'=>array( $this,'list_documents' ),'permission_callback'=>array( $this,'permission_view_hr' ) ), array( 'methods'=>'POST','callback'=>array( $this,'upload_document' ),'permission_callback'=>array( $this,'permission_manage_hr' ) ) ) );
 		register_rest_route( $ns, '/hr/replacement/documents/(?P<id>\d+)/review', array( 'methods'=>'POST','callback'=>array( $this,'review_document' ),'permission_callback'=>array( $this,'permission_approve_hr' ) ) );
+		register_rest_route( $ns, '/hr/replacement/documents/encryption/rekey', array( 'methods'=>'POST','callback'=>array( $this,'rotate_document_encryption_batch' ),'permission_callback'=>array( $this,'permission_schema_admin' ) ) );
 		register_rest_route( $ns, '/hr/replacement/contracts/(?P<id>\d+)/sign', array( 'methods'=>'POST','callback'=>array( $this,'sign_contract' ),'permission_callback'=>array( $this,'permission_manage_hr' ) ) );
 	}
 
@@ -1495,7 +1496,57 @@ public function approve_payee_request( $request ) {
 		exit;
 	}
 
-	public function deny_document_download() { status_header(401);wp_die(esc_html__('Sign in with an authorized Stockland HR account to access this private document.','stockland-erp'),'',array('response'=>401)); }
+	public function rotate_document_encryption_batch( $request ) {
+		global $wpdb;
+		$ready=$this->require_schema();if(is_wp_error($ready))return $ready;
+		$crypto=Stockland_HR_Replacement::document_crypto_status();
+		if(empty($crypto['ready']))return $this->error('hrx_document_crypto_unavailable','Configure a valid site-specific AES-256-GCM document keyring before re-encryption.',503);
+		$current=(string)$crypto['current_key_version'];
+		$after=max(0,(int)$request->get_param('after_id'));
+		$limit=max(1,min(20,(int)$request->get_param('limit')?:10));
+		$blob_table=Stockland_HR_Replacement::table('hrx_document_blobs');
+		$ref_table=Stockland_HR_Replacement::table('hrx_document_refs');
+		$sql=$wpdb->prepare('SELECT b.document_ref_id,b.payload,r.content_sha256,r.mime_type FROM %i b INNER JOIN %i r ON r.id=b.document_ref_id WHERE b.document_ref_id>%d ORDER BY b.document_ref_id ASC LIMIT %d',$blob_table,$ref_table,$after,$limit);
+		$rows=Stockland_DB::read_results($sql,ARRAY_A);
+		if(!is_array($rows)||!empty($wpdb->last_error))return $this->error('hrx_document_rekey_read_failed','Encrypted document batch could not be read safely.',500);
+		$processed=0;$rekeyed=0;$already_current=0;$last_id=$after;
+		foreach($rows as $row){
+			$id=(int)$row['document_ref_id'];$last_id=$id;++$processed;
+			$old=(string)$row['payload'];$version=Stockland_HR_Replacement::document_payload_key_version($old);
+			if($current===$version){++$already_current;continue;}
+			if(false===$version){
+				// Migration path for pre-encryption HRX blobs: accept only bytes matching the
+				// immutable plaintext hash, then encrypt before the conditional database update.
+				$plain=$old;
+			}else{
+				$plain=Stockland_HR_Replacement::decrypt_document_payload($old,$id,$row['content_sha256'],$row['mime_type']);
+				if(is_wp_error($plain))return $this->error('hrx_document_rekey_decrypt_failed','A prior document key is unavailable or a document failed authentication. Retain prior keys and investigate before continuing.',409);
+			}
+			if(!hash_equals((string)$row['content_sha256'],hash('sha256',(string)$plain)))return $this->error('hrx_document_rekey_hash_mismatch','A document failed plaintext integrity verification. No replacement ciphertext was written for that document.',409);
+			$encrypted=Stockland_HR_Replacement::encrypt_document_payload($plain,$id,$row['content_sha256'],$row['mime_type'],$current);
+			if(is_wp_error($encrypted))return $encrypted;
+			if(false===$this->begin())return $this->error('hrx_document_rekey_tx_failed','Could not start a private document key-rotation transaction.',500);
+			$wpdb->last_error='';
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Binary ciphertext compare-and-swap prevents overwriting a concurrent document replacement; exact row update is in the same audit transaction.
+			$updated=$wpdb->update($blob_table,array('payload'=>$encrypted),array('document_ref_id'=>$id,'payload'=>$old),array('%s'),array('%d','%s'));
+			if(false===$updated||0===(int)$updated||!empty($wpdb->last_error)){$this->rollback();return $this->error('hrx_document_rekey_conflict','Document changed during key rotation or its ciphertext could not be updated. Retry after reviewing the document row.',409);}
+			$key='hrx-document-rekey-'.$id.'-'.$current;
+			$event=Stockland_HR_Replacement::approval_event('document',$id,'DOCUMENT_REENCRYPTED',$version?:'LEGACY_PLAINTEXT','ENCRYPTED_'.$current,'Controlled document encryption migration/key rotation',$key);
+			$audit=Stockland_HR_Replacement::audit('document_reencrypted','document',$id,'Private document encrypted or moved to the current site-managed key version.');
+			if(is_wp_error($event)||is_wp_error($audit)||false===$audit){$this->rollback();return $this->error('hrx_document_rekey_audit_failed','Document encryption update was rolled back because approval/audit evidence could not be recorded.',500);}
+			$commit=$this->commit();
+			if(false===$commit){$this->rollback();return $this->error('hrx_document_rekey_commit_failed','Document encryption transaction did not commit.',500);}
+			++$rekeyed;
+		}
+		return rest_ensure_response(array(
+			'processed'=>$processed,'rekeyed'=>$rekeyed,'already_current'=>$already_current,
+			'current_key_version'=>$current,'next_after_id'=>$last_id,
+			'complete'=>count($rows)<$limit,
+			'message'=>'Only authenticated, hash-verified document blobs are re-encrypted. Keep old key versions until every batch is complete and independently verified.'
+		));
+	}
+
+		public function deny_document_download() { status_header(401);wp_die(esc_html__('Sign in with an authorized Stockland HR account to access this private document.','stockland-erp'),'',array('response'=>401)); }
 
 	private function begin() {
 		$ok=Stockland_DB::execute_query('START TRANSACTION');
