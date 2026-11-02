@@ -121,6 +121,13 @@ def main():
         require(token.lower() in calc.lower(),"rules-driven deterministic calculator component missing: "+token)
     for token in ("admin_post_stockland_hrx_document_download","check_admin_referer","Content-Disposition","X-Content-Type-Options","hash('sha256'","document_accessible"):
         require(token in controller,"private download/authorization integrity guard missing: "+token)
+    for token in ("STOCKLAND_HRX_DOCUMENT_KEYRING","STOCKLAND_HRX_DOCUMENT_CURRENT_KEY_VERSION","openssl_encrypt","openssl_decrypt","aes-256-gcm","SHRXGCM1","encrypt_document_payload","decrypt_document_payload","document_crypto_status"):
+        require(token in model,"private document AES-256-GCM/keyring contract missing: "+token)
+    require("$encrypted_payload=Stockland_HR_Replacement::encrypt_document_payload" in controller,"uploaded HR documents are not encrypted before database persistence")
+    require("'payload'=>$encrypted_payload" in controller and "'payload'=>$bytes" not in controller,"plaintext HR document bytes must never be written to the database blob")
+    require("Stockland_HR_Replacement::decrypt_document_payload" in controller,"private download/review must authenticate and decrypt the document blob")
+    require("document_crypto" in controller and "document_crypto_status" in controller,"HR bootstrap must expose keyring readiness without returning key material")
+    require("STOCKLAND_HRX_DOCUMENT_KEYRING" in read_member(zipfile.ZipFile(a.package),PLUGIN+"README.md"),"secure per-installation HR document key configuration is not documented")
     require("private-document" in read_member(zipfile.ZipFile(a.package),PLUGIN+"README.md").lower() or "private document" in controller.lower(),"private-document control documentation missing")
     require("stockland_hrx_schema_version" in model and "install_schema_batch" in model,"bounded, versioned, explicit schema setup missing")
     require("function reset_legacy_tables" in controller,"legacy cleanup must be a separate explicit action")
