@@ -1493,6 +1493,7 @@ public function approve_payee_request( $request ) {
 		if((!$is_resource&&!$entity_id)||!in_array($entity_type,array('APPLICATION','EMPLOYMENT','CONTRACT','PAYROLL_RUN','PAYROLL_LINE','EXIT_SETTLEMENT','PAYEE_REQUEST','LEGAL_RULE','REMITTANCE','HR_RESOURCE'),true)||!in_array($type,$allowed_types,true))return $this->error('hrx_document_target_invalid','Document owner or document type is not in the approved allow-list.',422);
 		if($is_resource&&!$this->manage_hr())return $this->error('hrx_resource_upload_forbidden','Only authorized HR Management may upload HR Process Center resources.',403);
 		$target=$this->document_target($entity_type,$entity_id);if(is_wp_error($target))return $target;
+		if(!$this->document_target_scope($entity_type,$target,true))return $this->error('hrx_document_target_forbidden','You cannot attach a private document to this employee, application, contract or payroll record.',403);
 		$mime='';if(class_exists('finfo')){$fi=new finfo(FILEINFO_MIME_TYPE);$mime=(string)$fi->file($file['tmp_name']);}
 		$ext=strtolower(pathinfo((string)($file['name']??''),PATHINFO_EXTENSION));
 		$mime_map=array('pdf'=>'application/pdf','docx'=>'application/vnd.openxmlformats-officedocument.wordprocessingml.document','xlsx'=>'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','jpg'=>'image/jpeg','jpeg'=>'image/jpeg','png'=>'image/png');
@@ -1526,24 +1527,34 @@ public function approve_payee_request( $request ) {
 		return $row;
 	}
 
-	private function document_accessible( $document ) {
-		global $wpdb;
-		if(!is_array($document)||!is_user_logged_in())return false;
-		$type=strtoupper((string)$document['entity_type']);$id=(int)$document['entity_id'];
-		if('HR_RESOURCE'===$type)return $this->view_hr();
-		// Personnel and payroll document relations are not exposed to branch-only scope yet.
-		if(!Stockland_Authority::company_scope())return false;
-		$target=$this->document_target($type,$id);if(is_wp_error($target))return false;
-		if(in_array($type,array('PAYROLL_RUN','PAYROLL_LINE','PAYEE_REQUEST','REMITTANCE'),true)&&!$this->view_payroll())return false;
-		$employment_id=0;
-		if('EMPLOYMENT'===$type)$employment_id=$id;
-		elseif('CONTRACT'===$type)$employment_id=(int)$target['employment_id'];
-		elseif('EXIT_SETTLEMENT'===$type)$employment_id=(int)$target['employment_id'];
-		if($employment_id){
-			$assignment=Stockland_DB::read_row($wpdb->prepare("SELECT location_id FROM %i WHERE employment_id=%d AND approval_status='APPROVED' AND effective_from<=%s AND (effective_to IS NULL OR effective_to>=%s) ORDER BY effective_from DESC LIMIT 1",Stockland_HR_Replacement::table('hrx_assignments'),$employment_id,current_time('Y-m-d'),current_time('Y-m-d')),ARRAY_A);
-			if($assignment&&!Stockland_Authority::can_access_location((int)$assignment['location_id']))return false;
+	private function document_target_scope( $type, $target, $for_upload = false ) {
+		if ( 'HR_RESOURCE' === $type ) {
+			return $for_upload ? $this->manage_hr() : $this->view_hr();
 		}
-		return $this->view_hr();
+		if ( in_array( $type, array( 'PAYROLL_RUN', 'PAYEE_REQUEST', 'REMITTANCE', 'LEGAL_RULE' ), true ) ) {
+			if ( ! Stockland_Authority::company_scope() ) { return false; }
+			return in_array( $type, array( 'PAYROLL_RUN', 'PAYEE_REQUEST', 'REMITTANCE' ), true ) ? $this->view_payroll() : $this->view_hr();
+		}
+		if ( 'PAYROLL_LINE' === $type ) {
+			return $this->view_payroll() && ! is_wp_error( $this->apply_location_scope( 'payroll-lines', $target, 0 ) );
+		}
+		$map = array(
+			'APPLICATION' => 'applications',
+			'EMPLOYMENT' => 'employments',
+			'CONTRACT' => 'contracts',
+			'EXIT_SETTLEMENT' => 'exit-settlements',
+		);
+		if ( ! isset( $map[ $type ] ) || ! $this->view_hr() ) { return false; }
+		return ! is_wp_error( $this->apply_location_scope( $map[ $type ], $target, 0 ) );
+	}
+
+	private function document_accessible( $document ) {
+		if ( ! is_array( $document ) || ! is_user_logged_in() ) { return false; }
+		$type = strtoupper( (string) $document['entity_type'] );
+		$id = (int) $document['entity_id'];
+		$target = $this->document_target( $type, $id );
+		if ( is_wp_error( $target ) ) { return false; }
+		return $this->document_target_scope( $type, $target, false );
 	}
 
 	public function review_document( $request ) {
@@ -1570,6 +1581,7 @@ public function approve_payee_request( $request ) {
 		global $wpdb;$id=(int)$request['id'];$body=$this->body($request);
 		$contract=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d',Stockland_HR_Replacement::table('hrx_contracts'),$id),ARRAY_A);
 		if(!$contract)return $this->error('hrx_contract_not_found','Contract not found.',404);
+		$scope=$this->apply_location_scope('contracts',$contract,0);if(is_wp_error($scope))return $scope;
 		if(!in_array($contract['status'],array('DRAFT','SUBMITTED'),true)||!empty($contract['signed_by_person_at']))return $this->error('hrx_contract_sign_state','Only an unsigned draft/submitted contract may record a signature.',409);
 		$doc_id=(int)($body['document_id']??0);$signed=Stockland_HR_Replacement::valid_date($body['signed_date']??'');$key=sanitize_text_field((string)($body['idempotency_key']??''));
 		$doc=$doc_id?Stockland_DB::read_row($wpdb->prepare("SELECT * FROM %i WHERE id=%d AND entity_type='CONTRACT' AND entity_id=%d AND document_type='EMPLOYMENT_CONTRACT' AND approval_status='APPROVED'",Stockland_HR_Replacement::table('hrx_document_refs'),$doc_id,$id),ARRAY_A):null;
