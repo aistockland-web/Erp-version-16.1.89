@@ -286,6 +286,15 @@ def patch_frontend_manifest(files: dict[str, bytes], hrx_count: int) -> None:
         "source_authority": "Notion HR Design Reset v0.5 and HR/payroll SOP/resource pack; current legal rules require qualified Ethiopian reviewer approval",
         "status": "CANDIDATE — live E2E, legal review and Owner/HR/Finance acceptance pending",
     }
+    manifest["private_document_security"] = {
+        "algorithm": "AES-256-GCM",
+        "storage": "authenticated ciphertext in private HRX database blob table",
+        "key_source": "site-specific STOCKLAND_HRX_DOCUMENT_KEYRING in wp-config.php or a secret manager loaded by wp-config.php",
+        "current_key_version_constant": "STOCKLAND_HRX_DOCUMENT_CURRENT_KEY_VERSION",
+        "key_material_in_plugin_or_database": False,
+        "rotation": "bounded, audited re-encryption endpoint; prior key versions must be retained until every blob is verified under the current key",
+        "missing_or_invalid_key_behavior": "document uploads fail closed with HTTP 503; review/download fail closed",
+    }
     manifest["production_acceptance"] = {
         "status": "PENDING — not production certified",
         "pending": [
@@ -339,7 +348,7 @@ define('STOCKLAND_HRX_DOCUMENT_CURRENT_KEY_VERSION', 'v1');
 
 Do not use the example placeholder as a key. Keep the keyring in a protected configuration/secret store, restrict access, include it in encrypted disaster-recovery key escrow, and never commit it to GitHub or expose it in logs, backups or support exports. HR bootstrap reports only readiness and key version identifiers. Without a valid keyring, private document upload fails closed and download/decryption remains blocked.
 
-Retain old key versions until every document encrypted under them has been re-encrypted and verified under the new current key. Do not remove an old key solely because the current key changed; no automatic key rotation is performed by ordinary plugin activation.
+Retain old key versions until every document encrypted under them has been re-encrypted and verified under the new current key. Use the authorized HRX document rekey batch endpoint with `after_id` and a bounded `limit` to migrate legacy plaintext blobs or rotate prior AES-GCM key versions. The operation uses conditional ciphertext updates and append-only audit evidence. Do not remove an old key solely because the current key changed; ordinary plugin activation never rotates keys.
 
 **Release status: CANDIDATE / NO-GO for production until package, live-host, legal, backup/restore, and Owner/HR/Finance acceptance gates pass.** The build never mutates ERP or employee data.
 """
