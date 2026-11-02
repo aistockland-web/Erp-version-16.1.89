@@ -8,6 +8,8 @@ on:
       - 'ci/hr_replacement_v2/**'
       - 'ci/hrx_clean_slate_16_3_0/**'
       - 'ci/qa/test_hrx_clean_slate_16_3_0.py'
+      - 'ci/qa/test-phpcs-hrx-review.py'
+      - 'ci/qa/test_hrx_document_crypto.php'
       - '.github/workflows/hrx-clean-slate-16-3-0.yml'
   push:
     branches: [main]
@@ -16,6 +18,8 @@ on:
       - 'ci/hr_replacement_v2/**'
       - 'ci/hrx_clean_slate_16_3_0/**'
       - 'ci/qa/test_hrx_clean_slate_16_3_0.py'
+      - 'ci/qa/test-phpcs-hrx-review.py'
+      - 'ci/qa/test_hrx_document_crypto.php'
       - '.github/workflows/hrx-clean-slate-16-3-0.yml'
   workflow_dispatch:
 
