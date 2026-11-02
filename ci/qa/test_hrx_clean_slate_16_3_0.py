@@ -139,7 +139,7 @@ def main():
     require("reset_legacy_tables" not in controller and "schema/reset-legacy" not in controller,"production plugin contains no legacy-table reset action")
     require("SCHEMA_DESIGN_APPROVED = false" in model,"HRX schema creation must remain disabled until final data-model approval")
     require("hrx_schema_design_not_approved" in model and "OWNER_APPROVAL_REQUIRED" in model,"backend must enforce the HRX schema-design approval gate")
-    require("schema.design_approved" in ui and "current 47-table DDL is an implementation proposal" in ui,"HRX UI must not offer schema creation before design approval")
+    require("schema.design_approved" in ui_source and "current 47-table DDL is an implementation proposal" in ui_source,"HRX UI must not offer schema creation before design approval")
     require("Legacy HR REST/write path is disabled; historical records remain preserved" in ui,"HRX UI must not refer to a candidate-only legacy state")
     require("no cleanup or reset operation is available in this plugin" in ui,"HRX UI must accurately state that no legacy reset operation ships")
     require("Stockland Ethiopia ERP — WordPress application 16.3.0" in read_member(z,PLUGIN+"README.md"),"package README must describe the consolidated release")
