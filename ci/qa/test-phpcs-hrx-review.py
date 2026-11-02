@@ -134,7 +134,7 @@ def self_test():
         report_path = Path(temp) / "phpcs.json"
         report_path.write_text(json.dumps(report), encoding="utf-8")
         expected, reported, messages, totals = load_diagnostics(root, report_path)
-        assert expected == {"includes/a.php", "includes/rest/b.php"}
+        assert expected == {"includes/a.php", "includes/rest/b.php", "includes/class-stockland-roles.php"}
         assert reported == {"includes/a.php"}
         assert len(messages) == 1 and totals["errors"] == 1
         # A report path outside the exact package must fail.
