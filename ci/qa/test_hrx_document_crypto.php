@@ -19,7 +19,7 @@ final class WP_Error {
 }
 function is_wp_error( $value ) { return $value instanceof WP_Error; }
 
-require dirname( __DIR__, 2 ) . '/hr_replacement_v2/class-stockland-hr-replacement.php';
+require dirname( __DIR__ ) . '/hr_replacement_v2/class-stockland-hr-replacement.php';
 
 function expect_true( $condition, $message ) {
 	if ( ! $condition ) {
