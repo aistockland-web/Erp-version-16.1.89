@@ -298,6 +298,17 @@ def patch_frontend_manifest(files: dict[str, bytes], hrx_count: int) -> None:
             "Owner/HR/Finance acceptance and live-source parity",
         ],
     }
+    manifest["private_document_security"] = {
+        "algorithm": "AES-256-GCM",
+        "storage": "authenticated ciphertext in private HRX database blob table",
+        "key_source": "site-specific STOCKLAND_HRX_DOCUMENT_KEYRING in wp-config.php or a secret manager loaded by wp-config.php",
+        "current_key_version_constant": "STOCKLAND_HRX_DOCUMENT_CURRENT_KEY_VERSION",
+        "key_material_in_plugin_or_database": False,
+        "key_rotation": "keyring retains old versions; existing blobs must be re-encrypted in a controlled, backed-up rotation before an old key is removed",
+        "missing_or_invalid_key_behavior": "document uploads fail closed with HTTP 503; downloads/review cannot return plaintext",
+        "health": "HR bootstrap reports crypto readiness and available key version IDs only; never returns key material",
+    }
+
     files[path] = (json.dumps(manifest, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
     readme_path = PLUGIN_ROOT + "README.md"
     readme = files[readme_path].decode("utf-8")
@@ -308,6 +319,27 @@ def patch_frontend_manifest(files: dict[str, bytes], hrx_count: int) -> None:
 This candidate replaces the legacy HR runtime with an independent normalized HRX domain. It does not migrate or write data to the retired employees, employee_compensation, payroll_periods, or payroll_lines tables. HRX tables are created only after an authorized user explicitly starts bounded schema batches from the HR workspace; plugin activation performs no HRX DDL. The optional legacy reset is disabled by default and blocked for production environment types.
 
 Payroll calculations use deterministic decimal arithmetic and require approved effective-dated rules with official-source/test-vector evidence. This package contains no hard-coded Ethiopian PAYE or pension rates. Static health is not a substitute for selected-run preflight and independent Owner approval.
+
+### Private HR document encryption key configuration
+
+Private HR document bytes are encrypted using **AES-256-GCM before they are written to the HRX database blob table**. The file SHA-256 is retained for integrity verification; it is not used as an encryption key. The encryption key is never bundled in this plugin and must be supplied by the site administrator through wp-config.php or a secret manager loaded by wp-config.php.
+
+Generate a new 32-byte random key on the server using:
+
+`php -r 'echo base64_encode(random_bytes(32)), PHP_EOL;'`
+
+Store that generated value outside the plugin and outside the database. Configure a site-specific keyring before enabling uploads:
+
+```php
+define('STOCKLAND_HRX_DOCUMENT_KEYRING', [
+    'v1' => 'REPLACE_WITH_BASE64_OF_32_RANDOM_BYTES'
+]);
+define('STOCKLAND_HRX_DOCUMENT_CURRENT_KEY_VERSION', 'v1');
+```
+
+Do not use the example placeholder as a key. Keep the keyring in a protected configuration/secret store, restrict access, include it in encrypted disaster-recovery key escrow, and never commit it to GitHub or expose it in logs, backups or support exports. HR bootstrap reports only readiness and key version identifiers. Without a valid keyring, private document upload fails closed and download/decryption remains blocked.
+
+Retain old key versions until every document encrypted under them has been re-encrypted and verified under the new current key. Do not remove an old key solely because the current key changed; no automatic key rotation is performed by ordinary plugin activation.
 
 **Release status: CANDIDATE / NO-GO for production until package, live-host, legal, backup/restore, and Owner/HR/Finance acceptance gates pass.** The build never mutates ERP or employee data.
 """
