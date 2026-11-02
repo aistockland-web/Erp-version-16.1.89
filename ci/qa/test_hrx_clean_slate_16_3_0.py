@@ -98,6 +98,8 @@ def main():
     require(sc.get("total")==45+len(keys),"manifest schema total mismatch")
     require(manifest.get("schema_changed") is True and manifest.get("live_business_data_changed") is False,"candidate schema/data-impact declaration incorrect")
     require(manifest.get("production_acceptance",{}).get("status","").startswith("PENDING"),"manifest must preserve pending production acceptance")
+    require(manifest.get("hrx_clean_slate",{}).get("schema_design_approved") is False,"unapproved HRX physical model must not be installable")
+    require(manifest.get("hrx_clean_slate",{}).get("hrx_table_count_in_current_ddl_proposal")==len(keys),"manifest must identify the exact unapproved HRX DDL inventory")
     require(css_manifest.get("release")==RELEASE and len(css_manifest.get("modules",[]))==6 and len(set(css_manifest["modules"]))==6,"CSS ordered source-module manifest mismatch")
     normalized=re.sub(r"/\*[\s\S]*?\*/"," ",css)
     normalized=re.sub(r"\s+"," ",normalized).strip()
