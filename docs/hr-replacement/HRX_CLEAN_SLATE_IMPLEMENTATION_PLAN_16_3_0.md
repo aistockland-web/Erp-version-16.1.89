@@ -1,15 +1,15 @@
-# Stockland HRX clean-slate implementation plan — 16.3.0 candidate
+# Stockland HRX full-cycle implementation plan — 16.3.0
 
-**Status:** engineering candidate; NOT a production deployment authorization.  
+**Status:** implementation source is integrated; final data-model approval and production acceptance remain open.  
 **Authority:** HR Design Reset v0.5 in Notion, issue #15 owner-approved scope, issue #23 design controls, SOP/resource library in `Stockland_HR_Library_Pack_v1`.  
 **Source installer:** canonical 16.1.95 ZIP, SHA-256 `494e777247508d009dfdb216c9607bb1bc96717197e94a0e8ad3459b7cc81625`.  
 **Build rule:** deterministic package builder; no remote production DB connection and no business-data mutation.
 
 ## 1. Product boundary
 
-This candidate replaces the old four-table HR authority with an independent, normalized HRX domain. The four legacy tables—`employees`, `employee_compensation`, `payroll_periods`, and `payroll_lines`—are not read or written by the new HRX workflow and are not created by its schema installer. They are eligible for retirement only by an explicit, reviewed, allow-listed reset after backup and dependency checks; ordinary plugin activation must never drop or truncate them. Production cutover remains blocked until parity and acceptance are proven.
+The HRX domain is designed as a separate normalized people/workforce/time/leave/compensation/payroll/payee/settlement authority. The four legacy tables—`employees`, `employee_compensation`, `payroll_periods`, and `payroll_lines`—remain preserved historical migration sources and are not read or written by HRX. No legacy-table reset or drop operation is included in the plugin. Any future retirement requires a separately approved, reversible migration outside the plugin after dependency mapping, reconciliation, backup/restore and rollback evidence.
 
-The 47-table HRX DDL currently copied into this version is a **versioned implementation proposal**, not a frozen company-wide table-count requirement. The final logical/physical model must remain traceable to source use, the ERD, SOPs, indexes, access paths, data retention, and demonstrable operational needs. Redundant or unused entities must be challenged before final acceptance.
+The 47-table HRX DDL currently copied into this version is an **unapproved implementation proposal**. The controlling Notion design reset sets an initial planning range of approximately 14–16 HR-owned tables, subject to the exact dependency audit; neither that range nor 47 is an approved final count. Before any HRX DDL is installed, consolidate the model by mapping every entity to a required SOP/workflow, identifying reusable 49-table ERP services, removing redundant entities, publishing the logical/physical ERD and receiving written Owner approval. Until then, backend schema creation is explicitly blocked.
 
 ## 2. Full lifecycle modules
 
@@ -84,6 +84,6 @@ Official source discovery is not legal certification. No salary, classification,
 
 ## 7. Current status and limits
 
-The clean HRX schema/controller/calculator source exists as a disconnected repository branch. This 16.3.0 engineering branch is the integration candidate built from the known 16.1.95 installer. The live installation was previously reported as 16.1.97; exact source parity with the installed live ZIP has not been obtained. Therefore this candidate is not an in-place update for the live site and must not be installed over production.
+The HRX schema/controller/calculator source is integrated with the verified 16.1.95 package lineage. The live installation was previously reported as 16.1.97; exact source parity with the installed live ZIP has not been obtained. Do not replace the live plugin until its exact source hash, data dependencies, migration path and rollback are verified.
 
 No live site, employee records, payroll history, stock, AP/AR, GL/PLEDGER or production database is modified by this plan or the package builder. Any unexecuted or skipped check must be reported as pending, never as a pass.
