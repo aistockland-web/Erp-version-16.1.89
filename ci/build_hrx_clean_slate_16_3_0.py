@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a clean-slate Stockland HRX candidate from a locked 16.1.95 installer.
+"""Build the integrated Stockland HRX release from the locked 16.1.95 installer.
 
 Deterministic package builder only: it never contacts WordPress or mutates business data.
 """
@@ -267,7 +267,7 @@ def patch_frontend_manifest(files: dict[str, bytes], hrx_count: int) -> None:
         "accounting_procurement": 16,
         "legacy_hr_payroll_active": 0,
         "hr_payroll_replacement": hrx_count,
-        "candidate_schema_inventory_not_final_design_count": True,
+        "schema_inventory_is_not_approved_design": True,
     }
     manifest["schema_changed"] = True
     manifest["live_data_changed"] = False
@@ -277,14 +277,15 @@ def patch_frontend_manifest(files: dict[str, bytes], hrx_count: int) -> None:
     )
     manifest["hrx_clean_slate"] = {
         "schema_version": "1.0.0",
-        "hrx_table_count_in_this_candidate": hrx_count,
+        "hrx_table_count_in_current_ddl_proposal": hrx_count,
+        "schema_design_approved": False,
         "legacy_tables": sorted(LEGACY_TABLES),
         "legacy_tables_active_as_system_of_record": False,
         "legacy_reset": "not included in the plugin; legacy HR/payroll tables are preserved as read-only historical sources; any future retirement requires a separately reviewed migration outside the plugin",
         "schema_setup": "authorized user triggers bounded CREATE-only batches; plugin activation performs no HRX DDL",
         "statutory_rates": "none hard-coded by the HRX calculator",
         "source_authority": "Notion HR Design Reset v0.5 and HR/payroll SOP/resource pack; current legal rules require qualified Ethiopian reviewer approval",
-        "status": "PRODUCTION_ACCEPTANCE_PENDING — live E2E, legal review and Owner/HR/Finance acceptance are still required",
+        "status": "PRODUCTION_ACCEPTANCE_PENDING — final HRX data-model approval, live E2E, legal review and Owner/HR/Finance acceptance are still required",
     }
     manifest["private_document_security"] = {
         "algorithm": "AES-256-GCM",
