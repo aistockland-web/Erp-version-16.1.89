@@ -136,6 +136,11 @@ def main():
     require("private-document" in read_member(zipfile.ZipFile(a.package),PLUGIN+"README.md").lower() or "private document" in controller.lower(),"private-document control documentation missing")
     require("stockland_hrx_schema_version" in model and "install_schema_batch" in model,"bounded, versioned, explicit schema setup missing")
     require("reset_legacy_tables" not in controller and "schema/reset-legacy" not in controller,"production plugin contains no legacy-table reset action")
+    require("Legacy HR REST/write path is disabled; historical records remain preserved" in ui,"HRX UI must not refer to a candidate-only legacy state")
+    require("no cleanup or reset operation is available in this plugin" in ui,"HRX UI must accurately state that no legacy reset operation ships")
+    require("Stockland Ethiopia ERP — WordPress application 16.3.0" in read_member(z,PLUGIN+"README.md"),"package README must describe the consolidated release")
+    require("This candidate replaces the legacy HR runtime" not in read_member(z,PLUGIN+"README.md"),"stale candidate README text remains")
+    require("employee pension at 7%" not in read_member(z,PLUGIN+"README.md") and "employer pension at 11%" not in read_member(z,PLUGIN+"README.md"),"unverified historical pension rates must not be represented as current legal rules")
     require("normalize_sql_type" in model and "column_type_mismatch" in model,"HRX readiness does not validate SQL column types and numeric precision")
     require("SHOW INDEX FROM %i" in model and "missing_indexes" in model and "index_mismatch" in model,"HRX readiness does not validate required indexes and uniqueness")
     # Security/data-integrity regressions from the latest Codex review:
