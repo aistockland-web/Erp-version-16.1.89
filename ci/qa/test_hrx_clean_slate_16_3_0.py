@@ -139,7 +139,10 @@ def main():
     require("SHOW INDEX FROM %i" in model and "missing_indexes" in model and "index_mismatch" in model,"HRX readiness does not validate required indexes and uniqueness")
     # Security/data-integrity regressions from the latest Codex review:
     require("$this->apply_location_scope($entity,$row,0)" in controller,"single-record HR reads do not enforce location scope")
-    require("$direct = array( 'org-units', 'requisitions', 'time-events', 'assignments' );" in controller,"branch lists must fail closed for entities without a direct location column")
+    for token in ("Stockland_Authority::location_ids()","authorized_location_ids","location_filter_for_entity","resolve_related_locations","current_assignment_id","hrx_offer_location_mismatch"):
+        require(token in controller,"relationship-derived branch authorization contract missing: "+token)
+    require("$location_filter=$this->location_filter_for_entity($entity,$location_id)" in controller,"branch entity lists are not filtered by server-derived authorized locations")
+    require("private function document_target_scope" in controller and "$this->document_target_scope($entity_type,$target,true)" in controller,"private document upload/download does not enforce the target record's row/location scope")
     require("hrx_frozen_employee_set_changed" in controller and "hrx_frozen_compensation_items_changed" in controller,"payroll approval does not compare active employees and compensation to frozen inputs")
     require("APPROVED_TIME_PAYROLL_RULE_UNSUPPORTED" in controller and "APPROVED_UNPAID_LEAVE_PAYROLL_RULE_UNSUPPORTED" in controller,"approved pay-affecting time/leave can be silently omitted by payroll")
     require("frequency" in calc and "hrx_component_frequency_unsupported" in calc and "'MONTHLY' !== $frequency" in calc,"unsupported ONE_TIME/HOURLY/DAILY compensation frequencies are not rejected")
