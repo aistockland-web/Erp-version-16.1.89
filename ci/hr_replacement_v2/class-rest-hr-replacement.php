@@ -116,28 +116,131 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 	private function has_schema() { return class_exists( 'Stockland_HR_Replacement' ) && Stockland_HR_Replacement::schema_status()['ready']; }
 	private function require_schema() { return $this->has_schema() ? true : $this->error( 'hrx_schema_not_ready', 'HR replacement schema is not complete. Ask an authorized schema administrator to review the read-only status and create missing HRX tables in bounded batches.', 409 ); }
 	/**
-	 * Fail-closed location scope for the generic entity reader. Entity lists without a proven
-	 * row-to-location relationship are company-scope only; UI filters are never authorization.
+	 * Normalize only the locations already assigned to the authenticated WordPress user.
+	 * A request parameter can narrow this set; it can never add a location.
 	 */
+	private function authorized_location_ids( $requested_location = 0 ) {
+		$allowed = array_values( array_unique( array_filter( array_map( 'intval', Stockland_Authority::location_ids() ), static function( $id ) { return $id > 0; } ) ) );
+		$requested_location = (int) $requested_location;
+		if ( $requested_location > 0 ) {
+			if ( ! in_array( $requested_location, $allowed, true ) ) {
+				return $this->error( 'hrx_location_forbidden', 'The requested location is outside your assigned Stockland location scope.', 403 );
+			}
+			return array( $requested_location );
+		}
+		return $allowed ? $allowed : $this->error( 'hrx_location_scope_empty', 'No operational Stockland location is assigned to this account.', 403 );
+	}
+
+	/** Build a parameterized relation-aware list predicate; unknown entities remain company-scope only. */
+	private function location_filter_for_entity( $entity, $requested_location = 0 ) {
+		$ids = $this->authorized_location_ids( $requested_location );
+		if ( is_wp_error( $ids ) ) { return $ids; }
+		$marks = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+		$ids_args = $ids;
+		$assignment_table = Stockland_HR_Replacement::table( 'hrx_assignments' );
+		$employment_table = Stockland_HR_Replacement::table( 'hrx_employments' );
+		$org_table = Stockland_HR_Replacement::table( 'hrx_org_units' );
+		$requisition_table = Stockland_HR_Replacement::table( 'hrx_requisitions' );
+		$application_table = Stockland_HR_Replacement::table( 'hrx_applications' );
+		$employment_ids = 'SELECT e.id FROM %i e INNER JOIN %i a ON a.id=e.current_assignment_id AND a.employment_id=e.id WHERE a.approval_status=\'APPROVED\' AND a.location_id IN (' . $marks . ')';
+		$employment_args = array_merge( array( $employment_table, $assignment_table ), $ids_args );
+		$employment_link = 'employment_id IN (' . $employment_ids . ')';
+		$direct = array( 'org-units', 'requisitions', 'time-events', 'assignments', 'payroll-lines' );
+		if ( in_array( $entity, $direct, true ) ) {
+			return array( 'sql' => 'location_id IN (' . $marks . ')', 'args' => $ids_args );
+		}
+		if ( in_array( $entity, array( 'positions', 'workforce-plans' ), true ) ) {
+			return array( 'sql' => 'org_unit_id IN (SELECT id FROM %i WHERE location_id IN (' . $marks . '))', 'args' => array_merge( array( $org_table ), $ids_args ) );
+		}
+		if ( 'applications' === $entity ) {
+			return array( 'sql' => 'requisition_id IN (SELECT id FROM %i WHERE location_id IN (' . $marks . '))', 'args' => array_merge( array( $requisition_table ), $ids_args ) );
+		}
+		if ( 'interviews' === $entity ) {
+			return array( 'sql' => 'application_id IN (SELECT ap.id FROM %i ap INNER JOIN %i rq ON rq.id=ap.requisition_id WHERE rq.location_id IN (' . $marks . '))', 'args' => array_merge( array( $application_table, $requisition_table ), $ids_args ) );
+		}
+		if ( 'offers' === $entity ) {
+			return array( 'sql' => 'location_id IN (' . $marks . ') AND application_id IN (SELECT ap.id FROM %i ap INNER JOIN %i rq ON rq.id=ap.requisition_id WHERE rq.location_id IN (' . $marks . '))', 'args' => array_merge( $ids_args, array( $application_table, $requisition_table ), $ids_args ) );
+		}
+		if ( 'people' === $entity ) {
+			$application_people = 'id IN (SELECT ap.person_id FROM %i ap INNER JOIN %i rq ON rq.id=ap.requisition_id WHERE rq.location_id IN (' . $marks . '))';
+			$employment_people = 'id IN (SELECT e.person_id FROM %i e INNER JOIN %i a ON a.id=e.current_assignment_id AND a.employment_id=e.id WHERE a.approval_status=\'APPROVED\' AND a.location_id IN (' . $marks . '))';
+			return array( 'sql' => '(' . $employment_people . ' OR ' . $application_people . ')', 'args' => array_merge( array( $employment_table, $assignment_table ), $ids_args, array( $application_table, $requisition_table ), $ids_args ) );
+		}
+		if ( 'employments' === $entity ) {
+			return array( 'sql' => 'id IN (' . $employment_ids . ')', 'args' => $employment_args );
+		}
+		if ( in_array( $entity, array( 'contracts', 'onboarding-tasks', 'schedules', 'leave-transactions', 'compensation-assignments', 'exit-settlements', 'exit-clearance-tasks' ), true ) ) {
+			return array( 'sql' => $employment_link, 'args' => $employment_args );
+		}
+		if ( 'compensation-items' === $entity ) {
+			$comp_table = Stockland_HR_Replacement::table( 'hrx_compensation_assignments' );
+			return array( 'sql' => 'compensation_assignment_id IN (SELECT id FROM %i WHERE ' . $employment_link . ')', 'args' => array_merge( array( $comp_table ), $employment_args ) );
+		}
+		if ( in_array( $entity, array( 'exit-items', 'exit-payouts' ), true ) ) {
+			$exit_table = Stockland_HR_Replacement::table( 'hrx_exit_settlements' );
+			return array( 'sql' => 'settlement_id IN (SELECT id FROM %i WHERE ' . $employment_link . ')', 'args' => array_merge( array( $exit_table ), $employment_args ) );
+		}
+		return $this->error( 'hrx_location_scope_unresolved', 'This entity has no approved row-to-location relationship and remains restricted to company-scope roles.', 403 );
+	}
+
+	/** Resolve a single row to its persisted direct or approved relationship location(s). */
+	private function resolve_related_locations( $entity, $row ) {
+		global $wpdb;
+		if ( ! is_array( $row ) ) { return array(); }
+		if ( array_key_exists( 'location_id', $row ) && (int) $row['location_id'] > 0 && ! in_array( $entity, array( 'offers' ), true ) ) {
+			return array( (int) $row['location_id'] );
+		}
+		$org = Stockland_HR_Replacement::table( 'hrx_org_units' );
+		$req = Stockland_HR_Replacement::table( 'hrx_requisitions' );
+		$app = Stockland_HR_Replacement::table( 'hrx_applications' );
+		$emp = Stockland_HR_Replacement::table( 'hrx_employments' );
+		$assign = Stockland_HR_Replacement::table( 'hrx_assignments' );
+		$locations = array();
+		if ( in_array( $entity, array( 'positions', 'workforce-plans' ), true ) && ! empty( $row['org_unit_id'] ) ) {
+			$locations = Stockland_DB::read_col( $wpdb->prepare( 'SELECT location_id FROM %i WHERE id=%d', $org, (int) $row['org_unit_id'] ) );
+		} elseif ( in_array( $entity, array( 'applications' ), true ) && ! empty( $row['requisition_id'] ) ) {
+			$locations = Stockland_DB::read_col( $wpdb->prepare( 'SELECT location_id FROM %i WHERE id=%d', $req, (int) $row['requisition_id'] ) );
+		} elseif ( in_array( $entity, array( 'interviews', 'offers' ), true ) && ! empty( $row['application_id'] ) ) {
+			$locations = Stockland_DB::read_col( $wpdb->prepare( 'SELECT rq.location_id FROM %i ap INNER JOIN %i rq ON rq.id=ap.requisition_id WHERE ap.id=%d', $app, $req, (int) $row['application_id'] ) );
+			if ( 'offers' === $entity && ( empty( $row['location_id'] ) || count( $locations ) !== 1 || (int) $row['location_id'] !== (int) $locations[0] ) ) {
+				return $this->error( 'hrx_offer_location_mismatch', 'Offer location must match the approved vacancy location.', 409 );
+			}
+		} elseif ( 'people' === $entity && ! empty( $row['id'] ) ) {
+			$sql = $wpdb->prepare(
+				'SELECT a.location_id FROM %i e INNER JOIN %i a ON a.id=e.current_assignment_id AND a.employment_id=e.id WHERE e.person_id=%d AND a.approval_status=\'APPROVED\' UNION SELECT rq.location_id FROM %i ap INNER JOIN %i rq ON rq.id=ap.requisition_id WHERE ap.person_id=%d',
+				$emp, $assign, (int) $row['id'], $app, $req, (int) $row['id']
+			);
+			$locations = Stockland_DB::read_col( $sql );
+		} else {
+			$employment_id = 0;
+			if ( 'employments' === $entity ) { $employment_id = (int) ( $row['id'] ?? 0 ); }
+			elseif ( isset( $row['employment_id'] ) ) { $employment_id = (int) $row['employment_id']; }
+			elseif ( 'compensation-items' === $entity && ! empty( $row['compensation_assignment_id'] ) ) {
+				$employment_id = (int) Stockland_DB::read_var( $wpdb->prepare( 'SELECT employment_id FROM %i WHERE id=%d', Stockland_HR_Replacement::table( 'hrx_compensation_assignments' ), (int) $row['compensation_assignment_id'] ) );
+			} elseif ( in_array( $entity, array( 'exit-items', 'exit-payouts' ), true ) && ! empty( $row['settlement_id'] ) ) {
+				$employment_id = (int) Stockland_DB::read_var( $wpdb->prepare( 'SELECT employment_id FROM %i WHERE id=%d', Stockland_HR_Replacement::table( 'hrx_exit_settlements' ), (int) $row['settlement_id'] ) );
+			}
+			if ( $employment_id > 0 ) {
+				$locations = Stockland_DB::read_col( $wpdb->prepare( 'SELECT a.location_id FROM %i e INNER JOIN %i a ON a.id=e.current_assignment_id AND a.employment_id=e.id WHERE e.id=%d AND a.approval_status=\'APPROVED\'', $emp, $assign, $employment_id ) );
+			}
+		}
+		$locations = array_values( array_unique( array_filter( array_map( 'intval', is_array( $locations ) ? $locations : array() ), static function( $id ) { return $id > 0; } ) ) );
+		return $locations;
+	}
+
+	/** Apply authorized locations to a single record or validate a requested listing scope. */
 	private function apply_location_scope( $entity, $row = null, $requested_location = 0 ) {
 		if ( Stockland_Authority::company_scope() ) { return true; }
-		$location = (int) $requested_location;
-		if ( $location > 0 && ! Stockland_Authority::can_access_location( $location ) ) {
-			return $this->error( 'hrx_location_forbidden', 'Location access denied.', 403 );
+		if ( ! is_array( $row ) ) {
+			$ids = $this->authorized_location_ids( $requested_location );
+			return is_wp_error( $ids ) ? $ids : true;
 		}
-		if ( is_array( $row ) ) {
-			if ( array_key_exists( 'location_id', $row ) && (int) $row['location_id'] > 0 ) {
-				return Stockland_Authority::can_access_location( (int) $row['location_id'] )
-					? true
-					: $this->error( 'hrx_location_forbidden', 'The record is outside your authorized location scope.', 403 );
-			}
-			return $this->error( 'hrx_location_scope_unresolved', 'This record has no direct, verified location scope. A company-scope HR/payroll role is required until relation-aware scope is available.', 403 );
+		$locations = $this->resolve_related_locations( $entity, $row );
+		if ( is_wp_error( $locations ) ) { return $locations; }
+		foreach ( $locations as $location_id ) {
+			if ( Stockland_Authority::can_access_location( (int) $location_id ) ) { return true; }
 		}
-		$direct = array( 'org-units', 'requisitions', 'time-events', 'assignments' );
-		if ( ! in_array( $entity, $direct, true ) || $location < 1 ) {
-			return $this->error( 'hrx_location_scope_required', 'Select an authorized location. This entity requires a verified relation-aware scope and is not exposed to branch-scoped listing yet.', 403 );
-		}
-		return true;
+		return $this->error( 'hrx_location_forbidden', 'The record has no verified relationship to a location assigned to this account.', 403 );
 	}
 	private function decode( $request, $key, $default = null ) { $v=$request->get_param( $key ); return null === $v ? $default : $v; }
 
@@ -288,7 +391,10 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 		$scope=$this->apply_location_scope($entity,null,$location_id);
 		if(is_wp_error($scope))return $scope;
 		if(!Stockland_Authority::company_scope()){
-			$where.=' AND location_id=%d';$args[]=$location_id;
+			$location_filter=$this->location_filter_for_entity($entity,$location_id);
+			if(is_wp_error($location_filter))return $location_filter;
+			$where.=' AND ('.$location_filter['sql'].')';
+			$args=array_merge($args,$location_filter['args']);
 		}
 		$sql='SELECT * FROM %i WHERE '.$where.' ORDER BY id DESC LIMIT %d OFFSET %d';$args=array_merge(array($table),$args,array($limit,$offset));
 		$rows=Stockland_DB::read_results($wpdb->prepare($sql,$args),ARRAY_A);
@@ -320,7 +426,7 @@ final class Stockland_REST_HR_Replacement extends Stockland_REST_Base {
 			$row[$key]=$clean;
 		}
 		if(empty($row))return $this->error('hrx_payload_empty','No allowed fields supplied.',422);
-		$scope=$this->apply_location_scope($entity,null,(int)($row['location_id']??0));
+		$scope=$this->apply_location_scope($entity,$row,(int)($row['location_id']??0));
 		if(is_wp_error($scope))return $scope;
 		if(isset($row['location_id'])&&!empty($row['location_id'])&&!Stockland_Authority::can_access_location((int)$row['location_id']))return $this->error('hrx_location_forbidden','This record is outside your authorized location scope.',403);
 		if(in_array($entity,array('legal-rules','leave-policies'),true))$row[$entity==='legal-rules'?'review_status':'approval_status']='LEGAL_REVIEW';
