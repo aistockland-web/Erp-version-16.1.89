@@ -260,7 +260,7 @@ def patch_frontend_manifest(files: dict[str, bytes], hrx_count: int) -> None:
     path = PLUGIN_ROOT + "RELEASE_MANIFEST.json"
     manifest = json.loads(files[path].decode("utf-8"))
     manifest["release"] = RELEASE
-    manifest["release_label"] = "Stockland Ethiopia ERP — clean-slate HRX lifecycle candidate 16.3.0"
+    manifest["release_label"] = "Stockland Ethiopia ERP — HRX full-cycle release 16.3.0"
     manifest["schema_contract"] = {
         "total": 45 + hrx_count,
         "core_operations": 29,
@@ -280,11 +280,11 @@ def patch_frontend_manifest(files: dict[str, bytes], hrx_count: int) -> None:
         "hrx_table_count_in_this_candidate": hrx_count,
         "legacy_tables": sorted(LEGACY_TABLES),
         "legacy_tables_active_as_system_of_record": False,
-        "legacy_reset": "explicit allow-listed action; disabled by default; only local/development/staging with STOCKLAND_HRX_ALLOW_LEGACY_RESET=true, verified backup SHA-256, dependency-review SHA-256 and operator confirmation",
+        "legacy_reset": "not included in the plugin; legacy HR/payroll tables are preserved as read-only historical sources; any future retirement requires a separately reviewed migration outside the plugin",
         "schema_setup": "authorized user triggers bounded CREATE-only batches; plugin activation performs no HRX DDL",
         "statutory_rates": "none hard-coded by the HRX calculator",
         "source_authority": "Notion HR Design Reset v0.5 and HR/payroll SOP/resource pack; current legal rules require qualified Ethiopian reviewer approval",
-        "status": "CANDIDATE — live E2E, legal review and Owner/HR/Finance acceptance pending",
+        "status": "PRODUCTION_ACCEPTANCE_PENDING — live E2E, legal review and Owner/HR/Finance acceptance are still required",
     }
     manifest["private_document_security"] = {
         "algorithm": "AES-256-GCM",
@@ -323,9 +323,9 @@ def patch_frontend_manifest(files: dict[str, bytes], hrx_count: int) -> None:
     readme = files[readme_path].decode("utf-8")
     section = """
 
-## HR & Payroll clean-slate candidate 16.3.0
+## HR & Payroll full-cycle implementation 16.3.0
 
-This candidate replaces the legacy HR runtime with an independent normalized HRX domain. It does not migrate or write data to the retired employees, employee_compensation, payroll_periods, or payroll_lines tables. HRX tables are created only after an authorized user explicitly starts bounded schema batches from the HR workspace; plugin activation performs no HRX DDL. The optional legacy reset is disabled by default and blocked for production environment types.
+This candidate replaces the legacy HR runtime with an independent normalized HRX domain. It does not migrate or write data to the retired employees, employee_compensation, payroll_periods, or payroll_lines tables. HRX tables are created only after an authorized user explicitly starts bounded schema batches from the HR workspace; plugin activation performs no HRX DDL. No legacy reset or table-drop endpoint is included in the plugin. The four legacy HR/payroll tables are retained as protected historical sources.
 
 Payroll calculations use deterministic decimal arithmetic and require approved effective-dated rules with official-source/test-vector evidence. This package contains no hard-coded Ethiopian PAYE or pension rates. Static health is not a substitute for selected-run preflight and independent Owner approval.
 
@@ -350,7 +350,7 @@ Do not use the example placeholder as a key. Keep the keyring in a protected con
 
 Retain old key versions until every document encrypted under them has been re-encrypted and verified under the new current key. Use the authorized HRX document rekey batch endpoint with `after_id` and a bounded `limit` to migrate legacy plaintext blobs or rotate prior AES-GCM key versions. The operation uses conditional ciphertext updates and append-only audit evidence. Do not remove an old key solely because the current key changed; ordinary plugin activation never rotates keys.
 
-**Release status: CANDIDATE / NO-GO for production until package, live-host, legal, backup/restore, and Owner/HR/Finance acceptance gates pass.** The build never mutates ERP or employee data.
+**Production acceptance remains pending** until the exact package, live-host workflows, legal review, backup/restore, and Owner/HR/Finance acceptance gates pass. The build does not mutate ERP or employee data.
 """
     if "HR & Payroll clean-slate candidate 16.3.0" not in readme:
         files[readme_path] = (readme.rstrip() + section).encode("utf-8")
