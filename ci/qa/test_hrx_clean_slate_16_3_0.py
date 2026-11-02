@@ -45,6 +45,7 @@ def main():
     require(receipt.get("installer_sha256")==sha(praw),"receipt SHA-256 mismatch")
     require(receipt.get("baseline_sha256")==BASELINE_SHA256,"receipt did not pin expected baseline")
     require(receipt.get("production_ready") is False,"release receipt must not claim production readiness")
+    require(receipt.get("status")=="PRODUCTION_ACCEPTANCE_PENDING","release receipt must use the real production acceptance state")
     require(receipt.get("business_data_changed_by_builder") is False,"builder must declare no business data mutation")
     with zipfile.ZipFile(a.baseline) as bz, zipfile.ZipFile(a.package) as z:
         require(bz.testzip() is None and z.testzip() is None,"ZIP CRC/integrity failure")
@@ -101,6 +102,7 @@ def main():
     require(manifest.get("hrx_clean_slate",{}).get("schema_design_approved") is False,"unapproved HRX physical model must not be installable")
     gate=manifest.get("hrx_clean_slate",{}).get("schema_design_gate",{})
     require(gate.get("approved") is False and gate.get("installation_enabled") is False and gate.get("owner_written_approval_required") is True,"manifest does not enforce written Owner approval before HRX schema creation")
+    require(hrx.get("schema_setup","").startswith("blocked until written Owner approval"),"release manifest must disclose the server-enforced schema installation gate")
     require("approximately 14-16 HR-owned tables" in gate.get("initial_planning_range",""),"manifest omits the controlling Notion planning range")
     require(manifest.get("hrx_clean_slate",{}).get("hrx_table_count_in_current_ddl_proposal")==len(keys),"manifest must identify the exact unapproved HRX DDL inventory")
     require(css_manifest.get("release")==RELEASE and len(css_manifest.get("modules",[]))==6 and len(set(css_manifest["modules"]))==6,"CSS ordered source-module manifest mismatch")
