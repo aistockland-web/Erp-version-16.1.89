@@ -72,6 +72,7 @@ def main():
     model=read_member(zipfile.ZipFile(a.package),PLUGIN+"includes/class-stockland-hr-replacement.php")
     calc=read_member(zipfile.ZipFile(a.package),PLUGIN+"includes/class-stockland-hr-replacement-calculator.php")
     app=read_member(zipfile.ZipFile(a.package),PLUGIN+"assets/app.js")
+    ui_source=(a.ui_root/"hrx-ui.js").read_text(encoding="utf-8")
     css=read_member(zipfile.ZipFile(a.package),PLUGIN+"assets/app.css")
     css_min=read_member(zipfile.ZipFile(a.package),PLUGIN+"assets/app.min.css")
     css_manifest=json.loads(read_member(zipfile.ZipFile(a.package),PLUGIN+"assets/css/modules.json"))
