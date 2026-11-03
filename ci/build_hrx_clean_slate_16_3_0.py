@@ -127,6 +127,12 @@ def patch_setup(files: dict[str, bytes]) -> None:
 \t\t\t),
 \t\t\t'hrx_replacement' => class_exists( 'Stockland_HR_Replacement' ) ? Stockland_HR_Replacement::schema_status() : array( 'ready' => false, 'status' => 'RUNTIME_MISSING' ),"""
     p = once(p, old, new, "setup separates HRX from legacy setup")
+    p = once(p, "'schema_contract_exact_49'        => (int) ( $snapshot['total']['present'] ?? 0 ) === (int) ( $snapshot['total']['total'] ?? 49 ),", "'schema_contract_core_finance_exact' => (int) ( $snapshot['total']['present'] ?? 0 ) === (int) ( $snapshot['total']['total'] ?? 45 ),", "setup core/accounting schema label")
+    p = once(p, "'hr_schema_upgrade_ready'         => empty( $snapshot['hr']['upgrade_gaps'] ),", "'hr_schema_upgrade_ready'         => ! empty( $snapshot['hrx_replacement']['ready'] ) && ! empty( $snapshot['hrx_replacement']['design_approved'] ),", "setup HRX readiness source")
+    p = once(p, "'operational_routes_available'    => false,", "'operational_routes_available'    => false,\n\t\t\t'hrx_schema_design_approved'     => ! empty( $snapshot['hrx_replacement']['design_approved'] ),", "setup HRX design approval status")
+    p = once(p, "'full_schema_total'     => $snapshot['total']['total'] ?? 49,", "'full_schema_total'     => $snapshot['total']['total'] ?? 45,\n\t\t\t'base_schema_scope'    => 'Core and accounting/procurement tables only; HRX is reported separately.',\n\t\t\t'hrx_schema_present'   => $snapshot['hrx_replacement']['present'] ?? 0,\n\t\t\t'hrx_schema_total'     => $snapshot['hrx_replacement']['total'] ?? 0,", "setup schema scope diagnostics")
+    p = once(p, "'hr'         => $snapshot['hr']['upgrade_gaps'] ?? array(),", "'hr'         => array_merge( (array) ( $snapshot['hrx_replacement']['missing_tables'] ?? array() ), (array) ( $snapshot['hrx_replacement']['schema_drift'] ?? array() ) ),\n\t\t\t\t'hrx_design_status' => $snapshot['hrx_replacement']['design_status'] ?? 'RUNTIME_MISSING',", "setup HRX gap diagnostics")
+    p = once(p, "'deep_integrity_status' => 'DEFERRED_NOT_RUN',", "'hrx_replacement'      => $snapshot['hrx_replacement'] ?? array( 'ready' => false, 'design_status' => 'RUNTIME_MISSING' ),\n\t\t\t'deep_integrity_status' => 'DEFERRED_NOT_RUN',", "setup HRX diagnostic details")
     put(files, "includes/rest/class-rest-setup.php", p)
 
 def patch_health(files: dict[str, bytes]) -> None:
@@ -196,13 +202,16 @@ def patch_health(files: dict[str, bytes]) -> None:
 \t\t\t'note' => 'No Ethiopian rates are embedded by the HRX calculator. A selected payroll run must pass its own approved-rule and employee-input preflight.',
 \t\t);
 \t\t$diagnostics['payroll_compensation_classification'] = array(
+\t\t\t'status' => 'NOT_RUN',
+\t\t\t'evaluated' => false,
 \t\t\t'unresolved_active_employees' => null,
 \t\t\t'excluded_retainer_service_contracts' => null,
 \t\t\t'scan_query_failed' => false,
 \t\t\t'rule' => 'Unknown employee-level status is reported as unknown here; use HRX payroll preflight for the selected pay period. This gate never reads, alters or auto-fills legacy employee compensation.',
 \t\t\t'current_period_preflight' => 'NOT_RUN_BY_STATIC_SYSTEM_HEALTH',
 \t\t);
-\t\t$checks['payroll_compensation_classification'] = $checks['payroll_statutory_model'];
+\t\t$checks['payroll_compensation_classification'] = false;
+\t\t$diagnostics['check_statuses']['payroll_compensation_classification'] = 'NOT_RUN';
 \t\t$diagnostics['hrx_replacement'] = $hrx_health;
 
 """
@@ -260,7 +269,11 @@ def patch_frontend_manifest(files: dict[str, bytes], hrx_count: int) -> None:
     path = PLUGIN_ROOT + "RELEASE_MANIFEST.json"
     manifest = json.loads(files[path].decode("utf-8"))
     manifest["release"] = RELEASE
-    manifest["release_label"] = "Stockland Ethiopia ERP — HRX full-cycle release 16.3.0"
+    manifest["baseline"] = "16.1.95"
+    manifest["baseline_sha256"] = BASELINE_SHA256
+    manifest["artifact_class"] = "INTEGRATION_CANDIDATE"
+    manifest["cumulative_core_update"] = False
+    manifest["release_label"] = "Stockland Ethiopia ERP — HRX integration candidate 16.3.0 (derived from 16.1.95; not a cumulative 16.2.x update)"
     manifest["schema_contract"] = {
         "total": 45 + hrx_count,
         "core_operations": 29,
@@ -329,7 +342,9 @@ def patch_frontend_manifest(files: dict[str, bytes], hrx_count: int) -> None:
 
     files[path] = (json.dumps(manifest, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
     readme_path = PLUGIN_ROOT + "README.md"
-    readme = """# Stockland Ethiopia ERP — WordPress application 16.3.0
+    readme = """# Stockland Ethiopia ERP — HRX integration candidate 16.3.0
+
+> **Artifact classification:** HRX integration candidate built from the 16.1.95 baseline (SHA-256 recorded in the release manifest and receipt). It is not a cumulative core update for the reported 16.2.x installation. It replaces the legacy HR/Payroll runtime while the proposed HRX schema remains unapproved and unavailable for installation. Do not install this archive as a replacement for the running ERP.
 
 ## Product and installation
 
@@ -442,6 +457,9 @@ def main() -> None:
     Path(str(args.output) + ".sha256").write_text(digest + "  " + args.output.name + "\n", encoding="utf-8")
     receipt = {
         "release": RELEASE,
+        "artifact_class": "INTEGRATION_CANDIDATE",
+        "baseline_version": "16.1.95",
+        "cumulative_core_update": False,
         "status": "PRODUCTION_ACCEPTANCE_PENDING",
         "baseline_sha256": BASELINE_SHA256,
         "installer_sha256": digest,
