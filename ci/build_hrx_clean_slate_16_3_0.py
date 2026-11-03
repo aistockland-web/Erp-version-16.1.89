@@ -216,6 +216,12 @@ def patch_health(files: dict[str, bytes]) -> None:
 
 """
     p = p[:a] + hrx_diag + p[b:]
+    p = once(
+        p,
+        "$diagnostics['hrx_replacement'] = $hrx_health;",
+        "$diagnostics['hrx_replacement'] = $hrx_health;\n\t\tif ( empty( $hrx_health['design_approved'] ) && ! empty( $checks['core_schema'] ) && ! empty( $checks['accounting_schema_upgrade_ready'] ) ) {\n\t\t\t$diagnostics['check_statuses']['full_schema'] = 'PENDING';\n\t\t\t$diagnostics['check_statuses']['schema_contract_hrx_exact'] = 'PENDING';\n\t\t\t$diagnostics['check_statuses']['hr_schema_upgrade_ready'] = 'PENDING';\n\t\t\t$diagnostics['check_statuses']['payroll_statutory_model'] = 'PENDING';\n\t\t}",
+        "module-scoped HRX pending check statuses",
+    )
     p = p.replace(
         "$checks['live_ready'] = ( $checks['db'] && $checks['php_runtime'] && $checks['xlsx_upload_capacity'] && $checks['balance_model_contract'] && $checks['core_schema'] && $checks['full_schema'] && $checks['schema_contract_exact_49'] &&",
         "$checks['live_ready'] = ( $checks['db'] && $checks['php_runtime'] && $checks['xlsx_upload_capacity'] && $checks['balance_model_contract'] && $checks['core_schema'] && $checks['full_schema'] && $checks['schema_contract_hrx_exact'] &&",
