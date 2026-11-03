@@ -135,6 +135,8 @@ def main():
     require("'hr_schema_upgrade_ready'         => ! empty( $snapshot['hrx_replacement']['ready'] ) && ! empty( $snapshot['hrx_replacement']['design_approved'] )" in setup,"setup health must not report the retired legacy HR shim as HRX-ready")
     require("'schema_contract_core_finance_exact'" in setup and "schema_contract_exact_49" not in setup,"setup schema check must describe the core/accounting scope, not a false 49-table contract")
     require("'hrx_replacement'      => $snapshot['hrx_replacement']" in setup,"setup diagnostics must expose independent HRX status")
+    require("$diagnostics['check_statuses']['supplemental_integrity_scan'] = 'NOT_RUN';" in health,"a relational scan skipped because the schema contract is unavailable must be NOT_RUN, not FAIL")
+    require("$diagnostics['check_statuses']['supplemental_integrity_scan'] = $checks['supplemental_integrity_scan'] ? 'PASS' : 'FAIL';" in health,"an executed relational scan must report its actual result")
     require("HRX SETUP PENDING • CORE CHECKS SEPARATE" in app and "This is a module-scoped gate" in app,"health UI must identify HRX-only pending status without claiming an application-wide lock")
     require("NOT RUN" in app and "Employee-level compensation classification was NOT RUN" in app,"health UI must show employee-level payroll checks as NOT RUN")
     require("new Stockland_Payroll_Statutory" not in main and "class-stockland-payroll-statutory.php" not in main,"legacy hard-coded statutory calculator remains active")
