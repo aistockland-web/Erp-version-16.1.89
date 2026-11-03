@@ -131,7 +131,7 @@ def main():
     require("schema_contract_hrx_exact" in health and "Stockland_HR_Replacement::schema_status()" in health,"health checks are not HRX-aware")
     require("'status' => 'NOT_RUN'" in health and "$checks['payroll_compensation_classification'] = false;" in health,"employee-level compensation readiness must not pass without a scan")
     require("$diagnostics['check_statuses']['payroll_compensation_classification'] = 'NOT_RUN';" in health,"unrun payroll classification must be surfaced as NOT_RUN")
-    setup=read_member(zipfile.Zipfile(a.package),PLUGIN+"includes/rest/class-rest-setup.php")
+    setup=read_member(zipfile.ZipFile(a.package),PLUGIN+"includes/rest/class-rest-setup.php")
     require("'hr_schema_upgrade_ready'         => ! empty( $snapshot['hrx_replacement']['ready'] ) && ! empty( $snapshot['hrx_replacement']['design_approved'] )" in setup,"setup health must not report the retired legacy HR shim as HRX-ready")
     require("'schema_contract_core_finance_exact'" in setup and "schema_contract_exact_49" not in setup,"setup schema check must describe the core/accounting scope, not a false 49-table contract")
     require("'hrx_replacement'      => $snapshot['hrx_replacement']" in setup,"setup diagnostics must expose independent HRX status")
