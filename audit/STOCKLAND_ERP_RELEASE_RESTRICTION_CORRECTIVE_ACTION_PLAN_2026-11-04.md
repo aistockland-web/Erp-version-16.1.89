@@ -103,3 +103,26 @@ The 16.3.0 artifact remains an HRX integration candidate—not a safe replacemen
 5. No PR merge, plugin deployment, production DB migration, employee-pay change, inventory posting, ledger mutation or audit-chain modification was performed.
 
 The governing rule is applied throughout: no invented restrictions, no concealed failures and no false readiness claims.
+
+
+## Addendum — runtime guard and scan-state source trace (4 November 2026)
+
+A second pass inspected the WordPress bootstrap, activation, uninstall and full health implementation in the exact downloaded candidate ZIP.
+
+| Source | Executable behavior | Classification |
+|---|---|---|
+| \`stockland-inventory.php\` activation hook | Calls only \`Stockland_Activator::begin_activation()\`. If that throws, it records/logs the exception, deactivates this plugin and shows the activation error so WordPress itself remains usable. | Legitimate activation-failure containment; not tied to NO-GO or candidate receipt. Retain and test. |
+| \`stockland-inventory.php\` boot path | Builds a missing core/accounting/legacy-shim table list. If core/accounting schema is incomplete or upgrade inspection fails, it leaves frontend/setup available, marks operational schema unavailable and does not register business REST/App controllers. | Legitimate fail-closed setup guard for incomplete core/accounting schema. It is not triggered by the HRX design flag alone in this candidate. |
+| HRX registration | HRX REST controller registration occurs only after the core/accounting application gate; individual HRX operations rely on HRX tables and readiness. | Module dependency; an uninstalled HRX model means HRX operations are unavailable, not that unrelated core routes are stopped. |
+| \`uninstall.php\` | Explicitly preserves \`wp_stock_*\` tables and options. | Data-preservation safeguard; keep. |
+| \`class-stockland-hr-replacement.php\` | The only HRX-design hard gate is \`SCHEMA_DESIGN_APPROVED=false\`, returning HTTP 409 from HRX schema installation. | Scoped HRX DDL gate; retain until model approval. |
+| Health \`live_ready\` | Computed as an aggregate of all critical core, accounting, HRX, payroll, ledger, reconciliation and integrity checks; used for health response/UI, not consulted as a global plugin bootstrap/activation switch. | Full-suite status indicator. It must remain false when any mandatory suite check is unresolved, but the UI must show module-specific state. |
+
+The \`DROP TABLE IF EXISTS\` occurrences seen in the candidate's core activator are bounded to internal disposable import/balance staging-table migrations (not the four legacy HR tables). The candidate's HRX plugin contains no legacy-HR reset/drop/truncate endpoint. Its uninstall file intentionally preserves all ERP tables/options.
+
+### CAP-RR-13 — skipped relational scan displayed as a generic failure
+
+**Original behavior:** when the database or exact HRX schema contract was not ready, the supplemental read-only integrity joins were deliberately skipped and the diagnostic returned \`SCAN_INCOMPLETE\`, but the boolean check was false without a corresponding tri-state status. The UI could therefore display FAIL even though the scan had not executed.  
+**Correction:** the builder now maps a skipped scan to \`check_statuses.supplemental_integrity_scan=NOT_RUN\`; when executed, it reports PASS or FAIL from the actual scanner result. The underlying aggregate \`live_ready\` remains false and \`SCAN_INCOMPLETE\` remains visible; this is not a readiness bypass.  
+**Regression:** the exact-package QA now asserts both the skipped and executed status paths. The 4 November exact-package workflow for the updated head must pass before this CAP is marked CI-verified.
+
