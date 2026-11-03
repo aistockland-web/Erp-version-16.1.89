@@ -268,6 +268,47 @@ def integrate_ui(files: dict[str, bytes]) -> None:
     js = between(js, "async function loadHR(){", "async function loadBranchOperations(", overlay[split:] + "\n", "replace legacy HR loader")
     files[js_path] = js.encode("utf-8")
 
+def patch_readiness_ui(files: dict[str, bytes]) -> None:
+    path = PLUGIN_ROOT + "assets/app.js"
+    js = files[path].decode("utf-8")
+    js = once(
+        js,
+        "    const payrollOnlyIssue=!ready&&!setupRequired&&!quickOnly&&failed.length===1&&failed[0]==='payroll_compensation_classification';",
+        "    const payrollOnlyIssue=!ready&&!setupRequired&&!quickOnly&&failed.length===1&&failed[0]==='payroll_compensation_classification';\n    const hrxPendingChecks=['full_schema','schema_contract_hrx_exact','hr_schema_upgrade_ready','payroll_statutory_model','payroll_compensation_classification','supplemental_integrity_scan'];\n    const hrxDesignPending=!!(q.hrx_replacement&&q.hrx_replacement.design_approved===false);\n    const hrxPendingOnlyIssue=!ready&&!setupRequired&&!quickOnly&&hrxDesignPending&&checks.core_schema===true&&checks.accounting_schema_upgrade_ready===true&&failed.length>0&&failed.every(k=>hrxPendingChecks.includes(k));",
+        "HRX module-scoped readiness classification",
+    )
+    js = once(
+        js,
+        "    const badge=ready?'is-ready':(payrollOnlyIssue?'is-operational-warning':'is-not-ready');\n    const label=setupRequired?'SETUP REPAIR REQUIRED':(quickOnly?'QUICK HEALTH ONLY':(ready?'LIVE READY':(payrollOnlyIssue?'OPERATIONAL • PAYROLL CHECK REQUIRED':'NOT LIVE READY')));\n    const bannerText=setupRequired?'The ERP is showing the exact schema gate that must be repaired before business controllers can register. Use the protected setup action; this check did not change business data.':(quickOnly?'Quick checks completed; deep integrity status is UNVERIFIED because the full scan was deferred.':(ready?'All mandatory production checks passed.':(payrollOnlyIssue?'All non-payroll production checks passed. Payroll compensation readiness requires a verified result; unresolved data or an incomplete diagnostic remains visible and does not disable other verified ERP workflows.':'Resolve the failed checks shown below before relying on the affected workflows.')));",
+        "    const badge=ready?'is-ready':((payrollOnlyIssue||hrxPendingOnlyIssue)?'is-operational-warning':'is-not-ready');\n    const label=setupRequired?'SETUP REPAIR REQUIRED':(quickOnly?'QUICK HEALTH ONLY':(ready?'LIVE READY':(payrollOnlyIssue?'OPERATIONAL • PAYROLL CHECK REQUIRED':(hrxPendingOnlyIssue?'HRX SETUP PENDING • CORE CHECKS SEPARATE':'NOT LIVE READY'))));\n    const bannerText=setupRequired?'The ERP is showing the exact core/accounting schema gate that must be repaired before business controllers can register. Use the protected setup action; this check did not change business data.':(quickOnly?'Quick checks completed; deep integrity status is UNVERIFIED because the full scan was deferred.':(ready?'All mandatory full-suite production checks passed.':(payrollOnlyIssue?'Payroll compensation readiness requires a verified employee-level result; unresolved data or an incomplete diagnostic remains visible and does not disable other verified ERP workflows.':(hrxPendingOnlyIssue?'The HRX data model has not received written approval, so HRX schema creation remains intentionally unavailable. This is a module-scoped gate, not an application-wide runtime lock. Core and accounting checks are displayed separately; full-suite integrity and complete ERP readiness remain unverified.':'Resolve the failed checks shown below before relying on the affected workflows.'))));",
+        "module-scoped readiness banner",
+    )
+    js = once(
+        js,
+        "    Object.keys(checks).forEach(function(k){if(k==='ok'||k==='live_ready')return;html+='<div class=\"sl-stat\"><b>'+((checks[k])?'PASS':'FAIL')+'</b><span>'+esc(k)+'</span></div>';});",
+        "    const checkStatuses=q.check_statuses||{};\n    Object.keys(checks).forEach(function(k){if(k==='ok'||k==='live_ready')return;const status=checkStatuses[k]||(checks[k]?'PASS':'FAIL');html+='<div class=\"sl-stat\"><b>'+esc(status)+'</b><span>'+esc(k)+'</span></div>';});",
+        "tri-state health check rendering",
+    )
+    js = once(
+        js,
+        "    if(!ready && Array.isArray(d.failed_checks) && d.failed_checks.length) html+='<div class=\"sl-notice sl-danger-block\" style=\"margin-top:12px\"><b>Failed production gates</b><div style=\"margin-top:5px\">'+esc(d.failed_checks.join(', '))+'</div></div>';",
+        "    if(!ready && Array.isArray(d.failed_checks) && d.failed_checks.length) html+='<div class=\"sl-notice sl-danger-block\" style=\"margin-top:12px\"><b>'+(hrxPendingOnlyIssue?'HRX / full-suite pending checks':'Failed checks')+'</b><div style=\"margin-top:5px\">'+esc(d.failed_checks.join(', '))+'</div></div>';",
+        "pending checks heading",
+    )
+    js = once(
+        js,
+        "    if(payrollDiag&&typeof payrollDiag==='object'&&(payrollDiag.unresolved_active_employees!==null&&payrollDiag.unresolved_active_employees!==undefined||payrollDiag.scan_truncated||payrollDiag.scan_query_failed)){",
+        "    if(payrollDiag&&typeof payrollDiag==='object'&&(payrollDiag.status==='NOT_RUN'||payrollDiag.unresolved_active_employees!==null&&payrollDiag.unresolved_active_employees!==undefined||payrollDiag.scan_truncated||payrollDiag.scan_query_failed)){",
+        "display payroll NOT_RUN diagnostic",
+    )
+    js = once(
+        js,
+        "      const summary=queryFailed?'Payroll readiness could not be evaluated because the diagnostic query failed. No records were assumed healthy.':(scanTruncated?'More than 5,000 active employee records matched; the diagnostic stopped at its safety limit and the count is unknown.':(unresolved+' active employee record(s) need compensation review.'));",
+        "      const summary=payrollDiag.status==='NOT_RUN'?'Employee-level compensation classification was NOT RUN by System Health. No employees were assumed eligible; run the selected-period payroll preflight before calculation or approval.':(queryFailed?'Payroll readiness could not be evaluated because the diagnostic query failed. No records were assumed healthy.':(scanTruncated?'More than 5,000 active employee records matched; the diagnostic stopped at its safety limit and the count is unknown.':(unresolved+' active employee record(s) need compensation review.')));",
+        "explain payroll NOT_RUN diagnostic",
+    )
+    files[path] = js.encode("utf-8")
+
 def patch_frontend_manifest(files: dict[str, bytes], hrx_count: int) -> None:
     front = text_file(files, "includes/class-stockland-frontend.php")
     front = once(front, "const ROUTE_VERSION      = '16.1.95';", "const ROUTE_VERSION      = '16.3.0';", "frontend route/cache marker")
@@ -452,6 +493,7 @@ def main() -> None:
     files[PLUGIN_ROOT + "includes/class-stockland-hr-replacement-calculator.php"] = calculator_source.encode()
     files[PLUGIN_ROOT + "includes/rest/class-rest-hr-replacement.php"] = rest_source.encode()
     integrate_ui(files)
+    patch_readiness_ui(files)
     compile_css(files)
     patch_frontend_manifest(files, hrx_count)
     args.output.parent.mkdir(parents=True, exist_ok=True)
