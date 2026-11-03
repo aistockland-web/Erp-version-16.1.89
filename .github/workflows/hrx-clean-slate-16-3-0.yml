@@ -91,7 +91,7 @@ jobs:
       - name: Compile Python build and QA sources
         run: python -m compileall -q ci
 
-      - name: Build HRX full-cycle release
+      - name: Build HRX integration candidate
         shell: bash
         run: |
           set -euo pipefail
@@ -209,7 +209,7 @@ jobs:
           PY
           cp -a "$RUNNER_TEMP/hrx-evidence/." build/stockland-hrx-16.3.0/
 
-      - name: Upload exact release package and receipts
+      - name: Upload exact HRX candidate package and receipts
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: STOCKLAND-ERP-16.3.0-HRX-INTEGRATION-CANDIDATE-REVIEW
