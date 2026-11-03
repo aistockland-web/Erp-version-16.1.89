@@ -1,0 +1,103 @@
+name: Stockland HRIS v0.6 domain and baseline gates
+
+on:
+  push:
+    branches: [feature/hris-redesign-blueprint-v0-6]
+    paths:
+      - 'ci/hris_overlay_v0_6/**'
+      - 'ci/qa/test_hris_domain_v0_6.php'
+      - 'ci/qa/audit_hris_baseline_v0_6.py'
+      - '.github/workflows/hris-domain-kernel-v0-6.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'ci/hris_overlay_v0_6/**'
+      - 'ci/qa/test_hris_domain_v0_6.php'
+      - 'ci/qa/audit_hris_baseline_v0_6.py'
+      - 'docs/hr-replacement/**'
+      - '.github/workflows/hris-domain-kernel-v0-6.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: stockland-hris-v0-6-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  exact-baseline-audit:
+    name: Verify exact 16.1.95 archive and dependency assumptions
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout the exact branch commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Download recorded canonical 16.1.95 build artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: STOCKLAND-ERP-16.1.95-Cumulative-WordPress-Update
+          repository: aistockland-web/Erp-version-16.1.89
+          run-id: 40036018031
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/stockland-16.1.95-artifact
+
+      - name: Extract inner canonical installer and verify exact SHA/source map
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/stockland-16.1.95-artifact"
+          INNER="$OUT/STOCKLAND_ERP_16.1.95_CANONICAL_WORDPRESS_UPDATE.zip"
+          if [ ! -s "$INNER" ]; then
+            WRAPPER="$(find "$OUT" -maxdepth 1 -type f -name '*.zip' -print -quit)"
+            test -n "$WRAPPER"
+            unzip -p "$WRAPPER" STOCKLAND_ERP_16.1.95_CANONICAL_WORDPRESS_UPDATE.zip > "$INNER"
+          fi
+          test -s "$INNER"
+          python ci/qa/audit_hris_baseline_v0_6.py --installer "$INNER" --output "$RUNNER_TEMP/hris-baseline-audit.json"
+          mkdir -p build/hris-v0.6
+          cp "$RUNNER_TEMP/hris-baseline-audit.json" build/hris-v0.6/
+
+      - name: Upload read-only audit receipt
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: STOCKLAND-HRIS-v0.6-baseline-audit
+          path: build/hris-v0.6/hris-baseline-audit.json
+          if-no-files-found: error
+          retention-days: 30
+
+  domain-kernel:
+    name: HRIS domain regression tests / PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ["8.3", "8.4"]
+    steps:
+      - name: Checkout the exact branch commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          tools: none
+
+      - name: PHP syntax for the committed kernel and tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l ci/hris_overlay_v0_6/class-stockland-hris-domain.php
+          php -l ci/qa/test_hris_domain_v0_6.php
+
+      - name: Domain workflow, statutory rule, payroll snapshot, payment and exit regression suite
+        run: php ci/qa/test_hris_domain_v0_6.php

@@ -1,0 +1,143 @@
+/* HRIS lifecycle workspace: conservative SAP/Odoo-style data density with polished mobile-first accordion holders and social platform cards. */
+#hrPage .sl-hrlc-flow{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;margin:16px 0 22px}
+#hrPage .sl-hrlc-flow span{display:flex;align-items:center;justify-content:center;min-height:48px;border:1px solid var(--sl-border,#d9e1e8);border-radius:12px;background:var(--sl-surface,#fff);padding:8px;text-align:center;font-size:12px;font-weight:700;color:var(--sl-ink,#243346)}
+#hrPage .sl-hrlc-section{display:block;margin:12px 0;padding:0;overflow:hidden;border:1px solid var(--sl-border,#d9e1e8);border-radius:16px;background:var(--sl-surface,#fff);box-shadow:0 5px 20px rgba(22,42,75,.045)}
+#hrPage .sl-hrlc-section-summary{display:flex;align-items:center;justify-content:space-between;gap:14px;min-width:0;padding:16px 18px;cursor:pointer;list-style:none;background:linear-gradient(115deg,rgba(42,96,232,.055),rgba(42,96,232,0))}
+#hrPage .sl-hrlc-section-summary::-webkit-details-marker{display:none}
+#hrPage .sl-hrlc-section-summary:focus-visible{outline:3px solid var(--sl-primary,#2f5fe9);outline-offset:-4px;border-radius:14px}
+#hrPage .sl-hrlc-section-heading{display:flex;align-items:center;gap:13px;min-width:0;flex:1}
+#hrPage .sl-hrlc-section-icon{display:flex;align-items:center;justify-content:center;flex:0 0 44px;width:44px;height:44px;border:1px solid rgba(43,96,232,.14);border-radius:13px;background:#f0f5ff;color:#244fc8;font-size:22px;line-height:1}
+#hrPage .sl-hrlc-icon-art{display:block;width:22px;height:22px;flex:0 0 22px;stroke:currentColor}
+#hrPage .sl-hrlc-section-titles{display:flex;flex-direction:column;gap:4px;min-width:0}
+#hrPage .sl-hrlc-section-titles strong{color:var(--sl-ink,#233147);font-size:15px;font-weight:750;line-height:1.35;overflow-wrap:anywhere}
+#hrPage .sl-hrlc-section-titles small{color:var(--sl-muted,#64748b);font-size:12px;font-weight:400;line-height:1.5;overflow-wrap:anywhere}
+#hrPage .sl-hrlc-section-toggle{display:flex;flex:0 0 34px;align-items:center;justify-content:center;width:34px;height:34px;border:1px solid var(--sl-border,#d9e1e8);border-radius:50%;background:#fff;color:var(--sl-primary,#2f5fe9)}
+#hrPage .sl-hrlc-section-toggle:before{content:"+";font-size:22px;line-height:1;font-weight:500}
+#hrPage .sl-hrlc-section[open]>.sl-hrlc-section-summary{border-bottom:1px solid var(--sl-border,#e2e8f0);background:#f8faff}
+#hrPage .sl-hrlc-section[open]>.sl-hrlc-section-summary .sl-hrlc-section-toggle:before{content:"−"}
+#hrPage .sl-hrlc-section-body{padding:14px 16px 17px;min-width:0}
+#hrPage .sl-hrlc-panel .sl-hrlc-section-body>.sl-hrlc-form:first-child{margin-top:0}
+#hrPage .sl-hrlc-form{border:1px solid var(--sl-border,#d9e1e8);border-radius:12px;margin:10px 0;background:var(--sl-surface,#fff);overflow:hidden}
+#hrPage .sl-hrlc-form>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;padding:13px 15px;list-style:none}
+#hrPage .sl-hrlc-form>summary::-webkit-details-marker{display:none}
+#hrPage .sl-hrlc-form>summary:after{content:"+";display:flex;align-items:center;justify-content:center;flex:0 0 28px;width:28px;height:28px;border:1px solid var(--sl-border,#d9e1e8);border-radius:50%;font-size:19px;font-weight:600;color:var(--sl-muted,#607286)}
+#hrPage .sl-hrlc-form[open]>summary:after{content:"−"}
+#hrPage .sl-hrlc-form>summary b{font-size:13px;line-height:1.4;letter-spacing:.01em}
+#hrPage .sl-hrlc-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:14px 16px 18px;border-top:1px solid var(--sl-border,#d9e1e8)}
+#hrPage .sl-hrlc-grid .full{grid-column:1/-1}
+#hrPage .sl-hrlc-grid input,#hrPage .sl-hrlc-grid select,#hrPage .sl-hrlc-grid textarea{width:100%;max-width:100%;min-width:0;box-sizing:border-box}
+#hrPage .sl-hrlc-grid textarea{font:12px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace}
+#hrPage .sl-hrlc-panel .sl-table-wrap{margin-top:12px;max-width:100%;overflow-x:auto}
+#hrPage .sl-hrlc-panel .sl-table-wrap:first-child{margin-top:0}
+#hrPage .sl-hrlc-panel .sl-block-head h3{font-size:15px}
+#hrPage .sl-hrlc-panel .sl-sub{margin:8px 0 0}
+#hrPage .sl-hrlc-panel .sl-btn-sm{margin:3px 3px 3px 0;white-space:nowrap}
+#hrPage .sl-hrlc-panel .sl-table{min-width:680px}
+#hrPage .sl-hrlc-panel .sl-table td{vertical-align:top}
+#hrPage .sl-hrlc-panel .sl-table td:last-child{min-width:190px}
+#hrPage .sl-hrlc-rules-note{border-left:3px solid var(--sl-warning,#d29b26);padding:10px 12px;background:var(--sl-warning-bg,#fff9e9)}
+#hrPage .sl-hrlc-social-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+#hrPage .sl-hrlc-social-card{display:flex;align-items:center;gap:13px;min-width:0;padding:15px;border:1px solid var(--sl-border,#d9e1e8);border-radius:14px;background:#fff;color:var(--sl-ink,#233147);text-decoration:none;transition:border-color .16s ease,box-shadow .16s ease,transform .16s ease}
+#hrPage .sl-hrlc-social-card:hover{border-color:rgba(47,95,233,.45);box-shadow:0 7px 22px rgba(30,64,175,.09);transform:translateY(-1px);text-decoration:none}
+#hrPage .sl-hrlc-social-card:focus-visible{outline:3px solid var(--sl-primary,#2f5fe9);outline-offset:2px}
+#hrPage .sl-hrlc-social-icon{display:flex;align-items:center;justify-content:center;flex:0 0 46px;width:46px;height:46px;min-width:46px;min-height:46px;max-width:46px;max-height:46px;box-sizing:border-box;border-radius:14px;color:#fff;overflow:hidden}
+#hrPage .sl-hrlc-social-icon.facebook{background:#1877f2}
+#hrPage .sl-hrlc-social-icon.instagram{background:linear-gradient(135deg,#7444c8,#d94885 58%,#f7a33b)}
+#hrPage .sl-hrlc-social-icon.tiktok{background:#151515}
+#hrPage .sl-hrlc-social-icon.youtube{background:#ff0033}
+#hrPage .sl-hrlc-social-icon>svg.sl-hrlc-social-icon-art{display:block!important;box-sizing:border-box!important;width:24px!important;height:24px!important;min-width:24px!important;min-height:24px!important;max-width:24px!important;max-height:24px!important;flex:0 0 24px!important;margin:0!important;padding:0!important;transform:none!important;zoom:1!important;fill:none!important;stroke:currentColor!important;stroke-width:1.8px!important;stroke-linecap:round!important;stroke-linejoin:round!important;vector-effect:non-scaling-stroke!important;filter:none!important}
+#hrPage .sl-hrlc-social-icon>svg.sl-hrlc-social-icon-art *{fill:none!important;stroke:currentColor!important;stroke-width:1.8px!important;stroke-linecap:round!important;stroke-linejoin:round!important;vector-effect:non-scaling-stroke!important;filter:none!important}
+#hrPage .sl-hrlc-social-copy{display:flex;flex:1;flex-direction:column;gap:5px;min-width:0}
+#hrPage .sl-hrlc-social-copy strong{font-size:13px;line-height:1.4;font-weight:750;overflow-wrap:anywhere}
+#hrPage .sl-hrlc-social-copy small{font-size:12px;line-height:1.5;color:var(--sl-muted,#64748b);overflow-wrap:anywhere}
+#hrPage .sl-hrlc-social-open{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:3px;color:var(--sl-primary,#2f5fe9);font-size:12px;font-weight:700}
+#hrPage .sl-hrlc-social-note{margin-top:14px;padding:12px 14px;border:1px solid var(--sl-border,#d9e1e8);border-radius:12px;background:#f8fafc;line-height:1.65}
+#hrPage .sl-hrlc-panel .sl-empty{margin:10px 0 0;padding:18px 14px;border:1px dashed var(--sl-border,#cbd5e1);border-radius:12px;background:#f8fafc;text-align:center;color:var(--sl-muted,#64748b)}
+/* SaaS workspace search + precise accordion state. */
+#hrPage .sl-hrlc-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:14px 0 18px;padding:12px 14px;border:1px solid var(--sl-border,#d9e1e8);border-radius:15px;background:linear-gradient(120deg,#fff,#f8faff)}
+#hrPage .sl-hrlc-search{display:flex;align-items:center;gap:10px;flex:1;min-width:0;max-width:590px;height:44px;padding:0 13px;border:1px solid var(--sl-border,#d9e1e8);border-radius:11px;background:#fff;box-shadow:0 1px 2px rgba(15,23,42,.025)}
+#hrPage .sl-hrlc-search:focus-within{border-color:rgba(47,95,233,.7);box-shadow:0 0 0 3px rgba(47,95,233,.1)}
+#hrPage .sl-hrlc-search-icon{flex:0 0 auto;color:var(--sl-muted,#64748b);font-size:25px;line-height:1}
+#hrPage .sl-hrlc-search input{width:100%;min-width:0;height:100%;padding:0;border:0!important;outline:0;box-shadow:none!important;background:transparent;font:inherit;font-size:13px;color:var(--sl-ink,#233147)}
+#hrPage .sl-hrlc-search input::placeholder{color:#8996a8}
+#hrPage .sl-hrlc-module-count{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;min-height:32px;padding:6px 10px;border:1px solid #d8e4ff;border-radius:999px;background:#f0f5ff;color:#3159ad;font-size:11px;font-weight:750;white-space:nowrap}
+#hrPage .sl-hrlc-search-empty[hidden],#hrPage [data-hrlc-section][hidden]{display:none!important}
+#hrPage .sl-hrlc-search-empty{margin:8px 0 16px;padding:18px 14px;border:1px dashed var(--sl-border,#cbd5e1);border-radius:13px;background:#f8fafc;text-align:center;color:var(--sl-muted,#64748b);font-size:13px}
+#hrPage .sl-hrlc-section[open]{border-color:rgba(47,95,233,.28);box-shadow:0 8px 25px rgba(30,64,175,.075)}
+#hrPage .sl-hrlc-section-title{display:block;color:var(--sl-ink,#233147);font-size:15px;font-weight:750;line-height:1.35;overflow-wrap:anywhere}
+#hrPage .sl-hrlc-section-titles small{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+#hrPage .sl-hrlc-section[open]>.sl-hrlc-section-summary .sl-hrlc-section-icon{border-color:rgba(47,95,233,.25);background:#e5edff;color:#244fc8}
+@media(max-width:1180px){#hrPage .sl-hrlc-flow{grid-template-columns:repeat(4,minmax(0,1fr))}#hrPage .sl-hrlc-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){#hrPage .sl-hrlc-flow{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}#hrPage .sl-hrlc-flow span{min-height:42px;font-size:11px}#hrPage .sl-hrlc-section{border-radius:14px;margin:10px 0}#hrPage .sl-hrlc-section-summary{padding:13px 12px;gap:9px}#hrPage .sl-hrlc-section-heading{gap:10px}#hrPage .sl-hrlc-section-icon{flex-basis:38px;width:38px;height:38px;border-radius:11px;font-size:19px}#hrPage .sl-hrlc-icon-art{width:20px;height:20px;flex-basis:20px}#hrPage .sl-hrlc-section-titles strong{font-size:13px}#hrPage .sl-hrlc-section-titles small{font-size:11px;line-height:1.4}#hrPage .sl-hrlc-section-toggle{flex-basis:30px;width:30px;height:30px}#hrPage .sl-hrlc-section-body{padding:11px 10px 13px}#hrPage .sl-hrlc-grid{grid-template-columns:minmax(0,1fr);padding:12px;gap:10px}#hrPage .sl-hrlc-grid .full{grid-column:auto}#hrPage .sl-hrlc-form>summary{padding:12px}#hrPage .sl-hrlc-panel .sl-table{min-width:0}#hrPage .sl-hrlc-panel .sl-table td:last-child{min-width:0}#hrPage .sl-hrlc-panel .sl-table td{overflow-wrap:anywhere}#hrPage .sl-hrlc-panel .sl-btn-sm{white-space:normal}#hrPage .sl-hrlc-social-grid{grid-template-columns:minmax(0,1fr);gap:9px}#hrPage .sl-hrlc-social-card{padding:12px}#hrPage .sl-hrlc-social-icon{flex-basis:40px;width:40px;height:40px;border-radius:12px}}
+@media(prefers-reduced-motion:reduce){#hrPage .sl-hrlc-social-card{transition:none}#hrPage .sl-hrlc-social-card:hover{transform:none}}
+/* SaaS two-column module workspace: all sections are independent side-by-side dropdown holders. */
+#hrPage{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start;min-width:0}
+#hrPage>.sl-hrlc-toolbar,#hrPage>[data-hrlc-search-empty],#hrPage>.sl-grid,#hrPage>.sl-hrlc-flow,#hrPage>.sl-hrlc-cycle{grid-column:1/-1;min-width:0}
+#hrPage>.sl-hrlc-section{grid-column:span 1;min-width:0;margin:0;align-self:start}
+#hrPage .sl-hrlc-cycle{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;grid-column:1/-1;min-width:0;align-items:start}
+#hrPage .sl-hrlc-cycle>.sl-hrlc-section{min-width:0;margin:0;align-self:start}
+#hrPage .sl-hrlc-section-summary{height:100%;min-height:84px;box-sizing:border-box}
+#hrPage .sl-hrlc-section-body{min-width:0;overflow-wrap:anywhere}
+#hrPage .sl-hrlc-section-body>.sl-hrlc-form,#hrPage .sl-hrlc-section-body>.sl-table-wrap,#hrPage .sl-hrlc-section-body>.sl-empty{min-width:0;max-width:100%}
+#hrPage .sl-hrlc-section-body .sl-table-wrap{overflow-x:auto}
+@media(max-width:700px){#hrPage{grid-template-columns:minmax(0,1fr);gap:10px}#hrPage>.sl-hrlc-toolbar,#hrPage>[data-hrlc-search-empty],#hrPage>.sl-grid,#hrPage>.sl-hrlc-flow,#hrPage>.sl-hrlc-cycle,#hrPage>.sl-hrlc-section{grid-column:1}#hrPage .sl-hrlc-cycle{grid-template-columns:minmax(0,1fr);gap:10px}#hrPage .sl-hrlc-section-summary{min-height:0;height:auto}}
+@media print{#hrPage{display:block}#hrPage>.sl-hrlc-section,#hrPage .sl-hrlc-cycle>.sl-hrlc-section{margin:10px 0}}
+
+/* HR icon isolation contract:
+   Scope directly to the HR workspace (not a theme-specific outer wrapper).
+   Fix the icon box AND each SVG primitive so global svg/path rules cannot
+   stretch the viewBox, increase stroke thickness, fill line drawings, or shift it. */
+#hrPage .sl-hrlc-section-icon{display:inline-flex!important;align-items:center!important;justify-content:center!important;box-sizing:border-box!important;flex:0 0 44px!important;width:44px!important;height:44px!important;min-width:44px!important;min-height:44px!important;max-width:44px!important;max-height:44px!important;padding:0!important;position:relative!important;overflow:visible!important}
+#hrPage .sl-hrlc-section-icon>svg.sl-hrlc-icon-art{display:block!important;box-sizing:content-box!important;width:22px!important;height:22px!important;min-width:22px!important;min-height:22px!important;max-width:22px!important;max-height:22px!important;flex:0 0 22px!important;flex-shrink:0!important;margin:0!important;padding:0!important;position:static!important;inset:auto!important;transform:none!important;zoom:1!important;overflow:visible!important;fill:none!important;stroke:currentColor!important;stroke-width:1.7px!important;stroke-linecap:round!important;stroke-linejoin:round!important;vector-effect:non-scaling-stroke!important;filter:none!important}
+#hrPage .sl-hrlc-section-icon>svg.sl-hrlc-icon-art *,
+#hrPage .sl-hrlc-section-icon>svg.sl-hrlc-icon-art *::before,
+#hrPage .sl-hrlc-section-icon>svg.sl-hrlc-icon-art *::after{box-sizing:content-box!important;fill:none!important;stroke:currentColor!important;stroke-width:1.7px!important;stroke-linecap:round!important;stroke-linejoin:round!important;vector-effect:non-scaling-stroke!important;filter:none!important}
+@media(max-width:700px){
+ #hrPage .sl-hrlc-section-icon{flex-basis:38px!important;width:38px!important;height:38px!important;min-width:38px!important;min-height:38px!important;max-width:38px!important;max-height:38px!important}
+ #hrPage .sl-hrlc-section-icon>svg.sl-hrlc-icon-art{width:20px!important;height:20px!important;min-width:20px!important;min-height:20px!important;max-width:20px!important;max-height:20px!important;flex-basis:20px!important;stroke-width:1.6px!important}
+ #hrPage .sl-hrlc-section-icon>svg.sl-hrlc-icon-art *{stroke-width:1.6px!important}
+}
+
+/* HR document-control editor and modal: self-contained, responsive, keyboard safe. */
+.sl-hrlc-resource-dialog{width:min(760px,calc(100vw - 28px));max-width:760px;max-height:calc(100dvh - 28px);padding:0;border:1px solid #d7e0eb;border-radius:18px;background:#fff;color:#233147;box-shadow:0 24px 80px rgba(15,23,42,.25);overflow:auto}
+.sl-hrlc-resource-dialog::backdrop{background:rgba(12,24,44,.48);backdrop-filter:blur(3px)}
+.sl-hrlc-resource-editor{display:block;padding:0}
+.sl-hrlc-resource-editor>header{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding:22px 24px 18px;border-bottom:1px solid #e4eaf2;background:linear-gradient(120deg,#f5f8ff,#fff)}
+.sl-hrlc-resource-editor>header h3{margin:3px 0 7px;font-size:19px;line-height:1.35;font-weight:750}
+.sl-hrlc-resource-editor>header .sl-sub{margin:0;max-width:560px;line-height:1.55}
+.sl-hrlc-resource-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;padding:22px 24px}
+.sl-hrlc-resource-field{display:flex;flex-direction:column;gap:7px;min-width:0;color:#536176;font-size:12px;font-weight:650}
+.sl-hrlc-resource-field input,.sl-hrlc-resource-field textarea{width:100%;max-width:100%;min-width:0;min-height:42px;box-sizing:border-box;border:1px solid #d5deea;border-radius:10px;padding:10px 12px;color:#263448;background:#fff;font:inherit;font-size:13px}
+.sl-hrlc-resource-field input:focus,.sl-hrlc-resource-field textarea:focus{outline:0;border-color:#3867d6;box-shadow:0 0 0 3px rgba(56,103,214,.12)}
+.sl-hrlc-resource-field input[readonly]{background:#f5f7fb;color:#718096}
+.sl-hrlc-resource-wide{grid-column:1/-1}
+.sl-hrlc-resource-editor>footer{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 24px 22px;border-top:1px solid #e4eaf2;background:#fbfcfe}
+.sl-hrlc-resource-editor>footer .sl-sub{max-width:420px;line-height:1.5;margin:0}
+.sl-hrlc-resource-status{padding:0 24px 18px;color:#3159ad;font-size:12px}
+@media(max-width:620px){.sl-hrlc-resource-dialog{width:calc(100vw - 16px);max-height:calc(100dvh - 16px);border-radius:14px}.sl-hrlc-resource-editor>header{padding:16px;gap:10px}.sl-hrlc-resource-grid{grid-template-columns:minmax(0,1fr);padding:16px;gap:12px}.sl-hrlc-resource-wide{grid-column:1}.sl-hrlc-resource-editor>footer{flex-direction:column;align-items:stretch;padding:14px 16px 18px}.sl-hrlc-resource-editor>footer .sl-sub{max-width:none}}
+
+/* Retail POS cart — compact SaaS workspace, responsive line editing and total preview. */
+#stockland-app .sl-pos-cart-panel{min-width:0;overflow:hidden}
+#stockland-app #posCartForm,#stockland-app .sl-pos-cart-form{display:flex;flex-direction:column;gap:16px}
+#stockland-app .sl-pos-cart-meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;padding:18px;border:1px solid #e1e8f1;border-radius:14px;background:linear-gradient(120deg,#fbfcff,#fff)}
+#stockland-app .sl-pos-cart-meta .full{grid-column:1/-1;min-width:0}
+#stockland-app .sl-pos-cart-add-row{display:flex;align-items:center;flex-wrap:wrap;gap:12px}
+#stockland-app .sl-pos-cart-add-row .sl-sub{flex:1;min-width:200px;margin:0}
+#stockland-app .sl-pos-cart-items{min-width:0}
+#stockland-app .sl-pos-cart-table{min-width:760px;margin:0}
+#stockland-app .sl-pos-cart-table td{vertical-align:middle}
+#stockland-app .sl-pos-cart-product{display:block;margin-top:4px;color:var(--sl-muted,#64748b);font-size:11px;line-height:1.45;white-space:normal}
+#stockland-app .sl-pos-cart-cell-input{width:104px;max-width:100%;min-height:39px;box-sizing:border-box;padding:8px 9px;border:1px solid #d5deea;border-radius:9px;background:#fff;font:inherit;font-size:13px;color:#233147}
+#stockland-app .sl-pos-cart-cell-input:focus{outline:0;border-color:#3867d6;box-shadow:0 0 0 3px rgba(56,103,214,.12)}
+#stockland-app .sl-pos-cart-cell-input:disabled{background:#f2f5fa;color:#64748b;opacity:1}
+#stockland-app .sl-pos-cart-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:14px;border:1px solid #dce5f1;border-radius:14px;background:#f7f9fd}
+#stockland-app .sl-pos-cart-summary>div{display:flex;flex-direction:column;gap:7px;min-width:0;padding:10px 12px;border:1px solid #e0e7f0;border-radius:11px;background:#fff}
+#stockland-app .sl-pos-cart-summary span{font-size:11px;color:#64748b}
+#stockland-app .sl-pos-cart-summary b{font-size:16px;font-weight:750;color:#1c2f4a;overflow-wrap:anywhere}
+#stockland-app .sl-pos-cart-disclaimer{margin:0;line-height:1.6}
+#stockland-app .sl-pos-cart-actions{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding-top:4px}
+#stockland-app .sl-pos-cart-actions .sl-sub{flex:1 1 220px;margin:0}
+#stockland-app .sl-pos-cart-result{margin-top:12px}
+#stockland-app .sl-pos-cart-result .sl-notice{overflow-wrap:anywhere}
+@media(max-width:900px){#stockland-app .sl-pos-cart-summary{grid-template-columns:repeat(2,minmax(0,1fr))}#stockland-app .sl-pos-cart-meta{gap:10px;padding:13px}}
+@media(max-width:620px){#stockland-app .sl-pos-cart-meta{grid-template-columns:minmax(0,1fr);padding:12px}#stockland-app .sl-pos-cart-meta .full{grid-column:1}#stockland-app .sl-pos-cart-summary{grid-template-columns:minmax(0,1fr);gap:8px;padding:10px}#stockland-app .sl-pos-cart-summary>div{flex-direction:row;align-items:center;justify-content:space-between;gap:10px}#stockland-app .sl-pos-cart-summary b{font-size:14px;text-align:right}#stockland-app .sl-pos-cart-cell-input{width:88px}#stockland-app .sl-pos-cart-add-row{align-items:stretch;flex-direction:column}#stockland-app .sl-pos-cart-add-row .sl-sub{min-width:0}}

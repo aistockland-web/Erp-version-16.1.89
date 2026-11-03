@@ -1,0 +1,212 @@
+{
+  "design_authority": "Notion HR Design Reset v0.5",
+  "version": "0.6",
+  "status": "REVIEW_REQUIRED_NOT_RUNTIME",
+  "physical_table_count": null,
+  "table_count_policy": "Do not freeze until Gate 1 dependency/data-health audit and ERD review. Never implement historical 27-table or 14-16/72/76 inventories as authority.",
+  "legacy_source_tables": [
+    "employees",
+    "employee_compensation",
+    "payroll_periods",
+    "payroll_lines"
+  ],
+  "legacy_policy": "Read-only transition sources until copy-only migration, data/GL reconciliation, two parallel payroll cycles, backup/restore, rollback and separate cutover/cleanup approval.",
+  "role_controls": {
+    "owner": "Independent approval of hires/compensation/legal rules/payroll/payment/final settlement/cutover; cannot be treated as qualified legal adviser without independent credential.",
+    "hr_management": "Prepare plans, requisitions, candidates, contracts, employee changes, time/leave corrections, compensation and payroll drafts; no self-approval.",
+    "payroll_finance": "Review calculations/exceptions, prepare payments/remittances, reconcile GL/PLEDGER; no changing posted history.",
+    "branch_manager": "Submit only assigned-location attendance, leave, workforce needs and evidence; no broad pay/bank/identity access or central payee payment authority.",
+    "employee_self_service": "Future optional pilot, own records only, no approval authority.",
+    "auditor": "Read-only scoped access with sensitive fields masked as policy allows.",
+    "wordpress_administrator": "Platform access stays separate from HR/Payroll business entitlements."
+  },
+  "lifecycle": [
+    {
+      "id": "HR-SOP-01",
+      "domain": "workforce",
+      "states": [
+        "DRAFT",
+        "SUBMITTED",
+        "APPROVED",
+        "REJECTED",
+        "CLOSED"
+      ],
+      "gate": "Budget/headcount approved before requisition/recruitment."
+    },
+    {
+      "id": "HR-SOP-02",
+      "domain": "recruitment",
+      "states": [
+        "APPLIED",
+        "SCREENING",
+        "INTERVIEW",
+        "REFERENCE_REVIEW",
+        "SELECTED",
+        "NOT_SELECTED",
+        "WITHDRAWN"
+      ],
+      "gate": "Human decision with rationale; no automated final employment decision; privacy/retention controls."
+    },
+    {
+      "id": "HR-SOP-03",
+      "domain": "contract_hire",
+      "states": [
+        "DRAFT",
+        "SUBMITTED",
+        "APPROVED",
+        "SIGNED",
+        "ONBOARDING",
+        "ACTIVE",
+        "SUSPENDED",
+        "ENDED"
+      ],
+      "gate": "No ACTIVE until signed/approved contract, verified prerequisites and approved compensation."
+    },
+    {
+      "id": "HR-SOP-04",
+      "domain": "attendance_shifts",
+      "states": [
+        "CAPTURED",
+        "REVIEW_REQUIRED",
+        "VERIFIED",
+        "REJECTED",
+        "LOCKED"
+      ],
+      "gate": "Corrections preserve original event and require reason plus independent approval; time premiums require approved legal rule."
+    },
+    {
+      "id": "HR-SOP-05",
+      "domain": "leave",
+      "states": [
+        "DRAFT",
+        "SUBMITTED",
+        "APPROVED",
+        "REJECTED",
+        "CANCELLED",
+        "POSTED"
+      ],
+      "gate": "Balance ledger entries are reversible by linked compensating entries, not deleted."
+    },
+    {
+      "id": "HR-SOP-06",
+      "domain": "compensation",
+      "states": [
+        "DRAFT",
+        "SUBMITTED",
+        "APPROVED",
+        "EFFECTIVE",
+        "SUPERSEDED",
+        "CANCELLED"
+      ],
+      "gate": "Effective-dated and itemized; no missing salary inference."
+    },
+    {
+      "id": "GOV-SOP-12",
+      "domain": "statutory_rules",
+      "states": [
+        "DRAFT",
+        "LEGAL_REVIEW",
+        "APPROVED",
+        "RETIRED"
+      ],
+      "gate": "Exact primary source/hash, clause, effective dates, applicability and golden tests; maker cannot approve own rule."
+    },
+    {
+      "id": "PAY-SOP-07",
+      "domain": "payroll",
+      "states": [
+        "DRAFT",
+        "INPUTS_FROZEN",
+        "CALCULATED",
+        "REVIEW_REQUIRED",
+        "SUBMITTED",
+        "APPROVED",
+        "POSTED",
+        "CLOSED",
+        "REVERSED"
+      ],
+      "gate": "Only APPROVED versioned legal rules; exact decimal trace; no self-approval, duplicate posting or in-place historical edits."
+    },
+    {
+      "id": "FIN-SOP-11",
+      "domain": "external_payment",
+      "states": [
+        "DRAFT",
+        "APPROVED",
+        "PARTIALLY_SETTLED",
+        "SETTLED",
+        "FAILED",
+        "RETURNED",
+        "RECONCILIATION_REQUIRED",
+        "CANCELLED"
+      ],
+      "gate": "Unique external reference and per-beneficiary outcomes; ERP journal posting is not proof of bank settlement."
+    },
+    {
+      "id": "PAY-SOP-08",
+      "domain": "remittance",
+      "states": [
+        "DRAFT",
+        "DUE",
+        "SUBMITTED",
+        "PAID",
+        "RECONCILIATION_REQUIRED",
+        "CLOSED"
+      ],
+      "gate": "Receipt and amount/date evidence linked to rule, payroll liability and GL/PLEDGER."
+    },
+    {
+      "id": "HR-SOP-09",
+      "domain": "exit_settlement",
+      "states": [
+        "DRAFT",
+        "REVIEW_REQUIRED",
+        "CALCULATED",
+        "APPROVED",
+        "PAYMENT_PENDING",
+        "SETTLED",
+        "CLOSED",
+        "CANCELLED"
+      ],
+      "gate": "Legal basis for notice/leave/severance/deductions; access/asset clearance; final payslip and reconciliation."
+    },
+    {
+      "id": "PP-01",
+      "domain": "people_payments",
+      "states": [
+        "DRAFT",
+        "EVIDENCE_REQUIRED",
+        "TAX_CLASSIFICATION_REVIEW",
+        "SUBMITTED",
+        "APPROVED",
+        "PAYMENT_PENDING",
+        "SETTLED",
+        "REJECTED",
+        "CANCELLED"
+      ],
+      "gate": "Five-path intake: employee payroll/benefit; expense reimbursement; digital creator; service freelancer; other exception. Never fake a supplier/employee."
+    }
+  ],
+  "legal_status": {
+    "paye": "LEGAL_REVIEW",
+    "pensionable_pay": "LEGAL_REVIEW",
+    "allowance_exemptions": "LEGAL_REVIEW",
+    "transport_cap": "LEGAL_REVIEW",
+    "creator_classification_and_threshold": "LEGAL_REVIEW",
+    "article22_article97_interaction": "LEGAL_REVIEW",
+    "overtime_leave_severance": "LEGAL_REVIEW",
+    "rule_activation": "BLOCK_FINAL_PAYROLL_WHEN_MISSING_CONFLICTED_OR_UNAPPROVED"
+  },
+  "acceptance_gates": [
+    "Exact 49-table/source manifest, SHA, fingerprints and installed-source parity where authorized",
+    "Complete source-to-table/UI/REST/permission/location/service/audit/GL/report graph",
+    "Sanitized data-quality and reconciliation report from authorized restored clone",
+    "Host transaction/file/backup/restore capability evidence",
+    "Reviewed ERD and old-to-new retain/reuse/replace/cutover map",
+    "Synthetic lifecycle end-to-end from approved workforce plan through final settlement/remittance",
+    "Payroll boundary tests and legal-source golden vectors signed by a qualified Ethiopian adviser",
+    "Role/location/field-scope negative tests, no self-approval and no double-post/pay",
+    "Two full parallel payroll periods and GL/PLEDGER/payment/remittance reconciliation",
+    "Exact ZIP SHA, CI receipts, backup/restore/rollback, Owner/HR/Finance and professional sign-off"
+  ]
+}

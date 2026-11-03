@@ -7,9 +7,12 @@ on:
       - 'ci/build_release_16_1_98.py'
       - 'ci/hr_payroll_overlay_16_1_98/**'
       - 'ci/qa/test_release_16_1_98.py'
-      - '.github/workflows/erp-16-1-98-production-build.yml'
   pull_request:
     branches: [main]
+    paths:
+      - 'ci/build_release_16_1_98.py'
+      - 'ci/hr_payroll_overlay_16_1_98/**'
+      - 'ci/qa/test_release_16_1_98.py'
   workflow_dispatch:
 
 permissions:
