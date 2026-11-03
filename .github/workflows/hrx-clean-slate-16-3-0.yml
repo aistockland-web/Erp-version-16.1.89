@@ -193,7 +193,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/hrx-evidence" build/stockland-hrx-16.3.0-candidate
+          mkdir -p "$RUNNER_TEMP/hrx-evidence" build/stockland-hrx-16.3.0-candidate-candidate
           cp "$RELEASE_PACKAGE_ZIP" "$RELEASE_PACKAGE_ZIP.sha256" "$RELEASE_PACKAGE_RECEIPT" "$RUNNER_TEMP/hrx-evidence/"
           cp "$RUNNER_TEMP/php83-lint.txt" "$RUNNER_TEMP/php84-lint.txt" "$RUNNER_TEMP/hrx-evidence/"
           cp "$RUNNER_TEMP/hrx-build-receipt.stdout.json" "$RUNNER_TEMP/hrx-evidence/"
