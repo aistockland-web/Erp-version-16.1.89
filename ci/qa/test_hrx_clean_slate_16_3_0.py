@@ -139,6 +139,13 @@ def main():
     require("$diagnostics['check_statuses']['supplemental_integrity_scan'] = $checks['supplemental_integrity_scan'] ? 'PASS' : 'FAIL';" in health,"an executed relational scan must report its actual result")
     require("HRX SETUP PENDING • CORE CHECKS SEPARATE" in app and "This is a module-scoped gate" in app,"health UI must identify HRX-only pending status without claiming an application-wide lock")
     require("NOT RUN" in app and "Employee-level compensation classification was NOT RUN" in app,"health UI must show employee-level payroll checks as NOT RUN")
+    bootstrap=read_member(zipfile.ZipFile(a.package),PLUGIN+"stockland-inventory.php")
+    require("new Stockland_REST_Products()" in bootstrap and "new Stockland_REST_Accounting()" in bootstrap and "new Stockland_REST_HR_Replacement()" in bootstrap,"core, finance and HRX routes must remain explicitly registered after core/accounting setup")
+    require("if ( ! empty( $application_missing ) )" in bootstrap and "update_option( 'stockland_application_schema_ready', 0, false );" in bootstrap,"incomplete core/accounting schema must retain the bounded setup fail-closed guard")
+    require("SCHEMA_DESIGN_APPROVED" not in bootstrap and "production_ready" not in bootstrap and "live_ready" not in bootstrap,"candidate/HRX health flags must not become a global plugin boot or activation kill switch")
+    require("deactivate_plugins( plugin_basename( __FILE__ ), true );" in bootstrap and "Stockland_Activator::begin_activation();" in bootstrap,"plugin deactivation may occur only in the caught activation-error containment path")
+    uninstall=read_member(zipfile.ZipFile(a.package),PLUGIN+"uninstall.php")
+    require("Intentionally do not delete wp_stock_* tables or options" in uninstall and "DROP TABLE" not in uninstall and "DELETE FROM" not in uninstall,"uninstall must preserve Stockland ERP business data")
     require("new Stockland_Payroll_Statutory" not in main and "class-stockland-payroll-statutory.php" not in main,"legacy hard-coded statutory calculator remains active")
     for pattern in (r"\bEMPLOYEE_PENSION_RATE\b",r"\bEMPLOYER_PENSION_RATE\b",r"\b0\.07\b",r"\b0\.11\b"):
         require(not re.search(pattern,calc),"HRX calculator contains a hard-coded historical pension constant")
