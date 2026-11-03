@@ -1,6 +1,6 @@
-# Stockland HRX full-cycle implementation plan — 16.3.0
+# Stockland HRX integration-candidate implementation plan — 16.3.0
 
-**Status:** implementation source is integrated; final data-model approval and production acceptance remain open.  
+**Status:** HRX integration-candidate source is integrated; exact-package CI passed on 4 November 2026. The 47-table data model remains unapproved and the HRX schema installer remains disabled. This is a module-specific design gate, not an application-wide product restriction. Live lifecycle acceptance and production certification have not been performed.  
 **Authority:** HR Design Reset v0.5 in Notion, issue #15 owner-approved scope, issue #23 design controls, SOP/resource library in `Stockland_HR_Library_Pack_v1`.  
 **Source installer:** canonical 16.1.95 ZIP, SHA-256 `494e777247508d009dfdb216c9607bb1bc96717197e94a0e8ad3459b7cc81625`.  
 **Build rule:** deterministic package builder; no remote production DB connection and no business-data mutation.
@@ -84,6 +84,16 @@ Official source discovery is not legal certification. No salary, classification,
 
 ## 7. Current status and limits
 
-The HRX schema/controller/calculator source is integrated with the verified 16.1.95 package lineage. The live installation was previously reported as 16.1.97; exact source parity with the installed live ZIP has not been obtained. Do not replace the live plugin until its exact source hash, data dependencies, migration path and rollback are verified.
+The HRX schema/controller/calculator source is integrated with the verified 16.1.95 package lineage. The latest user-supplied System Health evidence reports the installed plugin as 16.2.13. The exact installed ZIP/source checksum has not been independently obtained in this review, so source parity remains unknown. This 16.3.0 candidate is built from 16.1.95 and is not a cumulative update for the reported 16.2.13 installation. Do not substitute it for the installed core ERP.
 
 No live site, employee records, payroll history, stock, AP/AR, GL/PLEDGER or production database is modified by this plan or the package builder. Any unexecuted or skipped check must be reported as pending, never as a pass.
+
+
+## 8. Release-restriction scope and corrective status
+
+- The PR draft label and candidate receipt describe this HRX integration artifact only. They do not switch the whole ERP into a staging runtime or disable the installed application.
+- `SCHEMA_DESIGN_APPROVED=false` blocks only creation of the proposed 47 HRX tables. It remains necessary until the actual dependency map, SOP traceability, shared-service reuse matrix, logical/physical ERD, migration/rollback plan and written Owner approval are complete.
+- The aggregate System Health `live_ready` field is a full-suite evidence result. It is not consumed as a global plugin boot/activation kill switch in this package. Core/accounting and HRX design states are reported separately; a module-level pending state does not become a false whole-application PASS.
+- Employee compensation classification is now reported as `NOT_RUN` by static System Health and cannot PASS without the selected-period payroll preflight.
+- Import/POS “staging” refers to a business-data validation queue, not a deployment environment restriction.
+- The candidate build performs no production database connection or mutation. Static CI is not live WordPress/MariaDB acceptance.
