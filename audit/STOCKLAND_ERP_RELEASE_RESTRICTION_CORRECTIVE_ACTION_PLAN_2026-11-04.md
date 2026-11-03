@@ -126,3 +126,15 @@ The \`DROP TABLE IF EXISTS\` occurrences seen in the candidate's core activator 
 **Correction:** the builder now maps a skipped scan to \`check_statuses.supplemental_integrity_scan=NOT_RUN\`; when executed, it reports PASS or FAIL from the actual scanner result. The underlying aggregate \`live_ready\` remains false and \`SCAN_INCOMPLETE\` remains visible; this is not a readiness bypass.  
 **Regression:** the exact-package QA now asserts both the skipped and executed status paths. The 4 November exact-package workflow for the updated head must pass before this CAP is marked CI-verified.
 
+
+
+## Addendum — final verification boundary for the current PR head
+
+The package-level CI pass at [run 41733684055](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/41733684055) applies to code head \`64a5609e5e65ca32c9fadfd10166212422e9c8eb\`. A subsequent successful run [41734244180](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/41734244180) applies to head \`1fbf761632e5e568331b5ea1167c643c0d72db46\`. The latter included the candidate-identity, payroll NOT_RUN, setup-health, scoped UI, and historical-blueprint corrections then present.
+
+After that run, two additional changes were committed:
+- \`0ef39203ccfa45db1b26c523ce9f95f3ccae1e7c\` and \`ab74bc74be6b330b16fe7d6147bffa92777305d4\`: mark a skipped supplemental integrity scan \`NOT_RUN\` (while preserving aggregate full-suite false) and add exact-package assertions for skipped/executed scan states.
+- \`a6930357fe45a70a0164784fe237ae00cf52e55e\`: add tests proving that release/HRX readiness flags do not become a global plugin boot switch, that incomplete core/accounting schema still uses the intended setup gate, and that uninstall preserves Stockland business tables/options.
+
+No GitHub Actions run is currently associated with the latest source head \`a6930357fe45a70a0164784fe237ae00cf52e55e\`. Those final tri-state and bootstrap/uninstall assertions are therefore **implemented but not yet CI-verified**. Do not call them passed. The earlier successful runs remain valid only for their recorded exact commit SHAs. The PR is kept open and draft; no merge/deployment is authorized by this audit.
+
