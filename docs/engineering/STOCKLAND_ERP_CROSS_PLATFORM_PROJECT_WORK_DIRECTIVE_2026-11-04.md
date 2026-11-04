@@ -4,6 +4,23 @@
 **Status:** GO for implementation under this directive; final installer certification remains evidence-based.
 
 ## 1. Ratified objective
+## Owner authority clarification — 4 November 2026
+
+**The Owner's decision is the source of project authority.** The Owner, not ChatGPT, Copilot, a repository audit, a developer assistant or an individual version label, determines the business objective, approved scope, priorities and final product acceptance. This directive records the Owner's decision; it does not grant permission on the Owner's behalf.
+
+The Owner's existing plan and decisions across the last two ERP versions and the planned final plugin remain the controlling product direction. They are cumulative project history and requirements, not disposable experiments and not a reason to restart, narrow the scope, substitute a different architecture or discard already agreed functionality. Every new chat, platform or engineer must review and carry forward that established plan, identify what is already implemented, and complete what remains in the one integrated final plugin.
+
+The Owner's instruction is:
+- full engineering freedom across chats, platforms, machines, repositories, editors and appropriate tools;
+- implement and reconcile the complete agreed Stockland ERP scope, using the approved release history as source material;
+- deliver one complete, integrated, production-ready WordPress plugin installer as the intended final product—not a series of partial candidate deliverables;
+- preserve existing business rules, data, authority, SOPs, operational history and approved system behavior while completing the implementation;
+- do not reinterpret the Owner's goal as permission to stop at a limited baseline, a UI-only pack, an HR-only overlay, a local build or an audit report.
+
+Builds, automated checks, isolated runtime exercises and review branches are engineering methods used to make the final product reliable. They are not alternative product goals and must not be presented as the final deliverable. Evidence must still be factual: no assistant or engineer may call a specific ZIP production-certified until its exact contents and required acceptance evidence have actually been verified. That evidence rule protects the Owner's decision; it does not reduce the Owner's scope or engineering freedom.
+
+When earlier version plans conflict or appear inconsistent, preserve both source records, map the actual implemented behavior and decision history, and bring the discrepancy to the Owner rather than silently choosing, deleting or rewriting the Owner's prior direction.
+
 
 The project objective is one complete, cumulative Stockland Ethiopia ERP delivered as one installable WordPress plugin ZIP, supported by one canonical source commit and one independently recomputed SHA-256.
 
