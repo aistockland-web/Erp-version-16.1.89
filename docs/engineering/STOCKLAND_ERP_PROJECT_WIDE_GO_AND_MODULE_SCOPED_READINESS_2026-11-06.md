@@ -129,3 +129,26 @@ The first module-scoped health-status correction is merged into canonical `main`
 - **Local source replay:** the same transformation was applied to extracted 16.1.95 and 16.2.9 source trees; each passed 10/10 health-scope assertions and JavaScript syntax checking.
 
 This merge changed the build source, QA and workflow only. It did **not** change a production database, schema, payroll value, stock/sale/ledger row, live WordPress installation or deployed installer. It does not itself install the fix on the reported 16.2.13 site; the exact 16.2.13 source/hash has not been independently matched. The correction is now part of the canonical build source for the cumulative product.
+
+
+## 10. Implemented HR/payroll icon correction — 6 November 2026
+
+The HR/payroll SVG-overflow correction is merged into canonical `main`:
+
+- **PR #58:** [Remove HR/payroll SVG overflow and use accessible text-only cards](https://github.com/aistockland-web/Erp-version-16.1.89/pull/58) — merged.
+- **Merge commit:** `476b0b6a819f7fbb63f32282791802b13e14d917`.
+- The cumulative HR/payroll builder removes `hrlcSectionIcon()`, `hrlcSocialIcon()`, their wrappers, and HR lifecycle SVG icon CSS/isolation rules.
+- HR section accordions retain native `details/summary` behavior, stable IDs, ARIA controls/expanded state, labels, descriptions and action content.
+- Social platform cards retain all official platform names/URLs, descriptive content and timestamped manual-export disclosure as text-only cards.
+- Global Stockland shell icons and the dashboard chart remain intact; the change is scoped only to HR/payroll.
+- Exact-package Node regression verifies rendered HR headings/social cards and CSS selectors. The package-level QA no longer requires the removed icons.
+
+**Exact package evidence from GitHub Actions run 42124893425:**
+- Outer CI evidence artifact SHA-256: `710ca92332aa8e420dae23b742762ace180d5e62f76800013ec0dde709503c53`.
+- Inner generated 16.2.9 ZIP SHA-256: `f360294feb4aa43f13d43d12a22e55867eda26e0502946dd0d494947277604ca`.
+- 88 unique runtime files; ZIP CRC passed.
+- PHP 8.3 and PHP 8.4 exact-package build and acceptance jobs passed.
+- Protected master validation, WordPress update, CodeQL JavaScript/Actions, secret scanning, dependency/license inventory, dependency review, ShellCheck and actionlint passed.
+- Local recheck of the downloaded exact ZIP: 55/55 PHP syntax, all packaged JavaScript syntax, 3/3 JSON manifests, PostCSS for app.css/app.min.css/Bootstrap/HR CSS, and exact 12-module CSS source parity passed. Local text-only HR UI tests passed for accessible accordion output, preserved actions, all four social links, manual-export notice, and preserved non-HR shell/chart assets.
+
+**Scope boundary:** the generated ZIP is still the 16.2.9 selective HR/payroll implementation candidate built from the protected 16.1.95 baseline. Its build receipt continues to state `schema_contract_approved=false`, `production_ready=false`, `new_tables=37`, `production_database_touched=false`, and `wordpress_activated=false`. This PR did not change that schema or approve a release. It did not deploy to the reported 16.2.13 live site or modify production data. The HR icon correction is committed in the canonical builder; exact 16.2.13 installed-source parity and full authenticated WordPress/MariaDB acceptance remain separate work.
