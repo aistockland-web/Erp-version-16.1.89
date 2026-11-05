@@ -566,18 +566,19 @@ def replace_function_region(source, start_marker, end_marker, replacement, label
     end = source.find(end_marker, start + len(start_marker))
     if start < 0 or end < 0 or source.count(start_marker) != 1:
         raise ValueError("Could not locate exact " + label + " source boundary.")
-    return source[:start] + replacement + "\\n" + source[end:]
+    return source[:start] + replacement + "\n" + source[end:]
 
 
 def strip_hr_svg_css(source):
-    """Remove HR-page SVG icon selectors without disturbing other stylesheet rules."""
-    forbidden = (".sl-hrlc-section-icon", ".sl-hrlc-icon-art",
-                 ".sl-hrlc-social-icon", ".sl-hrlc-social-icon-art")
-
-    # The earlier icon-specific isolation comments are obsolete once the SVG markup
-    # and selectors are removed. Preserve every unrelated CSS comment and rule.
+    """Remove HR SVG icon rules while preserving all other CSS and media queries."""
+    forbidden = (
+        ".sl-hrlc-section-icon",
+        ".sl-hrlc-icon-art",
+        ".sl-hrlc-social-icon",
+        ".sl-hrlc-social-icon-art",
+    )
     source = re.sub(
-        r"/\\*\\s*HR icon isolation contract:[\\s\\S]*?\\*/",
+        r"/\*[\s\S]*?HR icon isolation contract:[\s\S]*?\*/",
         "",
         source,
         flags=re.IGNORECASE,
@@ -586,24 +587,23 @@ def strip_hr_svg_css(source):
     def matching_brace(text, open_index):
         depth = 1
         quote = None
-        escaped = False
         i = open_index + 1
         while i < len(text):
             ch = text[i]
             if quote is not None:
-                if escaped:
-                    escaped = False
-                elif ch == "\\\\\\":
-                    escaped = True
-                elif ch == quote:
+                if ch == "\\":
+                    i += 2
+                    continue
+                if ch == quote:
                     quote = None
             elif ch in ("'", '"'):
                 quote = ch
             elif ch == "/" and i + 1 < len(text) and text[i + 1] == "*":
-                end_comment = text.find("*/", i + 2)
-                if end_comment < 0:
-                    raise ValueError("Unterminated CSS comment in HR stylesheet.")
-                i = end_comment + 1
+                close_comment = text.find("*/", i + 2)
+                if close_comment < 0:
+                    raise ValueError("Unterminated CSS comment.")
+                i = close_comment + 2
+                continue
             elif ch == "{":
                 depth += 1
             elif ch == "}":
@@ -614,20 +614,18 @@ def strip_hr_svg_css(source):
         raise ValueError("Unbalanced CSS block in HR stylesheet.")
 
     def clean_block(text):
-        result = []
+        output = []
         i = 0
         segment_start = 0
         quote = None
-        escaped = False
         parens = 0
         while i < len(text):
             ch = text[i]
             if quote is not None:
-                if escaped:
-                    escaped = False
-                elif ch == "\\\\\\":
-                    escaped = True
-                elif ch == quote:
+                if ch == "\\":
+                    i += 2
+                    continue
+                if ch == quote:
                     quote = None
                 i += 1
                 continue
@@ -636,10 +634,10 @@ def strip_hr_svg_css(source):
                 i += 1
                 continue
             if ch == "/" and i + 1 < len(text) and text[i + 1] == "*":
-                end_comment = text.find("*/", i + 2)
-                if end_comment < 0:
-                    raise ValueError("Unterminated CSS comment in HR stylesheet.")
-                i = end_comment + 2
+                close_comment = text.find("*/", i + 2)
+                if close_comment < 0:
+                    raise ValueError("Unterminated CSS comment.")
+                i = close_comment + 2
                 continue
             if ch == "(":
                 parens += 1
@@ -650,7 +648,7 @@ def strip_hr_svg_css(source):
                 i += 1
                 continue
             if parens == 0 and ch == ";":
-                result.append(text[segment_start:i + 1])
+                output.append(text[segment_start:i + 1])
                 i += 1
                 segment_start = i
                 continue
@@ -660,32 +658,30 @@ def strip_hr_svg_css(source):
                 body = text[i + 1:close]
                 rule_name = prelude.strip()
                 if rule_name.startswith("@"):
-                    # Media/supports/container/layer blocks may contain icon selectors;
-                    # recurse into their contents while preserving the at-rule itself.
-                    if re.match(r"@(?:media|supports|container|layer|document)\\b", rule_name, re.I):
+                    if re.match(r"@(?:media|supports|container|layer|document)\b", rule_name, re.I):
                         cleaned_body = clean_block(body)
                         if cleaned_body.strip():
-                            result.append(prelude + "{" + cleaned_body + "}")
+                            output.append(prelude + "{" + cleaned_body + "}")
                     else:
-                        result.append(text[segment_start:close + 1])
-                elif not any(selector in rule_name for selector in forbidden):
-                    result.append(text[segment_start:close + 1])
+                        output.append(text[segment_start:close + 1])
+                elif not any(token in rule_name for token in forbidden):
+                    output.append(text[segment_start:close + 1])
                 i = close + 1
                 segment_start = i
                 continue
             i += 1
-        result.append(text[segment_start:])
-        return "".join(result)
+        output.append(text[segment_start:])
+        return "".join(output)
 
     cleaned = clean_block(source)
     stale = [token for token in forbidden if token in cleaned]
-    if stale or re.search(r"(?i)\\bsvg\\b", cleaned):
-        raise ValueError("HR lifecycle CSS still contains SVG icon selectors: " + ", ".join(stale))
+    if stale or re.search(r"(?i)\bsvg\b", cleaned):
+        raise ValueError("HR lifecycle CSS still contains SVG references: " + ", ".join(stale))
     return cleaned
 
 
 def patch_hr_svg_renderers(app):
-    """Use text-only HR section headings and social cards; keep ERP shell icons untouched."""
+    """Use text-only HR section headings and social cards; keep ERP shell icons intact."""
     app = replace_function_region(
         app,
         "function hrlcSectionIcon(title){",
@@ -716,11 +712,16 @@ def patch_hr_svg_renderers(app):
         social,
         "HR text-only social link renderer",
     )
-    for forbidden in ("function hrlcSectionIcon(", "function hrlcSocialIcon(",
-                      "sl-hrlc-section-icon", "sl-hrlc-icon-art",
-                      "sl-hrlc-social-icon", "sl-hrlc-social-icon-art"):
+    for forbidden in (
+        "function hrlcSectionIcon(",
+        "function hrlcSocialIcon(",
+        "sl-hrlc-section-icon",
+        "sl-hrlc-icon-art",
+        "sl-hrlc-social-icon",
+        "sl-hrlc-social-icon-art",
+    ):
         if forbidden in app:
-            raise ValueError("HR SVG renderer/class remains in generated app.js: " + forbidden)
+            raise ValueError("HR SVG renderer/class remains in app.js: " + forbidden)
     return app
 
 
