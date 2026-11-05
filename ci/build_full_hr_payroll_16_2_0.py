@@ -921,8 +921,8 @@ def patch_pos_cart_ui(files):
     put(files, "assets/app.js", app)
 
 def patch_hr_icon_manifest(files):
-    path = ROOT + "RELEASE_MANIFEST.json"
-    manifest = json.loads(files[path].decode("utf-8"))
+    path = "RELEASE_MANIFEST.json"
+    manifest = json.loads(files[ROOT + path].decode("utf-8"))
     changes = manifest.get("release_changes", [])
     changes = [
         item for item in changes
