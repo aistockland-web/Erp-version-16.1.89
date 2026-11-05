@@ -267,3 +267,6 @@ def main():
 
 if __name__=="__main__":
     main()
+
+# In-kind policy: this candidate intentionally holds positive in-kind amounts until approved
+# line-level SKU/quantity/unit-value records can be reconciled and posted through controlled AP/GL.
