@@ -936,7 +936,7 @@ def patch_hr_icon_manifest(files):
     )
     manifest["release_changes"] = changes
     manifest["hr_icon_css_contract"] = "NO_HR_PAYROLL_INLINE_SVG; TEXT_ONLY_SECTION_SUMMARIES_AND_SOCIAL_LINKS"
-    put(files, path, (json.dumps(manifest, ensure_ascii=False, indent=2) + "\n").encode("utf-8"))
+    put(files, path, json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
 
 def patch_misc_versions(files):
     for path in ("assets/pwa.js","assets/manifest.json","includes/class-stockland-frontend.php","assets/css/modules.json"):
