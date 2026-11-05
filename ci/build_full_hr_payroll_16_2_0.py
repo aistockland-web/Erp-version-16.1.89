@@ -578,10 +578,9 @@ def strip_hr_svg_css(source):
         ".sl-hrlc-social-icon-art",
     )
     source = re.sub(
-        r"/\*[\s\S]*?HR icon isolation contract:[\s\S]*?\*/",
-        "",
+        r"/\\*[\\s\\S]*?\\*/",
+        lambda match: "" if "HR icon isolation contract" in match.group(0) else match.group(0),
         source,
-        flags=re.IGNORECASE,
     )
 
     def matching_brace(text, open_index):
@@ -921,6 +920,24 @@ def patch_pos_cart_ui(files):
     app = once(app, sales_form, "const f=document.getElementById('posCartForm')||document.getElementById('posForm');\n    const date=", "Recent Posted Sales follows cart filters")
     put(files, "assets/app.js", app)
 
+def patch_hr_icon_manifest(files):
+    path = ROOT + "RELEASE_MANIFEST.json"
+    manifest = json.loads(files[path].decode("utf-8"))
+    changes = manifest.get("release_changes", [])
+    changes = [
+        item for item in changes
+        if "HR/payroll module SVG icons" not in item
+        and "Social platform cards use scoped inline SVGs" not in item
+    ]
+    changes.append(
+        "HR/payroll section summaries and social-platform cards use text-only presentation; "
+        "HR-specific inline SVG renderers and CSS are removed. Global ERP shell icons and "
+        "dashboard charts remain outside the HR page and are preserved."
+    )
+    manifest["release_changes"] = changes
+    manifest["hr_icon_css_contract"] = "NO_HR_PAYROLL_INLINE_SVG; TEXT_ONLY_SECTION_SUMMARIES_AND_SOCIAL_LINKS"
+    put(files, path, (json.dumps(manifest, ensure_ascii=False, indent=2) + "\n").encode("utf-8"))
+
 def patch_misc_versions(files):
     for path in ("assets/pwa.js","assets/manifest.json","includes/class-stockland-frontend.php","assets/css/modules.json"):
         if ROOT + path not in files: continue
@@ -1009,6 +1026,7 @@ def build(input_zip: Path, output_zip: Path):
     patch_pos_qty_safety(files)
     patch_pos_cart_ui(files)
     patch_misc_versions(files)
+    patch_hr_icon_manifest(files)
     # Add the ordered CSS modules created by rebuild_css plus five new HR runtime PHP files.
     # CI source/build scripts are never shipped inside the WordPress installer.
     out_names = list(names)
