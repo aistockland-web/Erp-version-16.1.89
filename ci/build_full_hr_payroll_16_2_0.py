@@ -544,7 +544,7 @@ def patch_module_scoped_health_status(app):
         marker = "async function runHealth(mode){"
         if app.count(marker) != 1:
             raise ValueError("Could not locate unique runHealth renderer for module-scoped health status.")
-        app = app.replace(marker, helper + "\\n" + marker, 1)
+        app = app.replace(marker, helper + "\n" + marker, 1)
     old = """    const payrollOnlyIssue=!ready&&!setupRequired&&!quickOnly&&failed.length===1&&failed[0]==='payroll_compensation_classification';
     const badge=ready?'is-ready':(payrollOnlyIssue?'is-operational-warning':'is-not-ready');"""
     new = """    const healthScope=classifyERPHealthScope(failed,ready,setupRequired,quickOnly);
