@@ -137,6 +137,10 @@ def main():
         require("source_kind'=>'MANUAL_EXPORT'" in cycle and "report_as_of" in cycle and "MANUAL_EXPORT_NOT_REALTIME" in cycle, "social reporting is explicitly timestamped manual/export, not false real-time integration")
         require("posting_allowed" in calc and "payment_allowed" in calc and "allow_synthetic_test_rules" in calc, "payroll calculation core exposes separate legal-posting/payment gates")
         require("hrlcPayrollCyclePanel" in app and "bindHRPayrollCycleForms" in app, "new HR/payroll cycle UI is wired into the ERP app")
+        require("function classifyERPHealthScope(" in app, "health status separates module-scoped review gates")
+        require("schema_contract_approved" in app and "release_approval" in app, "schema and release approval failures are mapped to limited actions")
+        require("OPERATIONAL • TARGETED REVIEW REQUIRED" in app, "targeted review is never labelled as ERP-wide NOT LIVE READY")
+        require("do not disable existing authorized POS, inventory, warehouse, finance or other ERP workflows" in app, "targeted review warning preserves unrelated ERP operations")
         require("hr/payroll-runs" in app and "hr/employee-reimbursements" in app and "hr/individual-payees" in app, "UI uses frozen payroll, reimbursements and individual payee APIs")
         require("MANUAL EXPORT" in app and "recovery tokens" in app, "social reporting and credential safety are described in the UI")
         require("sl-hrlc-section-summary" in app and "sl-hrlc-section-body" in app and "function hrlcSectionIcon" in app,
