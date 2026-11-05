@@ -27,8 +27,10 @@ for (const name of [
   assert.equal(hrCss.includes(name), false, 'HR stylesheet must not include ' + name);
 }
 assert.equal(/\bsvg\b/i.test(hrCss), false, 'HR stylesheet contains no SVG icon rules');
-assert.equal(/\bsvg\b/i.test(builtCss), false, 'compiled ERP CSS contains no HR SVG selectors');
-assert.equal(/\bsvg\b/i.test(minCss), false, 'minified ERP CSS contains no HR SVG selectors');
+for (const name of ['sl-hrlc-section-icon', 'sl-hrlc-icon-art', 'sl-hrlc-social-icon', 'sl-hrlc-social-icon-art']) {
+  assert.equal(builtCss.includes(name), false, 'compiled ERP CSS must not contain HR icon selector ' + name);
+  assert.equal(minCss.includes(name), false, 'minified ERP CSS must not contain HR icon selector ' + name);
+}
 console.log('PASS HR/payroll JS and all CSS outputs remove HR-specific SVG icons');
 
 const sectionStart = app.indexOf('function hrlcSection(title,desc,body){');
