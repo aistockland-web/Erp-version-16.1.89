@@ -242,6 +242,13 @@ def main():
     require("if(!doc||!/^\\d+$/.test(doc))" in app,"legal opinion document ID input must accept numeric document IDs")
     require("'payee-deliverables'=>array('SUBMIT'=>array('PENDING','SUBMITTED'),'ACCEPT'=>array('SUBMITTED','ACCEPTED')" in controller,"payee deliverable UI actions must match the server transition map")
     require("verified_valuation_amount" in controller and "Stockland_Money::minor($valuation_amount)!==Stockland_Money::minor($req['in_kind_value'])" in controller,"in-kind valuation must exactly match the payee request amount")
+    # Positive in-kind must remain blocked until SKU/quantity/unit-value lines can be
+    # durably reconciled against the request and independently approved valuation evidence.
+    for method in ("verify_payee_in_kind", "calculate_payee_request", "approve_payee_request", "pay_payee_request"):
+        start = controller.find("public function " + method)
+        require(start >= 0, "in-kind control method missing: " + method)
+        require("hrx_in_kind_line_valuation_not_supported" in controller[start:start + 2500],
+                "positive in-kind value must fail closed in " + method)
     require("array('id'=>$id,'status'=>$req['status'],'in_kind_posting_verified'=>0,'version_no'=>(int)$req['version_no'])" in controller and "hrx_in_kind_verify_conflict" in controller,"in-kind verification must use an atomic one-time versioned update")
     require("if(is_wp_error($evt)||is_wp_error($audit)||false===$audit){$this->rollback();" in controller,"in-kind verification must roll back when audit evidence cannot persist")
     require("hrx_payee_currency_unsupported" in controller,"non-ETB payee calculation, verification and AP posting must fail closed")
