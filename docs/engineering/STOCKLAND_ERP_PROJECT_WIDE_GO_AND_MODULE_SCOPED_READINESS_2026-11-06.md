@@ -111,3 +111,21 @@ Update release summaries, audit indexes, dashboards and health-status descriptio
 5. Carry every remaining audit finding through a committed fix and exact-head retest. Deliver one cumulative installer and one release receipt only after all applicable evidence is complete.
 
 **This directive is an engineering GO for the whole Stockland ERP. It does not certify an untested installer or authorize a destructive production migration. It expressly prohibits using an isolated module failure as a reason to label or disable the entire ERP.**
+
+
+## 9. Implemented source correction — 6 November 2026
+
+The first module-scoped health-status correction is merged into canonical `main`.
+
+- **Merge commit:** `30752e6ece6345fcbbf2d15ef3e348cf87beeb85`.
+- **Review:** [PR #56 — Fix health status module scope](https://github.com/aistockland-web/Erp-version-16.1.89/pull/56), merged.
+- **Builder:** `ci/build_full_hr_payroll_16_2_0.py` now adds `classifyERPHealthScope()` to the generated application UI.
+- **Exact checks recognized as scoped review actions:** `payroll_compensation_classification`, `schema_contract_approved`, `release_approval`.
+- For any combination made up solely of those checks, the generated UI says **OPERATIONAL • TARGETED REVIEW REQUIRED**, names the affected actions, and states that existing authorized POS, inventory, warehouse, finance and other ERP workflows remain available.
+- Payroll-only keeps its existing payroll-specific warning.
+- Unknown/deep-integrity/ledger failures, mixed review-plus-integrity failures, setup mode and quick-only health are deliberately not disguised as targeted approval reviews.
+- **Tests:** new Node test `ci/qa/test_health_scope.js` exercises 10 state assertions. Exact-package QA also asserts the targeted label and unaffected-module wording. The exact-package workflow runs the Node test against the generated plugin.
+- **Exact-head CI:** 16.2.9 builder/package workflow [#42120740245](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/42120740245) — SUCCESS on PHP 8.3 and PHP 8.4; protected 16.1.95 baseline workflow [#42120740236](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/42120740236) — SUCCESS; enterprise security workflow [#42120740057](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/42120740057) — SUCCESS.
+- **Local source replay:** the same transformation was applied to extracted 16.1.95 and 16.2.9 source trees; each passed 10/10 health-scope assertions and JavaScript syntax checking.
+
+This merge changed the build source, QA and workflow only. It did **not** change a production database, schema, payroll value, stock/sale/ledger row, live WordPress installation or deployed installer. It does not itself install the fix on the reported 16.2.13 site; the exact 16.2.13 source/hash has not been independently matched. The correction is now part of the canonical build source for the cumulative product.
