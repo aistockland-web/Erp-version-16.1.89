@@ -72,6 +72,7 @@ def main():
         calc = files["includes/class-stockland-hr-payroll-calculator.php"].decode()
         vault = files["includes/class-stockland-hr-private-vault.php"].decode()
         css = files["assets/app.css"].decode()
+        hr_css = files["assets/css/12-hr-payroll-lifecycle.css"].decode()
         app_min_css = files["assets/app.min.css"].decode()
         require(r"\n#hrPage .sl-hrlc-social-icon" not in css and r"\n#hrPage .sl-hrlc-social-copy" not in css and r"\n#hrPage .sl-hrlc-social-icon" not in app_min_css,
                 "HR/social CSS contains real selector boundaries, not literal backslash-n escape damage")
@@ -164,7 +165,10 @@ def main():
         require("Product reels, outfit stories and engagement insights" in app,
                 "social platform cards retain practical descriptions")
         for token in ["sl-hrlc-section-icon", "sl-hrlc-icon-art", "sl-hrlc-social-icon", "sl-hrlc-social-icon-art", "svg"]:
-            require(token not in css.lower(), "HR lifecycle CSS contains no SVG/icon renderer token: " + token)
+            require(token not in hr_css.lower(), "HR lifecycle source module contains no SVG/icon renderer token: " + token)
+        for token in ["sl-hrlc-section-icon", "sl-hrlc-icon-art", "sl-hrlc-social-icon", "sl-hrlc-social-icon-art"]:
+            require(token not in css.lower() and token not in app_min_css.lower(), "compiled ERP CSS contains no HR-specific icon selector: " + token)
+        require("<svg" in app or "sl-dashboard-linechart" in app, "global ERP shell/chart SVG rendering remains intact outside HR")
         require("sl-hrlc-section-summary" in css and "sl-hrlc-section-toggle" in css and "sl-hrlc-social-grid" in css and "sl-hrlc-social-card" in css,
                 "text-only accordion headings and social cards remain styled")
         require(manifest.get("hr_icon_css_contract") == "NO_HR_PAYROLL_INLINE_SVG; TEXT_ONLY_SECTION_SUMMARIES_AND_SOCIAL_LINKS",
