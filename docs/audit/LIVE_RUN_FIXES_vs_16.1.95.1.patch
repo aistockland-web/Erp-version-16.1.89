@@ -1,0 +1,441 @@
+diff -ru orig/stockland-erp-app/includes/class-stockland-audit.php /srv/wp/wp-content/plugins/stockland-erp-app/includes/class-stockland-audit.php
+--- orig/stockland-erp-app/includes/class-stockland-audit.php	2026-10-31 12:00:00.000000000 +0300
++++ /srv/wp/wp-content/plugins/stockland-erp-app/includes/class-stockland-audit.php	2026-11-02 13:32:37.701855273 +0300
+@@ -60,13 +60,13 @@
+ 		try {
+ 			$previous         = (string) Stockland_DB::read_var( $wpdb->prepare( 'SELECT event_hash FROM %i ORDER BY id DESC LIMIT 1', $table ) );
+ 			$stamp            = current_time( 'mysql' );
+-			$action_stored    = self::stored_action( $action );
+-			$sku_stored       = self::stored_text( $sku );
++			$action_stored    = self::fit( self::stored_action( $action ), 50 );
++			$sku_stored       = self::fit( self::stored_text( $sku ), 64 );
+ 			$quantity_stored  = null !== $quantity ? number_format( (float) $quantity, 2, '.', '' ) : null;
+-			$old_stored       = self::stored_text( $old_value );
+-			$new_stored       = self::stored_text( $new_value );
+-			$reason_stored    = self::stored_text( $reason );
+-			$reference_stored = self::stored_text( $reference );
++			$old_stored       = self::fit( self::stored_text( $old_value ), 255 );
++			$new_stored       = self::fit( self::stored_text( $new_value ), 255 );
++			$reason_stored    = self::fit( self::stored_text( $reason ), 255 );
++			$reference_stored = self::fit( self::stored_text( $reference ), 50 );
+ 			$payload          = self::payload(
+ 				$user_id,
+ 				$branch_location_id,
+@@ -109,6 +109,25 @@
+ 	}
+ 
+ 	/**
++	 * Fits a value to its audit column width without ever failing the audit write.
++	 *
++	 * Oversized text is shortened to the column width and ends with a SHA-256 digest marker of the
++	 * complete original text, so the tamper-evident hash chain still commits to the full content.
++	 *
++	 * @param string|null $value Normalized audit text.
++	 * @param int         $max   Maximum stored character width of the target column.
++	 * @return string|null Value that fits the column.
++	 */
++	private static function fit( $value, $max ) {
++		if ( null === $value || mb_strlen( $value, 'UTF-8' ) <= $max ) {
++			return $value;
++		}
++		$marker = '...[sha256:' . substr( hash( 'sha256', $value ), 0, 16 ) . ']';
++		$keep   = max( 0, $max - mb_strlen( $marker, 'UTF-8' ) );
++		return mb_substr( $value, 0, $keep, 'UTF-8' ) . $marker;
++	}
++
++	/**
+ 	 * Converts a payload value to its stable database text representation.
+ 	 *
+ 	 * @param mixed $value Value to normalize.
+diff -ru orig/stockland-erp-app/includes/class-stockland-integrity.php /srv/wp/wp-content/plugins/stockland-erp-app/includes/class-stockland-integrity.php
+--- orig/stockland-erp-app/includes/class-stockland-integrity.php	2026-10-31 12:00:00.000000000 +0300
++++ /srv/wp/wp-content/plugins/stockland-erp-app/includes/class-stockland-integrity.php	2026-11-04 01:58:05.845668234 +0300
+@@ -44,7 +44,7 @@
+ 			'sales_without_product'                        => "SELECT COUNT(*) FROM {$t('sales')} s LEFT JOIN {$t('products')} p ON p.sku=s.sku WHERE p.variant_id IS NULL",
+ 			'sales_without_location'                       => "SELECT COUNT(*) FROM {$t('sales')} s LEFT JOIN {$t('locations')} l ON l.id=s.branch_location_id WHERE l.id IS NULL",
+ 			'requisition_items_without_header'             => "SELECT COUNT(*) FROM {$t('requisition_items')} ri LEFT JOIN {$t('requisitions')} r ON r.requisition_id=ri.requisition_id WHERE r.requisition_id IS NULL",
+-			'count_lines_without_batch'                    => "SELECT COUNT(*) FROM {$t('count_lines')} cl LEFT JOIN {$t('count_batches')} cb ON cb.id=cl.batch_id WHERE cb.id IS NULL",
++			'count_lines_without_batch'                    => "SELECT COUNT(*) FROM {$t('count_lines')} cl LEFT JOIN {$t('count_batches')} cb ON cb.batch_id=cl.batch_id WHERE cb.id IS NULL",
+ 			'purchase_orders_without_supplier'             => "SELECT COUNT(*) FROM {$t('purchase_orders')} po LEFT JOIN {$t('suppliers')} s ON s.id=po.supplier_id WHERE s.id IS NULL",
+ 			'purchase_orders_without_location'             => "SELECT COUNT(*) FROM {$t('purchase_orders')} po LEFT JOIN {$t('locations')} l ON l.id=po.location_id WHERE l.id IS NULL",
+ 			'active_purchase_orders_not_central_warehouse' => "SELECT COUNT(*) FROM {$t('purchase_orders')} po LEFT JOIN {$t('locations')} l ON l.id=po.location_id WHERE po.status NOT IN ('DRAFT','CANCELLED','REJECTED') AND (l.id IS NULL OR LOWER(l.location_name)<>'central warehouse')",
+diff -ru orig/stockland-erp-app/includes/class-stockland-payroll-statutory.php /srv/wp/wp-content/plugins/stockland-erp-app/includes/class-stockland-payroll-statutory.php
+--- orig/stockland-erp-app/includes/class-stockland-payroll-statutory.php	2026-10-31 12:00:00.000000000 +0300
++++ /srv/wp/wp-content/plugins/stockland-erp-app/includes/class-stockland-payroll-statutory.php	2026-11-02 13:33:04.286641632 +0300
+@@ -341,6 +341,20 @@
+ 	}
+ 
+ 	/**
++	 * Returns only the calculation fields that are persisted columns of the payroll line table.
++	 *
++	 * The calculator also reports descriptive, non-persisted values such as the tax-base basis.
++	 * The frozen payroll_lines table has no column for them, so they must never reach an INSERT/UPDATE.
++	 *
++	 * @param array $calc Result of calculate().
++	 * @return array Calculation fields safe to write to payroll_lines.
++	 */
++	public static function for_storage( array $calc ) {
++		unset( $calc['tax_base_basis'] );
++		return $calc;
++	}
++
++	/**
+ 	 * Calculates PAYE using the published monthly brackets and credits.
+ 	 *
+ 	 * The bracket credits keep adjacent rates continuous. This method must only
+diff -ru orig/stockland-erp-app/includes/class-stockland-product-service.php /srv/wp/wp-content/plugins/stockland-erp-app/includes/class-stockland-product-service.php
+--- orig/stockland-erp-app/includes/class-stockland-product-service.php	2026-10-31 12:00:00.000000000 +0300
++++ /srv/wp/wp-content/plugins/stockland-erp-app/includes/class-stockland-product-service.php	2026-11-02 13:35:12.951046197 +0300
+@@ -35,7 +35,7 @@
+ 		if ( $variant_id <= 0 || '' === $new_sku || '' === $reason ) {
+ 			throw new Exception( 'variant_id, new SKU and reason are required.' );
+ 		}
+-		if ( ! preg_match( '/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/', $new_sku ) ) {
++		if ( ! preg_match( '/^STK-[A-Za-z0-9_-]{1,60}$/', $new_sku ) ) {
+ 			throw new Exception( 'Stockland SKU must begin with STK- and use letters, numbers, hyphens or underscores (max 64 characters).' );
+ 		}
+ 		$products = Stockland_DB::table( 'products' );
+diff -ru orig/stockland-erp-app/includes/class-stockland-runtime-diagnostics.php /srv/wp/wp-content/plugins/stockland-erp-app/includes/class-stockland-runtime-diagnostics.php
+--- orig/stockland-erp-app/includes/class-stockland-runtime-diagnostics.php	2026-10-31 12:00:00.000000000 +0300
++++ /srv/wp/wp-content/plugins/stockland-erp-app/includes/class-stockland-runtime-diagnostics.php	2026-11-02 13:28:48.495301132 +0300
+@@ -156,7 +156,7 @@
+ 			'post_max_size'          => (string) ini_get( 'post_max_size' ),
+ 			'zip_archive'            => class_exists( 'ZipArchive' ),
+ 			'xml_reader'             => class_exists( 'XMLReader' ),
+-			'xml_reader_from_stream' => class_exists( 'XMLReader' ) && method_exists( 'XMLReader', 'fromStream' ),
++			'xml_reader_from_stream' => class_exists( 'XMLReader' ) && class_exists( 'ZipArchive' ), // Streaming capability: native fromStream() on PHP 8.4+, disk-backed XMLReader::open() fallback on PHP 8.3.
+ 			'simplexml'              => class_exists( 'SimpleXMLElement' ),
+ 			'db_version'             => ( $wpdb && method_exists( $wpdb, 'db_version' ) ) ? (string) $wpdb->db_version() : '',
+ 			'db_select_ok'           => false,
+diff -ru orig/stockland-erp-app/includes/rest/class-rest-app.php /srv/wp/wp-content/plugins/stockland-erp-app/includes/rest/class-rest-app.php
+--- orig/stockland-erp-app/includes/rest/class-rest-app.php	2026-10-31 12:00:00.000000000 +0300
++++ /srv/wp/wp-content/plugins/stockland-erp-app/includes/rest/class-rest-app.php	2026-11-04 01:55:23.867884538 +0300
+@@ -1100,7 +1100,7 @@
+ 			'post_max_size'          => (string) ini_get( 'post_max_size' ),
+ 			'zip_archive'            => class_exists( 'ZipArchive' ),
+ 			'xml_reader'             => class_exists( 'XMLReader' ),
+-			'xml_reader_from_stream' => class_exists( 'XMLReader' ) && method_exists( 'XMLReader', 'fromStream' ),
++			'xml_reader_from_stream' => class_exists( 'XMLReader' ) && class_exists( 'ZipArchive' ), // Streaming capability: native fromStream() on PHP 8.4+, disk-backed XMLReader::open() fallback on PHP 8.3.
+ 			'simplexml'              => class_exists( 'SimpleXMLElement' ),
+ 			'db_select_ok'           => $checks['db'],
+ 		);
+@@ -2447,7 +2447,7 @@
+ 		global $wpdb;
+ 		$target = (int) $r['id'];
+ 		$p      = $r->get_json_params();
+-		$row    = Stockland_DB::read_row( $wpdb->prepare( 'SELECT * FROM %i WHERE wp_user_id=%d', 'users', $target ), ARRAY_A );
++		$row    = Stockland_DB::read_row( $wpdb->prepare( 'SELECT * FROM %i WHERE wp_user_id=%d', Stockland_DB::table( 'users' ), $target ), ARRAY_A );
+ 		if ( ! $row ) {
+ 			return new WP_Error( 'not_found', 'Stockland user not found.', array( 'status' => 404 ) );
+ 		}
+@@ -2465,7 +2465,7 @@
+ 		}
+ 		$active = isset( $p['is_active'] ) ? (bool) $p['is_active'] : (bool) $row['is_active'];
+ 		if ( 'management' === $row['role'] && ! $active ) {
+-			$remaining = (int) Stockland_DB::read_var( $wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE role=\'management\' AND is_active=1 AND wp_user_id<>%d', 'users', $target ) );
++			$remaining = (int) Stockland_DB::read_var( $wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE role=\'management\' AND is_active=1 AND wp_user_id<>%d', Stockland_DB::table( 'users' ), $target ) );
+ 			if ( $remaining < 1 ) {
+ 				return new WP_Error( 'last_management', 'At least one active Management user must remain.', array( 'status' => 409 ) );
+ 			}
+@@ -2563,7 +2563,7 @@
+ 		try {
+ 			foreach ( $changes as $k => $v ) {
+ 				$old = Stockland_DB::get_setting( $k, null );
+-				if ( false === Stockland_DB::execute_query( $wpdb->prepare( 'INSERT INTO %i (setting_key,setting_value,updated_by) VALUES(%s,%s,%d) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by)', 'settings', $k, $v, get_current_user_id() ) ) ) {
++				if ( false === Stockland_DB::execute_query( $wpdb->prepare( 'INSERT INTO %i (setting_key,setting_value,updated_by) VALUES(%s,%s,%d) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by)', Stockland_DB::table( 'settings' ), $k, $v, get_current_user_id() ) ) ) {
+ 					throw new Exception( 'Could not save setting ' . $k . '.' );
+ 				}
+ 				if ( (string) $old !== (string) $v && ! Stockland_Audit::log( get_current_user_id(), null, 'SETTING_UPDATE', null, null, $old, $v, 'Management setting update', $k ) ) {
+@@ -3675,7 +3675,7 @@
+ 			if ( false === Stockland_DB::execute_query( 'COMMIT' ) ) {
+ 				throw new Exception( 'Reconciliation commit failed.' );
+ 			}
+-			return rest_ensure_response( Stockland_DB::read_row( $wpdb->prepare( 'SELECT * FROM %i WHERE adjustment_id=%s', 'adjustments', $id ), ARRAY_A ) );
++			return rest_ensure_response( Stockland_DB::read_row( $wpdb->prepare( 'SELECT * FROM %i WHERE adjustment_id=%s', Stockland_DB::table( 'adjustments' ), $id ), ARRAY_A ) );
+ 		} catch ( Throwable $e ) {
+ 			Stockland_DB::execute_query( 'ROLLBACK' );
+ 			return new WP_Error( 'save_failed', $e->getMessage(), array( 'status' => 500 ) );}
+@@ -3696,7 +3696,7 @@
+ 		if ( ! in_array( $decision, array( 'Approved', 'Rejected' ), true ) ) {
+ 			return new WP_Error( 'invalid_decision', 'Decision must be Approved or Rejected.', array( 'status' => 400 ) );
+ 		}
+-		$peek = Stockland_DB::read_row( $wpdb->prepare( 'SELECT location_id FROM %i WHERE id=%d', 'adjustments', $id ), ARRAY_A );
++		$peek = Stockland_DB::read_row( $wpdb->prepare( 'SELECT location_id FROM %i WHERE id=%d', Stockland_DB::table( 'adjustments' ), $id ), ARRAY_A );
+ 		if ( ! $peek ) {
+ 			return new WP_Error( 'not_found', 'Adjustment request not found.', array( 'status' => 404 ) );
+ 		}
+@@ -3708,7 +3708,7 @@
+ 			Stockland_DB::release_day_lock( $lock );
+ 			return new WP_Error( 'transaction_failed', 'Could not start adjustment decision transaction.', array( 'status' => 500 ) );}
+ 		try {
+-			$a = Stockland_DB::read_row( $wpdb->prepare( 'SELECT * FROM %i WHERE id=%d FOR UPDATE', 'adjustments', $id ), ARRAY_A );
++			$a = Stockland_DB::read_row( $wpdb->prepare( 'SELECT * FROM %i WHERE id=%d FOR UPDATE', Stockland_DB::table( 'adjustments' ), $id ), ARRAY_A );
+ 			if ( ! $a ) {
+ 				throw new Exception( 'Adjustment request not found.' );
+ 			}
+@@ -3920,21 +3920,28 @@
+ 		}
+ 		try {
+ 			$x    = new Stockland_XLSX( $tmp_name );
+-			$rows = $x->rows( 'PHYSICAL COUNT', 1 );
+-			if ( empty( $rows ) ) {
+-				$rows = $x->rows( 'PHYSICAL COUNT', 3 );
+-			}
+-			if ( empty( $rows ) ) {
+-				$sheet_rows = $x->rows( 'Sheet1', 1 );
+-				if ( empty( $sheet_rows ) ) {
+-					$sheet_rows = $x->rows( 'Sheet1', 3 );
++			$rows = array();
++			// Accept the first header row (1-10) that really contains the count columns. The official template
++			// carries a title and an instruction row above its headers, so a fixed header row would misread it.
++			foreach ( array( 'PHYSICAL COUNT', 'Sheet1' ) as $count_sheet ) {
++				for ( $header_row = 1; $header_row <= 10 && empty( $rows ); $header_row++ ) {
++					$candidate = $x->rows( $count_sheet, $header_row );
++					if ( empty( $candidate ) ) {
++						continue;
++					}
++					$header_keys = array_map( 'strtolower', array_map( 'trim', array_map( 'strval', array_keys( $candidate[0] ) ) ) );
++					$has_date    = in_array( 'count date', $header_keys, true ) || in_array( 'date', $header_keys, true );
++					$has_qty     = in_array( 'quantity found', $header_keys, true ) || in_array( 'counted qty', $header_keys, true );
++					if ( $has_date && $has_qty && in_array( 'location', $header_keys, true ) ) {
++						$rows = $candidate;
++					}
+ 				}
+-				if ( ! empty( $sheet_rows ) ) {
+-					$rows = $sheet_rows;
++				if ( ! empty( $rows ) ) {
++					break;
+ 				}
+ 			}
+ 			if ( empty( $rows ) ) {
+-				throw new Exception( 'Use a sheet named PHYSICAL COUNT (preferred) with headers on row 1 or row 3.' );
++				throw new Exception( 'Use a sheet named PHYSICAL COUNT (preferred) whose header row contains Count Date, Location and Quantity Found.' );
+ 			}
+ 			$errors    = array();
+ 			$clean     = array();
+@@ -4048,7 +4055,7 @@
+ 			Stockland_DB::release_day_lock( $lock );
+ 			return new WP_Error( 'transaction_failed', 'Could not start physical-count transaction.', array( 'status' => 500 ) );}
+ 		try {
+-			$exists = Stockland_DB::read_var( $wpdb->prepare( 'SELECT batch_id FROM %i WHERE location_id=%d AND count_date=%s AND status IN(\'Pending\',\'Approved\') LIMIT 1', 'count_batches', $loc, $date ) );
++			$exists = Stockland_DB::read_var( $wpdb->prepare( 'SELECT batch_id FROM %i WHERE location_id=%d AND count_date=%s AND status IN(\'Pending\',\'Approved\') LIMIT 1', Stockland_DB::table( 'count_batches' ), $loc, $date ) );
+ 			if ( $exists ) {
+ 				throw new Exception( 'A physical count is already open for this location and date: ' . $exists . '. Complete or resolve it before uploading another count.' );
+ 			}
+@@ -4183,7 +4190,7 @@
+ 		if ( ! in_array( $decision, array( 'Approved', 'Rejected' ), true ) ) {
+ 			return new WP_Error( 'invalid_decision', 'Decision must be Approved or Rejected.', array( 'status' => 400 ) );
+ 		}
+-		$b = Stockland_DB::read_row( $wpdb->prepare( 'SELECT * FROM %i WHERE id=%d FOR UPDATE', 'count_batches', $id ), ARRAY_A );
++		$b = Stockland_DB::read_row( $wpdb->prepare( 'SELECT * FROM %i WHERE id=%d FOR UPDATE', Stockland_DB::table( 'count_batches' ), $id ), ARRAY_A );
+ 		if ( ! $b ) {
+ 			return new WP_Error( 'not_found', 'Physical count batch not found.', array( 'status' => 404 ) );
+ 		}
+@@ -4201,12 +4208,12 @@
+ 			Stockland_DB::release_day_lock( $lock );
+ 			return new WP_Error( 'transaction_failed', 'Could not start physical-count decision transaction.', array( 'status' => 500 ) );}
+ 		try {
+-			$batch = Stockland_DB::read_row( $wpdb->prepare( 'SELECT * FROM %i WHERE id=%d FOR UPDATE', 'count_batches', $id ), ARRAY_A );
++			$batch = Stockland_DB::read_row( $wpdb->prepare( 'SELECT * FROM %i WHERE id=%d FOR UPDATE', Stockland_DB::table( 'count_batches' ), $id ), ARRAY_A );
+ 			if ( ! $batch || 'Pending' !== $batch['status'] ) {
+ 				throw new Exception( 'Physical count is no longer pending.' );
+ 			}
+ 			if ( 'Rejected' === $decision ) {
+-				if ( false === Stockland_DB::execute_query( $wpdb->prepare( 'UPDATE %i SET status=\'Rejected\',approved_by=%d,approved_at=%s,rejection_reason=%s WHERE count_batch_id=%s AND status=\'Pending\'', 'adjustments', get_current_user_id(), current_time( 'mysql' ), $reason, $batch['batch_id'] ) ) ) {
++				if ( false === Stockland_DB::execute_query( $wpdb->prepare( 'UPDATE %i SET status=\'Rejected\',approved_by=%d,approved_at=%s,rejection_reason=%s WHERE count_batch_id=%s AND status=\'Pending\'', Stockland_DB::table( 'adjustments' ), get_current_user_id(), current_time( 'mysql' ), $reason, $batch['batch_id'] ) ) ) {
+ 					throw new Exception( 'Could not reject pending physical-count adjustments.' );
+ 				}
+ 				if ( false === Stockland_DB::update_record(
+@@ -4233,14 +4240,14 @@
+ 					)
+ 				);
+ 			}
+-			$lines = Stockland_DB::read_results( $wpdb->prepare( 'SELECT * FROM %i WHERE batch_id=%s ORDER BY id FOR UPDATE', 'count_lines', $batch['batch_id'] ), ARRAY_A );
++			$lines = Stockland_DB::read_results( $wpdb->prepare( 'SELECT * FROM %i WHERE batch_id=%s ORDER BY id FOR UPDATE', Stockland_DB::table( 'count_lines' ), $batch['batch_id'] ), ARRAY_A );
+ 			foreach ( $lines as $line ) {
+ 				$current = Stockland_DB::get_physical_stock( (int) $batch['location_id'], $line['sku'] );
+ 				if ( abs( $current - (float) $line['system_qty'] ) > 0.00001 ) {
+ 					throw new Exception( 'Stock changed after the physical count for ' . $line['sku'] . '. Recount is required before this batch can be approved.' );
+ 				}
+ 			}
+-			$adjustments = Stockland_DB::read_results( $wpdb->prepare( 'SELECT * FROM %i WHERE count_batch_id=%s AND status=\'Pending\' FOR UPDATE', 'adjustments', $batch['batch_id'] ), ARRAY_A );
++			$adjustments = Stockland_DB::read_results( $wpdb->prepare( 'SELECT * FROM %i WHERE count_batch_id=%s AND status=\'Pending\' FOR UPDATE', Stockland_DB::table( 'adjustments' ), $batch['batch_id'] ), ARRAY_A );
+ 			foreach ( $adjustments as $a ) {
+ 				if ( false === Stockland_Ledger::record( (int) $a['location_id'], $a['sku'], 'PHYSICAL_COUNT_ADJUSTMENT', (float) $a['variance_qty'], 'adjustment', (string) $a['id'], $batch['count_date'], get_current_user_id() ) ) {
+ 					throw new Exception( 'Could not post the physical-count adjustment for ' . $a['sku'] . '.' );
+diff -ru orig/stockland-erp-app/includes/rest/class-rest-hr.php /srv/wp/wp-content/plugins/stockland-erp-app/includes/rest/class-rest-hr.php
+--- orig/stockland-erp-app/includes/rest/class-rest-hr.php	2026-10-31 12:00:00.000000000 +0300
++++ /srv/wp/wp-content/plugins/stockland-erp-app/includes/rest/class-rest-hr.php	2026-11-02 13:33:04.287729576 +0300
+@@ -1113,7 +1113,7 @@
+ 						'allowance_breakdown_json' => wp_json_encode( $schedule['allowance_breakdown'] ?? array() ),
+ 						'status'                   => 'DRAFT',
+ 					),
+-					$calc
++					Stockland_Payroll_Statutory::for_storage( $calc )
+ 				);
+ 				$lines[] = $line;
+ 			}
+@@ -1362,7 +1362,7 @@
+ 				}
+ 			}
+ 			$update = array_merge(
+-				$calc,
++				Stockland_Payroll_Statutory::for_storage( $calc ),
+ 				array(
+ 					'notes'                    => $note,
+ 					'allowance_breakdown_json' => wp_json_encode( $line_snapshot ),
+@@ -1554,7 +1554,7 @@
+ 			if ( false === Stockland_DB::update_record(
+ 				Stockland_DB::table( 'payroll_lines' ),
+ 				array_merge(
+-					$calc,
++					Stockland_Payroll_Statutory::for_storage( $calc ),
+ 					array(
+ 						'notes'                    => $note,
+ 						'allowance_breakdown_json' => wp_json_encode( $components ),
+diff -ru orig/stockland-erp-app/includes/rest/class-rest-import-v16.php /srv/wp/wp-content/plugins/stockland-erp-app/includes/rest/class-rest-import-v16.php
+--- orig/stockland-erp-app/includes/rest/class-rest-import-v16.php	2026-10-31 12:00:00.000000000 +0300
++++ /srv/wp/wp-content/plugins/stockland-erp-app/includes/rest/class-rest-import-v16.php	2026-11-04 01:55:23.862834120 +0300
+@@ -1719,7 +1719,7 @@
+ 			if ( ! $job_id || ! $row_id ) {
+ 				throw new Exception( 'job_id and row_id are required.' );
+ 			}
+-			$job = Stockland_DB::read_row( $wpdb->prepare( 'SELECT * FROM %i WHERE id=%d LIMIT 1', 'import_jobs', $job_id ), ARRAY_A );
++			$job = Stockland_DB::read_row( $wpdb->prepare( 'SELECT * FROM %i WHERE id=%d LIMIT 1', Stockland_DB::table( 'import_jobs' ), $job_id ), ARRAY_A );
+ 			if ( ! $job ) {
+ 				throw new Exception( 'Import job not found.' );
+ 			}
+@@ -1733,7 +1733,7 @@
+ 			if ( ! in_array( $job['status'], array( 'READY', 'PARTIAL' ), true ) || (int) $job['processed_rows'] > 0 ) {
+ 				throw new Exception( 'Only unreleased Daily POS rows can be edited.' );
+ 			}
+-			$row = Stockland_DB::read_row( $wpdb->prepare( 'SELECT * FROM %i WHERE id=%d AND job_id=%d LIMIT 1', 'import_rows', $row_id, $job_id ), ARRAY_A );
++			$row = Stockland_DB::read_row( $wpdb->prepare( 'SELECT * FROM %i WHERE id=%d AND job_id=%d LIMIT 1', Stockland_DB::table( 'import_rows' ), $row_id, $job_id ), ARRAY_A );
+ 			if ( ! $row ) {
+ 				throw new Exception( 'Import row not found.' );
+ 			}
+@@ -1784,7 +1784,7 @@
+ 			) ) {
+ 				throw new Exception( $wpdb->last_error ? $wpdb->last_error : 'Could not save the staged row edit.' );
+ 			}
+-			$agg = Stockland_DB::read_row( $wpdb->prepare( 'SELECT COUNT(*) total_rows,SUM(status=\'VALID\') valid_rows,SUM(status=\'ERROR\') error_rows,SUM(COALESCE(quantity,0)) units,COALESCE(SUM(CASE WHEN status=\'VALID\' THEN sales_total ELSE 0 END),0) gross,COALESCE(SUM(CASE WHEN status=\'VALID\' THEN vat_amount ELSE 0 END),0) vat FROM %i WHERE job_id=%d', 'import_rows', $job_id ), ARRAY_A );
++			$agg = Stockland_DB::read_row( $wpdb->prepare( 'SELECT COUNT(*) total_rows,SUM(status=\'VALID\') valid_rows,SUM(status=\'ERROR\') error_rows,SUM(COALESCE(quantity,0)) units,COALESCE(SUM(CASE WHEN status=\'VALID\' THEN sales_total ELSE 0 END),0) gross,COALESCE(SUM(CASE WHEN status=\'VALID\' THEN vat_amount ELSE 0 END),0) vat FROM %i WHERE job_id=%d', Stockland_DB::table( 'import_rows' ), $job_id ), ARRAY_A );
+ 			if ( false === Stockland_DB::update_record(
+ 				Stockland_DB::table( 'import_jobs' ),
+ 				array(
+@@ -2160,6 +2160,9 @@
+ 				$size    = sanitize_text_field( (string) $this->mapped_value( $src, $map, 'size' ) );
+ 				$barcode = sanitize_text_field( (string) $this->mapped_value( $src, $map, 'barcode' ) );
+ 				$gtin    = sanitize_text_field( (string) $this->mapped_value( $src, $map, 'gtin' ) );
++				if ( ! preg_match( '/^STK-[A-Za-z0-9_-]{1,60}$/', (string) $sku ) ) {
++					$err[] = 'SKU ' . $sku . ' must begin with STK- and use letters, numbers, hyphens or underscores (max 64 characters).';
++				}
+ 				if ( ! in_array( $ptype, array( 'STYLE', 'VARIANT', 'SIMPLE' ), true ) ) {
+ 					$err[] = 'Invalid Product Type ' . $ptype . '. Use STYLE, VARIANT or SIMPLE.';
+ 				}if ( 'VARIANT' === $ptype ) {
+@@ -2552,8 +2555,8 @@
+ 				if ( ! $sku || ! $name ) {
+ 					throw new Exception( 'Invalid Product Master row #' . $row['row_number'] . '.' );
+ 				}
+-				if ( ! preg_match( '/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/', $sku ) ) {
+-					throw new Exception( 'Invalid Product Master SKU ' . $sku . '. Use 1–64 letters, numbers, dot, underscore or hyphen characters.' );
++				if ( ! preg_match( '/^STK-[A-Za-z0-9_-]{1,60}$/', $sku ) ) {
++					throw new Exception( 'Invalid Product Master SKU ' . $sku . '. A Stockland SKU must begin with STK- and use letters, numbers, hyphens or underscores (max 64 characters).' );
+ 				}
+ 				if ( '' !== $old_sku && $old_sku !== $sku ) {
+ 					$prior = Stockland_DB::get_product( $old_sku );
+@@ -2626,14 +2629,14 @@
+ 						continue;
+ 					}
+ 					if ( in_array( $field, array( 'purchase_cost', 'retail_price', 'wholesale_price' ), true ) ) {
+-						$value = $this->money( $raw );
+-						if ( null === $value ) {
++						$field_value = $this->money( $raw );
++						if ( null === $field_value ) {
+ 							continue;
+ 						}
+ 					} elseif ( in_array( $field, array( 'branch_reorder_level', 'central_reorder_level' ), true ) ) {
+-						$value = (int) $this->qty( $raw ); } else {
+-										$value = sanitize_text_field( (string) $raw ); }
+-						$data[ $field ] = $value;
++						$field_value = (int) $this->qty( $raw ); } else {
++										$field_value = sanitize_text_field( (string) $raw ); }
++						$data[ $field ] = $field_value;
+ 				}
+ 				$effective_type = strtoupper( sanitize_text_field( (string) ( $data['product_type'] ?? ( $old['product_type'] ?? 'SIMPLE' ) ) ) );
+ 				if ( ! in_array( $effective_type, array( 'STYLE', 'VARIANT', 'SIMPLE' ), true ) ) {
+@@ -2777,6 +2780,7 @@
+ 				)
+ 			);
+ 		} catch ( Throwable $e ) {
++			Stockland_Runtime_Diagnostics::log_error( 'Product Master import commit failed: ' . $e->getMessage() . ' @ ' . basename( $e->getFile() ) . ':' . $e->getLine() );
+ 			if ( isset( $wpdb ) ) {
+ 				Stockland_DB::execute_query( 'ROLLBACK' );
+ 			}if ( isset( $lock_key ) ) {
+@@ -2831,7 +2835,7 @@
+ 		global $wpdb;
+ 		$requested_source_system = $r->get_param( 'source_system' );
+ 		$source                  = sanitize_text_field( $requested_source_system ? $requested_source_system : 'THIRD_PARTY_POS' );
+-		$rows                    = Stockland_DB::read_results( $wpdb->prepare( 'SELECT m.id,m.source_system,m.external_code,m.live_sku,m.source_name,m.mapping_note,m.effective_from,m.effective_to,m.is_active,p.product_name FROM %i m LEFT JOIN %i p ON (p.variant_id=m.variant_id OR (m.variant_id IS NULL AND p.sku=m.live_sku)) WHERE m.source_system=%s ORDER BY m.external_code LIMIT 500', 'product_code_maps', $source, 'products' ), ARRAY_A );
++		$rows                    = Stockland_DB::read_results( $wpdb->prepare( 'SELECT m.id,m.source_system,m.external_code,m.live_sku,m.source_name,m.mapping_note,m.effective_from,m.effective_to,m.is_active,p.product_name FROM %i m LEFT JOIN %i p ON (p.variant_id=m.variant_id OR (m.variant_id IS NULL AND p.sku=m.live_sku)) WHERE m.source_system=%s ORDER BY m.external_code LIMIT 500', Stockland_DB::table( 'product_code_maps' ), $source, Stockland_DB::table( 'products' ) ), ARRAY_A );
+ 		return rest_ensure_response( $rows );}
+ 	/**
+ 	 * Creates or updates an external product-code mapping after validation.
+@@ -2943,7 +2947,7 @@
+ 		if ( false === Stockland_DB::execute_query( 'START TRANSACTION' ) ) {
+ 			return new WP_Error( 'transaction_failed', 'Could not start code-mapping deactivation.', array( 'status' => 500 ) );
+ 		}try {
+-			$row = Stockland_DB::read_row( $wpdb->prepare( 'SELECT * FROM %i WHERE id=%d FOR UPDATE', 'product_code_maps', $id ), ARRAY_A );
++			$row = Stockland_DB::read_row( $wpdb->prepare( 'SELECT * FROM %i WHERE id=%d FOR UPDATE', Stockland_DB::table( 'product_code_maps' ), $id ), ARRAY_A );
+ 			if ( ! $row ) {
+ 				throw new Exception( 'Mapping not found.' );
+ 			}$ok = Stockland_DB::update_record(
+diff -ru orig/stockland-erp-app/includes/rest/class-rest-requisition-v16.php /srv/wp/wp-content/plugins/stockland-erp-app/includes/rest/class-rest-requisition-v16.php
+--- orig/stockland-erp-app/includes/rest/class-rest-requisition-v16.php	2026-10-31 12:00:00.000000000 +0300
++++ /srv/wp/wp-content/plugins/stockland-erp-app/includes/rest/class-rest-requisition-v16.php	2026-11-02 13:31:04.820353425 +0300
+@@ -355,6 +355,18 @@
+ 	}
+ 
+ 	/**
++	 * Builds the internal detail request used to render a requisition after a state change.
++	 * The route parameter must be set explicitly because this request never passes through the router.
++	 *
++	 * @param string $id Requisition identifier.
++	 * @return WP_REST_Request Request carrying the requisition id route parameter.
++	 */
++	private function detail_request( $id ) {
++		$request = new WP_REST_Request( 'GET', '/stockland/v16/requisitions/' . $id );
++		$request->set_url_params( array( 'id' => $id ) );
++		return $request;
++	}
++	/**
+ 	 * Returns the selected requisition and current source availability.
+ 	 *
+ 	 * @param WP_REST_Request $r Request containing the requisition ID.
+@@ -485,7 +497,7 @@
+ 					throw new Exception( 'Requisition review commit failed.' );
+ 				}
+ 				Stockland_Notifications::notify_approvers( $id, $locked['branch_location_id'], 'Requisition ready for approval', $locked['location_name'] . ' requisition ' . $id . ' was reviewed and is ready for Management/Owner approval.' );
+-				return rest_ensure_response( $this->detail( new WP_REST_Request( 'GET', '/stockland/v16/requisitions/' . $id ) ) );
++				return rest_ensure_response( $this->detail( $this->detail_request( $id ) ) );
+ 			} catch ( Throwable $e ) {
+ 				Stockland_DB::execute_query( 'ROLLBACK' );
+ 				return new WP_Error( 'requisition_review_failed', $e->getMessage(), array( 'status' => 409 ) );}
+@@ -698,7 +710,7 @@
+ 			} elseif ( ! $final ) {
+ 				$waiting = ( 'management' === $stage ? 'Owner' : 'Management' );
+ 				Stockland_Notifications::notify_approvers( $id, $req['branch_location_id'], 'Requisition awaiting ' . $waiting . ' approval', $req['location_name'] . ' requisition ' . $id . ' has one approval line completed and is awaiting ' . $waiting . '.' );}
+-				return rest_ensure_response( $this->detail( new WP_REST_Request( 'GET', '/stockland/v16/requisitions/' . $id ) ) );
++				return rest_ensure_response( $this->detail( $this->detail_request( $id ) ) );
+ 		} catch ( Throwable $e ) {
+ 			Stockland_DB::execute_query( 'ROLLBACK' );
+ 			Stockland_DB::release_day_lock( $wh_lock );
+@@ -1114,7 +1126,7 @@
+ 			if ( ! empty( $req['requested_by'] ) ) {
+ 				Stockland_Notifications::push_user( (int) $req['requested_by'], 'requisition_received', 'Requisition received', 'Your requisition ' . $id . ' has been received by ' . $req['location_name'] . '.', 'requisition', $id, $variance_count ? 'warning' : 'info' );
+ 			}
+-			return rest_ensure_response( $this->detail( new WP_REST_Request( 'GET', '/stockland/v16/requisitions/' . $id ) ) );
++			return rest_ensure_response( $this->detail( $this->detail_request( $id ) ) );
+ 		} catch ( Throwable $e ) {
+ 			Stockland_DB::execute_query( 'ROLLBACK' );
+ 			Stockland_DB::release_location_locks( $locks['locks'] );
