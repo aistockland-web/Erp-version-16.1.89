@@ -681,6 +681,14 @@ def strip_hr_svg_css(source):
 
 def patch_hr_svg_renderers(app):
     """Use text-only HR section headings and social cards; keep ERP shell icons intact."""
+    old_renderers = ("function hrlcSectionIcon(", "function hrlcSocialIcon(")
+    forbidden_classes = ("sl-hrlc-section-icon", "sl-hrlc-icon-art",
+                         "sl-hrlc-social-icon", "sl-hrlc-social-icon-art")
+    if not any(token in app for token in old_renderers):
+        stale = [token for token in forbidden_classes if token in app]
+        if stale:
+            raise ValueError("Text-only HR source still contains obsolete icon classes: " + ", ".join(stale))
+        return app
     app = replace_function_region(
         app,
         "function hrlcSectionIcon(title){",
