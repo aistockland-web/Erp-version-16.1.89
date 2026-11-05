@@ -72,6 +72,7 @@ def main():
         calc = files["includes/class-stockland-hr-payroll-calculator.php"].decode()
         vault = files["includes/class-stockland-hr-private-vault.php"].decode()
         css = files["assets/app.css"].decode()
+        hr_css = files["assets/css/12-hr-payroll-lifecycle.css"].decode()
         app_min_css = files["assets/app.min.css"].decode()
         require(r"\n#hrPage .sl-hrlc-social-icon" not in css and r"\n#hrPage .sl-hrlc-social-copy" not in css and r"\n#hrPage .sl-hrlc-social-icon" not in app_min_css,
                 "HR/social CSS contains real selector boundaries, not literal backslash-n escape damage")
@@ -143,8 +144,8 @@ def main():
         require("do not disable existing authorized POS, inventory, warehouse, finance or other ERP workflows" in app, "targeted review warning preserves unrelated ERP operations")
         require("hr/payroll-runs" in app and "hr/employee-reimbursements" in app and "hr/individual-payees" in app, "UI uses frozen payroll, reimbursements and individual payee APIs")
         require("MANUAL EXPORT" in app and "recovery tokens" in app, "social reporting and credential safety are described in the UI")
-        require("sl-hrlc-section-summary" in app and "sl-hrlc-section-body" in app and "function hrlcSectionIcon" in app,
-                "HR lifecycle and payroll modules use accessible native dropdown sections with clear icons")
+        require("sl-hrlc-section-summary" in app and "sl-hrlc-section-body" in app and "function hrlcSectionIcon(" not in app,
+                "HR workflow accordions retain their accessible structure without SVG icon renderers")
         require("if($('#refreshHR'))$('#refreshHR').onclick" in app,
                 "Refresh HR & Payroll button remains wired after the dashboard refactor")
         require("function bindHRLCSectionState()" in app and "state.hrlcOpenSections" in app,
@@ -157,32 +158,24 @@ def main():
                 "each section has accessible heading and expanded/collapsed semantics")
         require("openSections.length>1" in app and "state.hrlcOpenSections=[keep.getAttribute('data-hrlc-section')]" in app,
                 "initialization normalizes legacy multi-open state into one active section")
-        require("sl-hrlc-social-card" in app and "sl-hrlc-social-icon" in app and "Product reels, outfit stories and engagement insights" in app and "MANUAL EXPORT" in app,
-                "social platform cards show icons, practical content descriptions and manual-export disclosure")
-        require("function hrlcSocialIcon(key)" in app and "hrlcSocialIcon(x.key)" in app
-                and "icon:'◎'" not in app and "icon:'♪'" not in app and "icon:'▶'" not in app
-                and ".sl-hrlc-social-icon>svg.sl-hrlc-social-icon-art" in css
-                and "Social platform cards use scoped inline SVGs instead of font/text glyphs with fixed geometry." in " ".join(manifest.get("release_changes", [])),
-                "social platform cards use accessible inline SVGs and protected responsive geometry")
-        require("sl-hrlc-section-summary" in css and "sl-hrlc-section-toggle" in css and "sl-hrlc-social-grid" in css and "sl-hrlc-social-card" in css and "sl-hrlc-icon-art" in css,
-                "responsive accordion holders, consistent line icons and social channel cards are styled in generated app.css")
-        icon_guard = "#hrPage .sl-hrlc-section-icon>svg.sl-hrlc-icon-art{display:block!important;box-sizing:content-box!important;width:22px!important;height:22px!important;min-width:22px!important;min-height:22px!important;max-width:22px!important;max-height:22px!important;flex:0 0 22px!important;flex-shrink:0!important;margin:0!important;padding:0!important;position:static!important;inset:auto!important;transform:none!important;zoom:1!important;overflow:visible!important;fill:none!important;stroke:currentColor!important;stroke-width:1.7px!important;stroke-linecap:round!important;stroke-linejoin:round!important;vector-effect:non-scaling-stroke!important;filter:none!important}"
-        require(icon_guard in css and "width:20px!important" in css and "height:20px!important" in css and "fill:none!important" in css and "stroke:currentColor!important" in css,
-                "HR SVG icons have protected desktop/mobile geometry and explicit no-fill/current-color stroke rules")
-        require(icon_guard in app_min_css and "width:20px!important" in app_min_css,
-                "icon CSS protection survives the production minification build")
-        wrapper_guard = "#hrPage .sl-hrlc-section-icon{display:inline-flex!important;align-items:center!important;justify-content:center!important;box-sizing:border-box!important;flex:0 0 44px!important;width:44px!important;height:44px!important;min-width:44px!important;min-height:44px!important;max-width:44px!important;max-height:44px!important;padding:0!important;position:relative!important;overflow:visible!important}"
-        child_guard = "stroke-width:1.7px!important;stroke-linecap:round!important;stroke-linejoin:round!important;vector-effect:non-scaling-stroke!important"
-        require(wrapper_guard in css and "width:38px!important" in css and "height:38px!important" in css,
-                "HR icon holders have fixed 44px desktop and 38px mobile geometry")
-        require("#hrPage .sl-hrlc-section-icon>svg.sl-hrlc-icon-art *{" in css and child_guard in css and "stroke-width:1.6px!important" in css,
-                "HR SVG child paths force consistent stroke thickness, rounded caps and mobile stroke")
-        require("#stockland-app #hrPage .sl-hrlc-section-icon>svg.sl-hrlc-icon-art" not in css,
-                "HR icon fix is scoped to #hrPage and does not depend on an outer theme wrapper")
-        require(wrapper_guard in app_min_css and child_guard in app_min_css,
-                "icon holder and child path rules survive production minification")
-        require(manifest.get("hr_icon_css_contract") == "HRPAGE_SCOPED_WRAPPER_44PX_38PX; SVG_FIXED_22PX_20PX; CHILD_STROKE_1_7PX_1_6PX; FORCE_NO_FILL_CURRENT_COLOR",
-                "release manifest records the explicit HR icon rendering contract")
+        require("sl-hrlc-social-card" in app and "sl-hrlc-social-copy" in app and "sl-hrlc-social-icon" not in app and "MANUAL EXPORT" in app,
+                "social platform cards are text-only and retain their manual-export disclosure")
+        require("function hrlcSocialLinks()" in app and "function hrlcSocialIcon(" not in app and "hrlcSocialIcon(" not in app,
+                "HR social SVG renderer is removed")
+        require("Product reels, outfit stories and engagement insights" in app,
+                "social platform cards retain practical descriptions")
+        for token in ["sl-hrlc-section-icon", "sl-hrlc-icon-art", "sl-hrlc-social-icon", "sl-hrlc-social-icon-art", "svg"]:
+            require(token not in hr_css.lower(), "HR lifecycle source module contains no SVG/icon renderer token: " + token)
+        for token in ["sl-hrlc-section-icon", "sl-hrlc-icon-art", "sl-hrlc-social-icon", "sl-hrlc-social-icon-art"]:
+            require(token not in css.lower() and token not in app_min_css.lower(), "compiled ERP CSS contains no HR-specific icon selector: " + token)
+        require("<svg" in app or "sl-dashboard-linechart" in app, "global ERP shell/chart SVG rendering remains intact outside HR")
+        require("sl-hrlc-section-summary" in css and "sl-hrlc-section-toggle" in css and "sl-hrlc-social-grid" in css and "sl-hrlc-social-card" in css,
+                "text-only accordion headings and social cards remain styled")
+        require(manifest.get("hr_icon_css_contract") == "NO_HR_PAYROLL_INLINE_SVG; TEXT_ONLY_SECTION_SUMMARIES_AND_SOCIAL_LINKS",
+                "release manifest records the no-HR-SVG text-only rendering contract")
+        changes = " ".join(manifest.get("release_changes", []))
+        require("HR/payroll section summaries and social-platform cards use text-only presentation" in changes,
+                "release manifest accurately records the HR/payroll icon correction")
         require("sl-hrlc-toolbar" in css and "sl-hrlc-search:focus-within" in css and "[data-hrlc-section][hidden]" in css and ".sl-hrlc-section[open]" in css,
                 "SaaS search, keyboard focus, no-result and active accordion states are styled")
         require("#hrPage{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))" in css and ".sl-hrlc-cycle{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))" in css and "@media(max-width:700px){#hrPage{grid-template-columns:minmax(0,1fr)" in css,
