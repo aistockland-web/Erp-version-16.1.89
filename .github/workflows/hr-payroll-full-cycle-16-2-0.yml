@@ -99,7 +99,7 @@ jobs:
           find "$OUT/stockland-erp-app" -type f -name '*.php' -print0 | xargs -0 -n1 php -l
           node --check "$OUT/stockland-erp-app/assets/app.js"
           node ci/qa/test_health_scope.js "$OUT/stockland-erp-app/assets/app.js"
-          node ci/qa/test_hr_text_only_ui.js "$OUT/stockland-erp-app"
+          node ci/qa/test_hr_text_only_ui.js "$OUT/stockland-erp-app" "ci/hr_payroll_overlay_16_2_0"
           node --check "$OUT/stockland-erp-app/assets/pwa.js"
           node --check ci/hr_payroll_overlay_16_2_0/hr-lifecycle-ui.js
           node --check ci/hr_payroll_overlay_16_2_0/pos-cart-ui.js
