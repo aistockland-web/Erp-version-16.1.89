@@ -78,3 +78,40 @@ Searched every one of the 68 remote branches for ZIP/DOCX/PDF binaries and for v
 2. **16.2.10 is not recoverable.** Branch `feature/stockland-erp-16-2-10-cumulative` tip equals `a46214f` (an ancestor of main); it contains no 16.2.10 code. Status: missing, as the handover says.
 3. **16.2.7 / 16.2.8 / 16.2.1 / 16.1.98 are in history as commits and CI candidates**, on branches `codespace-reimagined-…`, `audit/local-consolidation-closure-2026-11-04`, `feature/hr-resource-download-handler-16-1-98`, `work/hr-replacement-source-export`, `audit/erp-wide-sop-library-2026-10-29`. They are builder/CI lineage with no checked-in installer; their exact binaries need a rebuild from the lock files or CI artifacts to be compared. NOT RUN.
 4. Remaining unrecovered: 16.2.13 (installed), 16.3.1 binary, 16.1.98 binary.
+
+## Addendum B — owner-supplied 16.2.10–16.2.13 packages (2026-11-06)
+| Package | SHA-256 (recomputed) | Files | PHP | Header ver. | Archive integrity |
+|---|---|---|---|---|---|
+| 16.2.10 MASTER_FULL_PACK local candidate | `2ea7832efb6a42decfd53496aaaf309eb068228c54507a3b8022776860a1601f` | 88 | 55 | 16.2.10 | PASS |
+| 16.2.11 MASTER_FULL_PACK local candidate | `27c66b65e999f5609d070c105517ecc491fb705a887bbdefb11851454750dee8` | 88 | 55 | 16.2.11 | PASS |
+| 16.2.12 WORDPRESS_INSTALLER | `db82f3e8ec565539c0341d47d39e0382b4ba04e370464f59a742c2941d96ca75` | 112 | 80 | 16.2.12 | PASS |
+| 16.2.13 WORDPRESS_INSTALLER (reported installed) | `74e3205d0b42151997dc356c29b09204688accee817c17a013a70cf90be04c13` | 113 | 80 | 16.2.13 | PASS |
+All four have one `stockland-erp-app/` root. That this exact 16.2.13 ZIP is what runs on the live site is OWNER-REPORTED, not verifiable from here; confirm by hashing the installed plugin directory on the host (see gate list).
+
+**Lineage (file-level).**
+- 16.2.9 → 16.2.10: 13 files changed, none added/removed (HR lifecycle/calculator/statutory, frontend, rest-app, manifests).
+- 16.2.10 → 16.2.11: 7 changed. 16.2.11 → 16.2.12: +26 files (REST SOP library route, SOP manifest and 24 SOP payload files), −2 (README.md, RELEASE_MANIFEST.json), 17 changed. 16.2.12 → 16.2.13: +1 (`assets/css/13-enterprise-saas-system.css`), 7 changed.
+- 16.2.13 vs 16.2.9: +27 −2 ~16. Core `class-stockland-db.php`, `rest-sales.php` and `rest-pos-cart.php` are **byte-identical to 16.2.9**. So the 16.2.x line is a true cumulative descendant of 16.2.9 (the POS cart, CSS 07–12 and non-HR hardening survive to .13).
+- 16.2.13 vs 16.3.0: 42 files only in .13, 5 only in 16.3.0, 17 differ. 16.3.0 contains none of 16.2.10–16.2.13 (SOP library, CSS 13, templates, uninstall policy).
+- 16.2.13 vs 16.1.95: +40 −2 ~19.
+
+**Findings on 16.2.13.**
+1. SOP library ships as 24 PHP payload files (not DOCX), manifest `status: DRAFT_NOT_APPROVED`, version `1.0-DRAFT`, language am-ET. The payload SHA-256 values in the manifest (e.g. SOP-001 `60b1ef6c…ea29d`) equal the DOCX hashes in the 16.1.101 ZIP, so both packs are the same documents in two encodings. Approval is still owner-only.
+2. `uninstall.php` preserves all `wp_stock_*` tables and options. This is a correct data-integrity safeguard; keep it.
+3. Schema: `class-stockland-schema-contract.php` classifies a "fixed 86-table ERP base" (49 + 37 HR). Therefore the installed system may already hold 86 tables; the 16.2.9 receipt said that schema was *not approved*. The real table count of the live database must be read from the host before any migration is designed. OWNER INPUT REQUIRED (read-only System Health / table list).
+4. The synthetic-payroll path is still in shipped runtime (15 references in `includes/*.php`).
+5. 16.2.12/13 contain no `RELEASE_MANIFEST.json` or README: release identity is the plugin header/constant only. The build receipt for .12/.13 has not been supplied.
+6. Helpful templates are bundled: `Stockland_Master_Import_Template.xlsx` and `Stockland_Physical_Count_Template.xlsx`.
+
+**Revised canonical-base recommendation (supersedes §7).**
+- **Operational/upgrade base = 16.2.13**, because it is what the owner runs, it is cumulative over 16.2.9, and any other base would drop or rewrite shipped behaviour (SOP library, CSS 13, templates). 16.1.95 stays the rollback *reference* and the source of the protected-master evidence, not the build base.
+- 16.3.0 HRX is a comparison source only (it branches from 16.1.95, drops POS cart and CSS 07–13).
+- Live-run fixes found on 16.1.95.1 must be re-proven on 16.2.13's core (which is 16.2.9 core). Several may already be fixed or conflict; decide by re-running the same live suites, not by assumption.
+- Upgrade rehearsal target is now 16.2.13 → next build, on a sanitized copy of the live schema.
+
+**Assessment of the pasted "Executive Summary" plan (recommend 16.3.0 from PR #48 head).** Not adopted. Checked against the packages:
+- It states 16.3.0 is "the union of 16.1.95 plus all 16.2.x patches" and that "no existing 16.1.95 file was deleted". Both are false: 16.3.0 removes `class-stockland-payroll-statutory.php` and `rest-hr.php` and omits `rest-pos-cart.php` and CSS 07–12; it has none of 16.2.10–16.2.13.
+- It asks to enable the 47-table HRX schema by default. The owner's 6 Nov directive says no table count is approved and schema creation requires an approved ERD, backup and rollback. Enabling it would breach a real data-integrity safeguard.
+- It would remove `production_ready=false` rather than derive it from gates. Replacing a hardcoded flag with evidence-driven status is right; deleting the control and releasing is not.
+- Its file table lists placeholder hashes, a "133 commits" claim, and `wp_hr_*` table names unrelated to the real `wp_stock_*` prefix, and its example tests (12.5% tax) contradict the encoded PAYE brackets. It is a planning sketch, not evidence.
+- Its schedule (release by 19 Nov) is not a gate.
