@@ -152,3 +152,19 @@ The HR/payroll SVG-overflow correction is merged into canonical `main`:
 - Local recheck of the downloaded exact ZIP: 55/55 PHP syntax, all packaged JavaScript syntax, 3/3 JSON manifests, PostCSS for app.css/app.min.css/Bootstrap/HR CSS, and exact 12-module CSS source parity passed. Local text-only HR UI tests passed for accessible accordion output, preserved actions, all four social links, manual-export notice, and preserved non-HR shell/chart assets.
 
 **Scope boundary:** the generated ZIP is still the 16.2.9 selective HR/payroll implementation candidate built from the protected 16.1.95 baseline. Its build receipt continues to state `schema_contract_approved=false`, `production_ready=false`, `new_tables=37`, `production_database_touched=false`, and `wordpress_activated=false`. This PR did not change that schema or approve a release. It did not deploy to the reported 16.2.13 live site or modify production data. The HR icon correction is committed in the canonical builder; exact 16.2.13 installed-source parity and full authenticated WordPress/MariaDB acceptance remain separate work.
+
+
+## 11. Raw HR overlay source cleanup — 6 November 2026
+
+The follow-up source-hygiene change is merged into canonical `main`:
+
+- **PR #59:** [Remove HR/payroll SVG icons from source overlay and generated ERP](https://github.com/aistockland-web/Erp-version-16.1.89/pull/59) — merged.
+- **Merge commit:** `f60b5a48b51c203cb7627e18b74621e98757298e`.
+- Raw `ci/hr_payroll_overlay_16_2_0/hr-lifecycle-ui.js` now has no `hrlcSectionIcon()`, no `hrlcSocialIcon()`, no SVG markup, and no old HR icon wrappers. Accessible text-only section summaries and social cards remain.
+- Raw `ci/hr_payroll_overlay_16_2_0/hr-lifecycle-ui.css` has no SVG rules, old icon selectors, or page-level SVG isolation overrides. Form/table/accordion/responsive and social-card layout remains.
+- The builder is idempotent against already-clean overlay inputs.
+- The exact-package Node regression now checks both the raw overlay sources and the generated installer; it also verifies that global ERP shell/chart SVG remains intact.
+- **Exact-head CI run:** [42125671298](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/42125671298) — PHP 8.3 and PHP 8.4 exact-package builds passed. The text-only UI regression, health scope 10/10, package acceptance, PHP/JS syntax, CSS/PostCSS/module parity, audit chain, payroll calculator fixtures, PHPCS/WPCS source-aware gate, Semgrep (55/55 PHP scanned; zero ERROR/CRITICAL findings), exact receipt/hash, and package integrity all passed.
+- **Other checks:** WordPress-update workflow [42125671229](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/42125671229), CodeQL/secret/dependency workflows [42125671384](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/42125671384), and ShellCheck/actionlint [42125671363](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/42125671363) passed.
+
+The tested installer generated from this selective HR source remains the 16.2.9 candidate built from protected 16.1.95; its receipt still declares the 37-table schema expansion unapproved and `production_ready=false`. This merge cleans the source and regression coverage. It does not approve that schema, create the final cumulative product, deploy to the reported 16.2.13 live installation, or change production data.
