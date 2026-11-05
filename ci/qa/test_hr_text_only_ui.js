@@ -14,6 +14,7 @@ const app = fs.readFileSync(path.join(appRoot, 'assets/app.js'), 'utf8');
 const hrCss = fs.readFileSync(path.join(appRoot, 'assets/css/12-hr-payroll-lifecycle.css'), 'utf8');
 const builtCss = fs.readFileSync(path.join(appRoot, 'assets/app.css'), 'utf8');
 const minCss = fs.readFileSync(path.join(appRoot, 'assets/app.min.css'), 'utf8');
+const overlayRoot = process.argv[3] || null;
 
 for (const name of [
   'function hrlcSectionIcon(',
@@ -87,4 +88,17 @@ assert.ok(app.includes('const uiIcon=name=>'), 'global ERP navigation icon helpe
 assert.ok(app.includes('sl-dashboard-linechart'), 'dashboard chart renderer is preserved');
 console.log('PASS non-HR ERP shell icons and dashboard chart remain present');
 
-console.log('HR TEXT-ONLY UI: 22 assertions passed, 0 failed');
+if (overlayRoot) {
+  const overlayJs = fs.readFileSync(path.join(overlayRoot, 'hr-lifecycle-ui.js'), 'utf8');
+  const overlayCss = fs.readFileSync(path.join(overlayRoot, 'hr-lifecycle-ui.css'), 'utf8');
+  for (const token of ['function hrlcSectionIcon(', 'function hrlcSocialIcon(', 'sl-hrlc-section-icon', 'sl-hrlc-icon-art', 'sl-hrlc-social-icon', 'sl-hrlc-social-icon-art', '<svg']) {
+    assert.equal(overlayJs.includes(token), false, 'raw HR overlay JS must not contain ' + token);
+  }
+  assert.equal(/\bsvg\b/i.test(overlayCss), false, 'raw HR overlay CSS contains no SVG token');
+  for (const token of ['sl-hrlc-section-icon', 'sl-hrlc-icon-art', 'sl-hrlc-social-icon', 'sl-hrlc-social-icon-art']) {
+    assert.equal(overlayCss.includes(token), false, 'raw HR overlay CSS must not contain ' + token);
+  }
+  console.log('PASS raw HR overlay source files are text-only with no SVG markup or selectors');
+}
+
+console.log('HR TEXT-ONLY UI: generated package and source overlay assertions passed');
