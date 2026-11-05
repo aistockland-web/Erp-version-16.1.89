@@ -52,7 +52,7 @@ Run on real WordPress 6.8.3 + MariaDB against the 16.1.95.1 package: all seven r
 ## 6. Gaps and OWNER INPUT REQUIRED
 1. Exact installed 16.2.13 package/SHA — not recovered; no repo ref carries it. BLOCKS the upgrade-path decision.
 2. 16.2.10, 16.1.98 (79 files, `1997b333…81f8b`), 16.1.101 (PR #49 head `28b9308d`), 16.3.1 (`36b215da…aa5`): no exact binary here. Repo refs to be searched for 16.1.98 and 16.1.101; 16.3.1 is a verification report only.
-3. 24 Amharic-first SOP/JD/contract files — not present anywhere checked.
+3. SOP files: RECOVERED in the 16.1.101 staging ZIP (see Addendum A); still need owner content approval. JD/contract forms not separately confirmed.
 4. Payroll legal sign-off, compensation for the nine flagged employees, schema approval — owner/qualified reviewer.
 
 ## 7. Recommendation (canonical base)
@@ -70,4 +70,11 @@ Run on real WordPress 6.8.3 + MariaDB against the 16.1.95.1 package: all seven r
 | High | 16.3.0 regresses POS cart and CSS 07–12 |
 | Medium | Handover state stale (PR #55/#56/#58/#59, #48 status) |
 | Medium | Two different "16.3.0" inner SHAs in circulation |
-| Medium | No SOP binaries in any package |
+| Medium | SOP binaries exist only in the 16.1.101 package (PR #49 branch), not in the 16.1.95/16.2.9/16.3.0 lines |
+
+## Addendum A — corrections after full-branch search (2026-11-06)
+Searched every one of the 68 remote branches for ZIP/DOCX/PDF binaries and for version names in commit history.
+1. **SOP pack recovered.** Branch `release/16.1.101-hrx-health-sop-tab` carries `releases/16.1.101-staging/STOCKLAND_ERP_16.1.101_HRX_HEALTH_FIX_STAGING.zip`, SHA-256 `2916d9ddd80f0174da8ccb8ab9b57f51050ed5aa3d65d210e6ea97283262b5d1`, CRC PASS, 103 files, header version `16.1.101-HRX-HEALTH-FIX-STAGING`. It contains `resources/erp-sops/files/` with **24 DOCX** (STK_ERP_SOP_001–024) plus `manifest.json`. All 24 open as valid OOXML ZIPs with Amharic text (about 800–1,100 Ethiopic characters each, 1.7k–3.3k characters total, so they are short). Per-file hashes: `SOP_PACK_16.1.101_SHA256SUMS.txt`. This contradicts the handover's "no DOCX/PDF anywhere" statement; the earlier 4 Nov tree audit looked at the tree of that PR, not this ZIP. Open: content accuracy, owner approval, JD/contract completeness, role-based download rules, authenticated download proof. SOP 022 covers PAYE/pension content and must not be treated as legal evidence.
+2. **16.2.10 is not recoverable.** Branch `feature/stockland-erp-16-2-10-cumulative` tip equals `a46214f` (an ancestor of main); it contains no 16.2.10 code. Status: missing, as the handover says.
+3. **16.2.7 / 16.2.8 / 16.2.1 / 16.1.98 are in history as commits and CI candidates**, on branches `codespace-reimagined-…`, `audit/local-consolidation-closure-2026-11-04`, `feature/hr-resource-download-handler-16-1-98`, `work/hr-replacement-source-export`, `audit/erp-wide-sop-library-2026-10-29`. They are builder/CI lineage with no checked-in installer; their exact binaries need a rebuild from the lock files or CI artifacts to be compared. NOT RUN.
+4. Remaining unrecovered: 16.2.13 (installed), 16.3.1 binary, 16.1.98 binary.
