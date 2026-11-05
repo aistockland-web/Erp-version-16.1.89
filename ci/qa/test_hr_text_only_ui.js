@@ -94,7 +94,7 @@ if (overlayRoot) {
   for (const token of ['function hrlcSectionIcon(', 'function hrlcSocialIcon(', 'sl-hrlc-section-icon', 'sl-hrlc-icon-art', 'sl-hrlc-social-icon', 'sl-hrlc-social-icon-art', '<svg']) {
     assert.equal(overlayJs.includes(token), false, 'raw HR overlay JS must not contain ' + token);
   }
-  assert.equal(/\\bsvg\\b/i.test(overlayCss), false, 'raw HR overlay CSS contains no SVG token');
+  assert.equal(/\bsvg\b/i.test(overlayCss), false, 'raw HR overlay CSS contains no SVG token');
   for (const token of ['sl-hrlc-section-icon', 'sl-hrlc-icon-art', 'sl-hrlc-social-icon', 'sl-hrlc-social-icon-art']) {
     assert.equal(overlayCss.includes(token), false, 'raw HR overlay CSS must not contain ' + token);
   }
