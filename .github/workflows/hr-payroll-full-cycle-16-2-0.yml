@@ -8,6 +8,7 @@ on:
       - "ci/build_full_hr_payroll_16_2_0.py"
       - "ci/hr_payroll_overlay_16_2_0/**"
       - "ci/qa/test_full_hr_payroll_16_2_0.py"
+      - "ci/qa/test_health_scope.js"
       - "ci/qa/test_pos_cart_ui_synthetic.js"
       - "ci/qa/check-css-postcss.js"
       - "ci/qa/test_audit_chain_synthetic.php"
@@ -19,6 +20,7 @@ on:
       - "ci/build_full_hr_payroll_16_2_0.py"
       - "ci/hr_payroll_overlay_16_2_0/**"
       - "ci/qa/test_full_hr_payroll_16_2_0.py"
+      - "ci/qa/test_health_scope.js"
       - "ci/qa/test_pos_cart_ui_synthetic.js"
       - "ci/qa/check-css-postcss.js"
       - "ci/qa/test_audit_chain_synthetic.php"
@@ -95,6 +97,7 @@ jobs:
           unzip -q "$RUNNER_TEMP/stockland-16.2.9/STOCKLAND_ERP_16.2.9_HR_PAYROLL_CANDIDATE.zip" -d "$OUT"
           find "$OUT/stockland-erp-app" -type f -name '*.php' -print0 | xargs -0 -n1 php -l
           node --check "$OUT/stockland-erp-app/assets/app.js"
+          node ci/qa/test_health_scope.js "$OUT/stockland-erp-app/assets/app.js"
           node --check "$OUT/stockland-erp-app/assets/pwa.js"
           node --check ci/hr_payroll_overlay_16_2_0/hr-lifecycle-ui.js
           node --check ci/hr_payroll_overlay_16_2_0/pos-cart-ui.js

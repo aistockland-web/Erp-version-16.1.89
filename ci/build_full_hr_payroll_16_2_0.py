@@ -537,6 +537,29 @@ def rebuild_css(files):
     files[min_path] = minify_css_preserving_semantics(app_css).encode("utf-8")
 
 
+def patch_module_scoped_health_status(app):
+    """Keep payroll/schema/release review states scoped to their affected actions."""
+    helper = "function classifyERPHealthScope(failedChecks,liveReady,setupRequired,quickOnly){const failed=Array.isArray(failedChecks)?failedChecks:[];const labels={payroll_compensation_classification:'Payroll compensation review',schema_contract_approved:'Schema architecture approval',release_approval:'Owner release authorization'};const scoped=!liveReady&&!setupRequired&&!quickOnly&&failed.length>0&&failed.every(k=>Object.prototype.hasOwnProperty.call(labels,k));const payrollOnly=scoped&&failed.length===1&&failed[0]==='payroll_compensation_classification';return {scoped,payrollOnly,detail:scoped?failed.map(k=>labels[k]).join(', '):''};}"
+    if helper not in app:
+        marker = "async function runHealth(mode){"
+        if app.count(marker) != 1:
+            raise ValueError("Could not locate unique runHealth renderer for module-scoped health status.")
+        app = app.replace(marker, helper + "\n" + marker, 1)
+    old = """    const payrollOnlyIssue=!ready&&!setupRequired&&!quickOnly&&failed.length===1&&failed[0]==='payroll_compensation_classification';
+    const badge=ready?'is-ready':(payrollOnlyIssue?'is-operational-warning':'is-not-ready');"""
+    new = """    const healthScope=classifyERPHealthScope(failed,ready,setupRequired,quickOnly);
+    const payrollOnlyIssue=healthScope.payrollOnly;
+    const scopedOperationalReview=healthScope.scoped;
+    const badge=ready?'is-ready':(scopedOperationalReview?'is-operational-warning':'is-not-ready');"""
+    app = once(app, old, new, "scope payroll/schema/release approval health warnings to affected actions")
+    old = """    const label=setupRequired?'SETUP REPAIR REQUIRED':(quickOnly?'QUICK HEALTH ONLY':(ready?'LIVE READY':(payrollOnlyIssue?'OPERATIONAL • PAYROLL CHECK REQUIRED':'NOT LIVE READY')));"""
+    new = """    const label=setupRequired?'SETUP REPAIR REQUIRED':(quickOnly?'QUICK HEALTH ONLY':(ready?'LIVE READY':(payrollOnlyIssue?'OPERATIONAL • PAYROLL CHECK REQUIRED':(scopedOperationalReview?'OPERATIONAL • TARGETED REVIEW REQUIRED':'NOT LIVE READY'))));"""
+    app = once(app, old, new, "replace global-looking status for payroll/schema/release-only failures")
+    old = """    const bannerText=setupRequired?'The ERP is showing the exact schema gate that must be repaired before business controllers can register. Use the protected setup action; this check did not change business data.':(quickOnly?'Quick checks completed; deep integrity status is UNVERIFIED because the full scan was deferred.':(ready?'All mandatory production checks passed.':(payrollOnlyIssue?'All non-payroll production checks passed. Payroll compensation readiness requires a verified result; unresolved data or an incomplete diagnostic remains visible and does not disable other verified ERP workflows.':'Resolve the failed checks shown below before relying on the affected workflows.')));"""
+    new = """    const bannerText=setupRequired?'The ERP is showing the exact schema gate that must be repaired before business controllers can register. Use the protected setup action; this check did not change business data.':(quickOnly?'Quick checks completed; deep integrity status is UNVERIFIED because the full scan was deferred.':(ready?'All mandatory production checks passed.':(payrollOnlyIssue?'All non-payroll production checks passed. Payroll compensation readiness requires a verified result; unresolved data or an incomplete diagnostic remains visible and does not disable other verified ERP workflows.':(scopedOperationalReview?'Review required for: '+esc(healthScope.detail)+'. These controls apply only to the affected payroll records, schema changes or release publication. They do not disable existing authorized POS, inventory, warehouse, finance or other ERP workflows.':'Resolve the failed checks shown below before relying on the affected workflows.'))));"""
+    app = once(app, old, new, "show module-scoped impact for payroll/schema/release-only health failures")
+    return app
+
 def patch_app_js(files):
     app = text(files, "assets/app.js")
     overlay = (Path(__file__).resolve().parent / "hr_payroll_overlay_16_2_0" / "hr-lifecycle-ui.js").read_text(encoding="utf-8")
@@ -546,6 +569,7 @@ def patch_app_js(files):
         raise ValueError("Could not locate exact existing HR dashboard JS boundary.")
     wrapper = """function hr(){if(!state.hrLifecycleLoaded){return title('HR & People Operations','Loading the full employee lifecycle, legal rule registry and payroll workflow…','')+'<div id=\"hrPage\"><div class=\"sl-panel\"><div class=\"sl-skeleton\"><div class=\"sl-skeleton-line w85\"></div><div class=\"sl-skeleton-line w60\"></div><div class=\"sl-skeleton-line w40\"></div></div></div></div>';}return hrlcLifecycleLists(state.hrLifecycle||{})+hrlcPayrollCyclePanel(state.hrLifecycle||{});}\n"""
     app = app[:start] + wrapper + overlay.strip() + "\n" + app[end:]
+    app = patch_module_scoped_health_status(app)
     old_bind = "if($('#usersTable')){loadUsers();loadAvailableWPUsers();}if($('#locationsRegistry'))loadLocationsRegistry();if($('#hrPage'))loadHR();if($('#refreshHR'))$('#refreshHR').onclick=loadHR;"
     new_bind = "if($('#usersTable')){loadUsers();loadAvailableWPUsers();}if($('#locationsRegistry'))loadLocationsRegistry();if($('#hrPage')&&!state.hrLifecycleLoaded&&!state.hrLifecycleLoading)loadHRLifecycle();if($('#refreshHR'))$('#refreshHR').onclick=()=>{if(!state.hrLifecycleLoading)loadHRLifecycle();};bindHRLifecycleForms();bindHRPayrollCycleForms();"
     app = once(app, old_bind, new_bind, "replace legacy HR dashboard event binding")
