@@ -168,3 +168,24 @@ The follow-up source-hygiene change is merged into canonical `main`:
 - **Other checks:** WordPress-update workflow [42125671229](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/42125671229), CodeQL/secret/dependency workflows [42125671384](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/42125671384), and ShellCheck/actionlint [42125671363](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/42125671363) passed.
 
 The tested installer generated from this selective HR source remains the 16.2.9 candidate built from protected 16.1.95; its receipt still declares the 37-table schema expansion unapproved and `production_ready=false`. This merge cleans the source and regression coverage. It does not approve that schema, create the final cumulative product, deploy to the reported 16.2.13 live installation, or change production data.
+
+
+### Local verification of the same CI-generated package
+
+The PHP 8.3 GitHub Actions artifact was downloaded to the local machine and independently checked:
+
+- Outer CI evidence bundle SHA-256: `1ca58f61649674f012c280b488af0a37c175fbd8b9363bde434a0550407201d3`.
+- Inner installer SHA-256: `f360294feb4aa43f13d43d12a22e55867eda26e0502946dd0d494947277604ca`.
+- ZIP CRC/integrity: PASS; 88 unique runtime files.
+- PHP syntax: 55/55 PASS on local PHP 8.4.24.
+- JavaScript syntax: `assets/app.js` and `assets/pwa.js` PASS on Node 22.16.0.
+- JSON: 3/3 manifests parse.
+- PostCSS: `app.css`, `app.min.css`, Bootstrap and HR lifecycle CSS parse.
+- CSS assembly: all 12 ordered source modules reproduce `app.css` exactly.
+- HR UI: no HR-specific SVG functions, markup or CSS selectors; text-only HR workflow and social cards are present.
+- ERP shell/chart: global navigation icon renderer and dashboard sales chart remain present.
+- Module-scoped health classifier: payroll-only, combined payroll/schema/release review, governance-only, and unrelated ledger/deep-integrity failures were exercised locally; scoped review stays isolated and genuine integrity failures remain visible.
+
+The available Chromium headless browser did not complete a viewport render in this environment; no local visual/browser pass is claimed. GitHub Actions exact-package tests did exercise the generated text-only section/social rendering and raw overlay sources on PHP 8.3 and PHP 8.4.
+
+**No live WordPress activation, MariaDB migration, employee/payroll update, inventory adjustment, sale, ledger posting or deployment was performed.** The generated candidate's own receipt still records `production_ready=false`, `schema_contract_approved=false`, `new_tables=37`, and `production_database_touched=false`. These are artifact/schema acceptance facts only; they do not change the project-wide Engineering GO or disable existing authorized ERP operations.
