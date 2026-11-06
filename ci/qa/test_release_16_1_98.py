@@ -203,6 +203,16 @@ def main():
     require("Content-Disposition: attachment" in handler and MIME in handler, "DOCX MIME/content-disposition missing")
     hr_schema = new[ROOT_IN_ZIP + "includes/class-stockland-hr.php"].decode()
     require("private static function migration_columns()" in hr_schema and "'approval_status'" in hr_schema and "VARCHAR(24) NOT NULL DEFAULT 'DRAFT'" in hr_schema, "lifecycle compensation approvals use the separate additive migration allowlist")
+    legacy_columns = hr_schema.split("public static function required_columns()", 1)[1].split("/** Additive lifecycle-only columns", 1)[0]
+    require("'employee_pension_rate'    => 'DECIMAL(6,4) NULL DEFAULT NULL AFTER pensionable_salary'" in legacy_columns
+            and "'employer_pension_rate'    => 'DECIMAL(6,4) NULL DEFAULT NULL AFTER employee_pension_rate'" in legacy_columns
+            and "0.0700" not in legacy_columns and "0.1100" not in legacy_columns,
+            "legacy payroll-line migration leaves historical statutory pension rates NULL")
+    payroll_lines_ddl = hr_schema.split("CREATE TABLE {$p}stock_payroll_lines", 1)[1].split("if ( $batch_size > 0 )", 1)[0]
+    require("employee_pension_rate DECIMAL(6,4) NULL DEFAULT NULL" in payroll_lines_ddl
+            and "employer_pension_rate DECIMAL(6,4) NULL DEFAULT NULL" in payroll_lines_ddl
+            and "0.0700" not in payroll_lines_ddl and "0.1100" not in payroll_lines_ddl,
+            "fresh payroll-line schema also leaves statutory pension rates unseeded")
     hr_rest = new[ROOT_IN_ZIP + "includes/rest/class-rest-hr-lifecycle.php"].decode()
     require("array('PENDING','RECOMMENDED','APPROVED')" in hr_rest, "Owner-approved applications must be selectable by the lifecycle Create pending hire action")
     require("taxablePart" in hr_rest and "exemptPart" in hr_rest and "Stockland_Money::add($taxablePart,$exemptPart)" in hr_rest, "capped allowance approval must reconcile the saved taxable and exempt portions, not classify the full amount as exempt")

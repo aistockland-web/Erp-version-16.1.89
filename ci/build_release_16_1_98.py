@@ -115,6 +115,22 @@ def patch_hr_schema(files):
         raise ValueError("Could not locate the payroll_lines table/batch boundary for the HR lifecycle DDL.")
     lifecycle_ddl = "\t\tforeach ( Stockland_HR_Lifecycle::table_ddl( $p, $cc ) as $lifecycle_ddl ) {\n\t\t\t$tables[] = $lifecycle_ddl;\n\t\t}\n\n"
     p = p[:batch_at] + lifecycle_ddl + p[batch_at:]
+    p = once(p,
+        "'employee_pension_rate'    => 'DECIMAL(6,4) NOT NULL DEFAULT 0.0700 AFTER pensionable_salary',",
+        "'employee_pension_rate'    => 'DECIMAL(6,4) NULL DEFAULT NULL AFTER pensionable_salary',",
+        "do not backfill historical employee pension rates")
+    p = once(p,
+        "'employer_pension_rate'    => 'DECIMAL(6,4) NOT NULL DEFAULT 0.1100 AFTER employee_pension_rate',",
+        "'employer_pension_rate'    => 'DECIMAL(6,4) NULL DEFAULT NULL AFTER employee_pension_rate',",
+        "do not backfill historical employer pension rates")
+    p = once(p,
+        "employee_pension_rate DECIMAL(6,4) NOT NULL DEFAULT 0.0700,",
+        "employee_pension_rate DECIMAL(6,4) NULL DEFAULT NULL,",
+        "fresh payroll lines do not seed employee pension rates")
+    p = once(p,
+        "employer_pension_rate DECIMAL(6,4) NOT NULL DEFAULT 0.1100,",
+        "employer_pension_rate DECIMAL(6,4) NULL DEFAULT NULL,",
+        "fresh payroll lines do not seed employer pension rates")
     put(files, "includes/class-stockland-hr.php", p)
 
 def patch_statutory(files):

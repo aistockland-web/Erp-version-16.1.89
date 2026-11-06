@@ -1,6 +1,7 @@
 # Stockland Ethiopia ERP — Finalization Audit
 **Audit date:** 3 November 2026  
-**Disposition:** **NO-GO for production installer from available packages.**  
+**Project-wide engineering disposition:** **GO — continue the complete cumulative Stockland ERP through production completion.**  
+**Scope of this 3 November assessment:** the specific 16.2.9 and 16.3.0 archive hashes below were not approved as the final cumulative installer at that time. This is an artifact-specific historical assessment, not a stop decision for the ERP as a whole, the protected master, or unaffected live operational modules. It is superseded for project direction by the Owner's 4 November Protected Master decision and 5 November incremental-completion directive.  
 **Current main:** `bd6c78f180e3bc6871317aa32c1f11d4fab8a427` (merged PR #39).
 
 This commit is an evidence record only. It does not change plugin code, live data, database schema or release state.
@@ -50,4 +51,4 @@ The separate user-supplied transcript reports a WordPress 7.1.3 / MariaDB 10.11.
 8. Resolve PHPCS/style diagnostics and metadata inconsistencies; rerun exact-package CI on the final cumulative commit.
 9. Obtain Owner, HR, Finance and qualified legal sign-off against the exact final ZIP SHA.
 
-**Decision:** Keep PR #48 open/draft and main unchanged. Do not issue either available ZIP as the final production installer. The detailed audit is recorded in Notion: [16.3.0 Consolidation Evidence](https://app.notion.com/p/40c6db0f767e8115b6e2fc0b437d4a0a) and [HR Design Reset v0.5](https://app.notion.com/p/b2c96e7d1c2c45f7a0b269152fad0b2d).
+**Decision for the two archive hashes examined in this historical report:** neither archive was accepted as the final cumulative installer on 3 November. Keep that package-specific finding attached to those exact hashes only. **Project-wide engineering remains GO:** continue the complete ERP integration on the protected baseline, selectively integrate the approved HR/payroll source, and close all implementation findings. Existing authorized ERP operations are not globally disabled by a candidate-package review. A release decision applies to the exact final cumulative ZIP and its evidence; it must never be reused as a global operational status. See [16.1.95 Protected Master — HR/Payroll Integration Decision](https://app.notion.com/p/40d6db0f767e8140b744d32a043269f9), [16.3.0 Consolidation Evidence](https://app.notion.com/p/40c6db0f767e8115b6e2fc0b437d4a0a), and [HR Design Reset v0.5](https://app.notion.com/p/b2c96e7d1c2c45f7a0b269152fad0b2d).
