@@ -179,14 +179,14 @@ function sl_lab_test_dbdelta_engine_and_plugin_idempotency() {
 	sl_lab_check( is_array( $row ) && 'retained-row' === $row['code'] && 'NEW' === $row['state'], 'dbDelta preserves an existing test row while adding the column' );
 	$wpdb->query( 'DROP TABLE `' . esc_sql( $probe ) . '`' ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- cleanup of the isolated probe table only.
 
-	// The namespace is now populated. These plugin entry points therefore take
-	// their existing-schema/dbDelta path for Core and Accounting, not fresh CREATE.
+	// Re-enter through the supported protected REST/setup path. Bounded Core and
+	// Accounting repairs use CREATE TABLE IF NOT EXISTS; HR uses its bounded
+	// add-only path. The separate dbDelta() probe above covers WordPress's
+	// create/add-column/repeat/data-preservation behavior.
 	$before = sl_lab_schema_fingerprint();
-	Stockland_Activator::activate( 0 );
-	Stockland_Accounting::install( 0 );
-	Stockland_HR::install( 0 );
+	sl_lab_advance_via_rest();
 	$after = sl_lab_schema_fingerprint();
-	sl_lab_check( hash_equals( $before, $after ), 're-running Core/Accounting dbDelta and HR repair does not drift the baseline schema' );
+	sl_lab_check( hash_equals( $before, $after ), 're-entering the supported bounded setup route leaves the complete 49-table baseline schema unchanged' );
 	sl_lab_assert_exact_contract( 49 );
 }
 
