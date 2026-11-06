@@ -94,15 +94,14 @@ jobs:
         run: |
           set -euo pipefail
           extract_inner() {
-            local outer_dir="$1" inner_name="$2" target_dir="$3"
-            local outer inner
-            outer="$(find "$outer_dir" -maxdepth 1 -type f -name '*.zip' -print -quit)"
-            test -n "$outer"
+            local artifact_dir="$1" inner_name="$2" target_dir="$3" installer
+            # actions/download-artifact extracts the artifact wrapper archive.
+            # The inner WordPress installer ZIP is therefore already a file here.
+            installer="$(find "$artifact_dir" -type f -name "$inner_name" -print -quit)"
+            test -s "$installer" || { echo "Expected installer $inner_name missing under $artifact_dir" >&2; exit 1; }
             mkdir -p "$target_dir"
-            unzip -oq "$outer" -d "$target_dir"
-            inner="$(find "$target_dir" -type f -name "$inner_name" -print -quit)"
-            test -n "$inner"
-            printf '%s\n' "$inner"
+            cp "$installer" "$target_dir/$inner_name"
+            printf '%s\n' "$target_dir/$inner_name"
           }
           BASELINE="$(extract_inner "$ARTIFACT_ROOT/baseline-outer" 'STOCKLAND_ERP_16.1.95_CANONICAL_WORDPRESS_UPDATE.zip' "$ARTIFACT_ROOT/baseline")"
           SELECTED="$(extract_inner "$ARTIFACT_ROOT/selected-outer" 'STOCKLAND_ERP_16.2.9_HR_PAYROLL_CANDIDATE.zip' "$ARTIFACT_ROOT/selected")"
