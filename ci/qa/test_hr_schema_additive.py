@@ -36,6 +36,33 @@ def required_columns_block(source: str) -> str:
         raise AssertionError(f"Expected one required_columns() function, found {len(matches)}")
     return matches[0].group(0)
 
+SAFE_PENSION_DEFAULT_REWRITES = (
+    ("'employee_pension_rate'    => 'DECIMAL(6,4) NOT NULL DEFAULT 0.0700 AFTER pensionable_salary',",
+     "'employee_pension_rate'    => 'DECIMAL(6,4) NULL DEFAULT NULL AFTER pensionable_salary',"),
+    ("'employer_pension_rate'    => 'DECIMAL(6,4) NOT NULL DEFAULT 0.1100 AFTER employee_pension_rate',",
+     "'employer_pension_rate'    => 'DECIMAL(6,4) NULL DEFAULT NULL AFTER employee_pension_rate',"),
+    ("employee_pension_rate DECIMAL(6,4) NOT NULL DEFAULT 0.0700,",
+     "employee_pension_rate DECIMAL(6,4) NULL DEFAULT NULL,"),
+    ("employer_pension_rate DECIMAL(6,4) NOT NULL DEFAULT 0.1100,",
+     "employer_pension_rate DECIMAL(6,4) NULL DEFAULT NULL,"),
+)
+
+
+def normalize_pension_rate_defaults(source: str, *, candidate: bool) -> str:
+    """Allow only the four exact nullable/NULL changes required to avoid historical backfill."""
+    for old, new in SAFE_PENSION_DEFAULT_REWRITES:
+        old_count = source.count(old)
+        new_count = source.count(new)
+        if candidate:
+            if old_count != 0 or new_count != 1:
+                raise AssertionError("Candidate must use exactly one nullable pension definition: " + new)
+        else:
+            if old_count != 1 or new_count != 0:
+                raise AssertionError("Protected baseline pension definition differs from the reviewed source: " + old)
+            source = source.replace(old, new, 1)
+    return source
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--baseline", required=True, type=Path)
@@ -48,17 +75,20 @@ def main() -> None:
             raise AssertionError(f"Required legacy schema source missing: {path}")
     base_hr = base[HR_SOURCE].decode("utf-8")
     candidate_hr = candidate[HR_SOURCE].decode("utf-8")
+    base_hr_compare = normalize_pension_rate_defaults(base_hr, candidate=False)
+    candidate_hr_compare = normalize_pension_rate_defaults(candidate_hr, candidate=True)
     mismatches = []
     for table in LEGACY_TABLES:
-        if table_ddl(base_hr, table) != table_ddl(candidate_hr, table):
-            mismatches.append(f"stock_{table} CREATE TABLE DDL changed")
-    if required_columns_block(base_hr) != required_columns_block(candidate_hr):
-        mismatches.append("required_columns() changed; an existing table could be altered")
+        if table_ddl(base_hr_compare, table) != table_ddl(candidate_hr_compare, table):
+            mismatches.append(f"stock_{table} CREATE TABLE DDL changed outside the two nullable pension-rate corrections")
+    if required_columns_block(base_hr_compare) != required_columns_block(candidate_hr_compare):
+        mismatches.append("required_columns() changed outside the two nullable pension-rate corrections")
     if base[ACTIVATOR] != candidate[ACTIVATOR]:
         mismatches.append("schema activator bytes changed")
     if mismatches:
         raise SystemExit("FAIL additive-only HR schema gate: " + "; ".join(mismatches))
-    print("PASS additive-only HR schema gate: four existing HR table DDLs, legacy required columns, and activator unchanged")
+    print("PASS additive-only HR schema gate: four existing HR tables preserved; only the two pension-rate columns are changed to nullable NULL defaults")
+    print("PASS all other legacy columns, table DDL and schema activator remain unchanged")
     print("PASS candidate may add lifecycle tables only; this check does not certify live migration or payroll legality")
 
 if __name__ == "__main__":
