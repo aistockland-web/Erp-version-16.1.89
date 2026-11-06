@@ -8,7 +8,7 @@
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 final class Stockland_HR_Lifecycle {
-	const SCHEMA_VERSION = '16.2.0';
+	const SCHEMA_VERSION = '16.2.1';
 
 	public static function table_keys() {
 		return array(
@@ -368,16 +368,24 @@ final class Stockland_HR_Lifecycle {
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			payment_code VARCHAR(60) NOT NULL,
 			payroll_period_id BIGINT UNSIGNED NOT NULL,
+			employee_id BIGINT UNSIGNED NULL,
 			payment_type VARCHAR(24) NOT NULL DEFAULT 'EMPLOYEE_NET',
+			payment_batch_reference VARCHAR(120) NULL,
 			amount DECIMAL(14,2) NOT NULL,
 			currency VARCHAR(10) NOT NULL DEFAULT 'ETB',
 			payment_method VARCHAR(30) NOT NULL,
-			payment_reference VARCHAR(120) NOT NULL,
+			payment_reference VARCHAR(120) NULL,
 			payment_date DATE NOT NULL,
-			status VARCHAR(20) NOT NULL DEFAULT 'RECORDED',
+			status VARCHAR(20) NOT NULL DEFAULT 'PREPARED',
+			failure_reason VARCHAR(500) NULL,
 			recorded_by BIGINT UNSIGNED NOT NULL,
 			recorded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			PRIMARY KEY (id), UNIQUE KEY payment_code (payment_code), UNIQUE KEY period_type_reference (payroll_period_id,payment_type,payment_reference), KEY payment_date (payment_date,status)
+			confirmed_by BIGINT UNSIGNED NULL,
+			confirmed_at DATETIME NULL,
+			posted_journal_id BIGINT UNSIGNED NULL,
+			reconciled_by BIGINT UNSIGNED NULL,
+			reconciled_at DATETIME NULL,
+			PRIMARY KEY (id), UNIQUE KEY payment_code (payment_code), UNIQUE KEY period_type_reference (payroll_period_id,payment_type,payment_reference), KEY period_employee (payroll_period_id,employee_id), KEY batch_status (payment_batch_reference,status), KEY payment_date (payment_date,status)
 		) ENGINE=InnoDB {$cc};";
 		$t[] = "CREATE TABLE {$p}hr_payroll_adjustments (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,

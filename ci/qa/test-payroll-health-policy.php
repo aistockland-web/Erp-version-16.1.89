@@ -28,7 +28,23 @@ $base = array(
 	'allowance_breakdown_json' => '[{"category":"GENERAL_CASH","amount":"100.00","tax_treatment":"TAXABLE"}]',
 );
 $check( Stockland_Payroll_Statutory::RULE_VERSION === 'ET-PAYE-1395-2025-v3-PENSION-BASE', 'approved v3 PAYE rule remains selected' );
-$result = Stockland_Payroll_Statutory::calculate( '30000.00', '0.00', '0.00', '30000.00', '0.00' );
+// Synthetic, test-only rule fixture: no legal rate is seeded or activated by the package.
+$test_rules = array(
+	'employee_pension_rate' => '0.07',
+	'employer_pension_rate' => '0.11',
+	'tax_base_method' => 'TAXABLE_GROSS_LESS_EMPLOYEE_PENSION',
+	'rule_version' => Stockland_Payroll_Statutory::RULE_VERSION,
+	'rule_set_id' => 999,
+	'monthly_tax_bands' => array(
+		array( 'up_to' => '2000.00', 'rate' => '0.00', 'credit' => '0.00' ),
+		array( 'up_to' => '4000.00', 'rate' => '0.15', 'credit' => '300.00' ),
+		array( 'up_to' => '7000.00', 'rate' => '0.20', 'credit' => '500.00' ),
+		array( 'up_to' => '10000.00', 'rate' => '0.25', 'credit' => '850.00' ),
+		array( 'up_to' => '14000.00', 'rate' => '0.30', 'credit' => '1350.00' ),
+		array( 'up_to' => null, 'rate' => '0.35', 'credit' => '2050.00' ),
+	),
+);
+$result = Stockland_Payroll_Statutory::calculate( '30000.00', '0.00', '0.00', '30000.00', '0.00', $test_rules );
 $check( $result['taxable_income'] === '27900.00' && $result['income_tax'] === '7715.00' && $result['employee_pension'] === '2100.00' && $result['net_pay'] === '20185.00', 'ETB 30,000 pension-first regression is exact' );
 $check( '' === Stockland_Payroll_Statutory::compensation_record_validation_error( $base ), 'valid Management-prepared taxable compensation is accepted' );
 $cases = array();
