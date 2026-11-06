@@ -1,5 +1,5 @@
+# snapshot=2026-11-07; excludes this audit's own branch; all pre-existing repository branches
 branch,head_sha,protected
-"audit/cross-source-reconciliation-2026-11-07",412574b2b78be1706414496ce7e80cdd58c5b379,false
 "audit/deep-ci-activities",acb3b5f08561d6617c37ecbbcf5b27064bbc041c,false
 "audit/erp-wide-sop-library-2026-10-29",39b1eef201d018ae2438eb2158cd0eda0b833a54,false
 "audit/inspect-16-1-91-source",3d9061d14a550181eb39a65ea204ba0acf43e77d,false
