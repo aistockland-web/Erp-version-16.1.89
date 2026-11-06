@@ -1,0 +1,37 @@
+services:
+  workspace:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/workspaces/stockland-erp:cached
+    command: sleep infinity
+    environment:
+      STOCKLAND_TEST_DB_HOST: db
+      STOCKLAND_TEST_DB_PORT: "3306"
+      STOCKLAND_TEST_DB_NAME: stockland_dev
+      STOCKLAND_TEST_DB_USER: root
+      STOCKLAND_TEST_DB_PASSWORD: ""
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: mariadb:10.11
+    restart: unless-stopped
+    environment:
+      MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: "yes"
+      MARIADB_DATABASE: stockland_dev
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - stockland-codespace-db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  stockland-codespace-db:
