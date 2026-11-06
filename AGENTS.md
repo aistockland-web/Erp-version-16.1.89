@@ -12,7 +12,7 @@ This is a cumulative recovery and engineering assignment. Do not restart the ERP
 - GitHub is authoritative for repository source, commit ancestry, branches, pull requests, Actions runs and exact build artifacts.
 - Notion is authoritative for business requirements, architecture decisions, approvals, audit findings and acceptance records.
 - The 7 November cross-source reconciliation is an evidence register, not production approval. Its audit PR #65 is draft and unmerged; its CSV/Markdown inventories are inputs to validate, not merge instructions.
-- The latest checked main SHA at this evidence cutoff is 412574b2b78be1706414496ce7e80cdd58c5b379. Refresh main before every new integration decision.
+- The 7 November cross-source audit recorded main at 412574b2b78be1706414496ce7e80cdd58c5b379. A subsequent main commit, 339d519f5597c5c9b1efd45c5eb376216d976703, corrected 16.1.98 pension migration behavior and its tests; that update was merged into the Codespaces setup branch before draft PR #67. Refresh main before every new integration decision.
 - The repository currently has no published GitHub Release objects and no formal signed release certificate in the checked evidence. Do not invent one.
 - The Notion connector cannot search historical agent sessions under the current workspace entitlement. Use the existing Notion project pages, saved memories, repository history, available conversation context and Library files. Do not claim every private chat transcript has been recovered.
 - PR #57 contains a .vscode/mcp.json file with compressed Node --eval content. Do not execute, copy or merge that configuration without a separate security and provenance review.
