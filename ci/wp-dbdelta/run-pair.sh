@@ -60,8 +60,10 @@ run_mode "$UPGRADE_SITE" advance
 run_mode "$UPGRADE_SITE" assert-baseline
 run_mode "$UPGRADE_SITE" dbdelta-idempotency
 run_mode "$UPGRADE_SITE" seed-legacy-fixtures
-"$WP_BIN" plugin deactivate stockland-erp-app --path="$UPGRADE_SITE"
-"$WP_BIN" plugin install "$CANDIDATE_ZIP" --path="$UPGRADE_SITE" --force --activate
+# Replace the active plugin in place. Do not deactivate/reactivate: that would
+# invoke the activation hook and reset schema/setup markers unlike a normal update.
+"$WP_BIN" plugin install "$CANDIDATE_ZIP" --path="$UPGRADE_SITE" --force
+"$WP_BIN" plugin is-active stockland-erp-app --path="$UPGRADE_SITE"
 run_mode "$UPGRADE_SITE" advance
 run_mode "$UPGRADE_SITE" assert-candidate-upgrade
 printf '\n===== PHASE 2: 16.2.9 FRESH-INSTALL PATH =====\n'
