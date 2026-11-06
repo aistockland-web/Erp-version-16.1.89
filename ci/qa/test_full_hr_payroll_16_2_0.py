@@ -124,6 +124,18 @@ def main():
         require("payroll_legal_review_missing" in schema and "return array();" in schema, "unreviewed payroll rules/allowance exemptions fail closed")
         require("employee_pension" not in schema or "pensionable_base" in schema, "pensionable base is explicitly modelled, not inferred from a vendor template")
         require("approval_status" in files["includes/class-stockland-hr.php"].decode() and "statutory_rule_set_id" in files["includes/class-stockland-hr.php"].decode(), "legacy compensation schema gains migration-safe approval/provenance columns")
+        hr_columns_upgrade = hr_repository_php.split("public static function required_columns()", 1)[1].split("/** Read-only inventory", 1)[0]
+        require("'approval_status'                => \"VARCHAR(24) NOT NULL DEFAULT 'DRAFT' AFTER allowance_breakdown_json\"" in hr_columns_upgrade and "DEFAULT 'APPROVED'" not in hr_columns_upgrade,
+                "existing compensation rows remain DRAFT until a real approval event")
+        require("'employee_pension_rate'    => 'DECIMAL(6,4) NULL DEFAULT NULL AFTER pensionable_salary'" in hr_columns_upgrade
+                and "'employer_pension_rate'    => 'DECIMAL(6,4) NULL DEFAULT NULL AFTER employee_pension_rate'" in hr_columns_upgrade
+                and "0.0700" not in hr_columns_upgrade and "0.1100" not in hr_columns_upgrade,
+                "legacy payroll-line pension rates are not invented or backfilled during upgrade")
+        payroll_lines_ddl = hr_repository_php.split("CREATE TABLE {$p}stock_payroll_lines", 1)[1].split("if ( $batch_size > 0 )", 1)[0]
+        require("employee_pension_rate DECIMAL(6,4) NULL DEFAULT NULL" in payroll_lines_ddl
+                and "employer_pension_rate DECIMAL(6,4) NULL DEFAULT NULL" in payroll_lines_ddl
+                and "0.0700" not in payroll_lines_ddl and "0.1100" not in payroll_lines_ddl,
+                "fresh payroll-line schema also leaves statutory pension rates unseeded")
         require("hr_legacy_payroll_retired" in files["includes/rest/class-rest-hr.php"].decode(), "legacy payroll mutation endpoints are retired in favor of frozen runs")
         for route in ["/hr/payroll-runs","/generate","/submit","/approve","/payment-batches","/hr/payroll-payment-batches","/reconcile","/hr/individual-payees","/hr/individual-payee-obligations","/hr/employee-reimbursements","/hr/statutory-remittances","/hr/resources","/hr/management-social"]:
             require(route in cycle, "cycle API contains " + route)
