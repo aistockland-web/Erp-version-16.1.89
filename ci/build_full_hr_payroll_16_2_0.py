@@ -75,8 +75,25 @@ def patch_hr_schema(files):
         "HR table contract")
     p = once(p,
         "'allowance_breakdown_json'        => 'LONGTEXT NULL AFTER statutory_classification_note',",
-        "'allowance_breakdown_json'        => 'LONGTEXT NULL AFTER statutory_classification_note',\n\t\t\t\t'approval_status'                => \"VARCHAR(24) NOT NULL DEFAULT 'APPROVED' AFTER allowance_breakdown_json\",\n\t\t\t\t'approved_by'                    => 'BIGINT UNSIGNED NULL AFTER approval_status',\n\t\t\t\t'approved_at'                    => 'DATETIME NULL AFTER approved_by',\n\t\t\t\t'statutory_rule_set_id'           => 'BIGINT UNSIGNED NULL AFTER approved_at',\n\t\t\t\t'statutory_rule_version'          => 'VARCHAR(80) NULL AFTER statutory_rule_set_id',\n\t\t\t\t'allowance_rule_set_id'           => 'BIGINT UNSIGNED NULL AFTER statutory_rule_version',\n\t\t\t\t'allowance_rule_version'          => 'VARCHAR(80) NULL AFTER allowance_rule_set_id',",
+        "'allowance_breakdown_json'        => 'LONGTEXT NULL AFTER statutory_classification_note',\n\t\t\t\t'approval_status'                => \"VARCHAR(24) NOT NULL DEFAULT 'DRAFT' AFTER allowance_breakdown_json\",\n\t\t\t\t'approved_by'                    => 'BIGINT UNSIGNED NULL AFTER approval_status',\n\t\t\t\t'approved_at'                    => 'DATETIME NULL AFTER approved_by',\n\t\t\t\t'statutory_rule_set_id'           => 'BIGINT UNSIGNED NULL AFTER approved_at',\n\t\t\t\t'statutory_rule_version'          => 'VARCHAR(80) NULL AFTER statutory_rule_set_id',\n\t\t\t\t'allowance_rule_set_id'           => 'BIGINT UNSIGNED NULL AFTER statutory_rule_version',\n\t\t\t\t'allowance_rule_version'          => 'VARCHAR(80) NULL AFTER allowance_rule_set_id',",
         "compensation additive columns")
+
+    p = once(p,
+        "'employee_pension_rate'    => 'DECIMAL(6,4) NOT NULL DEFAULT 0.0700 AFTER pensionable_salary',",
+        "'employee_pension_rate'    => 'DECIMAL(6,4) NULL DEFAULT NULL AFTER pensionable_salary',",
+        "do not backfill historical employee pension rates")
+    p = once(p,
+        "'employer_pension_rate'    => 'DECIMAL(6,4) NOT NULL DEFAULT 0.1100 AFTER employee_pension_rate',",
+        "'employer_pension_rate'    => 'DECIMAL(6,4) NULL DEFAULT NULL AFTER employee_pension_rate',",
+        "do not backfill historical employer pension rates")
+    p = once(p,
+        "employee_pension_rate DECIMAL(6,4) NOT NULL DEFAULT 0.0700,",
+        "employee_pension_rate DECIMAL(6,4) NULL DEFAULT NULL,",
+        "fresh payroll lines do not seed employee pension rates")
+    p = once(p,
+        "employer_pension_rate DECIMAL(6,4) NOT NULL DEFAULT 0.1100,",
+        "employer_pension_rate DECIMAL(6,4) NULL DEFAULT NULL,",
+        "fresh payroll lines do not seed employer pension rates")
     p = once(p,
         "'other_deduction_total'  => 'DECIMAL(14,2) NOT NULL DEFAULT 0.00 AFTER employer_pension_total',",
         "'other_deduction_total'  => 'DECIMAL(14,2) NOT NULL DEFAULT 0.00 AFTER employer_pension_total',\n\t\t\t\t'statutory_rule_set_id'   => 'BIGINT UNSIGNED NULL AFTER other_deduction_total',\n\t\t\t\t'statutory_rule_version'  => 'VARCHAR(80) NULL AFTER statutory_rule_set_id',",
