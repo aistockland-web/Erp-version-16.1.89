@@ -170,7 +170,7 @@ Material open GitHub issues:
 - No production database, inventory, sales, ledger, employee or payroll records were read or modified.
 - No schema migration, payroll calculation or synthetic transaction was run on production.
 - No PR was merged, no release was published, and no issue was closed as part of this coordination.
-- 16.2.10–16.2.13 ZIP bytes were not available in the current Library or workspace to independently recompute their recorded hashes; those values come from the prior Codespaces/source-archaeology report.
+- A recursive Library inventory completed across 825 returned file records (five pages) found no 16.2.10–16.2.13 installer ZIPs or matching 16.3.0/16.3.1 package binaries. The ZIP bytes were also absent from this turn's workspace, so those recorded hashes come from the prior Codespaces/source-archaeology report and cannot be independently recomputed here.
 - The current Notion connector supports page search/fetch, but agent-session search was unavailable. This register consolidates accessible recent-chat summaries, memory context, fetched Notion pages, GitHub history and current CI artifacts—not every full transcript from every separate chat.
 
 **Final state at cutoff:** main is 412574b2...; 16.1.98 is the latest exact package produced by current-main CI in this audit, but it is an older-baseline candidate and explicitly not production-ready. Do not select an upgrade base until reported 16.2.13 live package and schema are verified. No formal signed certificate or published GitHub release exists in the repository at this cutoff.
