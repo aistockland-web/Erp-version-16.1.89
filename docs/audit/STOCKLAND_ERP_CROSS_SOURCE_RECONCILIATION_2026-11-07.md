@@ -174,3 +174,13 @@ Material open GitHub issues:
 - The current Notion connector supports page search/fetch, but agent-session search was unavailable. This register consolidates accessible recent-chat summaries, memory context, fetched Notion pages, GitHub history and current CI artifacts—not every full transcript from every separate chat.
 
 **Final state at cutoff:** main is 412574b2...; 16.1.98 is the latest exact package produced by current-main CI in this audit, but it is an older-baseline candidate and explicitly not production-ready. Do not select an upgrade base until reported 16.2.13 live package and schema are verified. No formal signed certificate or published GitHub release exists in the repository at this cutoff.
+
+
+## Addendum — audit-register PR checks (7 Nov 2026)
+
+Draft PR #65 was run through the repository's branch workflows on audit commit b9e34a15c3a6e01cc3a9141bab8328a0c8ca20ec:
+- [Run #42301168417](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/42301168417): local release-gate job successfully validated the exact 16.1.89 installer identity, package contract, assets and syntax. This is a documentation-branch check and validation of the existing 16.1.89 package, not the 16.1.98 installer or the 16.2.13 operational line.
+- [Run #42301168443](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/42301168443): ShellCheck/actionlint passed; its non-deployable remediation-candidate build job was skipped.
+- [Run #42301168527](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/42301168527): targeted PHPCS recheck was skipped.
+
+Therefore the draft audit PR has passing documentation-branch checks, but no new application candidate was built from its documentation-only changes, and the skipped PHPCS job is not a pass. The main 16.1.98 CI findings in section 5 remain unchanged.
