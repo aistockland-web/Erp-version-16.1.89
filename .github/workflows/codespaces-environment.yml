@@ -59,12 +59,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          docker run --rm stockland-erp-codespace-qa bash -lc '
-            set -euo pipefail
-            php --version
-            composer --version
-            for extension in curl dom fileinfo json mbstring mysqli openssl pdo_mysql simplexml xml zip; do
-              php -r "exit(extension_loaded('\''$extension'\'') ? 0 : 1);" || { echo "Missing PHP extension: $extension" >&2; exit 1; }
-            done
-            echo "PASS required PHP extensions and Composer"
-          '
+          php_modules="$(docker run --rm stockland-erp-codespace-qa php -m)"
+          for extension in curl dom fileinfo json mbstring mysqli openssl pdo_mysql simplexml xml zip; do
+            if ! grep -qi "^${extension}$" <<< "$php_modules"; then
+              echo "Missing PHP extension: $extension" >&2
+              exit 1
+            fi
+          done
+          docker run --rm stockland-erp-codespace-qa composer --version
+          echo "PASS required PHP extensions and Composer"
