@@ -1,7 +1,7 @@
 # Stockland Ethiopia ERP — SaaS Engineering Blueprint and Release Gates
 **Date:** 29 October 2026  
 **Target:** WordPress-hosted web ERP/PWA; not a separate Node/Python runtime  
-**Decision:** engineering candidate / staging only; production remains NO-GO.
+**Historical disposition (29 October 2026):** the then-current 16.2.0 engineering candidate described in this document was not approved for production promotion on the evidence recorded in section 9. This is not a runtime “staging-only” mode, nor a restriction on every Stockland ERP installation or later package. Reassess each exact installer against its own evidence; do not carry this status forward automatically.
 
 ## 1. Runtime and hosting contract
 
@@ -92,7 +92,7 @@ Every candidate package must pass all of the following on the exact output ZIP, 
 3. Bootstrap version/hash, ordered CSS manifest, `app.css` source parity, safe minifier fixture, PostCSS parse for all CSS assets and CSS module responsive/accessibility guards.
 4. REST contract/security checks, payroll fail-closed synthetic rules, private-vault path/type/size/hash behavior, no hard-coded tax rates or exemption caps, no unexpected external AI/CDN runtime.
 5. Synthetic audit-chain tamper/continuity tests; deep integrity results never mislabeled if incomplete.
-6. Schema-change disclosure, migration approval state and `production_ready=false` until external cutover evidence is attached.
+6. Schema-change disclosure and migration approval state. Each artifact receipt records its own release stage; an unaccepted candidate cannot be certified by static CI alone. Promotion requires a separately reviewed acceptance record tied to the exact final ZIP SHA, rather than a permanent hard-coded product restriction.
 7. An isolated WordPress/MariaDB end-to-end test with role/location denial, inventory receiving/transfer/requisition, POS sale/refund/close, imports, AP/AR, GL/PLEDGER reconciliation, HR lifecycle, payroll run, payout, remittance and rollback.
 8. Backup → restore → repeat functional tests; Owner/HR/Finance and qualified Ethiopian statutory sign-off.
 
@@ -102,7 +102,7 @@ Static CI does not replace staging E2E. A skipped gate is NOT PASS. The optional
 
 The 16.2.0 package passed CI on PHP 8.3 and 8.4, including exact-package acceptance, all packaged PHP syntax checks, CSS/PostCSS checks, Bootstrap SHA verification, synthetic payroll-calculator tests, and the synthetic audit-chain regression. The CSS module build now emits 12 ordered CSS modules and an 86-file plugin archive. Candidate ZIP SHA-256 is recorded in the CI artifact/receipt.
 
-Production remains NO-GO because the latest live health evidence still reports the 49-table schema-contract failure, `supplemental_integrity_scan=SCAN_INCOMPLETE`, and `pwa_registration_source=FAIL`. Source hashes of the installed build were not available through an authenticated live session. The candidate's proposed 86-table schema is unapproved. No live WordPress activation, production database mutation, actual live audit-chain check, production order/stock/AP/AR/PLEDGER reconciliation, browser PWA scope check, two-period payroll comparison, backup/restore/rollback drill, or stakeholder acceptance was performed by these builds.
+At the date of this audit (29 October 2026), production promotion of the 16.2.0 candidate was not supported by the evidence then available: the user-supplied health screen reported the 49-table schema-contract failure, `supplemental_integrity_scan=SCAN_INCOMPLETE`, and `pwa_registration_source=FAIL`; the installed source hash was not authenticated; the proposed 86-table schema was unapproved; and live workflow, reconciliation, PWA, payroll, backup/restore/rollback and stakeholder acceptance had not been performed. This determination applies to that candidate and that evidence set only. It is not an application-level kill switch or an evergreen product-status flag.
 
 ## 10. Engineering standards used
 
