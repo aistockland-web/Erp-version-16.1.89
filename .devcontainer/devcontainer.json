@@ -1,0 +1,17 @@
+{
+  "name": "Stockland ERP WordPress + MariaDB dbDelta Lab",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "wordpress",
+  "workspaceFolder": "/workspace",
+  "overrideCommand": false,
+  "shutdownAction": "stopCompose",
+  "remoteUser": "root",
+  "forwardPorts": [8080],
+  "portsAttributes": {
+    "8080": {
+      "label": "Isolated Stockland WordPress test site",
+      "onAutoForward": "openBrowser"
+    }
+  },
+  "postCreateCommand": "bash .devcontainer/bootstrap.sh"
+}

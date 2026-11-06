@@ -1,0 +1,162 @@
+name: Stockland WordPress + MariaDB dbDelta runtime characterization
+
+on:
+  push:
+    branches:
+      - qa/wordpress-dbdelta-runtime-2026-11-07
+    paths:
+      - "ci/wp-dbdelta/**"
+      - ".devcontainer/**"
+      - ".github/workflows/stockland-wp-dbdelta-runtime.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: stockland-wp-dbdelta-runtime-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  wordpress-dbdelta:
+    name: PHP ${{ matrix.php }} · WP ${{ matrix.wordpress }} · ${{ matrix.database }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ["8.3", "8.4"]
+        wordpress: ["6.8.0", "latest"]
+        database: ["mariadb", "mysql"]
+
+    services:
+      database:
+        image: ${{ matrix.database == 'mariadb' && 'mariadb:10.11' || 'mysql:8.0' }}
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: stockland_ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --silent -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=20
+
+    steps:
+      - name: Checkout isolated test branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up PHP with real MySQL drivers
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: curl, intl, mbstring, mysqli, pdo_mysql, zip
+          coverage: none
+
+      - name: Install database client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mariadb-client unzip
+
+      - name: Download exact protected 16.1.95 Actions artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: STOCKLAND-ERP-16.1.95-Cumulative-WordPress-Update
+          repository: aistockland-web/Erp-version-16.1.89
+          run-id: 40036018031
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/stockland-artifacts/baseline-outer
+
+      - name: Download exact selected 16.2.9 PR #39 artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: STOCKLAND-ERP-16.2.9-HR-PAYROLL-CANDIDATE
+          repository: aistockland-web/Erp-version-16.1.89
+          run-id: 41146685514
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/stockland-artifacts/selected-outer
+
+      - name: Download exact refreshed 16.2.9 artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: STOCKLAND-ERP-16.2.9-HR-PAYROLL-CANDIDATE
+          repository: aistockland-web/Erp-version-16.1.89
+          run-id: 42125671298
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/stockland-artifacts/refreshed-outer
+
+      - name: Extract inner WordPress installers and compare PHP runtime parity
+        id: package
+        env:
+          ARTIFACT_ROOT: ${{ runner.temp }}/stockland-artifacts
+        run: |
+          set -euo pipefail
+          extract_inner() {
+            local outer_dir="$1" inner_name="$2" target_dir="$3"
+            local outer inner
+            outer="$(find "$outer_dir" -maxdepth 1 -type f -name '*.zip' -print -quit)"
+            test -n "$outer"
+            mkdir -p "$target_dir"
+            unzip -oq "$outer" -d "$target_dir"
+            inner="$(find "$target_dir" -type f -name "$inner_name" -print -quit)"
+            test -n "$inner"
+            printf '%s\n' "$inner"
+          }
+          BASELINE="$(extract_inner "$ARTIFACT_ROOT/baseline-outer" 'STOCKLAND_ERP_16.1.95_CANONICAL_WORDPRESS_UPDATE.zip' "$ARTIFACT_ROOT/baseline")"
+          SELECTED="$(extract_inner "$ARTIFACT_ROOT/selected-outer" 'STOCKLAND_ERP_16.2.9_HR_PAYROLL_CANDIDATE.zip' "$ARTIFACT_ROOT/selected")"
+          REFRESHED="$(extract_inner "$ARTIFACT_ROOT/refreshed-outer" 'STOCKLAND_ERP_16.2.9_HR_PAYROLL_CANDIDATE.zip' "$ARTIFACT_ROOT/refreshed")"
+          python3 ci/wp-dbdelta/compare-candidates.py "$SELECTED" "$REFRESHED"
+          {
+            echo "baseline=$BASELINE"
+            echo "selected=$SELECTED"
+            echo "refreshed=$REFRESHED"
+          } >> "$GITHUB_OUTPUT"
+          sha256sum "$BASELINE" "$SELECTED" "$REFRESHED"
+
+      - name: Install WP-CLI
+        run: |
+          set -euo pipefail
+          curl -fsSL https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar -o "$RUNNER_TEMP/wp"
+          chmod +x "$RUNNER_TEMP/wp"
+          "$RUNNER_TEMP/wp" --info
+
+      - name: Run protected 16.1.95 to selected PR #39 16.2.9 migration test
+        env:
+          WP_VERSION: ${{ matrix.wordpress }}
+          WP_CLI_BIN: ${{ runner.temp }}/wp
+          WP_DBDELTA_DB_HOST: 127.0.0.1:3306
+          WP_DBDELTA_DB_ADMIN_HOST: 127.0.0.1:3306
+          WP_DBDELTA_DB_USER: root
+          WP_DBDELTA_DB_PASSWORD: root
+          WP_DBDELTA_WORK_DIR: ${{ runner.temp }}/stockland-wp-dbdelta/${{ matrix.database }}-${{ matrix.php }}-${{ matrix.wordpress }}
+        run: |
+          set -o pipefail
+          bash ci/wp-dbdelta/run-pair.sh selected "${{ steps.package.outputs.baseline }}" "${{ steps.package.outputs.selected }}" \
+            | tee "${{ runner.temp }}/selected-runtime.log"
+
+      - name: Run protected 16.1.95 to refreshed 16.2.9 migration test
+        env:
+          WP_VERSION: ${{ matrix.wordpress }}
+          WP_CLI_BIN: ${{ runner.temp }}/wp
+          WP_DBDELTA_DB_HOST: 127.0.0.1:3306
+          WP_DBDELTA_DB_ADMIN_HOST: 127.0.0.1:3306
+          WP_DBDELTA_DB_USER: root
+          WP_DBDELTA_DB_PASSWORD: root
+          WP_DBDELTA_WORK_DIR: ${{ runner.temp }}/stockland-wp-dbdelta-refreshed/${{ matrix.database }}-${{ matrix.php }}-${{ matrix.wordpress }}
+        run: |
+          set -o pipefail
+          bash ci/wp-dbdelta/run-pair.sh refreshed "${{ steps.package.outputs.baseline }}" "${{ steps.package.outputs.refreshed }}" \
+            | tee "${{ runner.temp }}/refreshed-runtime.log"
+
+      - name: Upload disposable runtime evidence (not a release artifact)
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: STOCKLAND-WP-DBDELTA-${{ matrix.database }}-PHP-${{ matrix.php }}-WP-${{ matrix.wordpress }}
+          path: |
+            ${{ runner.temp }}/selected-runtime.log
+            ${{ runner.temp }}/refreshed-runtime.log
+          if-no-files-found: warn
+          retention-days: 14
