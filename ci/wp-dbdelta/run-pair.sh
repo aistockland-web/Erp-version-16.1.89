@@ -78,7 +78,6 @@ sha256sum "$BASELINE_ZIP" "$CANDIDATE_ZIP"
 printf 'EXPECTED EXISTING-COMPENSATION STATE: %s\n' "$EXPECTED_APPROVAL"
 
 printf '\n===== PHASE 1: 16.1.95 -> CANDIDATE UPGRADE =====\n'
-create_database "$BASE_DB"
 create_wordpress_site "$UPGRADE_SITE" "$BASE_DB"
 "$WP_BIN" plugin install "$BASELINE_ZIP" --path="$UPGRADE_SITE" --activate
 run_mode "$UPGRADE_SITE" advance
@@ -93,7 +92,6 @@ run_mode "$UPGRADE_SITE" advance
 run_mode "$UPGRADE_SITE" assert-candidate-upgrade
 
 printf '\n===== PHASE 2: CANDIDATE FRESH INSTALL =====\n'
-create_database "$FRESH_DB"
 create_wordpress_site "$FRESH_SITE" "$FRESH_DB"
 "$WP_BIN" plugin install "$CANDIDATE_ZIP" --path="$FRESH_SITE" --activate
 run_mode "$FRESH_SITE" advance

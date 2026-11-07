@@ -139,9 +139,10 @@ jobs:
           WP_DBDELTA_DB_PASSWORD: root
           WP_DBDELTA_WORK_DIR: ${{ runner.temp }}/stockland-wp-dbdelta/legacy
         run: |
+          set -euo pipefail
           bash ci/wp-dbdelta/run-pair.sh legacy-approval-defect \
             "${{ steps.packages.outputs.baseline }}" \
-            "${{ steps.packages.outputs.legacy }}" APPROVED | tee "$RUNNER_TEMP/legacy-runtime.log"
+            "${{ steps.packages.outputs.legacy }}" APPROVED 2>&1 | tee "$RUNNER_TEMP/legacy-runtime.log"
 
       - name: Test corrected migration preserves DRAFT on MariaDB and MySQL
         env:
@@ -153,9 +154,10 @@ jobs:
           WP_DBDELTA_DB_PASSWORD: root
           WP_DBDELTA_WORK_DIR: ${{ runner.temp }}/stockland-wp-dbdelta/fixed
         run: |
+          set -euo pipefail
           bash ci/wp-dbdelta/run-pair.sh corrected-draft-default \
             "${{ steps.packages.outputs.baseline }}" \
-            "${{ steps.packages.outputs.fixed }}" DRAFT | tee "$RUNNER_TEMP/fixed-runtime.log"
+            "${{ steps.packages.outputs.fixed }}" DRAFT 2>&1 | tee "$RUNNER_TEMP/fixed-runtime.log"
 
       - name: Upload runtime characterization logs (not release artifacts)
         if: always()
