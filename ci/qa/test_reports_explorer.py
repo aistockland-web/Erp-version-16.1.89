@@ -16,6 +16,11 @@ def need(ok, message):
         raise AssertionError(message)
 
 def main():
+    need(domain_patcher.has_bootstrap_url("/* https://getbootstrap.com/ */"), "parsed Bootstrap host is detected")
+    need(domain_patcher.has_bootstrap_url("/* https://github.com/twbs/bootstrap/blob/main/LICENSE */"), "parsed Bootstrap license URL is detected")
+    need(not domain_patcher.has_bootstrap_url("/* https://getbootstrap.com.evil.example/ */"), "Bootstrap lookalike host is not accepted")
+    need(not domain_patcher.has_bootstrap_url("/* https://evil.example/getbootstrap.com/ */"), "Bootstrap text in a URL path is not accepted")
+    need(not domain_patcher.has_bootstrap_url("/* https://github.com.evil/twbs/bootstrap/blob/main/LICENSE */"), "GitHub lookalike host is not accepted")
     baseline = ROOT / "STOCKLAND_ERP_16.1.92_CANONICAL_WORDPRESS_UPDATE.zip"
     need(hashlib.sha256(baseline.read_bytes()).hexdigest() == patcher.BASELINE_SHA256, "exact baseline checksum")
     with tempfile.TemporaryDirectory(prefix="stockland-report-test-") as td:

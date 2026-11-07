@@ -5,9 +5,11 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import tempfile
 import zipfile
 from pathlib import Path
+from urllib.parse import urlsplit
 
 ROOT = "stockland-erp-app/"
 JS = ROOT + "assets/app.js"
@@ -32,6 +34,17 @@ def strip_manifest_urls(value):
     elif isinstance(value, list):
         for child in value:
             strip_manifest_urls(child)
+
+
+def has_bootstrap_url(source: str) -> bool:
+    for match in re.finditer(r"https?://[^\s)\"'<>]+", source, re.IGNORECASE):
+        url = urlsplit(match.group(0))
+        host = (url.hostname or "").rstrip(".").lower()
+        if host == "getbootstrap.com":
+            return True
+        if host == "github.com" and url.path.rstrip("/") == "/twbs/bootstrap/blob/main/LICENSE":
+            return True
+    return False
 
 
 def clean_archive(path: Path) -> dict:
@@ -135,7 +148,7 @@ THE SOFTWARE.
                 raise ValueError("External legal source domain remains in the installed payroll workflow.")
             if "workflow_run_url" in json.dumps(final_manifest):
                 raise ValueError("External workflow URL remains in the installed release manifest.")
-            if "https://getbootstrap.com/" in final_css or "https://github.com/twbs/bootstrap/blob/main/LICENSE" in final_css:
+            if has_bootstrap_url(final_css):
                 raise ValueError("External framework URLs remain in the Bootstrap comment.")
             if "Code and documentation copyright 2011-2025 The Bootstrap Authors" not in final_readme or "The above copyright notice and this permission notice shall be included" not in final_readme:
                 raise ValueError("Bootstrap attribution / MIT license notice is missing.")
