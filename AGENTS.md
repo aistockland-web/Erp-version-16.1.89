@@ -119,3 +119,75 @@ After each target, report evidence using only these states:
 - OWNER INPUT — unavailable source, unresolved business-policy conflict, legal interpretation, paid service, production credential, destructive decision or release/deployment authorization is required.
 
 Every report must state branch, exact HEAD SHA, changed files, commit/PR links, test commands/results, artifact path/hash when applicable, remaining findings and the next implementation target. Never represent planned work as implemented or verified.
+
+
+## 13. Cross-chat synchronization update — 7 November 2026, 11:30 Africa/Addis_Ababa
+
+This section supersedes any older snapshot values above where they conflict. It is an additive engineering handover, not production approval.
+
+### 13.1 Current repository and active work
+
+- The current canonical `main` head was rechecked as `339d519f5597c5c9b1efd45c5eb376216d976703`. It follows `412574b2b78be1706414496ce7e80cdd58c5b379` and includes the 16.1.98 legacy pension-default correction.
+- PR #70 is the active feature-to-main review for `feature/hr-resource-download-handler-16-1-98`; its current branch head is `485e1bc4f31ec0489774ce96e0d8e10e543e3be1`, which merges current main `339d519f` into the feature line. Do not assume that its passing baseline/remediation workflows build or certify the final 16.1.98 ZIP.
+- PR #67 is the Codespaces/devcontainer handover branch. It is environment and agent setup, not ERP runtime code or a product release.
+- PR #65 is a draft cross-source audit. Its evidence snapshot records main at `412574b2`; refresh its commit inventory, PR register, source ancestry and release/CI rows against `339d519f` and subsequent events before treating it as current.
+- PR #68 is the isolated WordPress/dbDelta characterization branch, stacked on the feature line. Its latest reported matrix failure below is an actionable test finding, not a reason to disable unaffected live ERP modules.
+
+### 13.2 Rechecked exact 16.1.98 package — candidate only
+
+The exact current-main artifact from workflow run [42302273187](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/42302273187) was downloaded and independently inspected in this reconciliation:
+
+- Source commit: `339d519f5597c5c9b1efd45c5eb376216d976703`.
+- Actions artifact ID: `13544967255`; outer artifact size: 1,143,168 bytes; outer SHA-256: `fe649cc251f4836db5b0b71f8c7934af5dd79e547b9b3a1e750b72d76a493f3e`.
+- Inner installer: `STOCKLAND_ERP_16.1.98_CANONICAL_WORDPRESS_UPDATE.zip`; size: 1,149,039 bytes; independently recomputed SHA-256: `ca701c66d38144a6613d5491c1d38323da79fe80d15543b6f3fb44170b1748c4`.
+- ZIP integrity: 79 unique entries, one `stockland-erp-app/` root, CRC check passed; 52 PHP files.
+- Receipt: 73-table proposal (29 Core/Operations + 16 Accounting/Procurement + 28 HR/Payroll), 24 new tables, only 3 listed resource DOCX payloads.
+- The receipt explicitly records `schema_changed=true`, `schema_contract_approved=false`, `production_ready=false`, `wordpress_activated=false`, and `production_database_touched=false`. Its baseline is the exact 16.1.95 ZIP SHA, not 16.2.13.
+- The exact 16.1.98 package workflow on this commit is a candidate-build/static acceptance result; it is not proof of authenticated live WordPress/MariaDB acceptance, schema approval, full HR/legal acceptance, or a deployed-source match.
+
+Do not replace the older 16.1.98 entry in PR #65 with this new hash while deleting the earlier evidence. Retain the older artifact as a historical build row and add this one as the newer exact-main build.
+
+### 13.3 Source-line decision — do not mix these as if they were one release
+
+- **16.1.95** remains the protected rollback/comparison ZIP: `494e777247508d009dfdb216c9607bb1bc96717197e94a0e8ad3459b7cc81625`. It is not an assumed current operational upgrade base.
+- **16.2.13** remains the latest Owner-reported operational/upgrade-base line from the 6 November source archaeology: `74e3205d0b42151997dc356c29b09204688accee817c17a013a70cf90be04c13` (reported 113 files / 80 PHP). The actual ZIP bytes were not present in this current audit execution, so the hash has not been freshly recomputed here and live installed-directory parity is not proven. Recover the ZIP or a trustworthy file-level export and verify it before selecting it as the upgrade base.
+- **16.2.9** is a selective HR/Payroll implementation source through PR #39, not a permission to wholesale replace the operational source. Retain its useful HR work only after exact file comparison and regression tests.
+- **16.3.0 HRX** was built from 16.1.95, not from 16.2.13. PR #48 is now merged as source/builder/QA/docs, but that merge does not make its HRX schema approved or its candidate installer cumulative. Preserve the best HRX domain work selectively; do not substitute that side-line ZIP for the ERP.
+- **16.1.98** is the exact-main candidate described above, but it is also built from 16.1.95 and proposes 24 new HR tables. It is not yet a cumulative in-place successor to the reported 16.2.13 installation.
+- **16.3.1** is a historical local conditional-pass record whose exact binary is not currently recovered. Do not invent or reuse a binary from its recorded hash alone.
+
+The correct task is one cumulative installer, not a numeric version chase. Preserve the operational features already present in the verified 16.2.13 source (including POS cart, CSS modules 07–13, SOP payloads and all compatible fixes) while selectively integrating approved work from other lines. If 16.2.13 cannot be recovered, state that as an explicit source-input blocker; do not silently relabel a 16.1.95-based build as a 16.2.13 upgrade.
+
+### 13.4 New WordPress/MySQL runtime finding — must be repaired
+
+PR #68 workflow [42305257132](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/42305257132) tested the protected 16.1.95 installer and selected/refreshed 16.2.9 artifacts in disposable WordPress environments:
+
+- MariaDB 10.11 matrix jobs passed.
+- All MySQL 8.0.46 matrix jobs failed during protected-baseline setup before the 16.2.9 migration scenario could run.
+- The first failing DDL is `wp_stock_balances`: `variant_id BIGINT UNSIGNED NULL` is included in `PRIMARY KEY (location_id, variant_id)`. MySQL rejects nullable columns in a primary key with “All parts of a PRIMARY KEY must be NOT NULL”.
+- This is a core database-contract/clean-install issue in the tested protected 16.1.95 source, not evidence that HRX caused it. The MySQL failure must not be hidden by the MariaDB pass.
+- Fix the key design based on actual SKU/variant identity and data semantics. Do not merely change NULL to NOT NULL without proving that legacy/no-variant rows, uniqueness, existing references, migration idempotency and rollback remain correct. Add MySQL 8.0 and MariaDB 10.11 fresh-install, update, dbDelta replay and data-preservation tests. Then rerun the blocked upgrade scenario.
+
+This test uses disposable synthetic databases only; it did not touch production.
+
+### 13.5 Merged corrections that must remain in the integration
+
+- PR #56 / commit `30752e6ece6345fcbbf2d15ef3e348cf87beeb85`: health status is scoped to the affected module/action; payroll/schema/release review must not create an ERP-wide operational shutdown.
+- PR #58 / commit `476b0b6a819f7fbb63f32282791802b13e14d917` and PR #59 / commit `f60b5a48b51c203cb7627e18b74621e98757298e`: HR/payroll section and social cards are accessible text-only; remove HR SVG renderers/styles while preserving general ERP shell icons and dashboard chart.
+- PR #61 / commit `ad127ae8f672243b4d5bd7bd703e6104beef995a`: legacy compensation approval additions default to `DRAFT`; historical pension-rate columns stay NULL pending an approved effective-dated rule.
+- PR #66 / main commit `339d519f5597c5c9b1efd45c5eb376216d976703`: carries the corresponding safe-default correction into the separate 16.1.98 builder. Keep both migration and fresh-install paths aligned.
+- PR #48 / merge commit `c1fdf5bf3ece55b3810ec3bfc847a502ce68d006`: HRX source/QA/design work merged; schema and candidate-package approval remain separate and open.
+
+### 13.6 Mandatory sequence for the active production-installer build chat
+
+1. Refresh and record current `main`, active feature head, PRs and exact workflows before editing. Preserve all existing worktrees/uncommitted files.
+2. Recover the exact 16.2.13 ZIP and independently recompute its SHA-256; confirm the archive inventory and deployed host files/schema where Owner access permits. Keep 16.1.95 as rollback only.
+3. Build a file-level three-way reconciliation: 16.2.13 operational base; selected HR/Payroll/HRX source changes; current merged fixes. Prove preservation of the POS cart, all CSS module files, SOPs, REST/authorization, finance, ledger, inventory and warehouse flows.
+4. Fix the MySQL primary-key incompatibility in a narrowly scoped commit with schema reasoning, migration and rollback proof. Test MySQL 8.0 and MariaDB 10.11 before moving to lifecycle acceptance.
+5. Preserve the four legacy HR/payroll tables and all historical posted values. No fixed 14/16/28/37/47 table plan is approved by version number or CI. Obtain explicit Owner approval of an evidence-based ERD/minimal additive migration before activating new HR schema.
+6. Complete the actual HR lifecycle, private-document vault/access/download audit, Amharic-first SOP approval, statutory rule sources and qualified Ethiopian legal/payroll review. Never synthesize statutory amounts or backfill approval/pension values.
+7. Run exact-head and exact-ZIP checks on PHP 8.3/8.4, PHPCS/WPCS with full reports, Semgrep, CodeQL, secret/dependency/license scans, JS/CSS/PostCSS/manifest/ZIP/hash checks, REST authorization and role/location tests, plus isolated full WordPress/MySQL/MariaDB lifecycle tests.
+8. Exercise POS, retail/wholesale, stock/receiving/requisition/reservation/transfer/returns/count/daily-close, supplier/customer/AP/AR/cash/bank/GL/PLEDGER, reports and all HR/payroll paths with synthetic data only in isolated environments. Reconcile stock, money, ledgers, payments and payroll over two periods.
+9. Prove backup, restore and rollback; obtain Owner, HR and Finance acceptance and qualified legal review. Only then tag and publish the single final cumulative installer with an exact SHA-256, build receipt, complete test certificate set and explicit limitations.
+
+Status rules: `PASS`, `FAIL`, `BLOCKED`, `NOT RUN`, and `OWNER INPUT REQUIRED` remain distinct. A green CI workflow, merged PR or Codespaces image build is not production certification. Full-scope engineering remains GO; unrelated healthy ERP modules remain available while only the affected migration, payroll calculation, document access or release action is gated.
