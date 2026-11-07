@@ -1,37 +1,58 @@
 services:
-  workspace:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    volumes:
-      - ..:/workspaces/stockland-erp:cached
-    command: sleep infinity
-    environment:
-      STOCKLAND_TEST_DB_HOST: db
-      STOCKLAND_TEST_DB_PORT: "3306"
-      STOCKLAND_TEST_DB_NAME: stockland_dev
-      STOCKLAND_TEST_DB_USER: root
-      STOCKLAND_TEST_DB_PASSWORD: ""
-    depends_on:
-      db:
-        condition: service_healthy
-
-  db:
-    image: mariadb:10.11
+  db-mariadb:
+    image: mariadb:10.11.19
     restart: unless-stopped
     environment:
-      MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: "yes"
-      MARIADB_DATABASE: stockland_dev
-    command:
-      - --character-set-server=utf8mb4
-      - --collation-server=utf8mb4_unicode_ci
+      MARIADB_ROOT_PASSWORD: root-dev-only
+      MARIADB_DATABASE: stockland_ui
+      MARIADB_USER: stockland
+      MARIADB_PASSWORD: stockland-dev-only
     volumes:
-      - stockland-codespace-db:/var/lib/mysql
+      - stockland_mariadb_data:/var/lib/mysql
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 5s
       timeout: 5s
       retries: 30
 
+  db-mysql:
+    image: mysql:8.0.46
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: mysql-dev-only
+      MYSQL_DATABASE: stockland_mysql_ui
+    volumes:
+      - stockland_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "--silent", "-h", "127.0.0.1", "-uroot", "-pmysql-dev-only"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  wordpress:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      db-mariadb:
+        condition: service_healthy
+      db-mysql:
+        condition: service_healthy
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      WORDPRESS_DB_HOST: db-mariadb:3306
+      WORDPRESS_DB_NAME: stockland_ui
+      WORDPRESS_DB_USER: stockland
+      WORDPRESS_DB_PASSWORD: stockland-dev-only
+      WP_CLI_ALLOW_ROOT: "1"
+    volumes:
+      - stockland_wordpress:/var/www/html
+      - ..:/workspaces/stockland-erp:cached
+    working_dir: /workspaces/stockland-erp
+
 volumes:
-  stockland-codespace-db:
+  stockland_mariadb_data:
+  stockland_mysql_data:
+  stockland_wordpress:

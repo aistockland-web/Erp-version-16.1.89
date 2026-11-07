@@ -8,3 +8,7 @@
 /.env.*
 !.env.example
 *.log
+
+# Private disposable QA credentials and artifacts
+/.local/
+/.artifacts/

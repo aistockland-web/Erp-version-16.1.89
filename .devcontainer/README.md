@@ -1,48 +1,35 @@
-# Stockland ERP Codespaces environment
+# Stockland WordPress + dbDelta Codespaces Lab
 
-This development container is an isolated engineering and QA workspace. It is not a production host.
+This is an isolated development and runtime-test environment, not a production host.
 
-## Included tools
+## Runtime
+- WordPress with Apache and PHP 8.3.
+- MariaDB 10.11.19 and MySQL 8.0.46 on internal Compose networks.
+- Node.js 22, Python 3.12, Composer, GitHub CLI and WP-CLI.
+- PHP MySQL drivers, repository-locked PostCSS and PHPCS/WPCS dependencies.
+- Private browser preview on port 8080. Neither database port is forwarded.
 
-- PHP 8.3 CLI and Composer from the Dev Containers PHP image.
-- Node.js 22 and Python 3.12 for the existing build and QA scripts.
-- GitHub CLI, MariaDB client, jq, ripgrep, shellcheck, zip and unzip.
-- A private MariaDB 10.11 service on the internal Compose network.
-- Locked PostCSS QA and PHPCS/WPCS dependencies from the repository lockfiles.
-- WP-CLI installed only after its upstream SHA-256 sidecar matches the downloaded PHAR.
-- PHP, YAML, Markdown, JavaScript, Docker and GitHub Pull Request editor extensions.
+## First checks
+Run in the Codespaces terminal:
 
-## Ports
+    git status --short --branch
+    git rev-parse HEAD
+    php -v
+    php -m
+    wp --info
+    MYSQL_PWD=root-dev-only mysql --host=db-mariadb --user=root -e "SELECT VERSION();"
+    MYSQL_PWD=mysql-dev-only mysql --host=db-mysql --user=root -e "SELECT VERSION();"
 
-Port 8080 is reserved for a local WordPress/plugin test preview. When a test server is started on 0.0.0.0:8080, Codespaces forwards it privately. The MariaDB port 3306 is internal to the Compose network and is not forwarded.
+Then authenticate GitHub CLI and run:
 
-## Database safety
+    gh auth login
+    bash ci/wp-dbdelta/run-codespaces.sh
 
-The Compose database is an isolated test database named stockland_dev. It permits an empty root password only inside the private, unpublished Compose network to keep first-time setup non-interactive. It is for synthetic test fixtures only.
+The runner downloads exact GitHub Actions artifacts by run ID and verifies their inner installer SHA-256 before testing. The old 16.2.9 artifact is used only to reproduce the historical approval-default defect. The corrected artifact is tested for preservation of DRAFT.
 
-Never import production databases, salary or employee documents, customer data, business secrets or production credentials into this service. Do not expose port 3306 or change its visibility to public.
+## Data safety
+All databases and WordPress installs are synthetic and disposable. Never load production exports, credentials, employee/customer documents, salary data, payroll, sales, inventory moves, journals or payments. Keep port 8080 private. Never publish database port 3306.
 
-## First terminal checks
+The runtime suite keeps MySQL failures visible. Its current protected-baseline blocker is the nullable composite primary key in stock balances; a MariaDB pass cannot override a MySQL failure.
 
-Open Terminal, choose New Terminal, and run:
-
-~~~bash
-git status --short --branch
-git rev-parse HEAD
-php -v
-composer --version
-node -v
-python3 --version
-wp --info
-mariadb --host=db --user=root stockland_dev -e "SELECT VERSION();"
-~~~
-
-The workspace setup command installs the repository's locked CSS QA and PHPCS/WPCS dependencies. GitHub Actions remains authoritative for the PHP 8.3/8.4 matrix and exact-package release gates.
-
-## Start a private preview
-
-Do not start a preview until an exact candidate package has been selected and extracted into a separate, disposable WordPress test instance. Start the test server bound to 0.0.0.0:8080; open the Ports tab in Codespaces and use the private forwarded link. Never use production credentials or production data for a preview.
-
-## Deliberately not installed
-
-No WooCommerce, third-party POS, inventory engine, user/role replacement, paid AI extension, production SMTP, production backup destination or production security agent is installed automatically. Stockland already has custom ERP/POS and authorization workflows. New plugins must be justified by a documented gap and tested for REST, capability, schema and performance compatibility before adoption.
+The original 16.2.13 package/source is not currently available as a pinned GitHub artifact. Testing that operational baseline remains NOT RUN until it is recovered.

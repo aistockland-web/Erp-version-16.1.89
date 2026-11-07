@@ -1,29 +1,26 @@
 {
-  "name": "Stockland Ethiopia ERP - PHP 8.3 / Node 22 / Python 3.12",
+  "name": "Stockland ERP WordPress + dbDelta dual database lab",
   "dockerComposeFile": "docker-compose.yml",
-  "service": "workspace",
+  "service": "wordpress",
   "workspaceFolder": "/workspaces/stockland-erp",
+  "remoteUser": "root",
+  "overrideCommand": false,
   "shutdownAction": "stopCompose",
-  "remoteUser": "vscode",
-  "updateRemoteUserUID": true,
+  "runServices": ["db-mariadb", "db-mysql", "wordpress"],
   "features": {
-    "ghcr.io/devcontainers/features/node:1": {
-      "version": "22"
-    },
-    "ghcr.io/devcontainers/features/python:1": {
-      "version": "3.12"
-    },
+    "ghcr.io/devcontainers/features/node:1": { "version": "22" },
+    "ghcr.io/devcontainers/features/python:1": { "version": "3.12" },
     "ghcr.io/devcontainers/features/github-cli:1": {}
   },
   "forwardPorts": [8080],
   "portsAttributes": {
     "8080": {
-      "label": "Private Stockland ERP test preview",
+      "label": "Private Stockland WordPress runtime lab",
       "onAutoForward": "notify",
       "visibility": "private"
     }
   },
-  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "postCreateCommand": "bash .devcontainer/bootstrap.sh",
   "customizations": {
     "vscode": {
       "extensions": [

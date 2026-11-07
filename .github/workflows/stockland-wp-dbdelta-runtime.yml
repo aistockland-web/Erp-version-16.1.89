@@ -1,0 +1,169 @@
+name: Stockland WordPress + dbDelta exact-artifact runtime
+
+on:
+  push:
+    branches:
+      - qa/stockland-wp-dbdelta-dual-runtime-2026-11-07
+    paths:
+      - "ci/wp-dbdelta/**"
+      - ".devcontainer/**"
+      - ".github/workflows/stockland-wp-dbdelta-runtime.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "ci/wp-dbdelta/**"
+      - ".devcontainer/**"
+      - ".github/workflows/stockland-wp-dbdelta-runtime.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: stockland-wp-dbdelta-dual-runtime-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  wordpress-dbdelta:
+    name: PHP ${{ matrix.php }} / WordPress ${{ matrix.wordpress }} / ${{ matrix.database }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ["8.3", "8.4"]
+        wordpress: ["6.8.0", "latest"]
+        database: ["mariadb", "mysql"]
+
+    services:
+      database:
+        image: ${{ matrix.database == 'mariadb' && 'mariadb:10.11.19' || 'mysql:8.0.46' }}
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: stockland_ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --silent -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=30
+
+    steps:
+      - name: Checkout exact QA branch commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up PHP and MySQL drivers
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: curl, intl, mbstring, mysqli, pdo_mysql, zip
+          coverage: none
+
+      - name: Install database client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mariadb-client unzip
+
+      - name: Download protected 16.1.95 exact artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: STOCKLAND-ERP-16.1.95-Cumulative-WordPress-Update
+          repository: aistockland-web/Erp-version-16.1.89
+          run-id: 40036018031
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/stockland-artifacts/baseline
+
+      - name: Download pre-fix 16.2.9 for defect characterization
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: STOCKLAND-ERP-16.2.9-HR-PAYROLL-CANDIDATE
+          repository: aistockland-web/Erp-version-16.1.89
+          run-id: 42125671298
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/stockland-artifacts/legacy
+
+      - name: Download corrected 16.2.9 artifact with DRAFT migration default
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: STOCKLAND-ERP-16.2.9-HR-PAYROLL-CANDIDATE
+          repository: aistockland-web/Erp-version-16.1.89
+          run-id: 42258772425
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/stockland-artifacts/fixed
+
+      - name: Extract exact inner installers and verify SHA-256
+        id: packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          extract() {
+            local source_dir="$1" filename="$2" target="$3" source
+            source="$(find "$source_dir" -type f -name "$filename" -print -quit)"
+            test -s "$source"
+            mkdir -p "$(dirname "$target")"
+            cp "$source" "$target"
+            unzip -tq "$target"
+            printf '%s\n' "$target"
+          }
+          BASELINE="$(extract "${RUNNER_TEMP}/stockland-artifacts/baseline" "STOCKLAND_ERP_16.1.95_CANONICAL_WORDPRESS_UPDATE.zip" "${RUNNER_TEMP}/packages/16.1.95.zip")"
+          LEGACY="$(extract "${RUNNER_TEMP}/stockland-artifacts/legacy" "STOCKLAND_ERP_16.2.9_HR_PAYROLL_CANDIDATE.zip" "${RUNNER_TEMP}/packages/16.2.9-legacy.zip")"
+          FIXED="$(extract "${RUNNER_TEMP}/stockland-artifacts/fixed" "STOCKLAND_ERP_16.2.9_HR_PAYROLL_CANDIDATE.zip" "${RUNNER_TEMP}/packages/16.2.9-corrected.zip")"
+          echo "494e777247508d009dfdb216c9607bb1bc96717197e94a0e8ad3459b7cc81625  $BASELINE" | sha256sum --check -
+          echo "f360294feb4aa43f13d43d12a22e55867eda26e0502946dd0d494947277604ca  $LEGACY" | sha256sum --check -
+          echo "fc22346f6e1fafc9e47a50eba76a2c0846fb9f09407168564e1f295ce69290d8  $FIXED" | sha256sum --check -
+          echo "baseline=$BASELINE" >> "$GITHUB_OUTPUT"
+          echo "legacy=$LEGACY" >> "$GITHUB_OUTPUT"
+          echo "fixed=$FIXED" >> "$GITHUB_OUTPUT"
+
+      - name: Install and verify WP-CLI
+        run: |
+          set -euo pipefail
+          curl -fsSL https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar -o "$RUNNER_TEMP/wp"
+          curl -fsSL https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar.sha256 -o "$RUNNER_TEMP/wp.sha256"
+          expected="$(awk '{print $1}' "$RUNNER_TEMP/wp.sha256")"
+          actual="$(sha256sum "$RUNNER_TEMP/wp" | awk '{print $1}')"
+          test -n "$expected" && test "$expected" = "$actual"
+          chmod +x "$RUNNER_TEMP/wp"
+          "$RUNNER_TEMP/wp" --info
+
+      - name: Reproduce historic unsafe approval default (MariaDB characterization only)
+        if: matrix.database == 'mariadb'
+        env:
+          WP_VERSION: ${{ matrix.wordpress }}
+          WP_CLI_BIN: ${{ runner.temp }}/wp
+          WP_DBDELTA_DB_HOST: 127.0.0.1:3306
+          WP_DBDELTA_DB_ADMIN_HOST: 127.0.0.1:3306
+          WP_DBDELTA_DB_USER: root
+          WP_DBDELTA_DB_PASSWORD: root
+          WP_DBDELTA_WORK_DIR: ${{ runner.temp }}/stockland-wp-dbdelta/legacy
+        run: |
+          bash ci/wp-dbdelta/run-pair.sh legacy-approval-defect \
+            "${{ steps.packages.outputs.baseline }}" \
+            "${{ steps.packages.outputs.legacy }}" APPROVED | tee "$RUNNER_TEMP/legacy-runtime.log"
+
+      - name: Test corrected migration preserves DRAFT on MariaDB and MySQL
+        env:
+          WP_VERSION: ${{ matrix.wordpress }}
+          WP_CLI_BIN: ${{ runner.temp }}/wp
+          WP_DBDELTA_DB_HOST: 127.0.0.1:3306
+          WP_DBDELTA_DB_ADMIN_HOST: 127.0.0.1:3306
+          WP_DBDELTA_DB_USER: root
+          WP_DBDELTA_DB_PASSWORD: root
+          WP_DBDELTA_WORK_DIR: ${{ runner.temp }}/stockland-wp-dbdelta/fixed
+        run: |
+          bash ci/wp-dbdelta/run-pair.sh corrected-draft-default \
+            "${{ steps.packages.outputs.baseline }}" \
+            "${{ steps.packages.outputs.fixed }}" DRAFT | tee "$RUNNER_TEMP/fixed-runtime.log"
+
+      - name: Upload runtime characterization logs (not release artifacts)
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: STOCKLAND-WP-DBDELTA-${{ matrix.database }}-PHP-${{ matrix.php }}-WP-${{ matrix.wordpress }}
+          path: |
+            ${{ runner.temp }}/legacy-runtime.log
+            ${{ runner.temp }}/fixed-runtime.log
+          if-no-files-found: warn
+          retention-days: 14

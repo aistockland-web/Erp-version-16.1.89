@@ -191,3 +191,53 @@ This test uses disposable synthetic databases only; it did not touch production.
 9. Prove backup, restore and rollback; obtain Owner, HR and Finance acceptance and qualified legal review. Only then tag and publish the single final cumulative installer with an exact SHA-256, build receipt, complete test certificate set and explicit limitations.
 
 Status rules: `PASS`, `FAIL`, `BLOCKED`, `NOT RUN`, and `OWNER INPUT REQUIRED` remain distinct. A green CI workflow, merged PR or Codespaces image build is not production certification. Full-scope engineering remains GO; unrelated healthy ERP modules remain available while only the affected migration, payroll calculation, document access or release action is gated.
+
+
+
+## 14. Owner-ratified dual-runtime cumulative release workflow — 7 November 2026
+
+The Owner has ratified one cumulative Stockland ERP: one canonical integration source commit, one WordPress plugin ZIP, one independently recomputed SHA-256 and one complete evidence bundle. Preserve 16.1.95 unchanged as the protected rollback/comparison reference. Recover and verify the exact reported 16.2.13 package or a complete verifiable file export before claiming it is the operational upgrade base. Selectively retain compatible work from 16.2.9, HRX, 16.1.98, 16.1.101 and other verified project lines. Never wholesale replace a working subsystem or create another disconnected version series.
+
+### 14.1 Exact source and artifact policy
+- GitHub is the engineering provenance source: commits, ancestry, PRs, workflows, job logs and immutable Actions artifacts. Every imported target must be traceable to an exact source commit and evidence.
+- The inspected repository has no published GitHub Release objects or tags in the evidence available at this order. Do not invent a release URL or represent an Actions artifact as a published production Release. Until the final approved Release exists, use only exact pinned Actions artifacts and independently verify their inner installer SHA-256.
+- 16.1.95 remains the rollback reference, SHA-256 `494e777247508d009dfdb216c9607bb1bc96717197e94a0e8ad3459b7cc81625`.
+- 16.2.13 remains the designated operational upgrade baseline based on the 6 November owner-supplied archive re-hash, SHA-256 `74e3205d0b42151997dc356c29b09204688accee817c17a013a70cf90be04c13` (113 files / 80 PHP). Its exact bytes are not currently available in this workspace or as a located GitHub Actions artifact; live installed-directory parity is also unverified. Recover the original ZIP or a complete verifiable file export before building an installer claiming to upgrade from .13. Do not reconstruct missing source by guesswork or relabel a 16.1.95/16.2.9-based package as 16.2.13.
+- 16.2.9 is a selective feature source. The corrected DRAFT-default build from PR #61 / workflow #42258772425 has inner installer SHA `fc22346f6e1fafc9e47a50eba76a2c0846fb9f09407168564e1f295ce69290d8`. The earlier pre-fix package from run #42125671298 has SHA `f360294feb4aa43f13d43d12a22e55867eda26e0502946dd0d494947277604ca` and is used only to characterize the historical approval defect, not as a release source.
+- HRX, 16.1.98, 16.1.101 and other work must be compared by actual source paths, behavior, DDL, tests, permissions and regressions. Merged source does not automatically mean an approved schema or release.
+
+### 14.2 Dual-runtime rule: local plus Codespaces
+- Each coherent integration target must be tested in two independent lanes using identical source commit, exact installer bytes and SHA-256, fixture inputs, schema expectations and test cases: (A) local verification and (B) private Codespaces WordPress runtime. Where a local full runtime is unavailable, mark it BLOCKED; syntax-only local checks must never be called a WordPress/dbDelta runtime pass.
+- Codespaces must run a real Apache/WordPress/PHP runtime, not merely a PHP CLI workspace, plus separate MariaDB 10.11 and MySQL 8.0 services. Only browser preview port 8080 is forwarded, and it must remain private. Database port 3306 is never forwarded.
+- Required matrix: PHP 8.3/8.4; WordPress 6.8.0/latest; MariaDB 10.11 and MySQL 8.0. Include fresh install, protected upgrade, active plugin update without deactivate/reactivate, WordPress dbDelta create/add-column/replay/data-preservation, setup REST anonymous-denial and authorized-allow checks, schema fingerprint, synthetic legacy-row preservation and module regressions.
+- Use exact GitHub Actions artifact IDs/run IDs and verify SHA-256 before tests. Never package or test code whose origin cannot be established.
+- A failed engine stays FAIL/BLOCKED for the exact release target. A MariaDB pass must not conceal MySQL failure. Do not suppress or reclassify failures to keep a workflow green.
+- Candidate update/fresh-install scenarios use separate disposable WordPress directories and unique databases. Restore the visible preview to protected 16.1.95 after characterization runs.
+- Use synthetic fixtures only. Never load production backups, credentials, employee/customer records, HR documents, real payroll, stock movements, sales, balances, journals or payments.
+
+### 14.3 Current environment truth
+- The combined Codespaces environment is designed for WordPress/PHP 8.3, Node 22, Python 3.12, Composer, GitHub CLI, WP-CLI with SHA-256 sidecar verification, locked PostCSS/PHPCS tools, MariaDB 10.11.19 and MySQL 8.0.46. Browser preview port 8080 is private.
+- The Owner must create/open the Codespace and allow its first container build. The assistant cannot click the user's GitHub browser or claim the live Codespace was launched before the Owner does so.
+- This ChatGPT local execution container has PHP 8.4 and Node but lacks Docker, WP-CLI, MySQL/MariaDB server/client, mysqli and pdo_mysql. Local ZIP/PHP/JS/JSON checks can run here; local WordPress/dbDelta E2E is BLOCKED in this container.
+- The runtime characterization found MariaDB 10.11 passed while MySQL 8.0.46 failed in protected 16.1.95 setup because wp_stock_balances.variant_id is nullable within a composite primary key. Repair the key based on SKU/variant identity, no-variant row semantics, uniqueness, references and reversible migration. Do not force NOT NULL without proof.
+
+### 14.4 No-cost integration and external service rules
+- Prefer open-source tooling in local/Codespaces/Actions: WordPress core, WP-CLI, PHP, MariaDB/MySQL, Composer, Node/npm, PostCSS, PHPCS/WPCS, Semgrep, CodeQL, ShellCheck and the existing Playwright QA. Pin versions and lockfiles where practical.
+- Never promise a hosted provider is "free forever". Free plans, quotas, account entitlements and terms can change; a free plan is not unlimited use or zero compute/hosting cost. No paid extensions, quota top-ups, payment methods or spending-budget increases without explicit Owner approval.
+- No external database (including Supabase) becomes the ERP system of record. Do not send payroll, employee, customer, supplier, financial, authentication or business data to external AI/analytics without separately approved privacy, retention, security and contractual review.
+- Do not add WooCommerce, third-party POS/inventory engines, another authentication/roles framework or overlapping business-domain plugins. New plugins require a documented gap, permission/data-flow review, compatibility tests and Owner approval.
+- Cloudflare Turnstile is an optional future integration for public-form/login abuse protection only, subject to security review and Owner-created site/secret keys. It does not replace server-side authentication, capabilities/location scope, nonce/CSRF, rate limits, maker-checker or audit logs. Recheck its current Free plan terms before enabling it.
+- API/site/secret keys must be created by the Owner in the provider dashboard, scoped least-privilege and stored only in GitHub/Codespaces secrets or an approved secret manager. Never commit credentials, paste secrets into chat/Notion, include them in logs/screenshots or ship them in the plugin ZIP.
+
+### 14.5 Owner-click handoff and quota guard
+- To launch the isolated runtime, open the dedicated Codespaces branch link, allow the first container build, inspect the private port 8080 WordPress preview, run `gh auth login`, then `bash ci/wp-dbdelta/run-codespaces.sh`.
+- Check GitHub billing/usage before creating or extending a Codespace. Included personal Free usage and organization billing may differ. Stop the Codespace when not actively testing. Do not add a payment method or incur charges without explicit Owner authorization.
+- The assistant can independently handle GitHub source review, file comparison, builders, tests, local static checks and exact artifact evidence. Owner interaction is required for Codespace creation, account/quota prompts, providing the missing .13 source, optional API-key creation and production release/deployment authorization.
+
+### 14.6 Final installer release gate
+- Integrate into one reviewed cumulative branch with focused commits. Each completed feature target is committed and tested against its exact source SHA/artifact, then regression-tested before the next target is accepted.
+- The final installer must derive from recovered/verified 16.2.13 plus selectively approved code, not a fresh build from an unrelated side-line package. Preserve POS/cart, CSS modules, SOPs, REST/capability/location controls, product master, inventory/warehouses, finance, accounting, ledger, HR history and working operations.
+- Acceptance requires exact source/installer provenance and SHA-256; complete PHP/JS/CSS/security/static checks; fresh install/upgrade and dbDelta tests across the database matrix; role/location and business workflow E2E; backup/restore/rollback; ledger reconciliation; performance/accessibility/browser checks; and Owner/Operations/Finance/HR/legal acceptance as applicable.
+- Only after all gates pass should one GitHub Release be published with one ZIP, exact SHA-256 and full evidence bundle. A checksum is byte identity, not a signature or approval. CI green, PR merge or Codespaces build alone never authorizes production release.
+
+All reports must distinguish PASS, FAIL, BLOCKED, NOT RUN and OWNER INPUT REQUIRED.
