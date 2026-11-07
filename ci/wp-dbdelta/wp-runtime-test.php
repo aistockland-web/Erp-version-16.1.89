@@ -322,7 +322,7 @@ function sl_lab_assert_candidate_fresh_install() {
 	);
 	$row = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM %i WHERE id=%d', Stockland_DB::table( 'employee_compensation' ), (int) $wpdb->insert_id ), ARRAY_A );
 	sl_lab_check( is_array( $row ) && 'DRAFT' === (string) $row['approval_status'], 'fresh-install compensation default is DRAFT' );
-	echo "FRESH INSTALL FINDING: approval_status=DRAFT; upgrade migration path uses APPROVED by default.\n";
+	echo "FRESH INSTALL FINDING: approval_status=DRAFT; the corrected upgrade path is checked separately against an existing legacy row.\n";
 }
 
 try {
