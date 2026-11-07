@@ -75,8 +75,25 @@ def patch_hr_schema(files):
         "HR table contract")
     p = once(p,
         "'allowance_breakdown_json'        => 'LONGTEXT NULL AFTER statutory_classification_note',",
-        "'allowance_breakdown_json'        => 'LONGTEXT NULL AFTER statutory_classification_note',\n\t\t\t\t'approval_status'                => \"VARCHAR(24) NOT NULL DEFAULT 'APPROVED' AFTER allowance_breakdown_json\",\n\t\t\t\t'approved_by'                    => 'BIGINT UNSIGNED NULL AFTER approval_status',\n\t\t\t\t'approved_at'                    => 'DATETIME NULL AFTER approved_by',\n\t\t\t\t'statutory_rule_set_id'           => 'BIGINT UNSIGNED NULL AFTER approved_at',\n\t\t\t\t'statutory_rule_version'          => 'VARCHAR(80) NULL AFTER statutory_rule_set_id',\n\t\t\t\t'allowance_rule_set_id'           => 'BIGINT UNSIGNED NULL AFTER statutory_rule_version',\n\t\t\t\t'allowance_rule_version'          => 'VARCHAR(80) NULL AFTER allowance_rule_set_id',",
+        "'allowance_breakdown_json'        => 'LONGTEXT NULL AFTER statutory_classification_note',\n\t\t\t\t'approval_status'                => \"VARCHAR(24) NOT NULL DEFAULT 'DRAFT' AFTER allowance_breakdown_json\",\n\t\t\t\t'approved_by'                    => 'BIGINT UNSIGNED NULL AFTER approval_status',\n\t\t\t\t'approved_at'                    => 'DATETIME NULL AFTER approved_by',\n\t\t\t\t'statutory_rule_set_id'           => 'BIGINT UNSIGNED NULL AFTER approved_at',\n\t\t\t\t'statutory_rule_version'          => 'VARCHAR(80) NULL AFTER statutory_rule_set_id',\n\t\t\t\t'allowance_rule_set_id'           => 'BIGINT UNSIGNED NULL AFTER statutory_rule_version',\n\t\t\t\t'allowance_rule_version'          => 'VARCHAR(80) NULL AFTER allowance_rule_set_id',",
         "compensation additive columns")
+
+    p = once(p,
+        "'employee_pension_rate'    => 'DECIMAL(6,4) NOT NULL DEFAULT 0.0700 AFTER pensionable_salary',",
+        "'employee_pension_rate'    => 'DECIMAL(6,4) NULL DEFAULT NULL AFTER pensionable_salary',",
+        "do not backfill historical employee pension rates")
+    p = once(p,
+        "'employer_pension_rate'    => 'DECIMAL(6,4) NOT NULL DEFAULT 0.1100 AFTER employee_pension_rate',",
+        "'employer_pension_rate'    => 'DECIMAL(6,4) NULL DEFAULT NULL AFTER employee_pension_rate',",
+        "do not backfill historical employer pension rates")
+    p = once(p,
+        "employee_pension_rate DECIMAL(6,4) NOT NULL DEFAULT 0.0700,",
+        "employee_pension_rate DECIMAL(6,4) NULL DEFAULT NULL,",
+        "fresh payroll lines do not seed employee pension rates")
+    p = once(p,
+        "employer_pension_rate DECIMAL(6,4) NOT NULL DEFAULT 0.1100,",
+        "employer_pension_rate DECIMAL(6,4) NULL DEFAULT NULL,",
+        "fresh payroll lines do not seed employer pension rates")
     p = once(p,
         "'other_deduction_total'  => 'DECIMAL(14,2) NOT NULL DEFAULT 0.00 AFTER employer_pension_total',",
         "'other_deduction_total'  => 'DECIMAL(14,2) NOT NULL DEFAULT 0.00 AFTER employer_pension_total',\n\t\t\t\t'statutory_rule_set_id'   => 'BIGINT UNSIGNED NULL AFTER other_deduction_total',\n\t\t\t\t'statutory_rule_version'  => 'VARCHAR(80) NULL AFTER statutory_rule_set_id',",
@@ -505,6 +522,7 @@ def rebuild_css(files):
     lifecycle_path = "12-hr-payroll-lifecycle.css"
     lifecycle_overlay = Path(__file__).resolve().parent / "hr_payroll_overlay_16_2_0" / "hr-lifecycle-ui.css"
     lifecycle_css = lifecycle_overlay.read_text(encoding="utf-8").strip()
+    lifecycle_css = strip_hr_svg_css(lifecycle_css)
     lifecycle_marker = "/* HRIS lifecycle workspace: conservative SAP/Odoo-style data density"
     if not lifecycle_css.startswith(lifecycle_marker):
         raise ValueError("HR lifecycle styles must begin with the reviewed source marker.")
@@ -537,6 +555,200 @@ def rebuild_css(files):
     files[min_path] = minify_css_preserving_semantics(app_css).encode("utf-8")
 
 
+def patch_module_scoped_health_status(app):
+    """Keep payroll/schema/release review states scoped to their affected actions."""
+    helper = "function classifyERPHealthScope(failedChecks,liveReady,setupRequired,quickOnly){const failed=Array.isArray(failedChecks)?failedChecks:[];const labels={payroll_compensation_classification:'Payroll compensation review',schema_contract_approved:'Schema architecture approval',release_approval:'Owner release authorization'};const scoped=!liveReady&&!setupRequired&&!quickOnly&&failed.length>0&&failed.every(k=>Object.prototype.hasOwnProperty.call(labels,k));const payrollOnly=scoped&&failed.length===1&&failed[0]==='payroll_compensation_classification';return {scoped,payrollOnly,detail:scoped?failed.map(k=>labels[k]).join(', '):''};}"
+    if helper not in app:
+        marker = "async function runHealth(mode){"
+        if app.count(marker) != 1:
+            raise ValueError("Could not locate unique runHealth renderer for module-scoped health status.")
+        app = app.replace(marker, helper + "\n" + marker, 1)
+    old = """    const payrollOnlyIssue=!ready&&!setupRequired&&!quickOnly&&failed.length===1&&failed[0]==='payroll_compensation_classification';
+    const badge=ready?'is-ready':(payrollOnlyIssue?'is-operational-warning':'is-not-ready');"""
+    new = """    const healthScope=classifyERPHealthScope(failed,ready,setupRequired,quickOnly);
+    const payrollOnlyIssue=healthScope.payrollOnly;
+    const scopedOperationalReview=healthScope.scoped;
+    const badge=ready?'is-ready':(scopedOperationalReview?'is-operational-warning':'is-not-ready');"""
+    app = once(app, old, new, "scope payroll/schema/release approval health warnings to affected actions")
+    old = """    const label=setupRequired?'SETUP REPAIR REQUIRED':(quickOnly?'QUICK HEALTH ONLY':(ready?'LIVE READY':(payrollOnlyIssue?'OPERATIONAL • PAYROLL CHECK REQUIRED':'NOT LIVE READY')));"""
+    new = """    const label=setupRequired?'SETUP REPAIR REQUIRED':(quickOnly?'QUICK HEALTH ONLY':(ready?'LIVE READY':(payrollOnlyIssue?'OPERATIONAL • PAYROLL CHECK REQUIRED':(scopedOperationalReview?'OPERATIONAL • TARGETED REVIEW REQUIRED':'NOT LIVE READY'))));"""
+    app = once(app, old, new, "replace global-looking status for payroll/schema/release-only failures")
+    old = """    const bannerText=setupRequired?'The ERP is showing the exact schema gate that must be repaired before business controllers can register. Use the protected setup action; this check did not change business data.':(quickOnly?'Quick checks completed; deep integrity status is UNVERIFIED because the full scan was deferred.':(ready?'All mandatory production checks passed.':(payrollOnlyIssue?'All non-payroll production checks passed. Payroll compensation readiness requires a verified result; unresolved data or an incomplete diagnostic remains visible and does not disable other verified ERP workflows.':'Resolve the failed checks shown below before relying on the affected workflows.')));"""
+    new = """    const bannerText=setupRequired?'The ERP is showing the exact schema gate that must be repaired before business controllers can register. Use the protected setup action; this check did not change business data.':(quickOnly?'Quick checks completed; deep integrity status is UNVERIFIED because the full scan was deferred.':(ready?'All mandatory production checks passed.':(payrollOnlyIssue?'All non-payroll production checks passed. Payroll compensation readiness requires a verified result; unresolved data or an incomplete diagnostic remains visible and does not disable other verified ERP workflows.':(scopedOperationalReview?'Review required for: '+esc(healthScope.detail)+'. These controls apply only to the affected payroll records, schema changes or release publication. They do not disable existing authorized POS, inventory, warehouse, finance or other ERP workflows.':'Resolve the failed checks shown below before relying on the affected workflows.'))));"""
+    app = once(app, old, new, "show module-scoped impact for payroll/schema/release-only health failures")
+    return app
+
+def replace_function_region(source, start_marker, end_marker, replacement, label):
+    start = source.find(start_marker)
+    end = source.find(end_marker, start + len(start_marker))
+    if start < 0 or end < 0 or source.count(start_marker) != 1:
+        raise ValueError("Could not locate exact " + label + " source boundary.")
+    return source[:start] + replacement + "\n" + source[end:]
+
+
+def strip_hr_svg_css(source):
+    """Remove HR SVG icon rules while preserving all other CSS and media queries."""
+    forbidden = (
+        ".sl-hrlc-section-icon",
+        ".sl-hrlc-icon-art",
+        ".sl-hrlc-social-icon",
+        ".sl-hrlc-social-icon-art",
+    )
+    source = re.sub(
+        r"/\\*[\\s\\S]*?\\*/",
+        lambda match: "" if "HR icon isolation contract" in match.group(0) else match.group(0),
+        source,
+    )
+
+    def matching_brace(text, open_index):
+        depth = 1
+        quote = None
+        i = open_index + 1
+        while i < len(text):
+            ch = text[i]
+            if quote is not None:
+                if ch == "\\":
+                    i += 2
+                    continue
+                if ch == quote:
+                    quote = None
+            elif ch in ("'", '"'):
+                quote = ch
+            elif ch == "/" and i + 1 < len(text) and text[i + 1] == "*":
+                close_comment = text.find("*/", i + 2)
+                if close_comment < 0:
+                    raise ValueError("Unterminated CSS comment.")
+                i = close_comment + 2
+                continue
+            elif ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    return i
+            i += 1
+        raise ValueError("Unbalanced CSS block in HR stylesheet.")
+
+    def clean_block(text):
+        output = []
+        i = 0
+        segment_start = 0
+        quote = None
+        parens = 0
+        while i < len(text):
+            ch = text[i]
+            if quote is not None:
+                if ch == "\\":
+                    i += 2
+                    continue
+                if ch == quote:
+                    quote = None
+                i += 1
+                continue
+            if ch in ("'", '"'):
+                quote = ch
+                i += 1
+                continue
+            if ch == "/" and i + 1 < len(text) and text[i + 1] == "*":
+                close_comment = text.find("*/", i + 2)
+                if close_comment < 0:
+                    raise ValueError("Unterminated CSS comment.")
+                i = close_comment + 2
+                continue
+            if ch == "(":
+                parens += 1
+                i += 1
+                continue
+            if ch == ")" and parens:
+                parens -= 1
+                i += 1
+                continue
+            if parens == 0 and ch == ";":
+                output.append(text[segment_start:i + 1])
+                i += 1
+                segment_start = i
+                continue
+            if parens == 0 and ch == "{":
+                close = matching_brace(text, i)
+                prelude = text[segment_start:i]
+                body = text[i + 1:close]
+                rule_name = prelude.strip()
+                if rule_name.startswith("@"):
+                    if re.match(r"@(?:media|supports|container|layer|document)\b", rule_name, re.I):
+                        cleaned_body = clean_block(body)
+                        if cleaned_body.strip():
+                            output.append(prelude + "{" + cleaned_body + "}")
+                    else:
+                        output.append(text[segment_start:close + 1])
+                elif not any(token in rule_name for token in forbidden):
+                    output.append(text[segment_start:close + 1])
+                i = close + 1
+                segment_start = i
+                continue
+            i += 1
+        output.append(text[segment_start:])
+        return "".join(output)
+
+    cleaned = clean_block(source)
+    stale = [token for token in forbidden if token in cleaned]
+    if stale or re.search(r"(?i)\bsvg\b", cleaned):
+        raise ValueError("HR lifecycle CSS still contains SVG references: " + ", ".join(stale))
+    return cleaned
+
+
+def patch_hr_svg_renderers(app):
+    """Use text-only HR section headings and social cards; keep ERP shell icons intact."""
+    old_renderers = ("function hrlcSectionIcon(", "function hrlcSocialIcon(")
+    forbidden_classes = ("sl-hrlc-section-icon", "sl-hrlc-icon-art",
+                         "sl-hrlc-social-icon", "sl-hrlc-social-icon-art")
+    if not any(token in app for token in old_renderers):
+        stale = [token for token in forbidden_classes if token in app]
+        if stale:
+            raise ValueError("Text-only HR source still contains obsolete icon classes: " + ", ".join(stale))
+        return app
+    app = replace_function_region(
+        app,
+        "function hrlcSectionIcon(title){",
+        "function hrlcSection(title,desc,body){",
+        "",
+        "HR section SVG icon renderer",
+    )
+    section = """function hrlcSection(title,desc,body){const k=String(title||''),id='hrlc-section-'+k.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''),saved=Array.isArray(state.hrlcOpenSections)?state.hrlcOpenSections:[],op=saved.includes(k)?' open':'',expanded=op?'true':'false';return '<details id="'+id+'" data-hrlc-section="'+hrlcEsc(k)+'" class="sl-panel sl-hrlc-panel sl-hrlc-section"'+op+'><summary id="'+id+'-summary" class="sl-hrlc-section-summary" aria-controls="'+id+'-body" aria-expanded="'+expanded+'"><span class="sl-hrlc-section-heading"><span class="sl-hrlc-section-titles"><span class="sl-hrlc-section-title" role="heading" aria-level="3">'+hrlcEsc(k)+'</span><small>'+hrlcEsc(desc)+'</small></span></span><span class="sl-hrlc-section-toggle" aria-hidden="true"></span></summary><div id="'+id+'-body" aria-labelledby="'+id+'-summary" class="sl-hrlc-section-body">'+body+'</div></details>'}"""
+    app = replace_function_region(
+        app,
+        "function hrlcSection(title,desc,body){",
+        "function hrlcLifecycleLists(d){",
+        section,
+        "HR text-only section renderer",
+    )
+    app = replace_function_region(
+        app,
+        "function hrlcSocialIcon(key){",
+        "function hrlcSocialLinks(){",
+        "",
+        "HR social SVG icon renderer",
+    )
+    social = """function hrlcSocialLinks(){const platforms=[{name:'Facebook / Meta Business Suite',desc:'Campaign planning, audience tools and ad insights',url:'https://business.facebook.com/'},{name:'Instagram',desc:'Product reels, outfit stories and engagement insights',url:'https://www.instagram.com/'},{name:'TikTok Business Center',desc:'Short-video campaigns, creator work and trend insights',url:'https://business.tiktok.com/'},{name:'YouTube Studio',desc:'Product videos, Shorts and channel analytics',url:'https://studio.youtube.com/'}];return '<div class="sl-hrlc-social-grid">'+platforms.map(x=>'<a class="sl-hrlc-social-card" href="'+x.url+'" target="_blank" rel="noopener noreferrer"><span class="sl-hrlc-social-copy"><strong>'+hrlcEsc(x.name)+'</strong><small>'+hrlcEsc(x.desc)+'</small><span class="sl-hrlc-social-open">Open official platform <span aria-hidden="true">↗</span></span></span></a>').join('')+'</div><p class="sl-sub sl-hrlc-social-note"><strong>Reporting mode: MANUAL EXPORT.</strong> Metrics must be entered from timestamped platform exports; this is not a real-time API connection. Sign in on official sites with assigned account permissions and 2FA. Never store passwords, API keys or recovery tokens here. These links do not publish or schedule content.</p>'}"""
+    app = replace_function_region(
+        app,
+        "function hrlcSocialLinks(){",
+        "function hrlcPayrollCyclePanel(d){",
+        social,
+        "HR text-only social link renderer",
+    )
+    for forbidden in (
+        "function hrlcSectionIcon(",
+        "function hrlcSocialIcon(",
+        "sl-hrlc-section-icon",
+        "sl-hrlc-icon-art",
+        "sl-hrlc-social-icon",
+        "sl-hrlc-social-icon-art",
+    ):
+        if forbidden in app:
+            raise ValueError("HR SVG renderer/class remains in app.js: " + forbidden)
+    return app
+
+
 def patch_app_js(files):
     app = text(files, "assets/app.js")
     overlay = (Path(__file__).resolve().parent / "hr_payroll_overlay_16_2_0" / "hr-lifecycle-ui.js").read_text(encoding="utf-8")
@@ -546,6 +758,8 @@ def patch_app_js(files):
         raise ValueError("Could not locate exact existing HR dashboard JS boundary.")
     wrapper = """function hr(){if(!state.hrLifecycleLoaded){return title('HR & People Operations','Loading the full employee lifecycle, legal rule registry and payroll workflow…','')+'<div id=\"hrPage\"><div class=\"sl-panel\"><div class=\"sl-skeleton\"><div class=\"sl-skeleton-line w85\"></div><div class=\"sl-skeleton-line w60\"></div><div class=\"sl-skeleton-line w40\"></div></div></div></div>';}return hrlcLifecycleLists(state.hrLifecycle||{})+hrlcPayrollCyclePanel(state.hrLifecycle||{});}\n"""
     app = app[:start] + wrapper + overlay.strip() + "\n" + app[end:]
+    app = patch_module_scoped_health_status(app)
+    app = patch_hr_svg_renderers(app)
     old_bind = "if($('#usersTable')){loadUsers();loadAvailableWPUsers();}if($('#locationsRegistry'))loadLocationsRegistry();if($('#hrPage'))loadHR();if($('#refreshHR'))$('#refreshHR').onclick=loadHR;"
     new_bind = "if($('#usersTable')){loadUsers();loadAvailableWPUsers();}if($('#locationsRegistry'))loadLocationsRegistry();if($('#hrPage')&&!state.hrLifecycleLoaded&&!state.hrLifecycleLoading)loadHRLifecycle();if($('#refreshHR'))$('#refreshHR').onclick=()=>{if(!state.hrLifecycleLoading)loadHRLifecycle();};bindHRLifecycleForms();bindHRPayrollCycleForms();"
     app = once(app, old_bind, new_bind, "replace legacy HR dashboard event binding")
@@ -731,6 +945,24 @@ def patch_pos_cart_ui(files):
     app = once(app, sales_form, "const f=document.getElementById('posCartForm')||document.getElementById('posForm');\n    const date=", "Recent Posted Sales follows cart filters")
     put(files, "assets/app.js", app)
 
+def patch_hr_icon_manifest(files):
+    path = "RELEASE_MANIFEST.json"
+    manifest = json.loads(files[ROOT + path].decode("utf-8"))
+    changes = manifest.get("release_changes", [])
+    changes = [
+        item for item in changes
+        if "HR/payroll module SVG icons" not in item
+        and "Social platform cards use scoped inline SVGs" not in item
+    ]
+    changes.append(
+        "HR/payroll section summaries and social-platform cards use text-only presentation; "
+        "HR-specific inline SVG renderers and CSS are removed. Global ERP shell icons and "
+        "dashboard charts remain outside the HR page and are preserved."
+    )
+    manifest["release_changes"] = changes
+    manifest["hr_icon_css_contract"] = "NO_HR_PAYROLL_INLINE_SVG; TEXT_ONLY_SECTION_SUMMARIES_AND_SOCIAL_LINKS"
+    put(files, path, json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
+
 def patch_misc_versions(files):
     for path in ("assets/pwa.js","assets/manifest.json","includes/class-stockland-frontend.php","assets/css/modules.json"):
         if ROOT + path not in files: continue
@@ -819,6 +1051,7 @@ def build(input_zip: Path, output_zip: Path):
     patch_pos_qty_safety(files)
     patch_pos_cart_ui(files)
     patch_misc_versions(files)
+    patch_hr_icon_manifest(files)
     # Add the ordered CSS modules created by rebuild_css plus five new HR runtime PHP files.
     # CI source/build scripts are never shipped inside the WordPress installer.
     out_names = list(names)

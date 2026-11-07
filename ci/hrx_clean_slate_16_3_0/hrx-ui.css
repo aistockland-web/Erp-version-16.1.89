@@ -1,0 +1,44 @@
+
+/* HRX clean-slate SaaS workspace. Inherits Stockland ERP design tokens. */
+#hrPage.sl-hrx-page{max-width:100%;min-width:0}
+#hrPage .sl-hrx-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:14px 0}
+#hrPage .sl-hrx-stat{border:1px solid var(--sl-border,#d8e0e8);background:var(--sl-surface,#fff);border-radius:12px;padding:13px 15px;min-width:0;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+#hrPage .sl-hrx-stat span,#hrPage .sl-hrx-stat small{display:block;color:var(--sl-muted,#64748b);font-size:12px;line-height:1.45}
+#hrPage .sl-hrx-stat strong{display:block;margin:4px 0;font-size:15px;overflow-wrap:anywhere;color:var(--sl-ink,#243346)}
+#hrPage .sl-hrx-stat strong.ok{color:var(--sl-success,#16794b)}#hrPage .sl-hrx-stat strong.warn{color:var(--sl-warning,#9a6700)}
+#hrPage .sl-hrx-tabs{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0;padding:7px;border:1px solid var(--sl-border,#d8e0e8);background:var(--sl-surface-alt,#f6f8fb);border-radius:12px}
+#hrPage .sl-hrx-tab,#hrPage .sl-hrx-subtab{appearance:none;border:1px solid transparent;background:transparent;border-radius:8px;padding:10px 12px;min-height:42px;font-family:inherit;font-size:13px;line-height:1.25;font-weight:600;color:var(--sl-muted,#64748b);cursor:pointer;white-space:normal}
+#hrPage .sl-hrx-tab.active,#hrPage .sl-hrx-subtab.active{background:var(--sl-surface,#fff);border-color:var(--sl-border,#d8e0e8);color:var(--sl-ink,#243346);box-shadow:0 1px 2px rgba(15,23,42,.06)}
+#hrPage .sl-hrx-content{min-width:0}
+#hrPage .sl-hrx-subtabs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+#hrPage .sl-hrx-subtab{padding:8px 10px;min-height:38px;border-color:var(--sl-border,#d8e0e8);background:var(--sl-surface,#fff)}
+#hrPage .sl-hrx-list-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin:4px 0 12px;flex-wrap:wrap}
+#hrPage .sl-hrx-list-head h3{margin:0 0 4px;font-size:17px;color:var(--sl-ink,#243346)}
+#hrPage .sl-hrx-create{margin:12px 0 18px;border:1px solid var(--sl-border,#d8e0e8);border-radius:10px;background:var(--sl-surface,#fff);overflow:hidden}
+#hrPage .sl-hrx-create>summary{padding:13px 15px;cursor:pointer;font-weight:700;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:10px}
+#hrPage .sl-hrx-create>summary::-webkit-details-marker{display:none}
+#hrPage .sl-hrx-create>summary:after{content:"+";font-size:20px;color:var(--sl-muted,#64748b)}
+#hrPage .sl-hrx-create[open]>summary:after{content:"−"}
+#hrPage .sl-hrx-form{border-top:1px solid var(--sl-border,#d8e0e8);padding:14px}
+#hrPage .sl-hrx-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+#hrPage .sl-hrx-field{display:flex;flex-direction:column;gap:5px;min-width:0;font-size:12px;font-weight:650;color:var(--sl-muted,#64748b)}
+#hrPage .sl-hrx-field>input,#hrPage .sl-hrx-field>select,#hrPage .sl-hrx-field>textarea{box-sizing:border-box;width:100%;max-width:100%;min-width:0;min-height:40px;border:1px solid var(--sl-border,#cbd5e1);border-radius:7px;padding:9px 10px;background:#fff;color:var(--sl-ink,#1f2937);font-family:inherit;font-size:13px;line-height:1.4;font-weight:400}
+#hrPage .sl-hrx-field>textarea{min-height:78px;resize:vertical}
+#hrPage .sl-hrx-file-field{grid-column:1/-1}
+#hrPage .sl-hrx-form-actions{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:14px}
+#hrPage .sl-hrx-form-actions .sl-sub{flex:1 1 260px}
+#hrPage .sl-hrx-table-wrap{max-width:100%;overflow:auto}
+#hrPage .sl-hrx-table-wrap .sl-table{min-width:840px}
+#hrPage .sl-hrx-table-wrap td{vertical-align:top;overflow-wrap:anywhere}
+#hrPage .sl-hrx-row-actions{display:flex;flex-wrap:wrap;gap:5px;min-width:190px}
+#hrPage .sl-hrx-row-actions .sl-btn{white-space:normal;overflow-wrap:anywhere;min-height:36px}
+#hrPage .sl-hrx-table-wrap code{overflow-wrap:anywhere;white-space:normal}
+#hrPage .sl-hrx-schema-gate{max-width:900px;margin:0 auto;padding:22px}
+#hrPage .sl-hrx-schema-gate h3{margin:4px 0 10px;font-size:20px}
+#hrPage .sl-hrx-schema-progress{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px;border:1px solid var(--sl-border,#d8e0e8);border-radius:9px;margin:12px 0}
+#hrPage .sl-hrx-schema-gate ul{padding-left:20px;line-height:1.7}
+#hrPage .sl-hrx-footer{margin:14px 0 0}
+@media(max-width:1080px){#hrPage .sl-hrx-summary{grid-template-columns:repeat(2,minmax(0,1fr))}#hrPage .sl-hrx-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:767px){#hrPage .sl-hrx-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}#hrPage .sl-hrx-tab{min-width:0;text-align:left;padding:9px;font-size:12px}#hrPage .sl-hrx-subtabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}#hrPage .sl-hrx-subtab{min-width:0;text-align:left}#hrPage .sl-hrx-fields{grid-template-columns:minmax(0,1fr)}#hrPage .sl-hrx-file-field{grid-column:auto}#hrPage .sl-hrx-table-wrap .sl-table{min-width:0}#hrPage .sl-hrx-table-wrap .sl-table thead{display:none}#hrPage .sl-hrx-table-wrap .sl-table tbody,#hrPage .sl-hrx-table-wrap .sl-table tr,#hrPage .sl-hrx-table-wrap .sl-table td{display:block;width:100%;box-sizing:border-box}#hrPage .sl-hrx-table-wrap .sl-table tr{border:1px solid var(--sl-border,#d8e0e8);border-radius:10px;margin:0 0 12px;padding:10px;background:var(--sl-surface,#fff)}#hrPage .sl-hrx-table-wrap .sl-table td{border:0;padding:6px 3px}#hrPage .sl-hrx-table-wrap .sl-table td:before{content:attr(data-label);display:block;margin-bottom:3px;color:var(--sl-muted,#64748b);font-size:10px;font-weight:750;text-transform:uppercase;letter-spacing:.04em}#hrPage .sl-hrx-table-wrap .sl-table td.sl-hrx-title-cell{padding-bottom:10px;border-bottom:1px solid var(--sl-border,#e5e7eb);margin-bottom:4px}#hrPage .sl-hrx-table-wrap .sl-hrx-title-cell:before{content:"RECORD"}#hrPage .sl-hrx-row-actions{min-width:0}#hrPage .sl-hrx-row-actions .sl-btn{flex:1 1 130px}#hrPage .sl-hrx-list-head{display:block}#hrPage .sl-hrx-list-head .sl-actions{margin-top:8px}}
+@media(max-width:380px){#hrPage .sl-hrx-summary{grid-template-columns:minmax(0,1fr)}#hrPage .sl-hrx-tabs{grid-template-columns:minmax(0,1fr)}#hrPage .sl-hrx-tab{width:100%}#hrPage .sl-hrx-schema-gate{padding:14px}}
+@media print{#hrPage .sl-hrx-tabs,#hrPage .sl-hrx-create,#hrPage [data-hrx-action],#hrPage [data-hrx-refresh]{display:none!important}#hrPage .sl-hrx-table-wrap .sl-table{min-width:0}}

@@ -54,7 +54,7 @@ final class Stockland_REST_HR_Lifecycle extends Stockland_REST_Base {
 		$ints=array('version_no','location_id','planned_headcount','headcount_slots','workforce_plan_id','position_id','openings','requisition_id','candidate_id','application_id','subject_id','employee_id','document_id','break_minutes','shift_id','ordinary_minutes','overtime_minutes','min_notice_days','leave_year','reviewer_id','source_period_id','rule_set_id');
 		$json=array('terms_json','panel_json','scorecard_json','goals_json','components_json');
 		foreach($fields as $f){if(!array_key_exists($f,$payload))continue;$v=$payload[$f];
-			if(in_array($f,array('scheduled_at','check_in','check_out','consent_at'),true)){ $raw=sanitize_text_field((string)$v); if($raw==='')$v=null; else { $dt=DateTimeImmutable::createFromFormat('!Y-m-d\\TH:i',$raw); if(!$dt)return $this->bad('Invalid date/time value for '.$f.'.'); $v=$dt->format('Y-m-d H:i:s'); } } elseif(in_array($f,$dates,true)){$v=$this->date($v,true);if($v===false)return $this->bad('Invalid date/time value for '.$f.'.');}
+			if(in_array($f,array('scheduled_at','check_in','check_out'),true)){ $raw=sanitize_text_field((string)$v); if($raw==='')$v=null; else { $dt=DateTimeImmutable::createFromFormat('!Y-m-d\\TH:i',$raw); if(!$dt||$dt->format('Y-m-d\\TH:i')!==$raw)return $this->bad('Invalid date/time value for '.$f.'.'); $v=$dt->format('Y-m-d H:i:s'); } } elseif('consent_at'===$f){ $raw=sanitize_text_field((string)$v); if($raw==='')$v=null; elseif(preg_match('/^\\d{4}-\\d{2}-\\d{2}$/D',$raw)){ $dt=DateTimeImmutable::createFromFormat('!Y-m-d',$raw); if(!$dt||$dt->format('Y-m-d')!==$raw)return $this->bad('Invalid consent date.'); $v=$dt->format('Y-m-d 00:00:00'); } else { $dt=DateTimeImmutable::createFromFormat('!Y-m-d\\TH:i',$raw); if(!$dt||$dt->format('Y-m-d\\TH:i')!==$raw)return $this->bad('Invalid consent date/time.'); $v=$dt->format('Y-m-d H:i:s'); } } elseif(in_array($f,$dates,true)){$v=$this->date($v,true);if($v===false)return $this->bad('Invalid date/time value for '.$f.'.');}
 			elseif(in_array($f,$json,true)){$v=$this->json_value($v,$f);if(is_wp_error($v))return $v;}
 			elseif(in_array($f,$money,true)){try{$v=Stockland_Money::decimal(Stockland_Money::minor($v));if(Stockland_Money::minor($v)<0)return $this->bad($f.' cannot be negative.');}catch(Throwable $e){return $this->bad('Invalid numeric value for '.$f.'.');}}
 			elseif(in_array($f,$ints,true)){if($v===null||$v==='')$v=null;else{$v=filter_var($v,FILTER_VALIDATE_INT);if($v===false||$v<0)return $this->bad('Invalid integer value for '.$f.'.');}}
@@ -90,7 +90,7 @@ final class Stockland_REST_HR_Lifecycle extends Stockland_REST_Base {
 		foreach($required[$entity]??array() as $f){if(!isset($row[$f])||$row[$f]==='')return $this->bad('Required field missing: '.$f.'.');}
 		if($entity==='leave-requests'&&$row['end_date']<$row['start_date'])return $this->bad('Leave end date cannot be before start date.');
 		if($entity==='attendance'&&isset($row['check_in'],$row['check_out'])&&$row['check_in']&&$row['check_out']&&$row['check_out']<$row['check_in'])return $this->bad('Attendance check-out must follow check-in.');
-		if($entity==='candidates'&&empty($row['consent_at']))$row['consent_at']=current_time('mysql');
+		// Consent is optional evidence. Never fabricate a consent timestamp during candidate registration.
 		$status_field=array('workforce-plans'=>'status','positions'=>'status','requisitions'=>'status','candidates'=>'status','applications'=>'stage','interviews'=>'recommendation','documents'=>'status','contracts'=>'status','onboarding'=>'status','shifts'=>'status','attendance'=>'status','leave-policies'=>'status','leave-balances'=>'closing_days','leave-requests'=>'status','training'=>'status','performance'=>'outcome','adjustments'=>'status');
 		$sf=$status_field[$entity]??null;if($sf&&!array_key_exists($sf,$row))$row[$sf]=in_array($entity,array('applications'),true)?'APPLIED':'DRAFT';
 		$row['created_by']=get_current_user_id();if($entity==='attendance'){$row['submitted_by']=get_current_user_id();$row['status']='SUBMITTED';}
@@ -139,7 +139,7 @@ final class Stockland_REST_HR_Lifecycle extends Stockland_REST_Base {
 		global $wpdb;if(Stockland_DB::execute_query('START TRANSACTION')===false)return $this->bad('Could not start selection transaction.','hr_transaction_failed',500);
 		try{
 			$app=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',$this->table('hr_applications'),$id),ARRAY_A);
-			if(!$app||!in_array($app['decision'],array('PENDING','RECOMMENDED'),true))throw new RuntimeException('Application is not in a selectable state.');
+			if(!$app||!in_array(strtoupper((string)$app['decision']),array('PENDING','RECOMMENDED','APPROVED'),true))throw new RuntimeException('Application is not in a selectable state.');
 			$reqRow=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',$this->table('hr_requisitions'),(int)$app['requisition_id']),ARRAY_A);
 			if(!$reqRow||$reqRow['status']!=='APPROVED')throw new RuntimeException('A selected candidate needs an approved requisition.');
 			$candidate=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',$this->table('hr_candidates'),(int)$app['candidate_id']),ARRAY_A);
@@ -279,17 +279,19 @@ final class Stockland_REST_HR_Lifecycle extends Stockland_REST_Base {
 			foreach($snapshot as $c){
 				if(!is_array($c))throw new RuntimeException('Compensation component row is malformed.');
 				$amount=Stockland_Money::decimal(Stockland_Money::minor($c['amount']??'0.00'));
-				if(strtoupper((string)($c['tax_treatment']??'TAXABLE'))==='EXEMPT'){
+				$taxablePart=Stockland_Money::decimal(Stockland_Money::minor($c['taxable_amount']??'0.00'));
+				$exemptPart=Stockland_Money::decimal(Stockland_Money::minor($c['exempt_amount']??'0.00'));
+				if(Stockland_Money::minor(Stockland_Money::add($taxablePart,$exemptPart))!==Stockland_Money::minor($amount))throw new RuntimeException('Each allowance total must equal its separately saved taxable and exempt portions. Recalculate the draft before approval.');
+				if(!in_array(strtoupper((string)($c['tax_treatment']??'TAXABLE')),array('TAXABLE','EXEMPT'),true))throw new RuntimeException('Unsupported allowance tax treatment; approval blocked.');
+				if(Stockland_Money::minor($exemptPart)>0){
 					$needsOwner=true;
 					$ruleId=(int)($c['rule_set_id']??0);
 					$rule=Stockland_DB::read_row($wpdb->prepare("SELECT * FROM %i WHERE id=%d AND rule_type='ALLOWANCE' AND review_status='APPROVED' AND effective_from<=%s AND (effective_to IS NULL OR effective_to>=%s)",$this->table('hr_rule_sets'),$ruleId,$r['effective_from'],$r['effective_from']),ARRAY_A);
-					if(!$rule||!preg_match('/^[a-f0-9]{64}$/i',(string)($rule['source_sha256']??''))||!hash_equals(strtolower((string)$rule['source_sha256']),strtolower((string)($c['source_hash']??'')))||empty($c['legal_basis'])||empty($c['evidence_reference']))throw new RuntimeException('Every exempt component needs an effective approved rule, matching official-source SHA-256, clause and evidence reference.');
+					if(!$rule||!preg_match('/^[a-f0-9]{64}$/i',(string)($rule['source_sha256']??''))||!hash_equals(strtolower((string)$rule['source_sha256']),strtolower((string)($c['source_hash']??'')))||empty($c['legal_basis'])||empty($c['evidence_reference']))throw new RuntimeException('Every exempt portion needs an effective approved rule, matching official-source SHA-256, clause and evidence reference.');
 					$c['owner_verified']=true;$c['verified_by']=(int)get_current_user_id();$c['verified_at']=current_time('mysql');
-					$exempt=Stockland_Money::add($exempt,$amount);
-				}else{
-					$c['tax_treatment']='TAXABLE';$c['owner_verified']=false;
-					$tax=Stockland_Money::add($tax,$amount);
-				}
+				}else{$c['owner_verified']=false;$c['tax_treatment']='TAXABLE';}
+				$tax=Stockland_Money::add($tax,$taxablePart);
+				$exempt=Stockland_Money::add($exempt,$exemptPart);
 				$verified[]=$c;
 			}
 			if(Stockland_Money::minor($tax)!==Stockland_Money::minor($r['taxable_allowance_total']??'0.00')||Stockland_Money::minor($exempt)!==Stockland_Money::minor($r['exempt_allowance_total']??'0.00')||Stockland_Money::minor(Stockland_Money::add($tax,$exempt))!==Stockland_Money::minor($r['allowance_total']??'0.00'))throw new RuntimeException('Taxable + exempt component snapshots must reconcile exactly to the approved allowance total.');
