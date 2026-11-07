@@ -1,0 +1,10 @@
+/ci/cssqa/node_modules/
+/ci/phpcs/vendor/
+/node_modules/
+/vendor/
+/coverage/
+/.phpunit.cache/
+/.env
+/.env.*
+!.env.example
+*.log

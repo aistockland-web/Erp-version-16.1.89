@@ -1,0 +1,70 @@
+name: Stockland Codespaces environment validation
+
+on:
+  push:
+    branches:
+      - infra/stockland-erp-codespaces-2026-11-07
+    paths:
+      - '.devcontainer/**'
+      - 'AGENTS.md'
+      - '.github/workflows/codespaces-environment.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.devcontainer/**'
+      - 'AGENTS.md'
+      - '.github/workflows/codespaces-environment.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stockland-codespaces-validation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate Codespaces configuration and PHP toolchain
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Validate JSON and shell script syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m json.tool .devcontainer/devcontainer.json >/dev/null
+          bash -n .devcontainer/post-create.sh
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          config=json.loads(Path('.devcontainer/devcontainer.json').read_text())
+          assert config['forwardPorts'] == [8080]
+          assert config['portsAttributes']['8080']['visibility'] == 'private'
+          assert config['workspaceFolder'] == '/workspaces/stockland-erp'
+          assert config['service'] == 'workspace'
+          print('PASS devcontainer JSON, private preview port and workspace mount contract')
+          PY
+
+      - name: Validate Compose configuration
+        run: docker compose -f .devcontainer/docker-compose.yml config --quiet
+
+      - name: Build PHP 8.3 workspace image
+        run: docker build --pull --tag stockland-erp-codespace-qa --file .devcontainer/Dockerfile .devcontainer
+
+      - name: Verify required PHP modules and Composer
+        shell: bash
+        run: |
+          set -euo pipefail
+          php_modules="$(docker run --rm stockland-erp-codespace-qa php -m)"
+          for extension in curl dom fileinfo json mbstring mysqli openssl pdo_mysql simplexml xml zip; do
+            if ! grep -qi "^${extension}$" <<< "$php_modules"; then
+              echo "Missing PHP extension: $extension" >&2
+              exit 1
+            fi
+          done
+          docker run --rm stockland-erp-codespace-qa composer --version
+          echo "PASS required PHP extensions and Composer"
