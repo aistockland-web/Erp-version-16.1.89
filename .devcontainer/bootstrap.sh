@@ -15,6 +15,13 @@ npm --version
 python3 --version
 gh --version
 
+echo "=== Install pinned OpenAI Codex CLI for remote ChatGPT sign-in ==="
+CODEX_CLI_VERSION="0.167.0"
+if ! command -v codex >/dev/null 2>&1 || ! codex --version 2>&1 | grep -Fq "$CODEX_CLI_VERSION"; then
+  npm install --global "@openai/codex@${CODEX_CLI_VERSION}" --no-audit --no-fund
+fi
+codex --version
+
 for extension in curl dom fileinfo intl mbstring mysqli openssl pdo_mysql simplexml xml xmlreader xmlwriter zip; do
   if ! php -r "exit(extension_loaded('$extension') ? 0 : 1);"; then
     echo "Missing PHP extension: $extension" >&2
