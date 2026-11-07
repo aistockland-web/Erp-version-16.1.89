@@ -241,3 +241,15 @@ The Owner has ratified one cumulative Stockland ERP: one canonical integration s
 - Only after all gates pass should one GitHub Release be published with one ZIP, exact SHA-256 and full evidence bundle. A checksum is byte identity, not a signature or approval. CI green, PR merge or Codespaces build alone never authorizes production release.
 
 All reports must distinguish PASS, FAIL, BLOCKED, NOT RUN and OWNER INPUT REQUIRED.
+
+
+## 15. OpenAI Codex inside the Codespaces editor — safe remote authentication
+
+- The browser Codespaces profile includes the official OpenAI VS Code extension ID `openai.chatgpt` (Codex IDE extension) and installs the pinned OpenAI Codex CLI `@openai/codex@0.167.0`.
+- In browser-based Codespaces, the extension's standard browser OAuth callback may target `http://localhost:1455/auth/callback`, which can fail across the remote/browser boundary. Do not expose the callback port publicly, rewrite redirect URIs, invent OAuth callbacks or paste authorization URLs/codes into issues.
+- Preferred remote/headless path: the Owner runs `codex login --device-auth` in the Codespaces terminal and completes the displayed one-time device flow in their own browser using the intended ChatGPT account. This is an interactive account-authorization step and must never be run automatically during container bootstrap.
+- After authentication, verify with `codex login status`, reload the VS Code window, and open `Codex: Open Codex Sidebar`. Keep the CLI and IDE extension on the same user-scoped Codex home so they can share the locally stored sign-in state.
+- Never store ChatGPT credentials, device codes, OAuth authorization codes, access/refresh tokens or API keys in the repository, devcontainer settings, GitHub Actions logs, Notion, screenshots or chat. The Owner completes sign-in in the official OpenAI page; the assistant must not ask for secrets.
+- Do not create or require an OpenAI API key for this workflow. API-key authentication is usage-billed separately from ChatGPT plan access; use it only after explicit separate Owner approval and an approved secret-storage arrangement.
+- The Codex IDE chat is a separate editor coding-agent session. It does not import, mirror or continue the current ChatGPT conversation automatically. Preserve the project handover in `AGENTS.md` and the canonical Notion release plan.
+- The forwarded Codespaces port URL supplied for port 1455 is not itself proof of successful authentication. Keep the WordPress preview on 8080 private and both database ports unforwarded. Prefer device-code authentication instead of changing port visibility or weakening tunnel security.
