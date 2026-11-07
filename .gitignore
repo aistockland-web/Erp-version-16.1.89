@@ -1,0 +1,3 @@
+# Local-only Codespaces credentials and test outputs
+.local/
+.artifacts/

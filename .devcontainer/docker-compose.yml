@@ -1,0 +1,43 @@
+services:
+  db:
+    image: mariadb:10.11
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: root-dev-only
+      MARIADB_DATABASE: stockland_ui
+      MARIADB_USER: stockland
+      MARIADB_PASSWORD: stockland-dev-only
+    volumes:
+      - stockland_dbdata:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  wordpress:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_NAME: stockland_ui
+      WORDPRESS_DB_USER: stockland
+      WORDPRESS_DB_PASSWORD: stockland-dev-only
+      WP_CLI_ALLOW_ROOT: "1"
+      WP_DBDELTA_DB_HOST: db:3306
+      WP_DBDELTA_DB_ADMIN_HOST: db:3306
+      WP_DBDELTA_DB_USER: root
+      WP_DBDELTA_DB_PASSWORD: root-dev-only
+    volumes:
+      - stockland_wordpress:/var/www/html
+      - ..:/workspace:cached
+    working_dir: /workspace
+volumes:
+  stockland_dbdata:
+  stockland_wordpress:
