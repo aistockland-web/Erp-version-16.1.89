@@ -54,3 +54,13 @@ Continues the existing programme on the **verified 16.2.13 operational baseline*
 
 ## 6. Integrity statement
 This is a **tested build, not a production approval**. Only the checks marked PASS were executed, against the artifact named above. Cloudflare: no account tool was connected, so nothing was configured. GitHub and Notion were not modified; the Notion plan page you linked is not visible to this connection (404).
+
+## 7. Addendum — REST authorization sweep (8 Nov, local, MySQL 8.0.46, 16.2.14)
+| Check | Result |
+|---|---|
+| 177 route×method combinations (147 routes) called as **unauthenticated** and as a **subscriber** with a valid nonce | **PASS** — 172 denied (401/403) on both; 4 routes needing non-numeric path tokens re-tested explicitly (positions, workforce-plans, `…/decision`, SOP download) → all denied; 1 intentional allow |
+| `GET /app/access/bootstrap` as subscriber → 200 | **PASS (by design)** — returns only the caller's own identity: `profile_active:false`, empty role, no locations, no accounts |
+| Role-by-role allow/deny matrix (Owner, HR, Finance, Warehouse, Branch, POS), branch/location scope, maker-checker / self-approval denial | **NOT RUN** |
+| Object-level authorization (e.g. cross-location record access) | **NOT RUN** |
+
+Limits: this proves route-level denial of callers with no ERP profile. It does not prove that a correctly-profiled user is confined to their location or role. Reproduce with `ci/qa/rest_authorization_sweep.py` (credentials from environment variables; disposable site only).
