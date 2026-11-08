@@ -1,0 +1,160 @@
+diff -ruN base13/stockland-erp-app/assets/app.css inst/stockland-erp-app/assets/app.css
+--- base13/stockland-erp-app/assets/app.css	2026-10-31 00:00:00.000000000 +0300
++++ inst/stockland-erp-app/assets/app.css	2026-11-06 16:30:26.455789496 +0300
+@@ -2488,7 +2488,7 @@
+ @media(max-width:900px){#stockland-app .sl-pos-cart-summary{grid-template-columns:repeat(2,minmax(0,1fr))}#stockland-app .sl-pos-cart-meta{gap:10px;padding:13px}}
+ @media(max-width:620px){#stockland-app .sl-pos-cart-meta{grid-template-columns:minmax(0,1fr);padding:12px}#stockland-app .sl-pos-cart-meta .full{grid-column:1}#stockland-app .sl-pos-cart-summary{grid-template-columns:minmax(0,1fr);gap:8px;padding:10px}#stockland-app .sl-pos-cart-summary>div{flex-direction:row;align-items:center;justify-content:space-between;gap:10px}#stockland-app .sl-pos-cart-summary b{font-size:14px;text-align:right}#stockland-app .sl-pos-cart-cell-input{width:88px}#stockland-app .sl-pos-cart-add-row{align-items:stretch;flex-direction:column}#stockland-app .sl-pos-cart-add-row .sl-sub{min-width:0}}
+ /*
+- * Stockland ERP 16.2.13 — Enterprise SaaS design system.
++ * Stockland ERP 16.2.14 — Enterprise SaaS design system.
+  * Presentation layer only: preserves existing PHP hooks, JS IDs, REST payloads,
+  * workflow state, role capability checks, ledger and business data contracts.
+  * One Stockland Sapphire scheme; semantic state colors remain distinct.
+diff -ruN base13/stockland-erp-app/assets/css/13-enterprise-saas-system.css inst/stockland-erp-app/assets/css/13-enterprise-saas-system.css
+--- base13/stockland-erp-app/assets/css/13-enterprise-saas-system.css	2026-10-31 00:00:00.000000000 +0300
++++ inst/stockland-erp-app/assets/css/13-enterprise-saas-system.css	2026-11-06 16:30:26.456894560 +0300
+@@ -1,5 +1,5 @@
+ /*
+- * Stockland ERP 16.2.13 — Enterprise SaaS design system.
++ * Stockland ERP 16.2.14 — Enterprise SaaS design system.
+  * Presentation layer only: preserves existing PHP hooks, JS IDs, REST payloads,
+  * workflow state, role capability checks, ledger and business data contracts.
+  * One Stockland Sapphire scheme; semantic state colors remain distinct.
+diff -ruN base13/stockland-erp-app/assets/css/modules.json inst/stockland-erp-app/assets/css/modules.json
+--- base13/stockland-erp-app/assets/css/modules.json	2026-10-31 00:00:00.000000000 +0300
++++ inst/stockland-erp-app/assets/css/modules.json	2026-11-06 16:30:26.457073888 +0300
+@@ -1,6 +1,6 @@
+ {
+-  "release": "16.2.13",
+-  "description": "16.2.13 ordered Stockland Sapphire enterprise design system; 13 ordered presentation modules, full responsive shell, dashboard, operations, POS, worksheets, overlays and HR/payroll UI. Presentation layer only.",
++  "release": "16.2.14",
++  "description": "16.2.14 ordered Stockland Sapphire enterprise design system; 13 ordered presentation modules, full responsive shell, dashboard, operations, POS, worksheets, overlays and HR/payroll UI. Presentation layer only.",
+   "modules": [
+     "01-foundation.css",
+     "02-shell-navigation.css",
+diff -ruN base13/stockland-erp-app/assets/manifest.json inst/stockland-erp-app/assets/manifest.json
+--- base13/stockland-erp-app/assets/manifest.json	2026-10-31 00:00:00.000000000 +0300
++++ inst/stockland-erp-app/assets/manifest.json	2026-11-06 16:30:26.456756027 +0300
+@@ -39,5 +39,5 @@
+       "purpose": "maskable"
+     }
+   ],
+-  "version": "16.2.13"
++  "version": "16.2.14"
+ }
+diff -ruN base13/stockland-erp-app/includes/class-stockland-activator.php inst/stockland-erp-app/includes/class-stockland-activator.php
+--- base13/stockland-erp-app/includes/class-stockland-activator.php	2026-10-31 00:00:00.000000000 +0300
++++ inst/stockland-erp-app/includes/class-stockland-activator.php	2026-11-08 04:03:14.959771671 +0300
+@@ -773,7 +773,7 @@
+ 		$tables[] = "CREATE TABLE {$p}stock_balances (
+             location_id BIGINT UNSIGNED NOT NULL,
+             sku VARCHAR(64) NOT NULL,
+-            variant_id BIGINT UNSIGNED NULL,
++            variant_id BIGINT UNSIGNED NOT NULL,
+             physical_qty DECIMAL(14,2) NOT NULL DEFAULT 0,
+             updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+             PRIMARY KEY  (location_id,variant_id),
+diff -ruN base13/stockland-erp-app/includes/class-stockland-frontend.php inst/stockland-erp-app/includes/class-stockland-frontend.php
+--- base13/stockland-erp-app/includes/class-stockland-frontend.php	2026-10-31 00:00:00.000000000 +0300
++++ inst/stockland-erp-app/includes/class-stockland-frontend.php	2026-11-06 16:30:26.457174578 +0300
+@@ -24,7 +24,7 @@
+ 	const ERP_PATH           = 'stockland-erp';
+ 	const LEGACY_PATH        = 'stockland';
+ 	const LEGACY_PAGE_OPTION = 'stockland_app_page_id';
+-	const ROUTE_VERSION      = '16.2.13';
++	const ROUTE_VERSION      = '16.2.14';
+ 
+ 	/**
+ 	 * Active frontend bridge singleton used by WordPress route callbacks.
+diff -ruN base13/stockland-erp-app/includes/rest/class-rest-app.php inst/stockland-erp-app/includes/rest/class-rest-app.php
+--- base13/stockland-erp-app/includes/rest/class-rest-app.php	2026-10-31 00:00:00.000000000 +0300
++++ inst/stockland-erp-app/includes/rest/class-rest-app.php	2026-11-03 00:00:56.493418749 +0300
+@@ -1132,7 +1132,7 @@
+ 		$checks['xlsx_upload_capacity']       = $to_bytes( ini_get( 'upload_max_filesize' ) ) >= Stockland_XLSX::MAX_FILE_BYTES && $to_bytes( ini_get( 'post_max_size' ) ) >= Stockland_XLSX::MAX_FILE_BYTES;
+ 		$checks['xlsx_reader']                = class_exists( 'ZipArchive' ) && class_exists( 'SimpleXMLElement' );
+ 		$checks['xlsx_streaming_reader']      = class_exists( 'ZipArchive' ) && class_exists( 'XMLReader' );
+-		$checks['xlsx_xmlreader_stream']      = ! empty( $diagnostics['runtime_environment']['xml_reader_from_stream'] );
++		$checks['xlsx_xmlreader_stream']      = ! empty( $diagnostics['runtime_environment']['zip_archive'] ) && ! empty( $diagnostics['runtime_environment']['xml_reader'] );
+ 		$checks['logo_asset']                 = file_exists( STOCKLAND_PLUGIN_DIR . 'assets/stockland-logo.jpg' );
+ 		$checks['ssl']                        = is_ssl() || strpos( home_url(), 'localhost' ) !== false;
+ 
+@@ -1163,7 +1163,7 @@
+ 		$missing_full = $schema_contract['base_missing'];
+ 		$unexpected_full = $schema_contract['unexpected_keys'];
+ 		$schema_exact_match = ! empty( $schema_contract['base_contract_exact'] );
+-		$hrx_version_marker = (string) get_option( 'stockland_hrx_schema_version', '' );
++		$hrx_version_marker = (string) get_option( 'stockland_hrx_schema_version', (string) get_option( 'stockland_hr_schema_version', '' ) );
+ 		$checks['core_schema'] = $checks['db'] && empty( $missing_core );
+ 		$checks['full_schema'] = $checks['db'] && empty( $missing_full );
+ 		$checks['schema_contract_expected'] = $checks['db'] && ! empty( $expected_sorted ) && $schema_exact_match;
+@@ -1317,7 +1317,7 @@
+ 		$runtime                            = Stockland_Runtime_Diagnostics::environment();
+ 		$diagnostics['runtime_environment'] = $runtime;
+ 		$diagnostics['last_fatal']          = Stockland_Runtime_Diagnostics::last_fatal();
+-		$checks['xlsx_xmlreader_stream']    = ! empty( $runtime['xml_reader_from_stream'] );
++		$checks['xlsx_xmlreader_stream']    = ! empty( $runtime['zip_archive'] ) && ! empty( $runtime['xml_reader'] );
+ 		$checks['php_runtime']              = version_compare( PHP_VERSION, '8.3', '>=' );
+ 		$to_bytes                           = function ( $value ) {
+ 			$value = trim( (string) $value );
+@@ -1365,7 +1365,7 @@
+ 		$missing_full = $schema_contract['base_missing'];
+ 		$unexpected_full = $schema_contract['unexpected_keys'];
+ 		$schema_exact_match = ! empty( $schema_contract['base_contract_exact'] );
+-		$hrx_version_marker = (string) get_option( 'stockland_hrx_schema_version', '' );
++		$hrx_version_marker = (string) get_option( 'stockland_hrx_schema_version', (string) get_option( 'stockland_hr_schema_version', '' ) );
+ 
+ 		$checks['core_schema']                    = empty( $missing_core );
+ 		$checks['full_schema']                    = empty( $missing_full );
+diff -ruN base13/stockland-erp-app/includes/rest/class-rest-setup.php inst/stockland-erp-app/includes/rest/class-rest-setup.php
+--- base13/stockland-erp-app/includes/rest/class-rest-setup.php	2026-10-31 00:00:00.000000000 +0300
++++ inst/stockland-erp-app/includes/rest/class-rest-setup.php	2026-11-03 00:01:57.701749989 +0300
+@@ -444,6 +444,16 @@
+ 			$state = 'HR';
+ 		}
+ 		$err = get_option( 'stockland_setup_error' );
++		if ( ! $read_only && $ready ) {
++			// Verified-complete schema: restore the HR version markers that a
++			// deactivate/reactivate cycle resets, so diagnostics reflect reality.
++			if ( Stockland_HR::DB_VERSION !== (string) get_option( 'stockland_hr_schema_version', '' ) ) {
++				update_option( 'stockland_hr_schema_version', Stockland_HR::DB_VERSION, false );
++			}
++			if ( Stockland_HR::DB_VERSION !== (string) get_option( 'stockland_hr_db_version', '' ) ) {
++				update_option( 'stockland_hr_db_version', Stockland_HR::DB_VERSION, false );
++			}
++		}
+ 		if ( ! $read_only ) {
+ 			if ( empty( $core ) && is_array( $err ) && ( ( $err['stage'] ?? '' ) === 'CORE' ) ) {
+ 				delete_option( 'stockland_setup_error' );
+diff -ruN base13/stockland-erp-app/resources/erp-sops/manifest.json inst/stockland-erp-app/resources/erp-sops/manifest.json
+--- base13/stockland-erp-app/resources/erp-sops/manifest.json	2026-10-31 00:00:00.000000000 +0300
++++ inst/stockland-erp-app/resources/erp-sops/manifest.json	2026-11-06 16:30:26.457381821 +0300
+@@ -573,7 +573,7 @@
+     "live_deployment": "NOT_VERIFIED"
+   },
+   "baseline_note": "Source base is locked 16.1.95; deployed 16.1.98-HRX-REVIEW-ONLY package hash not recovered. Keep existing HR Process Center resources and add this as a distinct ERP-wide SOP section only after exact source parity, backup, isolated staging, and acceptance.",
+-  "integration_target": "Stockland ERP 16.2.13",
++  "integration_target": "Stockland ERP 16.2.14",
+   "source_note": "Imported from the user-provided 16.1.101 document pack. HRX physical-table references have been replaced with neutral source-map references to avoid mixing separate HR schema architectures.",
+   "physical_schema_policy": "SOPs describe business procedures. Physical database mappings must be taken from the exact active ERP package source map; this library does not define or install an HR schema."
+ }
+diff -ruN base13/stockland-erp-app/stockland-inventory.php inst/stockland-erp-app/stockland-inventory.php
+--- base13/stockland-erp-app/stockland-inventory.php	2026-10-31 00:00:00.000000000 +0300
++++ inst/stockland-erp-app/stockland-inventory.php	2026-11-06 16:30:26.457553341 +0300
+@@ -2,7 +2,7 @@
+ /**
+  * Plugin Name:       Stockland Ethiopia ERP
+  * Description:       Stockland Ethiopia ERP for retail, wholesale, inventory, finance, HR and payroll operations.
+- * Version:           16.2.13
++ * Version:           16.2.14
+  * Author:            Stockland Ethiopia
+  * Text Domain:       stockland-inventory
+  * Requires PHP:      8.3
+@@ -15,7 +15,7 @@
+ 	exit; // No direct access.
+ }
+ 
+-define( 'STOCKLAND_VERSION', '16.2.13' );
++define( 'STOCKLAND_VERSION', '16.2.14' );
+ define( 'STOCKLAND_ROLE_CAPS_VERSION', '16.1.66-finance-procurement-authority-v1' );
+ define( 'STOCKLAND_CORE_SCHEMA_VERSION', '16.1.1' );
+ define( 'STOCKLAND_ACCOUNTING_SCHEMA_VERSION', '16.1.15' );
