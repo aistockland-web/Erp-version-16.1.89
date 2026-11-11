@@ -30,6 +30,7 @@ def main() -> int:
     bootstrap_path = root / "scripts" / "codespaces" / "bootstrap_codex.sh"
     devcontainer_path = root / ".devcontainer" / "devcontainer.json"
     skill_path = root / ".agents" / "skills" / "stockland-erp-delivery" / "SKILL.md"
+    marketplace_path = root / ".agents" / "plugins" / "marketplace.json"
 
     try:
         config = tomllib.loads(config_path.read_text(encoding="utf-8"))
@@ -37,10 +38,27 @@ def main() -> int:
         fail(f"project config cannot be parsed: {exc}")
     if config.get("agents", {}).get("max_concurrent_threads_per_session") != 1:
         fail("agent concurrency must be exactly one")
-    if config.get("plugins"):
-        fail("marketplace/plugin entries are excluded from the Free baseline")
+    expected_plugin = {"superpowers@stockland-codex": {"enabled": True}}
+    if config.get("plugins") != expected_plugin:
+        fail("only the explicitly enabled, pinned Superpowers plugin is allowed")
     if config.get("mcp_servers"):
-        fail("external MCP servers are excluded from the minimal Free baseline")
+        fail("external MCP servers are excluded from the Free baseline")
+
+    try:
+        marketplace = __import__("json").loads(marketplace_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        fail(f"pinned plugin marketplace cannot be parsed: {exc}")
+    if marketplace.get("name") != "stockland-codex":
+        fail("local plugin marketplace name is not Stockland-specific")
+    plugins = {item.get("name"): item for item in marketplace.get("plugins", [])}
+    superpowers = plugins.get("superpowers", {})
+    source = superpowers.get("source", {})
+    if source.get("source") != "url" or source.get("url") != "https://github.com/obra/superpowers":
+        fail("Superpowers must come from its official upstream repository")
+    if source.get("sha") != "22f0b463e7a5e579904dd6211a520321035526f7":
+        fail("Superpowers upstream commit is not the approved immutable pin")
+    if superpowers.get("policy") != {"installation": "AVAILABLE", "authentication": "ON_INSTALL"}:
+        fail("Superpowers marketplace install policy changed unexpectedly")
 
     for filename, (expected_name, sandbox) in EXPECTED.items():
         try:
@@ -94,7 +112,7 @@ def main() -> int:
     if "codex login --device-auth" not in script:
         fail("ChatGPT device authentication instruction is missing")
 
-    print("PASS project config and four scoped agent profiles; one thread; no plugins, MCP or API keys.")
+    print("PASS project config and four scoped agent profiles; one thread; pinned optional MIT Superpowers plugin; no external MCP or API keys.")
     print("PASS optional CLI installer is pinned and uses ChatGPT device authentication.")
     print("PASS 4-core/16-GB Codespaces profile with account-selected disk size, Copilot Free extensions, Stockland delivery skill and Copilot instructions.")
     return 0
