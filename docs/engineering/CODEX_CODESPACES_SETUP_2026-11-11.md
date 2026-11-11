@@ -55,25 +55,29 @@ Suggested first prompt:
 
 ## Optional Codex plugins and documentation
 
-### Superpowers — install once
+### Superpowers — install once inside Codex
 
-The repository exposes upstream Superpowers v7.0.2 at an immutable Git commit through `.agents/plugins/marketplace.json`.
+The repository exposes upstream Superpowers v7.0.2 at an immutable Git commit through `.agents/plugins/marketplace.json`. The source is MIT-licensed.
 
-From the repo root, after Codex is signed in:
+From the repository root, after signing into Codex:
 
 ```bash
 codex plugin marketplace add .
-codex plugin add superpowers@stockland-codex
 codex plugin marketplace list
+codex
 ```
 
-Then start a new Codex session. Superpowers provides planning, TDD, debugging, and review workflows. Its upstream source is MIT-licensed; the repository marketplace is pinned so a moving upstream branch cannot silently change the installed source.
+Inside the Codex terminal session, open the plugin browser:
 
-If the plugin command is unavailable in the installed Codex build, use Codex's Plugins UI to add the repository marketplace and install Superpowers. Do not install duplicate copies from multiple marketplaces.
+```text
+/plugins
+```
+
+Search for **Superpowers**, choose the entry from **Stockland ERP Engineering**, and select **Install Plugin**. Then start a new Codex session. This uses the Codex plugin flow; no separate ChatGPT app plugin or API key is required. The Codex plugin directory documents `/plugins` as the CLI install path and `codex plugin marketplace add` as the marketplace registration command.
 
 ### Context7 — preconfigured documentation MCP
 
-Context7 is configured at `https://mcp.context7.com/mcp`. It can resolve current public library/framework docs, including WordPress, PHP, JavaScript, and tooling. It does not require an API key for basic use; unauthenticated requests have lower rate limits. A free Context7 account can sign in through the first-use OAuth flow for the free-plan quota. No paid plan or key is required for the project bootstrap.
+Context7 is already configured at `https://mcp.context7.com/mcp` in project Codex settings. It can resolve current public framework/library documentation, including WordPress, PHP, JavaScript, and tooling. No separate ChatGPT Context7 app installation is needed for this Codespace. Complete Context7's free OAuth flow only if the MCP server prompts for it; do not add a paid plan or API key.
 
 ### OpenAI developer docs — preconfigured, read-only
 
@@ -81,7 +85,7 @@ The public `https://developers.openai.com/mcp` endpoint is configured for read-o
 
 ## GitHub Codespaces free usage
 
-GitHub personal Free accounts include 120 compute hours and 15 GB-month storage per billing month. Codespaces usage stops when the included quota is exhausted if no payment method/spending allowance is configured. Stop Codespaces when not in use and remove unused Codespaces/volumes. Do not enable paid overage for this project without explicit approval.
+GitHub personal Free accounts include 120 core-hours and 15 GB-month storage per billing month. A 2-core Codespace therefore gives up to 60 active hours/month; a 4-core Codespace gives about 30 hours. Use the 2-core option for this free-tier project, keep only one database profile running at a time in the interactive Codespace, and stop the Codespace when idle (the default idle timeout is 30 minutes). Run the MariaDB/MySQL matrix in the public GitHub Actions workflows rather than keeping both engines active in the personal Codespace. If the included quota is exhausted and no payment method/spending limit is set, usage is blocked. Do not enable paid overage for this project.
 
 The Codespaces environment uses the existing disposable WordPress/MariaDB 10.11/MySQL 8.0.46 design. Keep database port 3306 internal and preview ports private.
 
