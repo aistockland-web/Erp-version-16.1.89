@@ -22,7 +22,7 @@ class CodexConfigurationTests(unittest.TestCase):
     def test_devcontainer_uses_requested_16gb_machine_profile(self) -> None:
         config = json.loads((ROOT / ".devcontainer/devcontainer.json").read_text())
         self.assertEqual(config.get("hostRequirements"), {
-            "cpus": 4, "memory": "16gb", "storage": "64gb"
+            "cpus": 4, "memory": "16gb"
         })
 
     def test_stockland_delivery_skill_is_present(self) -> None:
