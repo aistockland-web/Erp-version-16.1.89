@@ -18,7 +18,8 @@ for package in "$BASELINE_PACKAGE" "$UPDATE_PACKAGE"; do
 done
 
 mkdir -p "$ARTIFACT_DIR"
-chmod 0777 "$ARTIFACT_DIR"
+sudo chown "www-data:$(id -gn)" "$ARTIFACT_DIR"
+chmod 0770 "$ARTIFACT_DIR"
 
 source "$REPO_ROOT/scripts/codespaces/wp_cli_wrapper.sh"
 
@@ -47,7 +48,13 @@ fi
 BEFORE="$(wp_as_www --path="$SITE" plugin get stockland-erp-app --field=version)"
 case "$BEFORE" in
   16.2.13)
-    echo "Upgrade MySQL 8.0.46 from 16.2.13 to 16.2.15"
+    echo "Run the protected 16.2.13 setup wizard before the MySQL 8.0.46 update"
+    bash scripts/codespaces/advance_setup_wizard.sh "$SITE" "mysql8-16213-before-upgrade"
+    BEFORE_FINGERPRINT="$ARTIFACT_DIR/mysql8-16213-before-upgrade-schema.json"
+    AFTER_FINGERPRINT="$ARTIFACT_DIR/mysql8-16215-after-upgrade-schema.json"
+    COMPARISON="$ARTIFACT_DIR/mysql8-schema-upgrade-comparison.json"
+    [[ -s "$BEFORE_FINGERPRINT" ]] || { echo "MySQL 8 pre-upgrade schema fingerprint missing." >&2; exit 1; }
+    echo "Upgrade MySQL 8.0.46 from 16.2.13 to repaired 16.2.15"
     wp_as_www --path="$SITE" option update "$MARKER" "$MARKER_VALUE" >/dev/null
     rm -f "$SNAPSHOT"
     wp_as_www --path="$SITE" db export "$SNAPSHOT"
@@ -55,6 +62,12 @@ case "$BEFORE" in
     SNAPSHOT_SHA="$(sha256sum "$SNAPSHOT" | awk '{print $1}')"
     TABLES_BEFORE="$(wp_as_www --path="$SITE" db query "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE();" --skip-column-names | tr -d '\r')"
     wp_as_www --path="$SITE" plugin install "$UPDATE_PACKAGE" --force --activate
+    wp_as_www --path="$SITE" plugin is-active stockland-erp-app
+    AFTER_VERSION="$(wp_as_www --path="$SITE" plugin get stockland-erp-app --field=version)"
+    [[ "$AFTER_VERSION" == "16.2.15" ]] || { echo "MySQL 8 expected 16.2.15, found $AFTER_VERSION" >&2; exit 1; }
+    bash scripts/codespaces/advance_setup_wizard.sh "$SITE" "mysql8-16215-after-upgrade"
+    python3 scripts/codespaces/compare_schema_fingerprints.py "$BEFORE_FINGERPRINT" "$AFTER_FINGERPRINT" --output "$COMPARISON"
+    SCHEMA_COMPARISON_STATUS="PASS"
     SNAPSHOT_STATUS="PASS"
     ;;
   16.2.15)
@@ -67,6 +80,7 @@ case "$BEFORE" in
     SNAPSHOT_SHA="NOT_CREATED_ALREADY_AT_16.2.15"
     TABLES_BEFORE="NOT_MEASURED_ALREADY_AT_16.2.15"
     SNAPSHOT_STATUS="NOT_RUN_ALREADY_AT_16.2.15"
+    SCHEMA_COMPARISON_STATUS="NOT_RUN_ALREADY_AT_16.2.15"
     ;;
   *)
     echo "Unexpected MySQL 8 plugin version '$BEFORE'; refusing to overwrite it." >&2
@@ -94,6 +108,9 @@ TABLES_AFTER="$(wp_as_www --path="$SITE" db query "SELECT COUNT(*) FROM informat
   printf 'tables_after=%s\n' "$TABLES_AFTER"
   printf 'pre_update_snapshot=%s\n' "$SNAPSHOT_STATUS"
   printf 'pre_update_snapshot_sha256=%s\n' "$SNAPSHOT_SHA"
+  printf 'schema_comparison=%s\n' "$SCHEMA_COMPARISON_STATUS"
+  printf 'baseline_package_sha256=%s\n' "$(sha256sum "$BASELINE_PACKAGE" | awk '{print $1}')"
+  printf 'repaired_candidate_sha256=%s\n' "$(sha256sum "$UPDATE_PACKAGE" | awk '{print $1}')"
 } > "$RECEIPT"
 
 echo "PASS MySQL 8 WordPress upgrade state: $BEFORE -> $AFTER; DB $DB_VERSION; receipt $RECEIPT"
