@@ -68,7 +68,7 @@ def main() -> int:
         skill = skill_path.read_text(encoding="utf-8")
     except OSError as exc:
         fail(f"Stockland delivery skill is missing: {exc}")
-    if not skill.startswith("---\\nname: stockland-erp-delivery\\n"):
+    if not skill.startswith("---\nname: stockland-erp-delivery\n"):
         fail("Stockland delivery skill frontmatter is invalid")
     for required in ("16.2.13", "16.2.15", "16.1.95", "49 legacy", "POS", "payroll"):
         if required.casefold() not in skill.casefold():
