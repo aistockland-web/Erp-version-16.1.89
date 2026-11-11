@@ -10,3 +10,11 @@
 /coverage/
 /.phpunit.cache/
 *.log
+
+# Local Codex credentials and ephemeral runtime artifacts; keep project config tracked.
+/.codex/auth.json
+/.codex/auth.json.*
+/.codex/sessions/
+/.codex/log/
+/.codex/tmp/
+/artifacts/codex/
