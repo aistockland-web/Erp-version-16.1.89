@@ -9,9 +9,7 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-ins
 # Passwordless sudo is limited to this disposable development container. It lets
 # the non-root workspace user prepare QA-only bind-mount folders and run WP-CLI
 # as the WordPress www-data account; it is not a production image or credential.
-RUN printf '%s\\n' 'vscode ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/vscode \\
-    && chmod 0440 /etc/sudoers.d/vscode \\
-    && visudo -cf /etc/sudoers.d/vscode
+RUN printf '%s\\n' 'vscode ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/vscode && chmod 0440 /etc/sudoers.d/vscode && visudo -cf /etc/sudoers.d/vscode
 
 USER vscode
 WORKDIR /workspaces/stockland-erp
