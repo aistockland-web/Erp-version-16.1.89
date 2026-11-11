@@ -323,6 +323,8 @@ class Stockland_Roles {
 				)
 			)
 		);
+		// 'read' is a WordPress core capability, not part of the Stockland namespace; never strip it (Administrators would lose wp-admin access to the ERP launcher).
+		$stockland_caps = array_values( array_diff( $stockland_caps, array( 'read' ) ) );
 		foreach ( $map as $role_name => $caps ) {
 			$role = get_role( $role_name );
 			if ( ! $role ) {

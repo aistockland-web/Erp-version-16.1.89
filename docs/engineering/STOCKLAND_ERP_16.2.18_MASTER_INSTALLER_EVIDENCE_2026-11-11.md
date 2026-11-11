@@ -1,7 +1,7 @@
 # Stockland ERP 16.2.18 master installer: evidence record (11 Nov 2026)
 
 Artifact: `STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTALLER.zip`
-SHA-256: `e1ff8e61990e0c5b5bde1196a8147013eda1fde9111f5aa354acc309f0f04d1b` (2,244,730 bytes, 123 files, single root `stockland-erp-app/`).
+SHA-256: `048bc66cee045424dd115f401ad7f06f8ad3715b1546c6a45513c0579dc982e2` (2,244,730 bytes, 123 files, single root `stockland-erp-app/`).
 Reproduce: `python3 scripts/release/build_master_installer.py` (deterministic; identical bytes on repeat builds).
 Source lineage: exact 16.2.13 intake commit (113/113 files vs intake manifest), then this change.
 Notion execution record: https://app.notion.com/p/4159f20c06128155865bc34a206cac3d
@@ -35,3 +35,10 @@ Two payroll periods with approved Ethiopian statutory rules; role-by-role allow/
 
 ## Owner input required
 Approved effective-dated payroll/tax/pension rule register; real compensation records; process-owner approval of the 24 SOPs (stay DRAFT_NOT_APPROVED); users, roles, branches; opening stock and ledger balances; release authorization. A hash proves bytes, not approval. No tag, release, merge or deployment was performed.
+
+## Addendum (UI verification and Administrator `read` capability fix)
+
+- Defect found by the browser UI smoke (`scripts/release/ui/ui_smoke.js`): `Stockland_Roles::sync_roles()` treated WordPress core capability `read` as part of the Stockland namespace and stripped it from the Administrator role, so the wp-admin "ERP Dashboard" launcher returned HTTP 403. `read` is now excluded from the namespace cleanup.
+- Rebuilt ZIP SHA-256: `048bc66cee045424dd115f401ad7f06f8ad3715b1546c6a45513c0579dc982e2` (123 files, manifest regenerated).
+- Re-verified on WordPress + MariaDB 10.11: installer verification PASS (86 tables, deep scan 52/52), UI smoke PASS (login, ERP launcher, System Control, mobile 390 px with 0 px horizontal overflow), business-workflow scripts PASS with a balanced ledger.
+- Not re-run after this rebuild: MySQL 8.0.46 and the Docker dev container (no Docker in this session). The change is capability-only and database-neutral.

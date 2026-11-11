@@ -354,8 +354,8 @@
       },
       {
         "path": "includes/class-stockland-roles.php",
-        "bytes": 14741,
-        "sha256": "89ac5ead6502e047726af18935538b214d42f58765b11a7b8a24f9399719dcfc"
+        "bytes": 14986,
+        "sha256": "a28486f3f735c50dcca8765ca369d6512697e5ade1eca7f639e48691ba6a314e"
       },
       {
         "path": "includes/class-stockland-runtime-diagnostics.php",
