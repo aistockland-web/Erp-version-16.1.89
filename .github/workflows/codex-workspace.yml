@@ -11,6 +11,9 @@ on:
       - "scripts/codespaces/bootstrap_project_source.py"
       - "scripts/codespaces/bootstrap_project_source.sh"
       - "scripts/codespaces/test_project_source.py"
+      - "scripts/codespaces/verify_candidate_archives.py"
+      - "STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER*.zip"
+      - "STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER*.sha256"
       - "src/README.md"
       - ".devcontainer/post-create.sh"
       - ".github/workflows/codex-workspace.yml"
@@ -25,6 +28,9 @@ on:
       - "scripts/codespaces/bootstrap_project_source.py"
       - "scripts/codespaces/bootstrap_project_source.sh"
       - "scripts/codespaces/test_project_source.py"
+      - "scripts/codespaces/verify_candidate_archives.py"
+      - "STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER*.zip"
+      - "STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER*.sha256"
       - "src/README.md"
       - ".devcontainer/post-create.sh"
       - ".github/workflows/codex-workspace.yml"
@@ -56,6 +62,24 @@ jobs:
           bash -n scripts/codespaces/bootstrap_project_source.sh
           python -m py_compile scripts/codespaces/bootstrap_project_source.py scripts/codespaces/test_project_source.py
           python scripts/codespaces/test_project_source.py
+          # Exercise the same verifier and source import against the real committed installers.
+          stage="$RUNNER_TEMP/stockland-candidate-packages"
+          report="$RUNNER_TEMP/stockland-package-intake.json"
+          dest="$RUNNER_TEMP/stockland-editable/src/stockland-erp-app"
+          marker="$RUNNER_TEMP/stockland-editable/src/.stockland-erp-app.source.json"
+          python scripts/codespaces/verify_candidate_archives.py --report "$report" --extract-root "$stage"
+          python scripts/codespaces/bootstrap_project_source.py --stage-root "$stage" --intake-report "$report" --destination "$dest" --marker "$marker"
+          python - "$report" "$dest" <<'PY'
+          import hashlib, json, pathlib, sys
+          manifest=json.load(open(sys.argv[1], encoding="utf-8"))["16.2.13"]["files"]
+          root=pathlib.Path(sys.argv[2])
+          actual={p.relative_to(root).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in root.rglob("*") if p.is_file()}
+          assert actual == manifest, "editable source does not match the committed .13 file manifest"
+          print(f"PASS: real .13 source import; {len(actual)} files match the exact package manifest")
+          PY
+          printf '%s\n' 'rebuild-preservation-check' > "$dest/.codespaces-preserve-check"
+          python scripts/codespaces/bootstrap_project_source.py --stage-root "$stage" --intake-report "$report" --destination "$dest" --marker "$marker"
+          grep -qx 'rebuild-preservation-check' "$dest/.codespaces-preserve-check"
       - name: Validate bootstrap and Codespaces post-create shell syntax
         run: |
           set -euo pipefail
