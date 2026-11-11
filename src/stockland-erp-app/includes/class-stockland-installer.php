@@ -5,10 +5,10 @@
  * Runs the existing, bounded, add-only schema steps (Core -> Accounting/Procurement
  * -> HR/Payroll) to completion inside a time budget, verifying the physical
  * database after every step. It never drops, truncates, renames or reseeds a
- * table. On a brand-new installation (no ERP tables at all) the additive HR
- * schema approval is recorded automatically in the immutable audit chain because
- * there is no existing data at risk. On an installation that already has ERP
- * tables, the Owner's written reason is still required before HR DDL runs.
+ * table. The four legacy HR/payroll tables belong to the 49-table operational baseline.
+ * Existing legacy-table alterations require explicit Owner approval. The separate
+ * 37-table lifecycle extension is never created by this installer; it has its own
+ * DDL fingerprint and protected approval workflow.
  *
  * @package Stockland_ERP
  */
@@ -47,7 +47,11 @@ final class Stockland_Installer {
 	 */
 	public static function record_hr_approval( $actor, $reason, $source ) {
 		$reason = sanitize_text_field( (string) $reason );
-		if ( strlen( trim( $reason ) ) < 12 || (int) $actor < 1 ) {
+		if ( strlen( trim( $reason ) ) < 12 || (int) $actor < 1
+			|| ! is_user_logged_in()
+			|| (int) get_current_user_id() !== (int) $actor
+			|| ! Stockland_Authority::is_owner( (int) $actor )
+			|| ! current_user_can( 'stockland_install_schema' ) ) {
 			return false;
 		}
 		$sig = (string) Stockland_HR::schema_signature();
@@ -151,10 +155,10 @@ final class Stockland_Installer {
 			if ( empty( $errors ) && $core_acc_done && ( Stockland_HR::missing_tables() || Stockland_HR::upgrade_gaps() ) ) {
 				if ( ! self::hr_approval_is_current() ) {
 					$actor_id = (int) $actor;
-					if ( $fresh && $actor_id > 0 ) {
-						self::record_hr_approval( $actor_id, 'Automatic additive HR/Payroll schema creation during fresh master installation; no prior ERP tables or records existed.', 'FRESH_INSTALL_AUTOMATIC' );
-					} elseif ( $actor_id > 0 && ! empty( $approval['reason'] ) ) {
-						self::record_hr_approval( $actor_id, (string) $approval['reason'], 'ONE_CLICK_INSTALLER' );
+					if ( $actor_id > 0 && ! empty( $approval['reason'] )
+						&& Stockland_Authority::is_owner( $actor_id )
+						&& current_user_can( 'stockland_install_schema' ) ) {
+						self::record_hr_approval( $actor_id, (string) $approval['reason'], 'ONE_CLICK_INSTALLER_EXPLICIT_OWNER' );
 					}
 				}
 				if ( ! self::hr_approval_is_current() ) {
@@ -195,6 +199,7 @@ final class Stockland_Installer {
 				'core_missing'       => Stockland_Activator::missing_core_tables(),
 				'accounting_missing' => Stockland_Accounting::missing_tables(),
 				'hr_missing'         => Stockland_HR::missing_tables(),
+				'hr_lifecycle_missing' => Stockland_HR_Lifecycle::missing_tables(),
 				'structural_gaps'    => array_merge( (array) Stockland_Accounting::upgrade_gaps(), (array) Stockland_HR::upgrade_gaps() ),
 				'fresh_install'      => $fresh,
 				'seconds'            => round( microtime( true ) - $t0, 2 ),
