@@ -49,6 +49,11 @@ class Stockland_REST_Setup {
 		return is_user_logged_in() && current_user_can( 'stockland_install_schema' );
 	}
 
+	/** Owner-only authority for the separate HR lifecycle schema extension. */
+	private function can_approve_hr_schema() {
+		return is_user_logged_in() && current_user_can( 'stockland_install_schema' ) && Stockland_Authority::is_owner();
+	}
+
 	/**
 	 * Checks whether the current source-declared HR schema version has explicit Owner approval.
 	 *
@@ -130,11 +135,11 @@ class Stockland_REST_Setup {
 	 */
 	private function application_ready_for_app_routes() {
 		try {
+			// Operational controllers depend on Core + Accounting only. HR routes
+			// enforce their own legacy-baseline and lifecycle-extension readiness.
 			return empty( Stockland_Activator::missing_core_tables() )
 				&& empty( Stockland_Accounting::missing_tables() )
-				&& empty( Stockland_Accounting::upgrade_gaps() )
-				&& empty( Stockland_HR::missing_tables() )
-				&& empty( Stockland_HR::upgrade_gaps() );
+				&& empty( Stockland_Accounting::upgrade_gaps() );
 		} catch ( Throwable $e ) {
 			// If any schema check is unknown, keep operational controllers closed but
 			// leave the protected setup and diagnostic routes available.
@@ -200,6 +205,16 @@ class Stockland_REST_Setup {
 				'callback'            => array( $this, 'advance' ),
 				'permission_callback' => function () {
 					return $this->can_setup(); },
+			)
+		);
+		register_rest_route(
+			self::NS,
+			'/setup/hr-lifecycle/advance',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'advance_hr_lifecycle' ),
+				'permission_callback' => function () {
+					return $this->can_approve_hr_schema(); },
 			)
 		);
 
@@ -434,19 +449,22 @@ class Stockland_REST_Setup {
 	 * @return array Current setup state, missing tables and schema gaps.
 	 */
 	private function snapshot( $read_only = false, $include_schema_details = false ) {
-		$core           = Stockland_Activator::missing_core_tables();
-		$fin            = Stockland_Accounting::missing_tables();
-		$hr             = Stockland_HR::missing_tables();
-		$finance_gaps   = Stockland_Accounting::upgrade_gaps();
-		$hr_gaps        = Stockland_HR::upgrade_gaps();
-		$core_total     = count( Stockland_Activator::core_table_keys() );
-		$fin_total      = count( Stockland_Accounting::table_keys() );
-		$hr_total       = count( Stockland_HR::table_keys() );
-		$total_expected = $core_total + $fin_total + $hr_total;
-		$missing        = array_values( array_unique( array_merge( $core, $fin, $hr ) ) );
-		$present        = $total_expected - count( $missing );
-		$ready          = empty( $missing ) && empty( $finance_gaps ) && empty( $hr_gaps );
-		$state          = 'LIVE';
+		$core             = Stockland_Activator::missing_core_tables();
+		$fin              = Stockland_Accounting::missing_tables();
+		$hr               = Stockland_HR::missing_tables();
+		$hr_lifecycle     = Stockland_HR_Lifecycle::missing_tables();
+		$finance_gaps     = Stockland_Accounting::upgrade_gaps();
+		$hr_gaps          = Stockland_HR::upgrade_gaps();
+		$core_total       = count( Stockland_Activator::core_table_keys() );
+		$fin_total        = count( Stockland_Accounting::table_keys() );
+		$hr_total         = count( Stockland_HR::table_keys() );
+		$hr_lifecycle_total = count( Stockland_HR_Lifecycle::table_keys() );
+		$total_expected   = $core_total + $fin_total + $hr_total;
+		$missing          = array_values( array_unique( array_merge( $core, $fin, $hr ) ) );
+		$present          = $total_expected - count( $missing );
+		$operational_ready = empty( $core ) && empty( $fin ) && empty( $finance_gaps );
+		$ready            = empty( $missing ) && empty( $finance_gaps ) && empty( $hr_gaps );
+		$state            = 'LIVE';
 		if ( $missing ) {
 			if ( $core ) {
 				$state = 'CORE';
@@ -496,8 +514,19 @@ class Stockland_REST_Setup {
 				'upgrade_gaps' => $hr_gaps,
 				'ready'        => empty( $hr ) && empty( $hr_gaps ),
 				'schema_version' => Stockland_HR::DB_VERSION,
-				'schema_approval_required' => ( ! empty( $hr ) || ! empty( $hr_gaps ) ) && ! $this->hr_schema_approval_is_current(),
+				'schema_signature' => Stockland_HR::schema_signature(),
+				'schema_approval_required' => Stockland_HR::schema_approval_required() && ! $this->hr_schema_approval_is_current(),
 			),
+			'hr_lifecycle'       => array(
+				'present' => $hr_lifecycle_total - count( $hr_lifecycle ),
+				'total' => $hr_lifecycle_total,
+				'missing' => $hr_lifecycle,
+				'ready' => empty( $hr_lifecycle ),
+				'schema_version' => Stockland_HR_Lifecycle::SCHEMA_VERSION,
+				'schema_signature' => Stockland_HR_Lifecycle::schema_signature(),
+				'schema_approval_required' => ! empty( $hr_lifecycle ) && ! Stockland_HR_Lifecycle::approval_is_current(),
+			),
+			'operational_ready' => $operational_ready,
 			'total'              => array(
 				'present' => $present,
 				'total'   => $total_expected,
@@ -505,6 +534,7 @@ class Stockland_REST_Setup {
 			),
 			'error'              => $this->can_setup() && is_array( $err ) ? $err : null,
 			'can_advance'        => $this->can_setup() && ( ! $ready ),
+			'can_advance_hr_lifecycle' => $this->can_approve_hr_schema() && ! empty( $hr_lifecycle ),
 			'execution_model'    => 'SERVER_VERIFIED_BROWSER_BATCHES',
 			'server_observed_at' => current_time( 'mysql', true ),
 			'pwa'                => array(
@@ -513,7 +543,7 @@ class Stockland_REST_Setup {
 			),
 		);
 		if ( ! $this->can_setup() && ! $include_schema_details ) {
-			foreach ( array( 'core', 'finance', 'hr' ) as $m ) {
+			foreach ( array( 'core', 'finance', 'hr', 'hr_lifecycle' ) as $m ) {
 				$details[ $m ]['missing'] = array();}
 			$details['total']['missing']        = array();
 			$details['finance']['upgrade_gaps'] = array();
@@ -558,7 +588,10 @@ class Stockland_REST_Setup {
 					$progress = array( 'complete' => empty( Stockland_Accounting::missing_tables() ) && empty( Stockland_Accounting::upgrade_gaps() ) );
 				}
 			} else {
-				if ( ! $this->hr_schema_approval_is_current() ) {
+				if ( Stockland_HR::schema_approval_required() && ! $this->hr_schema_approval_is_current() ) {
+					if ( ! Stockland_Authority::is_owner() ) {
+						return new WP_Error( 'hr_schema_owner_only', 'Only the active Stockland Owner may approve an existing legacy HR/payroll schema migration.', array( 'status' => 403 ) );
+					}
 					$approved = rest_sanitize_boolean( $request->get_param( 'approve_hr_schema' ) );
 					$reason   = sanitize_text_field( (string) $request->get_param( 'approval_reason' ) );
 					if ( ! $approved || strlen( trim( $reason ) ) < 12 ) {
