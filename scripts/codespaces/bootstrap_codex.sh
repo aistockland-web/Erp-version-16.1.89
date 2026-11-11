@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Optional local Codex CLI for ChatGPT Free allowance. Not required by ERP.
-CODEX_VERSION="0.167.0"
+CODEX_VERSION="0.167.1"
 LOCAL_PREFIX="$HOME/.local"
 LOCAL_BIN="$LOCAL_PREFIX/bin"
 PROFILE_FILE="$HOME/.profile"
@@ -19,7 +19,10 @@ command -v npm >/dev/null 2>&1 || {
 }
 mkdir -p "$LOCAL_BIN"
 echo "Installing optional @openai/codex@$CODEX_VERSION under $LOCAL_PREFIX"
-npm install --global --prefix "$LOCAL_PREFIX" "@openai/codex@$CODEX_VERSION"
+if ! npm install --global --prefix "$LOCAL_PREFIX" "@openai/codex@$CODEX_VERSION"; then
+  echo "Codex CLI installation did not complete; the ERP environment remains usable. Retry manually with: bash scripts/codespaces/bootstrap_codex.sh" >&2
+  exit 0
+fi
 [[ -x "$LOCAL_BIN/codex" ]] || {
   echo "Codex CLI executable was not installed at $LOCAL_BIN/codex" >&2
   exit 1
