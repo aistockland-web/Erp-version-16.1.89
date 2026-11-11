@@ -10,6 +10,7 @@ This development container is an isolated engineering and QA workspace. It is no
 - A private MariaDB 10.11 service on the internal Compose network.
 - Locked PostCSS QA and PHPCS/WPCS dependencies from the repository lockfiles.
 - WP-CLI installed only after its upstream SHA-256 sidecar matches the downloaded PHAR.
+- Official OpenAI Codex IDE extension (`openai.chatgpt`), installed by the Dev Container.
 - PHP, YAML, Markdown, JavaScript, Docker and GitHub Pull Request editor extensions.
 
 ## Ports
@@ -46,3 +47,10 @@ Do not start a preview until an exact candidate package has been selected and ex
 ## Deliberately not installed
 
 No WooCommerce, third-party POS, inventory engine, user/role replacement, paid AI extension, production SMTP, production backup destination or production security agent is installed automatically. Stockland already has custom ERP/POS and authorization workflows. New plugins must be justified by a documented gap and tested for REST, capability, schema and performance compatibility before adoption.
+
+
+## Codex (free-tier-only workflow)
+
+The official OpenAI Codex IDE extension is preconfigured for this Codespace. Open the Codex panel, choose **Sign in with ChatGPT**, and use the existing Free ChatGPT account. Do not add an API key, purchase credits, upgrade a plan, or delegate work to Codex Cloud. Free Codex usage is limited; when the allowance is exhausted, stop and wait for its reset. Do not install another AI coding agent for this project.
+
+Project instructions are in the repository-root `AGENTS.md`; the Codex setup and execution guide is `docs/engineering/CODEX_FREE_TIER_SETUP.md`. The Codespace must use this branch or a later branch containing the same configuration. If Codex is not visible after startup, rebuild the container and check the Extensions view for `openai.chatgpt`.
