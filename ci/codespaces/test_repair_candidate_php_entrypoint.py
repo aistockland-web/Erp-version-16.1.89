@@ -38,6 +38,8 @@ class CandidatePhpEntrypointRepairTests(unittest.TestCase):
         self.assertEqual(digest_file(self.source), original_sha)
         self.assertEqual(receipt["changed_members"], [TARGET])
         self.assertFalse(receipt["source_archive_mutated"])
+        import stat
+        self.assertEqual(stat.S_IMODE(self.output.stat().st_mode), 0o644)
         with zipfile.ZipFile(self.source) as source, zipfile.ZipFile(self.output) as output:
             self.assertIsNone(output.testzip())
             self.assertEqual(source.namelist(), output.namelist())

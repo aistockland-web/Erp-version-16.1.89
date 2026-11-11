@@ -84,10 +84,10 @@ def repair_archive(source: Path, output: Path, expected_sha256: str, expected_si
             original_target = original.read(TARGET)
             before_target_sha = hashlib.sha256(original_target).hexdigest()
             payload = original_target[3:] if original_target.startswith(bytes.fromhex("efbbbf")) else original_target
-            if not payload.startswith(b"/**"):
-                raise ValueError("repair refused: target no longer begins with the audited PHP doc-comment signature")
             if b"<?php" in payload or b"<?=" in payload:
                 raise ValueError("repair refused: target already contains a PHP opening tag; inspect new source manually")
+            if not payload.startswith(b"/**"):
+                raise ValueError("repair refused: target no longer begins with the audited PHP doc-comment signature")
             repaired_target = b"<?php\n" + payload
             if not repaired_target.startswith(b"<?php\n/**"):
                 raise ValueError("repair did not produce the expected PHP opening-tag prefix")
@@ -119,6 +119,7 @@ def repair_archive(source: Path, output: Path, expected_sha256: str, expected_si
                 member_count = len(file_names)
 
         os.replace(temporary, output)
+        os.chmod(output, 0o644)
         temporary = None
     finally:
         if temporary is not None:
@@ -180,9 +181,11 @@ def main() -> int:
         result = repair_archive(source, output, selected["sha256"], int(selected["size_bytes"]))
         sidecar = output.with_name(output.name + ".sha256")
         sidecar.write_text(result["repaired_sha256"] + "  " + output.name + "\n", encoding="utf-8")
+        os.chmod(sidecar, 0o644)
 
         receipt_path = output_dir / "repair-receipt.json"
         receipt_path.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+        os.chmod(receipt_path, 0o644)
 
         repaired_package = dict(selected)
         repaired_package.update({
