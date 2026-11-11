@@ -55,7 +55,7 @@ fi
 
 wp_as_www "$SITE" plugin install "$PACKAGE" --force --activate
 wp_as_www "$SITE" plugin is-active stockland-erp-app
-ACTUAL="$(wp_as_www "$SITE" plugin get stockland-erp-app --field=version)"
+ACTUAL="$(wp_as_www "$SITE" plugin get stockland-erp-app --field=version --skip-plugins --skip-themes)"
 [[ "$ACTUAL" == "16.2.15" ]] || { echo "MySQL 8 expected 16.2.15, found $ACTUAL" >&2; exit 1; }
 
 echo "PASS clean WordPress install and 16.2.15 activation on MySQL 8.0.46."
