@@ -25,6 +25,18 @@ class CodexConfigurationTests(unittest.TestCase):
             "cpus": 4, "memory": "16gb", "storage": "64gb"
         })
 
+    def test_stockland_delivery_skill_is_present(self) -> None:
+        skill = (ROOT / ".agents/skills/stockland-erp-delivery/SKILL.md").read_text()
+        self.assertTrue(skill.startswith("---\\nname: stockland-erp-delivery\\n"))
+        self.assertIn("one complete, production-grade Stockland WordPress ERP/PWA", skill)
+        self.assertIn("49 legacy", skill)
+
+    def test_copilot_free_extensions_are_configured(self) -> None:
+        config = json.loads((ROOT / ".devcontainer/devcontainer.json").read_text())
+        extensions = config["customizations"]["vscode"]["extensions"]
+        self.assertIn("GitHub.copilot", extensions)
+        self.assertIn("GitHub.copilot-chat", extensions)
+
     def test_no_marketplace_or_external_server_configuration(self) -> None:
         config = tomllib.loads((ROOT / ".codex/config.toml").read_text())
         self.assertNotIn("plugins", config)
