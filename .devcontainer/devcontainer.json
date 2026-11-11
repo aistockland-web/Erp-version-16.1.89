@@ -27,6 +27,7 @@
   "customizations": {
     "vscode": {
       "extensions": [
+        "openai.chatgpt",
         "bmewburn.vscode-intelephense-client",
         "dbaeumer.vscode-eslint",
         "DavidAnson.vscode-markdownlint",
