@@ -83,7 +83,6 @@ services:
         define('WP_AUTO_UPDATE_CORE', false);
     volumes:
       - ../.codespaces/runtime/wordpress/16.2.13:/var/www/html
-      - ../.codespaces/runtime/plugins/16.2.13:/var/www/html/wp-content/plugins
       - stockland-uploads-213:/var/www/html/wp-content/uploads
 
   wordpress-upgrade:
@@ -107,7 +106,6 @@ services:
         define('WP_AUTO_UPDATE_CORE', false);
     volumes:
       - ../.codespaces/runtime/wordpress/upgrade:/var/www/html
-      - ../.codespaces/runtime/plugins/upgrade:/var/www/html/wp-content/plugins
       - stockland-uploads-upgrade:/var/www/html/wp-content/uploads
 
 volumes:
