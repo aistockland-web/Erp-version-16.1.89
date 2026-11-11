@@ -12,4 +12,19 @@ RUN apt-get update \
        done \
     && rm -rf /var/lib/apt/lists/*
 
+RUN set -eu; \
+    tmp_dir="$(mktemp -d)"; \
+    trap 'rm -rf "$tmp_dir"' EXIT; \
+    curl --fail --silent --show-error --location --retry 3 \
+      https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar \
+      --output "$tmp_dir/wp-cli.phar"; \
+    curl --fail --silent --show-error --location --retry 3 \
+      https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar.sha256 \
+      --output "$tmp_dir/wp-cli.phar.sha256"; \
+    expected="$(awk '{print $1}' "$tmp_dir/wp-cli.phar.sha256")"; \
+    actual="$(sha256sum "$tmp_dir/wp-cli.phar" | awk '{print $1}')"; \
+    test -n "$expected" && test "$expected" = "$actual"; \
+    php "$tmp_dir/wp-cli.phar" --info >/dev/null; \
+    install -m 0755 "$tmp_dir/wp-cli.phar" /usr/local/bin/wp
+
 USER vscode
