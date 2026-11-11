@@ -49,3 +49,8 @@ bash scripts/codespaces/bootstrap_wordpress.sh
 - Never publish/forward DB ports.
 - The .15 ZIP is a review candidate, not an approved production release.
 - Do not install generic POS, inventory, finance, HR or role-management plugins. Stockland already has custom services and workflows.
+
+
+## Editable Stockland application source
+
+After the exact .13/.15 package verifier succeeds, post-create materializes the real .13 application under src/stockland-erp-app/. The importer verifies the per-file SHA-256 values, records provenance, preserves marked edits on rebuild, and refuses to overwrite an unmarked folder. For an already-running Codespace, sync the Codex branch and run bash scripts/codespaces/bootstrap_project_source.sh.

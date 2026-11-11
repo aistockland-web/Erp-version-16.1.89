@@ -8,6 +8,10 @@ on:
       - ".agents/**"
       - "scripts/codespaces/bootstrap_codex.sh"
       - "scripts/codespaces/test_codex_config.py"
+      - "scripts/codespaces/bootstrap_project_source.py"
+      - "scripts/codespaces/bootstrap_project_source.sh"
+      - "scripts/codespaces/test_project_source.py"
+      - "src/README.md"
       - ".devcontainer/post-create.sh"
       - ".github/workflows/codex-workspace.yml"
       - "docs/engineering/CODEX_CODESPACES_SETUP_2026-11-11.md"
@@ -18,6 +22,10 @@ on:
       - ".agents/**"
       - "scripts/codespaces/bootstrap_codex.sh"
       - "scripts/codespaces/test_codex_config.py"
+      - "scripts/codespaces/bootstrap_project_source.py"
+      - "scripts/codespaces/bootstrap_project_source.sh"
+      - "scripts/codespaces/test_project_source.py"
+      - "src/README.md"
       - ".devcontainer/post-create.sh"
       - ".github/workflows/codex-workspace.yml"
       - "docs/engineering/CODEX_CODESPACES_SETUP_2026-11-11.md"
@@ -42,6 +50,12 @@ jobs:
           python-version: "3.12"
       - name: Validate project-scoped Codex TOML, agent roles, skill, and pinned marketplace
         run: python scripts/codespaces/test_codex_config.py
+      - name: Validate exact-source importer and rebuild protections
+        run: |
+          set -euo pipefail
+          bash -n scripts/codespaces/bootstrap_project_source.sh
+          python -m py_compile scripts/codespaces/bootstrap_project_source.py scripts/codespaces/test_project_source.py
+          python scripts/codespaces/test_project_source.py
       - name: Validate bootstrap and Codespaces post-create shell syntax
         run: |
           set -euo pipefail

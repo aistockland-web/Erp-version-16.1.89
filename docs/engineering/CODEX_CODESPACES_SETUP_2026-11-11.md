@@ -108,3 +108,18 @@ Owner involvement remains necessary only for account sign-in/installation steps,
 - Focused Codex config validation passed on push [run 42949157594](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/42949157594) and on PR [run 42949299469](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/42949299469). Both runs tested the exact same head SHA and completed successfully.
 - This is tooling/agent setup only. The live Codespace was not remotely edited or authenticated from this chat. On Codespace rebuild/post-create, the pinned Codex CLI is installed if absent; the Owner must complete ChatGPT device sign-in and install Superpowers once.
 - The full .13-to-.15 WordPress/MariaDB/MySQL runtime acceptance remains a separate ERP acceptance gate. This Codex PR does not certify the ERP or approve production release.
+
+
+## Actual ERP source folder — important
+
+The repository previously held the verified ERP application in installer archives and test extractions, but did not expose it as an editable project folder. This branch now adds a source-materialization step after the exact .13/.15 package verifier.
+
+On first Codespaces post-create, the 16.2.13 operational application is created at src/stockland-erp-app/. The importer checks the pinned archive identity and every per-file SHA-256 in the verifier intake report. The plugin entry point is stockland-inventory.php. Provenance is recorded at src/.stockland-erp-app.source.json.
+
+For an already-running Codespace, sync the codex/stockland-agent-workspace-2026-11-11 branch and run:
+
+    bash scripts/codespaces/bootstrap_project_source.sh
+
+A marked source tree is preserved on rebuild so uncommitted edits are not overwritten. An existing unmarked directory is never removed or replaced; inspect it and make a manual backup before retrying. The original .13 and .15 ZIPs stay byte-for-byte unchanged. The .15 candidate is not copied into the editable source tree.
+
+Before functional edits, stage the complete verified source tree and provenance marker in a dedicated source-intake commit. Then implement fixes against src/stockland-erp-app with focused tests and separate coherent commits. This import is not a runtime acceptance result or a production release approval.

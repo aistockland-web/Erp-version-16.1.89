@@ -49,6 +49,16 @@ def main() -> int:
     assert skill.startswith("---\nname: stockland-erp-delivery\n")
     assert "16.2.13" in skill and "16.2.15" in skill and "16.1.95" in skill
 
+    source_bootstrap = ROOT / "scripts/codespaces/bootstrap_project_source.py"
+    source_wrapper = ROOT / "scripts/codespaces/bootstrap_project_source.sh"
+    source_readme = ROOT / "src/README.md"
+    assert source_bootstrap.is_file()
+    assert source_wrapper.is_file()
+    assert source_readme.is_file()
+    source_text = source_readme.read_text(encoding="utf-8")
+    assert "src/stockland-erp-app/" in source_text
+    assert "74e3205d0b42151997dc356c29b09204688accee817c17a013a70cf90be04c13" in source_text
+
     bootstrap = ROOT / "scripts/codespaces/bootstrap_codex.sh"
     assert bootstrap.is_file()
     print("PASS: Codex TOML, project agents, MCP endpoints, plugin pin, and Stockland skill")

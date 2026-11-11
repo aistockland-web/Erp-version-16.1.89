@@ -39,3 +39,8 @@ Preserve the original 49 legacy tables and posted history until exact DDL/data m
 
 ## Result language
 Report PASS, FAIL, BLOCKED, NOT RUN, and OWNER INPUT REQUIRED separately. A successful devcontainer build or plugin activation is not full ERP acceptance. No production readiness claim, merge, tag, release, install, or deploy until exact-package acceptance and required Owner/Operations/Finance/HR/legal approvals exist.
+
+
+## Canonical editable source
+
+The actual WordPress ERP runtime source lives at src/stockland-erp-app/. Codespaces post-create verifies the .13 archive and its per-file intake manifest, then materializes this folder. Confirm src/.stockland-erp-app.source.json before implementation. If the source tree is missing, run bash scripts/codespaces/bootstrap_project_source.sh after package intake. Never edit the disposable WordPress copy, temporary extraction, or a sample project as canonical source. Never overwrite an existing unmarked folder. On first import, create a separate source-intake commit before functional fixes.
