@@ -41,6 +41,30 @@ def sha256_file(path):
     return digest.hexdigest()
 
 
+def validate_member_path(name):
+    """Return safe path parts below the one permitted plugin root."""
+    if not name or "\\\\" in name:
+        raise VerificationError("empty or non-portable ZIP path: " + repr(name))
+    is_directory = name.endswith("/")
+    normalized = name[:-1] if is_directory else name
+    parts = normalized.split("/")
+    if not normalized or any(part in ("", ".", "..") for part in parts):
+        raise VerificationError("unsafe ZIP path: " + repr(name))
+    path = PurePosixPath(normalized)
+    if path.is_absolute() or ":" in parts[0]:
+        raise VerificationError("absolute or drive-qualified ZIP path: " + repr(name))
+    if parts[0] != PLUGIN_ROOT.rstrip("/"):
+        raise VerificationError("unexpected top-level path: " + repr(name))
+    if len(parts) == 1 and not is_directory:
+        raise VerificationError("file cannot be the plugin root: " + repr(name))
+    return parts[1:]
+
+
+def ensure_unique_member_paths(names):
+    if len(names) != len(set(names)):
+        raise VerificationError("duplicate ZIP paths detected")
+
+
 def validate_archive(version):
     if version not in SPECS:
         raise VerificationError("Unsupported package version: " + version)
@@ -61,21 +85,20 @@ def validate_archive(version):
         names = [item.filename for item in infos]
         if not infos or len(infos) > MAX_ENTRIES:
             raise VerificationError(version + ": invalid ZIP entry count")
-        if len(names) != len(set(names)):
-            raise VerificationError(version + ": duplicate ZIP paths")
+        try:
+            ensure_unique_member_paths(names)
+        except VerificationError as exc:
+            raise VerificationError(version + ": " + str(exc)) from exc
         roots = set()
         php_files, js_files, json_files = [], [], []
         total = 0
         for info in infos:
             name = info.filename
-            raw_parts = name.split("/")
-            path = PurePosixPath(name)
-            if path.is_absolute() or any(p in ("", ".", "..") for p in raw_parts if p != ""):
-                raise VerificationError(version + ": unsafe path " + repr(name))
-            if "\\" in name or ":" in path.parts[0]:
-                raise VerificationError(version + ": non-portable path " + repr(name))
-            if not name.startswith(PLUGIN_ROOT):
-                raise VerificationError(version + ": unexpected top-level path " + repr(name))
+            try:
+                validate_member_path(name)
+            except VerificationError as exc:
+                raise VerificationError(version + ": " + str(exc)) from exc
+            path = PurePosixPath(name.rstrip("/"))
             roots.add(PLUGIN_ROOT)
             mode = info.external_attr >> 16
             if stat.S_IFMT(mode) == stat.S_IFLNK:
@@ -101,8 +124,8 @@ def validate_archive(version):
             raise VerificationError(version + ": no PHP source files")
         entry = None
         for name in php_files:
-            relative = name[len(PLUGIN_ROOT):]
-            if "/" in relative:
+            relative_parts = validate_member_path(name)
+            if len(relative_parts) != 1:
                 continue
             if "Plugin Name:" in zf.read(name)[:16384].decode("utf-8", errors="replace"):
                 entry = name
@@ -141,13 +164,14 @@ def extract_verified(version, destination_root):
             for info in zf.infolist():
                 if info.is_dir():
                     continue
-                relative = PurePosixPath(info.filename).relative_to(PLUGIN_ROOT)
+                relative = PurePosixPath(info.filename.rstrip("/")).relative_to(PLUGIN_ROOT.rstrip("/"))
                 target = stage.joinpath(*relative.parts)
                 target.parent.mkdir(parents=True, exist_ok=True)
                 with zf.open(info, "r") as source, target.open("wb") as output:
                     shutil.copyfileobj(source, output)
                 os.chmod(target, 0o644)
-        if not (stage / Path(report["plugin_entry_point"]).name).is_file():
+        relative_entry = PurePosixPath(report["plugin_entry_point"]).relative_to(PLUGIN_ROOT.rstrip("/"))
+        if not stage.joinpath(*relative_entry.parts).is_file():
             raise VerificationError(version + ": entry point missing after extract")
         if final_dir.exists():
             shutil.rmtree(final_dir)
