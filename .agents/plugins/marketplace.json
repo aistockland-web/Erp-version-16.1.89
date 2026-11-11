@@ -1,0 +1,21 @@
+{
+  "name": "stockland-codex",
+  "interface": {
+    "displayName": "Stockland ERP Engineering"
+  },
+  "plugins": [
+    {
+      "name": "superpowers",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/obra/superpowers",
+        "sha": "22f0b463e7a5e579904dd6211a520321035526f7"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}
