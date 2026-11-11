@@ -13,9 +13,7 @@ for package in "$PACKAGE_16213" "$PACKAGE_16215"; do
   [[ -f "$package" ]] || { echo "Missing candidate package: $package" >&2; exit 1; }
 done
 
-wp_as_www() {
-  sudo -u www-data env HOME=/tmp wp "$@"
-}
+source "$REPO_ROOT/scripts/codespaces/wp_cli_wrapper.sh"
 
 wait_for_site() {
   local site="$1"
