@@ -6,6 +6,9 @@ on:
     paths:
       - "AGENTS.md"
       - ".devcontainer/**"
+      - ".codex/**"
+      - ".agents/**"
+      - "docs/engineering/CODEX_CODESPACES_SETUP_2026-11-11.md"
       - ".github/agents/**"
       - ".github/copilot-instructions.md"
       - ".github/workflows/stockland-cumulative-acceptance.yml"
@@ -68,6 +71,8 @@ jobs:
           python3 -m json.tool .devcontainer/devcontainer.json >/dev/null
           bash -n .devcontainer/post-create.sh
           bash -n scripts/codespaces/bootstrap_wordpress.sh
+          bash -n scripts/codespaces/bootstrap_codex.sh
+          python3 scripts/codespaces/test_codex_config.py
           python3 -m py_compile scripts/codespaces/verify_candidate_archives.py
           docker compose -f .devcontainer/docker-compose.yml config --quiet
       - name: Build PHP 8.3 workspace image
