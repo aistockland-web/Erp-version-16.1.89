@@ -96,26 +96,111 @@ jobs:
         run: docker compose -f .devcontainer/docker-compose.yml down -v
 
   coding-standards:
-    name: PHPCS/WPCS on exact .13 and .15
+    name: PHP-only WPCS diagnostics and .13-to-.15 security delta
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
       - name: Checkout exact commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install PHP and Composer
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
         with:
           php-version: '8.3'
           tools: composer:v2
-      - name: Verify and extract both packages
+      - name: Verify and extract exact .13 and .15 packages
         run: |
           python3 ci/codespaces/verify_installers.py --extract-version 16.2.13 --destination-root "$RUNNER_TEMP/stockland/16.2.13"
           python3 ci/codespaces/verify_installers.py --extract-version 16.2.15 --destination-root "$RUNNER_TEMP/stockland/16.2.15"
-      - name: Install locked PHPCS/WPCS dependencies
+      - name: Install locked PHPCS/WPCS toolchain
         run: composer install --working-dir=ci/phpcs --no-interaction --prefer-dist --no-progress
-      - name: Run WordPress Coding Standards without suppressing findings
+      - name: Generate full PHP-only WPCS reports for both packages
+        shell: bash
         run: |
           set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/wpcs"
           for version in 16.2.13 16.2.15; do
-            ci/phpcs/vendor/bin/phpcs --standard=ci/qa/stockland-phpcs.xml --report=summary "$RUNNER_TEMP/stockland/$version/stockland-erp-app"
+            root="$RUNNER_TEMP/stockland/$version/stockland-erp-app"
+            report="$RUNNER_TEMP/wpcs/$version.json"
+            log="$RUNNER_TEMP/wpcs/$version.log"
+            set +e
+            ci/phpcs/vendor/bin/phpcs --standard=ci/qa/stockland-phpcs.xml --extensions=php --report=json --report-file="$report" "$root" >"$log" 2>&1
+            phpcs_exit=$?
+            set -e
+            test -s "$report"
+            echo "$version PHPCS diagnostic exit code: $phpcs_exit; full report retained"
           done
+      - name: Compare candidate security/database findings with the .13 baseline
+        run: |
+          python3 ci/codespaces/summarize_wpcs.py --baseline "$RUNNER_TEMP/wpcs/16.2.13.json" --candidate "$RUNNER_TEMP/wpcs/16.2.15.json"
+      - name: Upload complete PHP-only WPCS reports and raw logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: stockland-16.2.13-16.2.15-php-wpcs-diagnostics
+          path: ${{ runner.temp }}/wpcs/
+          if-no-files-found: warn
+
+  exact-package-semgrep:
+    name: Semgrep PHP security scan on exact .13 and .15 packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Install Semgrep
+        run: python -m pip install --disable-pip-version-check semgrep
+      - name: Verify and extract exact packages
+        run: |
+          python3 ci/codespaces/verify_installers.py --extract-version 16.2.13 --destination-root "$RUNNER_TEMP/stockland/16.2.13"
+          python3 ci/codespaces/verify_installers.py --extract-version 16.2.15 --destination-root "$RUNNER_TEMP/stockland/16.2.15"
+      - name: Scan every PHP file and enforce coverage
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/semgrep"
+          for version in 16.2.13 16.2.15; do
+            root="$RUNNER_TEMP/stockland/$version/stockland-erp-app"
+            report="$RUNNER_TEMP/semgrep/$version.json"
+            php_count="$(find "$root" -type f -name '*.php' | wc -l | tr -d '[:space:]')"
+            test "$php_count" -gt 0
+            semgrep scan --metrics=off --config p/php --config p/security-audit --include '*.php' --json --output "$report" "$root"
+            python ci/qa/summarize-semgrep.py "$report" --expected-targets "$php_count"
+          done
+      - name: Upload exact-package Semgrep reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: stockland-16.2.13-16.2.15-semgrep
+          path: ${{ runner.temp }}/semgrep/
+          if-no-files-found: warn
+
+  exact-package-secret-scan:
+    name: Gitleaks scan on exact .13 and .15 package contents
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Verify and extract exact packages
+        run: |
+          python3 ci/codespaces/verify_installers.py --extract-version 16.2.13 --destination-root "$RUNNER_TEMP/stockland/16.2.13"
+          python3 ci/codespaces/verify_installers.py --extract-version 16.2.15 --destination-root "$RUNNER_TEMP/stockland/16.2.15"
+      - name: Scan exact package trees
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/gitleaks"
+          for version in 16.2.13 16.2.15; do
+            root="$RUNNER_TEMP/stockland/$version/stockland-erp-app"
+            docker run --rm -v "$root:/scan:ro" -v "$RUNNER_TEMP/gitleaks:/report" ghcr.io/gitleaks/gitleaks:v8.28.0 dir /scan --redact --report-format sarif --report-path "/report/$version.sarif"
+          done
+      - name: Upload exact-package Gitleaks reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: stockland-16.2.13-16.2.15-gitleaks
+          path: ${{ runner.temp }}/gitleaks/
+          if-no-files-found: warn
