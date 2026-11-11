@@ -699,6 +699,74 @@ class Stockland_REST_Setup {
 		} finally {
 			delete_transient( self::LOCK ); }
 	}
+
+	/**
+	 * Advances the separate HR lifecycle extension after explicit Owner approval.
+	 *
+	 * @param WP_REST_Request $request Request with approval flag, DDL fingerprint and reason.
+	 * @return mixed Physical extension progress or a REST error.
+	 */
+	public function advance_hr_lifecycle( WP_REST_Request $request ) {
+		if ( ! $this->can_approve_hr_schema() ) {
+			return new WP_Error( 'hr_lifecycle_owner_only', 'Only the active Stockland Owner may approve HR lifecycle schema creation.', array( 'status' => 403 ) );
+		}
+		$lock = 'stockland_hr_lifecycle_setup_lock';
+		if ( get_transient( $lock ) ) {
+			return new WP_Error( 'hr_lifecycle_setup_busy', 'An HR lifecycle schema batch is already running. Retry shortly.', array( 'status' => 409 ) );
+		}
+		set_transient( $lock, 1, 60 );
+		try {
+			$before = $this->snapshot();
+			if ( ! $before['operational_ready'] || empty( $before['hr']['ready'] ) ) {
+				return new WP_Error( 'hr_lifecycle_prerequisite', 'Complete and physically verify the Core, Accounting and four-table legacy HR baseline before enabling the HR lifecycle extension.', array( 'status' => 409 ) );
+			}
+			$missing = Stockland_HR_Lifecycle::missing_tables();
+			if ( empty( $missing ) ) {
+				return $this->no_cache( rest_ensure_response( array( 'complete' => true, 'hr_lifecycle' => $before['hr_lifecycle'] ) ) );
+			}
+			if ( ! Stockland_HR_Lifecycle::approval_is_current() ) {
+				$approved = rest_sanitize_boolean( $request->get_param( 'approve_hr_lifecycle_schema' ) );
+				$reason = sanitize_text_field( (string) $request->get_param( 'approval_reason' ) );
+				$signature = (string) $request->get_param( 'schema_signature' );
+				$current_signature = Stockland_HR_Lifecycle::schema_signature();
+				if ( ! $approved || strlen( trim( $reason ) ) < 12 || '' === $current_signature || ! hash_equals( $current_signature, $signature ) ) {
+					return new WP_Error(
+						'hr_lifecycle_owner_approval_required',
+						'Explicit Owner approval must include the current HR lifecycle DDL fingerprint and a reason of at least 12 characters. No lifecycle table was created.',
+						array( 'status' => 409, 'schema_version' => Stockland_HR_Lifecycle::SCHEMA_VERSION, 'schema_signature' => $current_signature )
+					);
+				}
+				$actor = (int) get_current_user_id();
+				$stamp = current_time( 'mysql' );
+				if ( ! Stockland_Audit::log( $actor, null, 'HR_LIFECYCLE_SCHEMA_MIGRATION_APPROVED', null, null, null, Stockland_HR_Lifecycle::SCHEMA_VERSION . ':' . $current_signature, $reason, 'HR_LIFECYCLE_SCHEMA_' . Stockland_HR_Lifecycle::SCHEMA_VERSION, $actor ) ) {
+					return new WP_Error( 'hr_lifecycle_approval_audit_failed', 'The Owner decision could not be written to the immutable audit chain. No lifecycle table was created.', array( 'status' => 500 ) );
+				}
+				update_option(
+					'stockland_hr_lifecycle_schema_migration_approval',
+					array(
+						'schema_version' => Stockland_HR_Lifecycle::SCHEMA_VERSION,
+						'schema_signature' => $current_signature,
+						'approved_by' => $actor,
+						'approved_at' => $stamp,
+						'reason' => $reason,
+						'source' => 'OWNER_PROTECTED_SETUP',
+					),
+					false
+				);
+			}
+			$progress = Stockland_HR_Lifecycle::install( 1 );
+			$after = $this->snapshot();
+			$progress['hr_lifecycle'] = $after['hr_lifecycle'];
+			$progress['schema_approval_required'] = ! Stockland_HR_Lifecycle::approval_is_current();
+			return $this->no_cache( rest_ensure_response( $progress ) );
+		} catch ( Throwable $e ) {
+			Stockland_Runtime_Diagnostics::log_error( 'Stockland HR lifecycle setup error: ' . $e->getMessage() );
+			return new WP_Error( 'hr_lifecycle_setup_failed', $e->getMessage(), array( 'status' => 500 ) );
+		} finally {
+			delete_transient( $lock );
+		}
+	}
+
 }
 
 // phpcs:enable WordPress.Files.FileName.InvalidClassFileName -- End the narrowly scoped legacy filename exception.
