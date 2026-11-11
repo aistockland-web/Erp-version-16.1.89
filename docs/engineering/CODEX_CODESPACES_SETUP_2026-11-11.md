@@ -10,11 +10,11 @@ Create a single Codespace from this repository branch after repository checks pa
 
 https://github.com/codespaces/new?repo=aistockland-web%2FErp-version-16.1.89&ref=delivery%2Fstockland-full-erp-completion-2026-11-11
 
-The Dev Container requests 4 cores, 16 GB RAM and 64 GB storage, matching the Owner's selected interactive workspace profile. GitHub only offers machine sizes supported by the repository, personal account and region, so the create dialog must confirm this exact profile before creating the single Codespace. The machine size does not turn Codex model inference into a local 32-GB requirement; the extra RAM is for the local PHP/WordPress, database, browser and QA toolchain.
+The Dev Container requests 4 cores and 16 GB RAM, matching the Owner's selected interactive workspace profile. Disk size is intentionally left to the GitHub create dialog; select the smallest supported storage size that accommodates the WordPress/PHP source, Docker images and QA artifacts. GitHub only offers machine sizes supported by the repository, personal account and region, so confirm the 4-core / 16-GB profile before creating the single Codespace. The machine size does not turn Codex model inference into a local 32-GB requirement; the RAM is for the local PHP/WordPress, database, browser and QA toolchain.
 
-GitHub's published personal Free Codespaces allowance is 120 core-hours and 15 GB-month storage. At 4 cores, compute quota permits up to 30 active hours for the billing month. All Codespaces billed to the account use this quota. The 64-GB requested disk profile uses more of the 15 GB-month storage allowance than a smaller machine, so confirm storage remaining before creation. When quota is exhausted and no payment method exists, usage is blocked until the next billing cycle. This configuration does not add a payment method or request paid overage.
+GitHub's published personal Free Codespaces allowance is 120 core-hours and 15 GB-month storage. At 4 cores, compute quota permits up to 30 active hours for the billing month. All Codespaces billed to the account use this quota. Storage is metered separately by GB-month; choose the smallest storage option offered and check the remaining 15 GB-month allowance before creation. When quota is exhausted and no payment method exists, usage is blocked until the next billing cycle. This configuration does not add a payment method or request paid overage.
 
-Before creating the one Codespace, open GitHub Settings, Billing/Usage, Codespaces and check remaining compute/storage allowance, then confirm the create page offers the 4-core / 16-GB / 64-GB machine. The connected API cannot read the Owner's remaining quota or available machine list. Stop the Codespace when finished; the default idle timeout is 30 minutes, but verify the account setting. Avoid prebuilds and duplicate Codespaces.
+Before creating the one Codespace, open GitHub Settings, Billing/Usage, Codespaces and check remaining compute/storage allowance, then confirm the create page offers the 4-core / 16-GB machine and choose the smallest available disk option. The connected GitHub API cannot read the Owner's remaining quota or available machine list. Stop the Codespace when finished; the default idle timeout is 30 minutes, but verify the account setting. Avoid prebuilds and duplicate Codespaces.
 
 ## 2. Environment and free services
 
@@ -33,13 +33,17 @@ Do not load a live database, business backup, customer/supplier/employee records
 
 Codex is available on ChatGPT Free with plan-specific usage limits. Codex Cloud is not included with Free. The local CLI runs inside this one GitHub Codespace and uses GitHub Codespaces compute while active. It is optional: the ERP build/test environment does not require Codex.
 
-Install the pinned CLI only when needed:
+The Codespaces post-create step prepares the pinned CLI automatically when npm access is available. To retry or install manually:
+
 bash scripts/codespaces/bootstrap_codex.sh
+
+Then sign in once using:
+
 codex login --device-auth
 
 Complete ChatGPT sign-in using the one-time device flow in the Owner's browser. Do not use an OpenAI API key. API usage is separately billed and is outside this free-only plan. Never paste device codes/tokens, ~/.codex/auth.json, GitHub tokens or credentials into Git, issue comments, Notion, chat or screenshots.
 
-Codex project configuration is loaded only after the repository is trusted. GitHub Copilot uses the root .github/copilot-instructions.md, which carries the same Stockland master scope and schema approval rules:
+Codex CLI is pinned to version 0.167.1 in the local installer. Codex project configuration is loaded only after the repository is trusted. GitHub Copilot uses the root .github/copilot-instructions.md, which carries the same Stockland master scope and schema approval rules:
 - .codex/config.toml limits concurrent agent threads to one.
 - Four project-scoped agents provide read-only exploration, workspace-write implementation, read-only review and isolated QA.
 - Minimal configuration enables no third-party plugins, no external MCP endpoints, no paid services and no cloud agent.
