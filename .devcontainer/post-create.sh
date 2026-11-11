@@ -66,13 +66,48 @@ if ! command -v wp >/dev/null 2>&1; then
 fi
 wp --info
 
-echo "=== Verify the exact locked baseline and selected repaired candidate ==="
-CANDIDATE_LOCK_PATH="${STOCKLAND_DEV_CANDIDATE_LOCK_PATH:-ci/codespaces/candidate-packages.json}"
+echo "=== Create or reuse the exact repaired 16.2.15 QA candidate ==="
+mkdir -p artifacts/codespaces
+REPAIRED_PACKAGE="$PWD/artifacts/codespaces/STOCKLAND_ERP_16.2.15_REPAIRED_CANDIDATE_WORDPRESS_INSTALLER.zip"
+REPAIRED_SIDECAR="$REPAIRED_PACKAGE.sha256"
+REPAIRED_RECEIPT="$PWD/artifacts/codespaces/repair-receipt.json"
+REPAIRED_LOCK="$PWD/artifacts/codespaces/repaired-candidate-lock.json"
+
+if [[ -z "${STOCKLAND_DEV_16215_PACKAGE_PATH:-}" && -z "${STOCKLAND_DEV_CANDIDATE_LOCK_PATH:-}" ]]; then
+  if [[ -s "$REPAIRED_PACKAGE" && -s "$REPAIRED_SIDECAR" && -s "$REPAIRED_RECEIPT" && -s "$REPAIRED_LOCK" ]]; then
+    echo "Reusing the existing repaired candidate and lock; the original .15 archive remains unchanged."
+    export STOCKLAND_DEV_16215_PACKAGE_PATH="$REPAIRED_PACKAGE"
+    export STOCKLAND_DEV_CANDIDATE_LOCK_PATH="artifacts/codespaces/repaired-candidate-lock.json"
+  elif [[ -e "$REPAIRED_PACKAGE" || -e "$REPAIRED_SIDECAR" || -e "$REPAIRED_RECEIPT" || -e "$REPAIRED_LOCK" ]]; then
+    echo "A partial repaired-candidate artifact set exists. Inspect artifacts/codespaces before rebuilding; no files were deleted." >&2
+    exit 1
+  else
+    python3 ci/codespaces/repair_candidate_php_entrypoint.py \
+      --output-dir "$PWD/artifacts/codespaces" \
+      --lock-output "$REPAIRED_LOCK"
+    export STOCKLAND_DEV_16215_PACKAGE_PATH="$REPAIRED_PACKAGE"
+    export STOCKLAND_DEV_CANDIDATE_LOCK_PATH="artifacts/codespaces/repaired-candidate-lock.json"
+  fi
+fi
+
+CANDIDATE_LOCK_PATH="${STOCKLAND_DEV_CANDIDATE_LOCK_PATH:-artifacts/codespaces/repaired-candidate-lock.json}"
 if [[ ! -f "$CANDIDATE_LOCK_PATH" ]]; then
   echo "Candidate package lock not found: $CANDIDATE_LOCK_PATH" >&2
   exit 1
 fi
-python3 ci/codespaces/validate_candidate_packages.py --lock-file "$CANDIDATE_LOCK_PATH" --extract-root /tmp/stockland-candidate-packages
+if [[ ! -s "${STOCKLAND_DEV_16215_PACKAGE_PATH:-}" ]]; then
+  echo "The selected repaired .15 candidate archive is missing. Refusing to use the uncorrected original archive for WordPress boot." >&2
+  exit 1
+fi
+python3 ci/codespaces/validate_candidate_packages.py \
+  --lock-file "$CANDIDATE_LOCK_PATH" \
+  --extract-root /tmp/stockland-candidate-packages
+
+echo "=== Verify the immutable .13 package and materialize editable Stockland source ==="
+python3 scripts/codespaces/verify_candidate_archives.py \
+  --report artifacts/codespaces/package-intake.json \
+  --extract-root /tmp/stockland-candidate-packages
+bash scripts/codespaces/bootstrap_project_source.sh
 
 echo "=== Bootstrap isolated WordPress/MariaDB baseline and upgrade test sites ==="
 bash scripts/codespaces/bootstrap_wordpress_sites.sh
