@@ -52,8 +52,12 @@ def validate_member_path(name: str) -> None:
 
 
 def validate_package(package: dict, extract_root: Path) -> dict:
-    archive_path = REPOSITORY_ROOT / package["archive"]
-    sidecar_path = REPOSITORY_ROOT / package["sidecar"]
+    archive_path = Path(package["archive"])
+    sidecar_path = Path(package["sidecar"])
+    if not archive_path.is_absolute():
+        archive_path = REPOSITORY_ROOT / archive_path
+    if not sidecar_path.is_absolute():
+        sidecar_path = REPOSITORY_ROOT / sidecar_path
     release = package["release"]
     expected_hash = package["sha256"]
 
@@ -153,10 +157,11 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--extract-root", type=Path, default=Path("/tmp/stockland-candidate-packages"))
     parser.add_argument("--summary", type=Path)
+    parser.add_argument("--lock-file", type=Path, default=LOCK_PATH)
     args = parser.parse_args()
 
     try:
-        lock = json.loads(LOCK_PATH.read_text(encoding="utf-8"))
+        lock = json.loads(args.lock_file.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         fail("cannot read package lock: " + str(exc))
     if lock.get("schema_version") != 1 or not isinstance(lock.get("packages"), list):

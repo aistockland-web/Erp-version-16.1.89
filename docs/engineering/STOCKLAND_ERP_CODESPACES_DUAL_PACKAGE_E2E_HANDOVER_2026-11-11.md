@@ -59,3 +59,12 @@ This is a development and QA environment only. It has no production credential, 
 No application plugin source, business database, schema, live transaction, historical ledger, audit chain, employee record, SOP payload or production installation is modified by this infrastructure target. The workflow only mounts the two committed candidate archives into isolated WordPress test instances.
 
 The five Stockland locations, single-company ERP model, POS/cart, inventory/central warehouse, requisitions/reservations/transfers/receiving, finance/procurement/AP/AR/GL, HR/payroll, private resources and reporting remain under the full project implementation plan. The Codespaces target is the first environment/quality gate, not the final ERP completion milestone.
+
+
+## 7. Exact .15 package repair gate — 11 November 2026
+
+The original 16.2.15 archive and its locked SHA-256 remain unchanged. The exact-package validator found that the single member `stockland-erp-app/includes/class-stockland-schema-contract.php` begins with a PHP doc comment but has no opening PHP tag, causing raw output when WordPress includes it.
+
+The E2E workflow now recomputes and verifies the original .15 hash, locked size and sidecar before making any repair; requires the malformed member to match the reviewed signature; prepends only the missing `<?php` opening tag; writes a separately named archive and SHA-256 sidecar; verifies every non-target member remains byte-identical; and passes that exact repaired artifact through PHP 8.3/8.4 checks and the MariaDB 10.11/MySQL 8.0.46 WordPress upgrade tests.
+
+The candidate hash emitted by CI is the identity for that repaired artifact. The original .15 ZIP remains preserved as historical evidence. This is not production authorization.

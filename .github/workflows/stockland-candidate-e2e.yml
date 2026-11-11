@@ -67,11 +67,16 @@ jobs:
       - name: Install locked CSS parser
         run: npm ci --prefix ci/cssqa --ignore-scripts --no-audit --no-fund
 
-      - name: Verify exact ZIPs, hashes, sidecars and safe extraction
-        id: verify-candidate-packages
-        run: python3 ci/codespaces/validate_candidate_packages.py --extract-root "$RUNNER_TEMP/stockland-candidates" --summary "$RUNNER_TEMP/stockland-candidate-summary.json"
+      - name: Rebuild the selected .15 candidate with the missing PHP opening tag repaired
+        run: python3 ci/codespaces/repair_candidate_php_entrypoint.py --output-dir artifacts/codespaces --lock-output "$RUNNER_TEMP/stockland-candidate-lock.json"
 
-      - name: Diagnose PHP entrypoint raw-output candidate
+      - name: Test the narrow repair and validate exact baseline plus repaired candidate
+        id: verify-candidate-packages
+        run: |
+          python3 -m unittest discover -s ci/codespaces -p 'test_*.py' -v
+          python3 ci/codespaces/validate_candidate_packages.py --lock-file "$RUNNER_TEMP/stockland-candidate-lock.json" --extract-root "$RUNNER_TEMP/stockland-candidates" --summary "$RUNNER_TEMP/stockland-candidate-summary.json"
+
+      - name: Preserve diagnostic of the untouched original .15 archive
         if: always()
         run: python3 ci/codespaces/diagnose_php_entrypoint.py
 
@@ -104,6 +109,18 @@ jobs:
             node ci/codespaces/check_web_assets.js "$root"
           done
 
+      - name: Publish the exact repaired .15 candidate for isolated WordPress testing
+        if: success()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: stockland-repaired-16.2.15-candidate
+          path: |
+            artifacts/codespaces/STOCKLAND_ERP_16.2.15_REPAIRED_CANDIDATE_WORDPRESS_INSTALLER.zip
+            artifacts/codespaces/STOCKLAND_ERP_16.2.15_REPAIRED_CANDIDATE_WORDPRESS_INSTALLER.zip.sha256
+            artifacts/codespaces/repair-receipt.json
+          if-no-files-found: error
+          retention-days: 5
+
   wordpress-database-e2e:
     name: WordPress clean install, 16.2.13 → 16.2.15 upgrade and MySQL 8 parity
     needs: exact-package-static
@@ -112,6 +129,12 @@ jobs:
     steps:
       - name: Check out exact source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Download the exact repaired .15 candidate produced by the static job
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: stockland-repaired-16.2.15-candidate
+          path: artifacts/codespaces
 
       - name: Create isolated local-only credentials
         run: bash .devcontainer/initialize-host.sh
