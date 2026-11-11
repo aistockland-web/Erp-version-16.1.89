@@ -1,0 +1,6 @@
+# Stockland ERP Codex settings. Loaded only after the repository is trusted.
+# No API keys, session tokens, or credentials are stored here.
+[agents]
+max_concurrent_threads_per_session = 1
+[mcp_servers.openaiDeveloperDocs]
+url = "https://developers.openai.com/mcp"

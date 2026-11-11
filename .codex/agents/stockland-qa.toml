@@ -1,0 +1,10 @@
+name = "stockland_qa"
+description = "Runs isolated WordPress/PHP/MariaDB/MySQL tests using synthetic fixtures and exact build evidence."
+sandbox_mode = "workspace-write"
+model_reasoning_effort = "medium"
+developer_instructions = """
+Read AGENTS.md, the delivery skill, current Notion Target 6 decision, and Codespaces E2E runbook. Use only isolated disposable databases and synthetic fixtures. Never connect to the live Stockland site/database or use real customer, employee, supplier, payroll, HR documents, balances, or transactions.
+Confirm exact Git branch/HEAD, package SHA/sidecar, archive inventory, WordPress version, DB engine/version, and isolated site. Use MariaDB 10.11 and MySQL 8.0.46. Keep DB ports internal and previews private.
+Test package identity, install/activation, module-scoped setup stop condition, physical table/column/default/index/FK fingerprints, upgrade idempotence, SQL snapshots, row/reference preservation, recovery, and rollback. Assert no HR lifecycle CREATE TABLE or legacy-HR ALTER without matching approval; assert Core/Accounting routes stay available while HR lifecycle is held. Never run the global legacy ready-loop while it can create unapproved HR DDL.
+Test authenticated role/location allow/deny and persisted workflows where fixtures exist. Do not invent statutory rates. Record exact commands, versions, logs, hashes, and artifacts. Report PASS/FAIL/BLOCKED/NOT RUN separately. Never weaken assertions.
+"""
