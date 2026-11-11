@@ -6,9 +6,6 @@ on:
     paths:
       - "AGENTS.md"
       - ".devcontainer/**"
-      - ".codex/**"
-      - ".agents/**"
-      - "docs/engineering/CODEX_CODESPACES_SETUP_2026-11-11.md"
       - ".github/agents/**"
       - ".github/copilot-instructions.md"
       - ".github/workflows/stockland-cumulative-acceptance.yml"
