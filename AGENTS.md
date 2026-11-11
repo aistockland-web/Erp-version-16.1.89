@@ -160,3 +160,10 @@ Use the latest explicit Owner schema/HR design decisions; resolve historical tab
 Build the final one-click plugin ZIP from the final canonical source commit, not from an unreviewed local folder or test artifact. Include one plugin root, release manifest, full per-file hashes, source commit/tree, dependency/license inventory, SBOM, build receipt, CI evidence, package size and independently calculated SHA-256 sidecar. Upload as a downloadable CI artifact for review. Formal publication, live installation and deployment require the applicable final Owner release decision.
 
 Keep engineering GO and the single product objective throughout. Report exact PASS, FAIL, BLOCKED, NOT RUN and OWNER INPUT REQUIRED states; never convert skipped or partial tests into acceptance.
+
+
+## 12. One free-tier Codespace and optional local Codex
+
+The only current prepared create link is the one in README.md, on branch feat/stockland-free-codespaces-codex-2026-11-11. Follow docs/engineering/CODEX_CODESPACES_SETUP_2026-11-11.md. Use one Codespace, 2-core/8-GB/32-GB minimum, private ports, default MariaDB and CI-first MySQL. Verify Free quota before create; no paid overage. Codex CLI is optional and limited on ChatGPT Free; use device auth only, no API key or Codex Cloud. No marketplace plugin is configured.
+
+The most recent schema/HR governance is Notion Target 6 (11 Nov): 49 operational legacy keys are kept separate from the unapproved 37 HR lifecycle extension and 33 recognized HRX keys. Do not auto-create lifecycle DDL or alter existing legacy HR tables without exact written Owner approval. Do not let HR lifecycle readiness block unrelated POS, inventory, warehouse, finance and reporting routes. Keep payroll finalization fail-closed without approved effective-dated rules and qualified Ethiopian review. See docs/engineering/CODEX_CODESPACES_SETUP_2026-11-11.md and the current Notion execution record.
