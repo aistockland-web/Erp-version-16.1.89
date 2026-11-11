@@ -1,0 +1,58 @@
+name: Stockland Codex workspace configuration
+
+on:
+  push:
+    branches: ["codex/**"]
+    paths:
+      - ".codex/**"
+      - ".agents/**"
+      - "scripts/codespaces/bootstrap_codex.sh"
+      - "scripts/codespaces/test_codex_config.py"
+      - ".devcontainer/post-create.sh"
+      - ".github/workflows/codex-workspace.yml"
+      - "docs/engineering/CODEX_CODESPACES_SETUP_2026-11-11.md"
+  pull_request:
+    branches: [main, "integration/**"]
+    paths:
+      - ".codex/**"
+      - ".agents/**"
+      - "scripts/codespaces/bootstrap_codex.sh"
+      - "scripts/codespaces/test_codex_config.py"
+      - ".devcontainer/post-create.sh"
+      - ".github/workflows/codex-workspace.yml"
+      - "docs/engineering/CODEX_CODESPACES_SETUP_2026-11-11.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stockland-codex-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  codex-project-config:
+    name: Validate Codex project instructions, agents, skills, and plugins
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Validate project-scoped Codex TOML, agent roles, skill, and pinned marketplace
+        run: python scripts/codespaces/test_codex_config.py
+      - name: Validate bootstrap and Codespaces post-create shell syntax
+        run: |
+          set -euo pipefail
+          bash -n scripts/codespaces/bootstrap_codex.sh
+          bash -n .devcontainer/post-create.sh
+          python -m py_compile scripts/codespaces/test_codex_config.py
+      - name: Check whitespace and accidental conflict markers
+        run: |
+          set -euo pipefail
+          git diff --check
+          if grep -RInE '^(<<<<<<<|=======|>>>>>>>)' .codex .agents scripts/codespaces/test_codex_config.py scripts/codespaces/bootstrap_codex.sh; then
+            echo "Conflict marker found in Codex workspace resources." >&2
+            exit 1
+          fi
