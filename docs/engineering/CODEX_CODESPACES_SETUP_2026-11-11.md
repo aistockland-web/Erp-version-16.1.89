@@ -1,14 +1,14 @@
 # Stockland ERP — one Free Codespace and optional local Codex
 
 Repository: aistockland-web/Erp-version-16.1.89  
-Working branch: feat/stockland-free-codespaces-codex-2026-11-11  
+Working branch: delivery/stockland-full-erp-completion-2026-11-11  
 Product: the existing cumulative Stockland Ethiopia WordPress ERP/PWA. This is not a greenfield app or a production release.
 
 ## 1. One Codespace, not another environment
 
 Create a single Codespace from this repository branch after repository checks pass:
 
-https://github.com/codespaces/new?repo=aistockland-web%2FErp-version-16.1.89&ref=feat%2Fstockland-free-codespaces-codex-2026-11-11
+https://github.com/codespaces/new?repo=aistockland-web%2FErp-version-16.1.89&ref=delivery%2Fstockland-full-erp-completion-2026-11-11
 
 The Dev Container requests 4 cores, 16 GB RAM and 64 GB storage, matching the Owner's selected interactive workspace profile. GitHub only offers machine sizes supported by the repository, personal account and region, so the create dialog must confirm this exact profile before creating the single Codespace. The machine size does not turn Codex model inference into a local 32-GB requirement; the extra RAM is for the local PHP/WordPress, database, browser and QA toolchain.
 
