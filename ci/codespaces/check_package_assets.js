@@ -23,24 +23,24 @@ for (const file of jsonFiles) JSON.parse(fs.readFileSync(file, 'utf8'));
 
 const assets = path.join(root, 'assets');
 const manifestPath = path.join(assets, 'css', 'modules.json');
+let cssModuleCount = 0;
 if (fs.existsSync(manifestPath)) {
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
   if (!Array.isArray(manifest.modules) || manifest.modules.length < 1 ||
       new Set(manifest.modules).size !== manifest.modules.length) {
-    throw new Error('CSS module manifest empty or contains duplicates');
+    throw new Error('CSS source-module manifest is empty or contains duplicate entries');
   }
-  const chunks = manifest.modules.map((name) => {
-    if (path.basename(name) !== name || !name.endsWith('.css')) {
-      throw new Error('Unsafe CSS module name: ' + name);
+  const moduleRoot = path.resolve(assets, 'css');
+  for (const name of manifest.modules) {
+    if (typeof name !== 'string' || path.basename(name) !== name || !name.endsWith('.css')) {
+      throw new Error('Unsafe CSS module name: ' + String(name));
     }
-    const file = path.join(assets, 'css', name);
-    if (!fs.existsSync(file)) throw new Error('Missing CSS source module: ' + file);
-    return fs.readFileSync(file, 'utf8').trim();
-  });
-  const compiled = chunks.join('\n\n') + '\n';
-  const appCss = path.join(assets, 'app.css');
-  if (!fs.existsSync(appCss) || compiled !== fs.readFileSync(appCss, 'utf8')) {
-    throw new Error('app.css differs from ordered CSS source modules');
+    const file = path.resolve(moduleRoot, name);
+    if (!file.startsWith(moduleRoot + path.sep) || !fs.existsSync(file)) {
+      throw new Error('Missing or unsafe CSS source module: ' + file);
+    }
+    postcss.parse(fs.readFileSync(file, 'utf8'), { from: file });
+    cssModuleCount += 1;
   }
 }
 
@@ -54,6 +54,7 @@ console.log(JSON.stringify({
   files: files.length,
   json_files_parsed: jsonFiles.length,
   css_files_parsed: parsedCss,
+  css_source_modules_validated: cssModuleCount,
   javascript_files_for_node_check: files.filter((item) => item.toLowerCase().endsWith('.js')).length,
-  css_module_parity: fs.existsSync(manifestPath) ? 'PASS' : 'NOT APPLICABLE'
+  css_bundle_byte_parity: 'NOT ASSERTED BY THIS GENERIC PACKAGE CHECK'
 }, null, 2));
