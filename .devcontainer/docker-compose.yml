@@ -1,0 +1,138 @@
+name: stockland-erp-codespaces
+
+services:
+  workspace:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/workspaces/stockland-erp:cached
+      - wordpress-baseline-data:/var/www/html/site-baseline
+      - wordpress-upgrade-data:/var/www/html/site-upgrade
+      - wordpress-mysql8-data:/var/www/html/site-mysql8
+    working_dir: /workspaces/stockland-erp
+    command: sleep infinity
+    environment:
+      STOCKLAND_DEV_DB_HOST: mariadb
+      STOCKLAND_DEV_DB_PORT: "3306"
+      STOCKLAND_DEV_DB_USER: stockland_wp
+      STOCKLAND_DEV_DB_PASSWORD: ${STOCKLAND_DEV_DB_PASSWORD:?Run .devcontainer/initialize-host.sh first}
+      STOCKLAND_DEV_DB_BASELINE: stockland_wp_baseline
+      STOCKLAND_DEV_DB_UPGRADE: stockland_wp_upgrade
+      STOCKLAND_DEV_WP_ADMIN_USER: stockland_owner
+      STOCKLAND_DEV_WP_ADMIN_PASSWORD: ${STOCKLAND_DEV_WP_ADMIN_PASSWORD:?Run .devcontainer/initialize-host.sh first}
+      STOCKLAND_DEV_WP_BASELINE_URL: http://wordpress_baseline
+      STOCKLAND_DEV_WP_UPGRADE_URL: http://wordpress_upgrade
+      STOCKLAND_DEV_WP_MYSQL8_URL: http://wordpress_mysql8
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      wordpress_baseline:
+        condition: service_healthy
+      wordpress_upgrade:
+        condition: service_healthy
+
+  mariadb:
+    image: mariadb:10.11
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${STOCKLAND_DEV_DB_ROOT_PASSWORD:?Run .devcontainer/initialize-host.sh first}
+      MARIADB_DATABASE: stockland_wp_baseline
+      MARIADB_USER: stockland_wp
+      MARIADB_PASSWORD: ${STOCKLAND_DEV_DB_PASSWORD:?Run .devcontainer/initialize-host.sh first}
+    volumes:
+      - mariadb-data:/var/lib/mysql
+      - ./init-db/10-create-upgrade-database.sql:/docker-entrypoint-initdb.d/10-create-upgrade-database.sql:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  wordpress_baseline:
+    image: wordpress:php8.3-apache
+    restart: unless-stopped
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    environment:
+      WORDPRESS_DB_HOST: mariadb:3306
+      WORDPRESS_DB_USER: stockland_wp
+      WORDPRESS_DB_PASSWORD: ${STOCKLAND_DEV_DB_PASSWORD:?Run .devcontainer/initialize-host.sh first}
+      WORDPRESS_DB_NAME: stockland_wp_baseline
+    volumes:
+      - wordpress-baseline-data:/var/www/html
+    ports:
+      - "8080:80"
+    healthcheck:
+      test: ["CMD-SHELL", "php -r '$$s=@fsockopen(\"127.0.0.1\",80); exit($$s ? 0 : 1);'"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  wordpress_upgrade:
+    image: wordpress:php8.3-apache
+    restart: unless-stopped
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    environment:
+      WORDPRESS_DB_HOST: mariadb:3306
+      WORDPRESS_DB_USER: stockland_wp
+      WORDPRESS_DB_PASSWORD: ${STOCKLAND_DEV_DB_PASSWORD:?Run .devcontainer/initialize-host.sh first}
+      WORDPRESS_DB_NAME: stockland_wp_upgrade
+    volumes:
+      - wordpress-upgrade-data:/var/www/html
+    ports:
+      - "8081:80"
+    healthcheck:
+      test: ["CMD-SHELL", "php -r '$$s=@fsockopen(\"127.0.0.1\",80); exit($$s ? 0 : 1);'"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  mysql8:
+    image: mysql:8.0.46
+    profiles: ["mysql8"]
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${STOCKLAND_DEV_DB_ROOT_PASSWORD:?Run .devcontainer/initialize-host.sh first}
+      MYSQL_DATABASE: stockland_wp_mysql8
+      MYSQL_USER: stockland_wp
+      MYSQL_PASSWORD: ${STOCKLAND_DEV_DB_PASSWORD:?Run .devcontainer/initialize-host.sh first}
+    volumes:
+      - mysql8-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+
+  wordpress_mysql8:
+    image: wordpress:php8.3-apache
+    profiles: ["mysql8"]
+    restart: unless-stopped
+    depends_on:
+      mysql8:
+        condition: service_healthy
+    environment:
+      WORDPRESS_DB_HOST: mysql8:3306
+      WORDPRESS_DB_USER: stockland_wp
+      WORDPRESS_DB_PASSWORD: ${STOCKLAND_DEV_DB_PASSWORD:?Run .devcontainer/initialize-host.sh first}
+      WORDPRESS_DB_NAME: stockland_wp_mysql8
+    volumes:
+      - wordpress-mysql8-data:/var/www/html
+    ports:
+      - "8082:80"
+    healthcheck:
+      test: ["CMD-SHELL", "php -r '$$s=@fsockopen(\"127.0.0.1\",80); exit($$s ? 0 : 1);'"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  mariadb-data:
+  mysql8-data:
+  wordpress-baseline-data:
+  wordpress-upgrade-data:
+  wordpress-mysql8-data:
