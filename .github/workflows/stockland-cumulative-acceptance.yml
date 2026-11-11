@@ -251,6 +251,8 @@ jobs:
         run: python scripts/codespaces/verify_candidate_archives.py --report "$RUNNER_TEMP/intake.json"
       - name: Prepare disposable evidence directory
         run: mkdir -p artifacts/codespaces && chmod 0777 artifacts/codespaces
+      - name: Build WP-CLI PHP 8.3 helper image in this isolated job
+        run: docker compose -f .devcontainer/docker-compose.yml --profile ci build wp-cli
       - name: Start isolated WordPress and DB services
         run: docker compose -f .devcontainer/docker-compose.yml --profile ci up -d --wait db-mariadb db-mysql wordpress-mariadb wordpress-mysql wp-cli
       - name: Install .13 and update to .15 on both engines
