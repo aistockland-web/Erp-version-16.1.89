@@ -3,13 +3,14 @@ name: Stockland Codespaces environment validation
 on:
   push:
     branches:
-      - infra/stockland-erp-e2e-codespaces-2026-11-11
+      - 'infra/**'
+      - 'fix/**'
     paths:
       - '.devcontainer/**'
       - '.gitignore'
       - '.github/workflows/codespaces-environment.yml'
   pull_request:
-    branches: [main]
+    branches: [main, 'infra/**']
     paths:
       - '.devcontainer/**'
       - '.gitignore'
