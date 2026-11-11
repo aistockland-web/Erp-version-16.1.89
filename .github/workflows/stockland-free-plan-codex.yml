@@ -6,6 +6,7 @@ on:
     paths:
       - ".codex/**"
       - ".agents/skills/**"
+      - ".agents/plugins/marketplace.json"
       - "scripts/codespaces/bootstrap_codex.sh"
       - "scripts/codespaces/validate_codex_config.py"
       - "tests/codespaces/test_codex_config.py"
@@ -21,6 +22,7 @@ on:
     paths:
       - ".codex/**"
       - ".agents/skills/**"
+      - ".agents/plugins/marketplace.json"
       - "scripts/codespaces/bootstrap_codex.sh"
       - "scripts/codespaces/validate_codex_config.py"
       - "tests/codespaces/test_codex_config.py"
