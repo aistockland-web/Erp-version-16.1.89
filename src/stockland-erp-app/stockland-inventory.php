@@ -184,10 +184,11 @@ function stockland_init_plugin() {
 			5
 		);
 
+		// Main operational readiness is scoped to Core + Accounting. HR schema
+		// readiness is tracked independently and enforced by HR-specific permissions.
 		$application_missing = array_merge(
 			Stockland_Activator::missing_core_tables(),
-			class_exists( 'Stockland_Accounting' ) ? Stockland_Accounting::missing_tables() : array(),
-			class_exists( 'Stockland_HR' ) ? Stockland_HR::missing_tables() : array()
+			class_exists( 'Stockland_Accounting' ) ? Stockland_Accounting::missing_tables() : array()
 		);
 
 		// Table presence alone is not sufficient for accounting runtime safety.
@@ -215,21 +216,20 @@ function stockland_init_plugin() {
 		}
 		if ( class_exists( 'Stockland_HR' ) ) {
 			try {
-				$hr_upgrade_gaps = Stockland_HR::upgrade_gaps();
-				if ( ! empty( $hr_upgrade_gaps ) ) {
-					$application_missing = array_merge( $application_missing, $hr_upgrade_gaps );
-				}
+				$legacy_hr_ready = empty( Stockland_HR::missing_tables() ) && empty( Stockland_HR::upgrade_gaps() );
+				$lifecycle_hr_ready = class_exists( 'Stockland_HR_Lifecycle' ) && empty( Stockland_HR_Lifecycle::missing_tables() );
+				update_option( 'stockland_hr_module_schema_ready', $legacy_hr_ready && $lifecycle_hr_ready ? 1 : 0, false );
 			} catch ( Throwable $e ) {
-				$application_missing[] = 'hr_upgrade_check_failed';
+				update_option( 'stockland_hr_module_schema_ready', 0, false );
 				update_option(
-					'stockland_boot_error',
+					'stockland_hr_schema_diagnostic',
 					array(
-						'message' => 'HR schema upgrade check: ' . $e->getMessage(),
+						'message' => 'HR schema readiness is pending: ' . $e->getMessage(),
 						'time'    => current_time( 'mysql' ),
 					),
 					false
 				);
-				Stockland_Runtime_Diagnostics::log_error( 'Stockland ERP HR schema gate error: ' . $e->getMessage() );
+				Stockland_Runtime_Diagnostics::log_error( 'Stockland ERP HR schema readiness check: ' . $e->getMessage() );
 			}
 		}
 
