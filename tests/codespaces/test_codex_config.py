@@ -19,10 +19,10 @@ class CodexConfigurationTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("one thread", result.stdout)
 
-    def test_devcontainer_uses_free_machine_minimum(self) -> None:
+    def test_devcontainer_uses_requested_16gb_machine_profile(self) -> None:
         config = json.loads((ROOT / ".devcontainer/devcontainer.json").read_text())
         self.assertEqual(config.get("hostRequirements"), {
-            "cpus": 2, "memory": "8gb", "storage": "32gb"
+            "cpus": 4, "memory": "16gb", "storage": "64gb"
         })
 
     def test_no_marketplace_or_external_server_configuration(self) -> None:
