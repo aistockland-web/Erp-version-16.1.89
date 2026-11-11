@@ -155,7 +155,9 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: stockland-mysql8-upgrade-evidence
-          path: artifacts/codespaces/*.txt
+          path: |
+            artifacts/codespaces/*.txt
+            artifacts/codespaces/*.json
           if-no-files-found: warn
 
       - name: Capture service logs on failure
