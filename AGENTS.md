@@ -128,3 +128,35 @@ A SHA-256 is an integrity identifier, not a signature or release approval. A pas
 Do not merge a production release, tag/publish a GitHub Release, sign a certificate, install an update or deploy to the live site until the final cumulative installer passes all applicable gates and the Owner explicitly authorizes release/deployment. No production DB or live WordPress mutation from this agent.
 
 The final product remains one cumulative Stockland WordPress ERP, one canonical source commit, one installable ZIP and one independently recomputed package SHA-256 with a full evidence bundle.
+
+
+## 8. Owner's single final-delivery objective — mandatory for every agent/chat
+
+Read `docs/AGENT_FIRST_PROMPT.md` first, then `docs/engineering/STOCKLAND_ERP_FINAL_CODESPACES_ONE_CLICK_RELEASE_RUNBOOK_2026-11-11.md`. These files make the Owner's fixed product goal and execution sequence explicit for every Codespaces, GitHub, Notion and other ChatGPT agent session.
+
+The sole goal is one complete cumulative Stockland Ethiopia WordPress ERP/PWA, preserving the compatible work of the full 5 August–5 November 2026 project history and the November integration; one reproducible containerized development/QA environment; full authenticated end-to-end business workflows including the full HR/payroll lifecycle; one exact-source, one-click installable WordPress plugin ZIP; and one complete acceptance evidence chain. Do not start a greenfield/sample app, change framework/product, fragment the solution into competing plugins, reduce the agreed business scope, or restart from 16.1.95. Treat defects as root-cause engineering work: reproduce the concrete scenario, fix source/config/migration, add regression coverage, rerun exact CI and commit the repair.
+
+The Owner authorizes routine in-scope repository investigation, code/config edits, isolated tests, focused commits, branch pushes and review PRs using current connected access. Do not ask for individual permission for ordinary file changes or commits. Never push directly to main, force-push, rewrite history or merge/release/deploy to production without the relevant explicit release authorization. Never put secrets or real business/employee data in code, logs, artifacts or chat.
+
+## 9. Canonical delivery branch and Codespaces source intake — 11 November 2026
+
+This delivery branch is based on the latest previously verified PR #83 exact head `cc2bde441022a0ee11df76756df22c10bdc6d910`. Refresh current refs before use. It carries the corrected container/E2E path plus:
+- `docs/AGENT_FIRST_PROMPT.md` — copy-ready instruction for the next agent session.
+- `docs/engineering/STOCKLAND_ERP_FINAL_CODESPACES_ONE_CLICK_RELEASE_RUNBOOK_2026-11-11.md` — detailed single-goal project and release runbook.
+- `scripts/codespaces/verify_candidate_archives.py` and the safe .13 source materializer under `scripts/codespaces/bootstrap_project_source.*`.
+- `src/README.md` describing the canonical editable application folder.
+- `.github/workflows/stockland-final-delivery-preflight.yml` validating the source importer, exact archive manifest and rebuild-preservation behavior.
+
+The Codespaces `.devcontainer/post-create.sh` now creates or reuses the separate repaired .15 QA archive/lock, validates the exact candidate, verifies the original .13 archive and materializes the editable .13 application at `src/stockland-erp-app/` with `src/.stockland-erp-app.source.json`. The repair changes only the audited PHP opening-tag defect in a separate test artifact; the original .15 ZIP remains byte-identical. A partial generated-artifact set is reported without deleting any files. A pre-existing unmarked source directory is never overwritten.
+
+First boot and rebuild must preserve existing marked source edits and all unrelated user files. Confirm `git status` before/after post-create. The source tree is the canonical runtime edit target; do not edit the temporary extraction or installed WordPress QA copy as the source of truth. Make a separate source-intake commit from the exact manifest before the first runtime behavior fix.
+
+## 10. Required next execution sequence
+
+After Codespaces preflight and source intake, proceed to the full resumable Stockland setup wizard and physical schema/data verification on disposable MariaDB 10.11 and MySQL 8.0.46 databases. The successful PR #83 smoke run did not advance the ERP setup wizard; its 12-table receipt is not full ERP schema acceptance. Continue with role/location allow-deny, inventory/warehouse, POS/cart, wholesale, transfers/receiving, procurement, AP/AR, expenses, cash/bank, GL/PLEDGER, reports/closing, HR lifecycle, two-period payroll, private vault/key lifecycle, browser/PWA, deep security, backup/restore and rollback.
+
+Use the latest explicit Owner schema/HR design decisions; resolve historical table-plan conflicts by exact decision/source/ERD review. Preserve legacy rows, four legacy HR/payroll source tables and all posted history until a reviewed migration, reconciliation, backup/restore, rollback and approval are evidenced. Do not hard-code table counts. Do not invent Ethiopian statutory policy or mark the 24 Amharic-first SOP drafts approved.
+
+Build the final one-click plugin ZIP from the final canonical source commit, not from an unreviewed local folder or test artifact. Include one plugin root, release manifest, full per-file hashes, source commit/tree, dependency/license inventory, SBOM, build receipt, CI evidence, package size and independently calculated SHA-256 sidecar. Upload as a downloadable CI artifact for review. Formal publication, live installation and deployment require the applicable final Owner release decision.
+
+Keep engineering GO and the single product objective throughout. Report exact PASS, FAIL, BLOCKED, NOT RUN and OWNER INPUT REQUIRED states; never convert skipped or partial tests into acceptance.
