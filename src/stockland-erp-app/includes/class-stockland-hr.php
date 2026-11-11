@@ -25,7 +25,9 @@ class Stockland_HR {
 	 * @return array<string> HR/payroll table keys.
 	 */
 	public static function table_keys() {
-		return array_merge( array( 'employees', 'employee_compensation', 'payroll_periods', 'payroll_lines' ), Stockland_HR_Lifecycle::table_keys() );
+		// These four tables are the frozen legacy operational HR/payroll baseline.
+		// The 37-table lifecycle extension is inventoried and installed separately.
+		return array( 'employees', 'employee_compensation', 'payroll_periods', 'payroll_lines' );
 	}
 
 	/**
@@ -34,7 +36,9 @@ class Stockland_HR {
 	 * @return string SHA-256 signature binding approval to the current DDL bytes.
 	 */
 	public static function schema_signature() {
-		$files = array( __FILE__, STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-hr-lifecycle.php' );
+		// Bind legacy-table approvals only to the legacy HR/payroll DDL. The lifecycle
+		// extension has its own independent version and DDL fingerprint.
+		$files = array( __FILE__ );
 		$parts = array();
 		foreach ( $files as $file ) {
 			$digest = is_file( $file ) && is_readable( $file ) ? hash_file( 'sha256', $file ) : false;
@@ -92,9 +96,6 @@ class Stockland_HR {
 				'statutory_status'         => "VARCHAR(20) NOT NULL DEFAULT 'LEGACY' AFTER tax_rule_version",
 				'employer_cost_total'      => 'DECIMAL(14,2) NOT NULL DEFAULT 0.00 AFTER statutory_status',
 				'allowance_breakdown_json' => 'LONGTEXT NULL AFTER net_pay',
-			),
-			'hr_resources' => array(
-				'supersedes_resource_id' => 'BIGINT UNSIGNED NULL AFTER version_label',
 			),
 		);
 	}
@@ -347,8 +348,12 @@ class Stockland_HR {
 	 */
 	public static function install( $batch_size = 0 ) {
 		$batch_size = max( 0, (int) $batch_size );
-		if ( ! is_user_logged_in() || ! current_user_can( 'stockland_install_schema' ) || ! self::schema_migration_approved() ) {
-			throw new RuntimeException( 'Owner approval for this exact additive HR schema version is required before HR tables or columns can be changed.' );
+		$missing_before = self::missing_tables();
+		$gaps_before    = self::upgrade_gaps();
+		$has_existing   = count( $missing_before ) < count( self::table_keys() );
+		$needs_approval = ! empty( $gaps_before ) || ( ! empty( $missing_before ) && $has_existing );
+		if ( ! is_user_logged_in() || ! current_user_can( 'stockland_install_schema' ) || ( $needs_approval && ! self::schema_migration_approved() ) ) {
+			throw new RuntimeException( 'Existing legacy HR/payroll schema changes require explicit Owner approval bound to the exact legacy DDL fingerprint. Fresh creation of the four baseline tables does not authorize lifecycle DDL.' );
 		}
 		global $wpdb;
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
@@ -470,10 +475,6 @@ class Stockland_HR {
             updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY  (id), UNIQUE KEY period_employee (period_id,employee_id), KEY employee_id (employee_id), KEY branch_location_id (branch_location_id), KEY status (status)
           ) ENGINE=InnoDB {$cc};";
-
-				foreach ( Stockland_HR_Lifecycle::table_ddl( $p, $cc ) as $lifecycle_ddl ) {
-			$tables[] = $lifecycle_ddl;
-		}
 
 if ( $batch_size > 0 ) {
 			$missing_now = self::missing_tables();
