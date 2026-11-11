@@ -191,3 +191,21 @@ This test uses disposable synthetic databases only; it did not touch production.
 9. Prove backup, restore and rollback; obtain Owner, HR and Finance acceptance and qualified legal review. Only then tag and publish the single final cumulative installer with an exact SHA-256, build receipt, complete test certificate set and explicit limitations.
 
 Status rules: `PASS`, `FAIL`, `BLOCKED`, `NOT RUN`, and `OWNER INPUT REQUIRED` remain distinct. A green CI workflow, merged PR or Codespaces image build is not production certification. Full-scope engineering remains GO; unrelated healthy ERP modules remain available while only the affected migration, payroll calculation, document access or release action is gated.
+
+
+## 14. Codex-only implementation workflow — free tier
+
+The **official OpenAI Codex IDE extension** (`openai.chatgpt`) in this repository's GitHub Codespace is the sole AI coding agent for implementation. Other ChatGPT conversations may coordinate, clarify requirements, inspect evidence and review results, but must not create competing codebases, duplicate implementations or parallel branches that edit the same feature. They must hand implementation work to the same canonical repository and Codex session.
+
+- Use the official Codex IDE extension inside the Codespace. Sign in with the Owner's existing ChatGPT Free account. Use only the Free allowance.
+- Do not use Codex Cloud/delegated tasks, paid API keys, paid credits, subscriptions, paid model upgrades, paid plugins or third-party AI coding services. Do not request or store API keys, personal access tokens or secrets in chat, source files, terminal history or commits.
+- When the Free allowance is exhausted, stop AI coding and wait for the plan's reset. Do not bypass limits or switch to a paid/API route.
+- Keep GitHub Codespaces on a 2-core machine when available. Review usage under GitHub Settings → Billing. Stop the Codespace when not actively working. Do not add a payment method or enable paid usage for this project. If the free quota is exhausted, wait until it renews.
+- Codex must read this entire `AGENTS.md`, the cross-source reconciliation, the project-wide GO directive and current source/history evidence before changing runtime code. Do not treat a Codex prompt as a replacement for those sources.
+- Maintain one canonical integration path and one current Codex implementation branch at a time. Refresh `main`, PRs, CI and exact source heads before editing. Preserve worktree/untracked state. Never overwrite another chat's work.
+- Work incrementally: source archaeology → operational/MySQL blockers → operations → finance/procurement → HR/resources → UI/PWA → security/recovery → exact cumulative package. Every target needs focused tests, exact-head evidence, a commit and an updated status report before the next target.
+- Use isolated synthetic data and disposable WordPress/MySQL/MariaDB only. Never access production credentials or write production data from the Codespace.
+- Codex may commit and push focused implementation commits and open/update review PRs when its evidence is ready. It must not merge unreviewed PRs, publish releases, tag production, deploy, install on the live site, mutate production data or claim production readiness. Those require separate Owner authorization and exact-package acceptance.
+- If a required source ZIP, database export, approval, legal interpretation, environment permission or free-tier quota is unavailable, record `OWNER INPUT REQUIRED` or `BLOCKED` and continue with independent safe targets. Do not invent missing evidence.
+
+See `docs/engineering/CODEX_FREE_TIER_SETUP.md` for setup links, free-tier boundaries and first-session checks. This section changes the implementation-agent workflow only; it does not change the ERP business scope, source-line decisions, data safeguards or release gates.
