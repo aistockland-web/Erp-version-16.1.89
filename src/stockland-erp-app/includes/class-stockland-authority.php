@@ -65,6 +65,46 @@ class Stockland_Authority {
 		return self::role( $user_id ) === self::OWNER || user_can( $user_id ? $user_id : get_current_user_id(), 'stockland_owner' );
 	}
 
+	/** Fail-closed check for the four legacy operational HR/payroll tables. */
+	private static function legacy_hr_schema_ready() {
+		try {
+			return class_exists( 'Stockland_HR' )
+				&& empty( Stockland_HR::missing_tables() )
+				&& empty( Stockland_HR::upgrade_gaps() );
+		} catch ( Throwable $e ) {
+			return false;
+		}
+	}
+
+	/** Fail-closed check for the separately approved 37-table HR lifecycle extension. */
+	public static function hr_lifecycle_schema_ready() {
+		try {
+			return class_exists( 'Stockland_HR_Lifecycle' )
+				&& empty( Stockland_HR_Lifecycle::missing_tables() );
+		} catch ( Throwable $e ) {
+			return false;
+		}
+	}
+
+	/** Owner-only access gate for lifecycle schema installation and final HR decisions. */
+	public static function can_approve_hr_lifecycle( $user_id = null ) {
+		$uid = $user_id ? $user_id : get_current_user_id();
+		return self::role( $uid ) === self::OWNER && user_can( $uid, 'stockland_owner' ) && user_can( $uid, 'stockland_install_schema' );
+	}
+
+	/** Role/capability gate for lifecycle reads. */
+	public static function can_view_hr_lifecycle( $user_id = null ) {
+		return self::hr_lifecycle_schema_ready() && self::legacy_hr_schema_ready() && self::is_management( $user_id ) && user_can( $user_id ? $user_id : get_current_user_id(), 'stockland_view_hr' );
+	}
+
+	/** Role/capability gate for lifecycle writes. */
+	public static function can_manage_hr_lifecycle( $user_id = null ) {
+		$uid = $user_id ? $user_id : get_current_user_id();
+		return self::hr_lifecycle_schema_ready() && self::legacy_hr_schema_ready()
+			&& in_array( self::role( $uid ), array( self::OWNER, self::MANAGEMENT ), true )
+			&& user_can( $uid, 'stockland_manage_hr' );
+	}
+
 	/**
 	 * Checks whether a user has Owner or Management scope.
 	 *
@@ -463,7 +503,7 @@ class Stockland_Authority {
 	 * @return bool Whether the user may view HR data.
 	 */
 	public static function can_view_hr( $user_id = null ) {
-		return self::is_owner( $user_id ) || self::is_management( $user_id );
+		return self::legacy_hr_schema_ready() && ( self::is_owner( $user_id ) || self::is_management( $user_id ) );
 	}
 
 	/** HR review and compensation classification is available to Owner and Management.
@@ -474,7 +514,7 @@ class Stockland_Authority {
 	 */
 	public static function can_manage_hr( $user_id = null ) {
 		$uid = $user_id ? $user_id : get_current_user_id();
-		return in_array( self::role( $uid ), array( self::OWNER, self::MANAGEMENT ), true ) && user_can( $uid, 'stockland_manage_hr' );
+		return self::legacy_hr_schema_ready() && in_array( self::role( $uid ), array( self::OWNER, self::MANAGEMENT ), true ) && user_can( $uid, 'stockland_manage_hr' );
 	}
 
 	/**
@@ -485,7 +525,7 @@ class Stockland_Authority {
 	 */
 	public static function can_prepare_hr( $user_id = null ) {
 		$uid = $user_id ? $user_id : get_current_user_id();
-		return self::role( $uid ) === self::MANAGEMENT && user_can( $uid, 'stockland_manage_hr' );
+		return self::legacy_hr_schema_ready() && self::role( $uid ) === self::MANAGEMENT && user_can( $uid, 'stockland_manage_hr' );
 	}
 
 	/**
@@ -496,7 +536,7 @@ class Stockland_Authority {
 	 */
 	public static function can_view_payroll( $user_id = null ) {
 		$uid = $user_id ? $user_id : get_current_user_id();
-		return in_array( self::role( $uid ), array( self::OWNER, self::MANAGEMENT ), true ) && user_can( $uid, 'stockland_view_payroll' );
+		return self::hr_lifecycle_schema_ready() && self::legacy_hr_schema_ready() && in_array( self::role( $uid ), array( self::OWNER, self::MANAGEMENT ), true ) && user_can( $uid, 'stockland_view_payroll' );
 	}
 
 	/**
@@ -507,7 +547,7 @@ class Stockland_Authority {
 	 */
 	public static function can_manage_payroll( $user_id = null ) {
 		$uid = $user_id ? $user_id : get_current_user_id();
-		return self::role( $uid ) === self::MANAGEMENT && user_can( $uid, 'stockland_manage_payroll' );
+		return self::hr_lifecycle_schema_ready() && self::legacy_hr_schema_ready() && self::role( $uid ) === self::MANAGEMENT && user_can( $uid, 'stockland_manage_payroll' );
 	}
 
 	/**
@@ -518,7 +558,7 @@ class Stockland_Authority {
 	 */
 	public static function can_approve_payroll( $user_id = null ) {
 		$uid = $user_id ? $user_id : get_current_user_id();
-		return self::role( $uid ) === self::OWNER && user_can( $uid, 'stockland_manage_payroll' );
+		return self::hr_lifecycle_schema_ready() && self::legacy_hr_schema_ready() && self::role( $uid ) === self::OWNER && user_can( $uid, 'stockland_manage_payroll' );
 	}
 
 	/**
