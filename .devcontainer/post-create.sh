@@ -15,6 +15,9 @@ python3 --version
 git --version
 if command -v gh >/dev/null 2>&1; then gh --version; fi
 
+echo "=== Prepare optional local Codex CLI (ChatGPT sign-in remains user-controlled) ==="
+bash scripts/codespaces/bootstrap_codex.sh
+
 echo "=== Prepare only generated QA directories for the non-root workspace user ==="
 WORKSPACE_UID="$(id -u)"
 WORKSPACE_GID="$(id -g)"
