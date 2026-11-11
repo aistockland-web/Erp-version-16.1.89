@@ -113,7 +113,7 @@ jobs:
           set -euo pipefail
           for version in 16_2_13 16_2_15; do
             app="$RUNNER_TEMP/stockland-candidates/$version/stockland-erp-app"
-            while IFS= read -r -d '' file; do node --check "$file"; done < <(find "$app" -type f \\( -name '*.js' -o -name '*.mjs' \\) -print0)
+            while IFS= read -r -d '' file; do node --check "$file"; done < <(find "$app" -type f \( -name '*.js' -o -name '*.mjs' \) -print0)
             while IFS= read -r -d '' file; do python -m json.tool "$file" >/dev/null; done < <(find "$app" -type f -name '*.json' -print0)
           done
       - name: Install repository-locked PostCSS
@@ -144,7 +144,7 @@ jobs:
             const appCss = path.join(app, 'assets/app.css');
             if (fs.existsSync(mod) && fs.existsSync(appCss)) {
               const manifest = JSON.parse(fs.readFileSync(mod, 'utf8'));
-              const built = manifest.modules.map(name => fs.readFileSync(path.join(app, 'assets/css', name), 'utf8').trim()).join('\\n\\n') + '\\n';
+              const built = manifest.modules.map(name => fs.readFileSync(path.join(app, 'assets/css', name), 'utf8').trim()).join('\n\n') + '\n';
               if (built !== fs.readFileSync(appCss, 'utf8')) throw new Error(version + ': CSS module parity failed');
             }
             console.log('PASS ' + version + ': parsed ' + cssFiles.length + ' CSS files');
@@ -185,8 +185,8 @@ jobs:
             f"- 16.2.15: {cand.get('errors',0)} errors; {cand.get('warnings',0)} warnings; {cand.get('fixable',0)} fixable.",
             "- Coding-standard findings are not vulnerability counts. Do not suppress or mislabel them."
           ]
-          with open(sys.argv[3],"a",encoding="utf-8") as f: f.write("\\n".join(rows)+"\\n")
-          print("\\n".join(rows))
+          with open(sys.argv[3],"a",encoding="utf-8") as f: f.write("\n".join(rows)+"\n")
+          print("\n".join(rows))
           if cand.get("errors",0)>base.get("errors",0) or cand.get("warnings",0)>base.get("warnings",0):
             raise SystemExit("FAIL: candidate WPCS counts regress versus .13")
           print("PASS: aggregate candidate WPCS counts do not exceed .13")
