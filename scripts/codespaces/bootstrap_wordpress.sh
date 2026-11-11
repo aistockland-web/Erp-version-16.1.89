@@ -22,6 +22,7 @@ WP_TEST_ADMIN_USER="${WP_TEST_ADMIN_USER:-stockland-qa-admin}"
 export WP_TEST_ADMIN_PASSWORD WP_TEST_ADMIN_USER
 case "$(id -u)" in
   0) WP_RUN_MODE="root" ;;
+  33) WP_RUN_MODE="current" ;;
   *) if command -v sudo >/dev/null 2>&1 && id www-data >/dev/null 2>&1; then WP_RUN_MODE="www-data"; else WP_RUN_MODE="current"; fi ;;
 esac
 run_wp() {
