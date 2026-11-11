@@ -3,7 +3,8 @@ name: Stockland 16.2.13 and 16.2.15 exact-package gates
 on:
   push:
     branches:
-      - infra/stockland-erp-e2e-codespaces-2026-11-11
+      - 'infra/**'
+      - 'fix/**'
     paths:
       - 'STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER (1).zip'
       - 'STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER.zip.sha256'
@@ -14,7 +15,7 @@ on:
       - 'scripts/codespaces/**'
       - '.github/workflows/stockland-candidate-e2e.yml'
   pull_request:
-    branches: [main]
+    branches: [main, 'infra/**']
     paths:
       - 'STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER (1).zip'
       - 'STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER.zip.sha256'
