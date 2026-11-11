@@ -48,6 +48,7 @@ jobs:
           bash -n scripts/codespaces/bootstrap_wordpress_sites.sh
           bash -n scripts/codespaces/bootstrap_mysql8_site.sh
           bash -n scripts/codespaces/smoke_test_sites.sh
+          bash -n scripts/codespaces/wp_cli_wrapper.sh
           bash -n scripts/codespaces/run_mysql8_parity.sh
           python3 ci/codespaces/test_rest_index.py
           python3 -m json.tool ci/codespaces/candidate-packages.json >/dev/null
