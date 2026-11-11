@@ -68,7 +68,12 @@ jobs:
         run: npm ci --prefix ci/cssqa --ignore-scripts --no-audit --no-fund
 
       - name: Verify exact ZIPs, hashes, sidecars and safe extraction
+        id: verify-candidate-packages
         run: python3 ci/codespaces/validate_candidate_packages.py --extract-root "$RUNNER_TEMP/stockland-candidates" --summary "$RUNNER_TEMP/stockland-candidate-summary.json"
+
+      - name: Diagnose PHP entrypoint raw-output candidate
+        if: always()
+        run: python3 ci/codespaces/diagnose_php_entrypoint.py
 
       - name: Print candidate receipt
         run: cat "$RUNNER_TEMP/stockland-candidate-summary.json"
