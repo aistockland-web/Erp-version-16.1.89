@@ -12,6 +12,8 @@ python3 --version
 git --version
 gh --version
 
+bash scripts/codespaces/bootstrap_codex.sh
+
 for extension in curl dom fileinfo json mbstring mysqli openssl pdo_mysql simplexml xml zip; do
   php -r "exit(extension_loaded('$extension') ? 0 : 1);" || {
     echo "Missing PHP extension: $extension" >&2
