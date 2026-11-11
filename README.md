@@ -14,7 +14,7 @@ The authoritative source and acceptance decisions live in the linked Notion engi
 
 Create a Codespace from the active engineering branch:
 
-https://github.com/codespaces/new?repo=aistockland-web%2FErp-version-16.1.89&ref=infra%2Fstockland-erp-e2e-codespaces-2026-11-11
+https://github.com/codespaces/new?repo=aistockland-web%2FErp-version-16.1.89&ref=feat%2Fstockland-free-codespaces-codex-2026-11-11
 
 The Dev Container provisions PHP 8.3, Node 22, Python 3.12, Composer, WP-CLI, MariaDB 10.11 and private WordPress test instances.
 
@@ -38,3 +38,6 @@ The exact archive lock, SHA verification, package extraction, PHP/JavaScript/JSO
 ## Production boundary
 
 This repository's test environments are synthetic and isolated. A successful Codespaces setup or package workflow is not production approval. Full ERP acceptance, schema/ledger reconciliation, WPCS/security scans, backup/restore/rollback, qualified Ethiopian statutory review and Owner/HR/Finance approvals remain separate release gates.
+
+
+The only prepared Free-tier Codespace handover and optional local Codex instructions are in docs/engineering/CODEX_CODESPACES_SETUP_2026-11-11.md. Use this one branch and create one Codespace only after checking remaining GitHub quota.
