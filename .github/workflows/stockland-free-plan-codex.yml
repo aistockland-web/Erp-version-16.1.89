@@ -5,6 +5,7 @@ on:
     branches: ["feat/**", "delivery/**"]
     paths:
       - ".codex/**"
+      - ".agents/skills/**"
       - "scripts/codespaces/bootstrap_codex.sh"
       - "scripts/codespaces/validate_codex_config.py"
       - "tests/codespaces/test_codex_config.py"
@@ -19,6 +20,7 @@ on:
     branches: [main, "delivery/**"]
     paths:
       - ".codex/**"
+      - ".agents/skills/**"
       - "scripts/codespaces/bootstrap_codex.sh"
       - "scripts/codespaces/validate_codex_config.py"
       - "tests/codespaces/test_codex_config.py"
@@ -50,7 +52,7 @@ jobs:
           python-version: "3.12"
       - name: Validate devcontainer JSON
         run: python3 -m json.tool .devcontainer/devcontainer.json >/dev/null
-      - name: Validate TOML, sandbox roles, no plugins or credentials
+      - name: Validate TOML, sandbox roles, free Copilot, skill and no plugins or credentials
         run: python3 scripts/codespaces/validate_codex_config.py
       - name: Run policy regression tests
         run: python3 -m unittest discover -s tests/codespaces -p 'test_codex_config.py' -v
