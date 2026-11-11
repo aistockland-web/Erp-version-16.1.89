@@ -1,0 +1,64 @@
+name: Stockland Free-plan Codex and one-Codespace configuration
+
+on:
+  push:
+    branches:
+      - "feat/stockland-free-plan-codex-16gb-2026-11-11"
+      - "delivery/**"
+    paths:
+      - ".codex/**"
+      - ".agents/skills/stockland-erp-delivery/**"
+      - ".devcontainer/devcontainer.json"
+      - "scripts/codespaces/bootstrap_codex.sh"
+      - "scripts/codespaces/test_codex_config.py"
+      - "docs/engineering/CODEX_FREE_PLAN_AND_ONE_CODESPACE_2026-11-11.md"
+      - "docs/AGENT_FIRST_PROMPT.md"
+      - "AGENTS.md"
+  pull_request:
+    branches:
+      - "delivery/**"
+      - "main"
+    paths:
+      - ".codex/**"
+      - ".agents/skills/stockland-erp-delivery/**"
+      - ".devcontainer/devcontainer.json"
+      - "scripts/codespaces/bootstrap_codex.sh"
+      - "scripts/codespaces/test_codex_config.py"
+      - "docs/engineering/CODEX_FREE_PLAN_AND_ONE_CODESPACE_2026-11-11.md"
+      - "docs/AGENT_FIRST_PROMPT.md"
+      - "AGENTS.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stockland-free-codex-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-project-codex:
+    name: Validate project-scoped Codex, Free-plan policy, and machine minimum
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Validate TOML agents, no paid service dependency, and machine requirement
+        run: python scripts/codespaces/test_codex_config.py
+      - name: Validate Codex bootstrap shell syntax
+        run: bash -n scripts/codespaces/bootstrap_codex.sh
+      - name: Validate Dev Container JSON
+        run: python -m json.tool .devcontainer/devcontainer.json >/dev/null
+      - name: Validate Python syntax
+        run: python -m py_compile scripts/codespaces/test_codex_config.py
+      - name: Check whitespace and conflict markers
+        run: |
+          set -euo pipefail
+          git diff --check
+          if grep -RInE "^(<<<<<<<|=======|>>>>>>>)" .codex .agents/skills scripts/codespaces/bootstrap_codex.sh scripts/codespaces/test_codex_config.py; then
+            echo "Conflict marker found in Codex configuration." >&2
+            exit 1
+          fi

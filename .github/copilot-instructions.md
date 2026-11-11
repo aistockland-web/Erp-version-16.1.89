@@ -34,3 +34,13 @@ The dotnet-codespaces repository is reference material only. Do not introduce .N
 ## Reporting
 
 Use PASS, FAIL, BLOCKED, NOT RUN and OWNER INPUT distinctly. Name the exact branch/SHA, files, tests, workflow run and artifact hash. Never call a candidate production-ready based only on static syntax, successful environment creation or a green CI workflow.
+
+
+## Free-only, one-Codespace and schema Target 6 safeguards
+
+- The only allowed interactive workspace is one Codespace with a manually selected 4-core / 16-GB RAM machine. The devcontainer sets 4 CPUs / 16 GB as a minimum only; it cannot cap the machine at 16 GB. Never select 8-core / 32-GB or enable paid overage.
+- GitHub Free personal quota is 120 core-hours and 15 GB-month storage. Four cores consume four core-hours per active hour. The current custom PHP base image counts toward measured storage; monitor the actual quota and do not claim this environment is storage-free.
+- Local Codex CLI/IDE only, with ChatGPT sign-in and Free usage limits. Do not require Codex Cloud, API keys, third-party paid plugins, or marketplace agents. No API-key fallback.
+- Follow latest Owner HR/schema Target 6. Keep the four legacy HR/payroll tables separate from the 37 lifecycle extension and 33 HRX keys. Do not auto-create lifecycle tables, auto-alter legacy HR/payroll columns, or infer approval from counts. Core + Accounting readiness must not be globally blocked by pending HR extension approval. New pension DDL must not silently default to 7%/11%; never rewrite historic values.
+- Do not run the divergent QA branch global-ready setup loop or the 16.2.15 wizard unchanged. First implement and test module-scoped schema gating, then test permitted baseline setup on disposable databases.
+- The standalone aistockland-web/Erp UI repository is a design-only reference, not the ERP runtime. Preserve the canonical authenticated WordPress app and API contracts.

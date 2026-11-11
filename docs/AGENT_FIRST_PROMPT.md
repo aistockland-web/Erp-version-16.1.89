@@ -7,7 +7,7 @@ You are continuing the existing Stockland Ethiopia ERP project. The Owner's obje
 1. Read repository-root `AGENTS.md`.
 2. Read [the final Codespaces and one-click release runbook](engineering/STOCKLAND_ERP_FINAL_CODESPACES_ONE_CLICK_RELEASE_RUNBOOK_2026-11-11.md).
 3. Read [the three-month history handover](engineering/STOCKLAND_ERP_THREE_MONTH_HISTORY_RECONCILIATION_AND_PRE_CODESPACE_HANDOVER_2026-11-05.md) and [incremental delivery directive](engineering/STOCKLAND_ERP_INCREMENTAL_TARGET_COMMITS_AND_PRODUCTION_COMPLETION_2026-11-05.md).
-4. Read the latest Notion records linked from AGENTS.md: 9 Nov cumulative deep audit, 11 Nov dual-version Codespaces/E2E, 11 Nov next execution target, and full HR/payroll requirements.
+4. Read the latest Notion records linked from AGENTS.md: 9 Nov cumulative deep audit, 11 Nov dual-version Codespaces/E2E, 11 Nov next execution target, Owner HR/schema Target 6, HR Design Reset and full HR/payroll requirements. Read docs/engineering/CODEX_FREE_PLAN_AND_ONE_CODESPACE_2026-11-11.md before setting up Codex or Codespaces.
 5. Refresh live GitHub branches, ancestry, PRs, exact workflow runs/jobs/artifacts, package locks and branch protections. The last verified successful E2E base is PR #83 head `cc2bde441022a0ee11df76756df22c10bdc6d910`; this is a historical anchor until refreshed.
 
 ## One canonical product and source line
@@ -62,7 +62,7 @@ Database port 3306 stays internal; browser preview ports stay private. Use only 
 
 After preflight, inventory the real source tree, all three-month project commits/branches/PRs, current exact CI results, existing tests, migration code, REST routes, app pages, services, schema and source provenance. Build or update the History & Integration Register. Map useful work to files and tests; retain/port/reconcile it with provenance. The standalone `aistockland-web/Erp` UI repository is a static design reference, not an ERP runtime. The older upstream and bot mirror are historical source references. Do not lose useful existing work or merge branches wholesale.
 
-Start with the immediate next target in the Notion execution record: advance the real setup wizard on isolated/restorable .13 baseline and .13→repaired-.15 upgrade databases on MariaDB 10.11 and MySQL 8.0.46. Capture resumable before/after SQL exports, exact table/column/index/FK fingerprints, row counts and migration receipts. Reconcile schema design with the latest explicit Owner decision; do not activate unapproved tables or hard-code a table count as permission. Preserve the legacy HR/payroll source and all posted records until dependency/data-health, migration, reconciliation and rollback evidence is complete.
+Start with the current Target 6 Notion execution record: implement the module-scoped schema gate before advancing the real setup wizard. Do NOT run the divergent QA branch global-ready loop or the 16.2.15 setup wizard unchanged; those paths can create unapproved HR lifecycle tables and alter existing HR columns. Separate Core + Accounting baseline readiness from the HR lifecycle extension, then execute approved setup only on isolated/restorable .13 baseline and .13→repaired-.15 upgrade databases on MariaDB 10.11 and MySQL 8.0.46. Capture resumable before/after SQL exports, physical table/column/index/FK fingerprints, row counts and migration receipts. Keep HR lifecycle as approval-required/not-installed until the Owner-approved ERD/migration exists. Preserve legacy HR/payroll source and all posted records until dependency/data-health, migration, reconciliation and rollback evidence is complete.
 
 ## Full product delivery scope
 
@@ -89,3 +89,8 @@ Build one complete WordPress plugin ZIP from the final canonical commit. It must
 Do not declare production readiness until the exact final source/package, full database and business workflows, security, payroll/legal, backup/restore/rollback, browser/PWA, stakeholder and Owner acceptance are evidenced. Continue engineering GO throughout; keep each technical/legal gate visible and close it with an actual fix or required approval.
 
 **This is the sole delivery objective. Start from the current repository/Codespace state, fix forward, commit incrementally and finish the complete Stockland ERP.**
+
+
+## GitHub Free and single-Codespace constraint
+
+Use only one Codespace. The repository requires a minimum of 4 CPUs and 16 GB RAM; GitHub devcontainer requirements are minimums, not maximums. In the GitHub machine picker manually select the 4-core / 16-GB option and never select 8-core / 32-GB. GitHub Free personal usage is 120 core-hours and 15 GB-month storage; the 4-core choice consumes four core-hours per active hour. The current custom PHP base image also contributes to measured storage. Check current account quota before creating the Codespace, keep prebuilds off, stop when idle, and do not add paid overage/payment. Use local Codex CLI/IDE with ChatGPT sign-in only when useful; Free usage is limited and Codex Cloud/API-key billing is not part of this project. See docs/engineering/CODEX_FREE_PLAN_AND_ONE_CODESPACE_2026-11-11.md.

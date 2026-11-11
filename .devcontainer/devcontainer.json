@@ -17,7 +17,11 @@
       "enableNonRootDocker": true
     }
   },
-  "forwardPorts": [8080, 8081, 8082],
+  "forwardPorts": [
+    8080,
+    8081,
+    8082
+  ],
   "portsAttributes": {
     "8080": {
       "label": "Stockland ERP 16.2.13 operational baseline — private QA",
@@ -48,5 +52,9 @@
         "redhat.vscode-yaml"
       ]
     }
+  },
+  "hostRequirements": {
+    "cpus": 4,
+    "memory": "16gb"
   }
 }
