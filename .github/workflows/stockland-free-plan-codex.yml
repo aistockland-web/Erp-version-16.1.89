@@ -9,6 +9,10 @@ on:
       - "scripts/codespaces/validate_codex_config.py"
       - "tests/codespaces/test_codex_config.py"
       - ".devcontainer/devcontainer.json"
+      - "README.md"
+      - "AGENTS.md"
+      - "docs/AGENT_FIRST_PROMPT.md"
+      - "docs/engineering/CODEX_CODESPACES_SETUP_2026-11-11.md"
       - ".github/workflows/stockland-free-plan-codex.yml"
   pull_request:
     branches: [main, "delivery/**"]
@@ -18,6 +22,10 @@ on:
       - "scripts/codespaces/validate_codex_config.py"
       - "tests/codespaces/test_codex_config.py"
       - ".devcontainer/devcontainer.json"
+      - "README.md"
+      - "AGENTS.md"
+      - "docs/AGENT_FIRST_PROMPT.md"
+      - "docs/engineering/CODEX_CODESPACES_SETUP_2026-11-11.md"
       - ".github/workflows/stockland-free-plan-codex.yml"
   workflow_dispatch:
 
