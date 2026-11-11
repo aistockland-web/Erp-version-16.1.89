@@ -37,11 +37,17 @@ class CodexConfigurationTests(unittest.TestCase):
         self.assertIn("GitHub.copilot", extensions)
         self.assertIn("GitHub.copilot-chat", extensions)
 
-    def test_no_marketplace_or_external_server_configuration(self) -> None:
+    def test_pinned_optional_superpowers_and_no_external_mcp_or_credentials(self) -> None:
         config = tomllib.loads((ROOT / ".codex/config.toml").read_text())
-        self.assertNotIn("plugins", config)
+        self.assertEqual(config["plugins"], {"superpowers@stockland-codex": {"enabled": True}})
         self.assertNotIn("mcp_servers", config)
         self.assertEqual(config["agents"]["max_concurrent_threads_per_session"], 1)
+        marketplace = json.loads((ROOT / ".agents/plugins/marketplace.json").read_text())
+        self.assertEqual(marketplace["name"], "stockland-codex")
+        plugin = next(item for item in marketplace["plugins"] if item["name"] == "superpowers")
+        self.assertEqual(plugin["source"]["url"], "https://github.com/obra/superpowers")
+        self.assertEqual(plugin["source"]["sha"], "22f0b463e7a5e579904dd6211a520321035526f7")
+        self.assertEqual(plugin["policy"], {"installation": "AVAILABLE", "authentication": "ON_INSTALL"})
 
 
 if __name__ == "__main__":
