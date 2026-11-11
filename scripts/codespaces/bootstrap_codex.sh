@@ -34,6 +34,8 @@ if [[ -f "$PROFILE_FILE" ]]; then
 else
   printf '%s\n' 'export PATH="$HOME/.local/bin:$PATH"' > "$PROFILE_FILE"
 fi
+# Superpowers' optional visual companion telemetry is disabled in this project.
+grep -Fq 'export SUPERPOWERS_DISABLE_TELEMETRY=true' "$PROFILE_FILE" || printf '%s\n' 'export SUPERPOWERS_DISABLE_TELEMETRY=true' >> "$PROFILE_FILE"
 echo "Optional Codex CLI installed."
 echo "When ready, run: codex login --device-auth"
 echo "Choose Sign in with ChatGPT. Do not use an API key or commit auth files."
