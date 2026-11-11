@@ -54,34 +54,34 @@ final class Stockland_REST_HR_Payroll_Cycle extends Stockland_REST_Base {
 		register_rest_route( $ns, '/hr/payroll-payment-batches/(?P<id>\d+)/items/(?P<item_id>\d+)/result', array( 'methods'=>'POST', 'callback'=>array( $this, 'record_payment_result' ), 'permission_callback'=>function(){ return $this->can_finance(); } ) );
 		register_rest_route( $ns, '/hr/payroll-payment-batches/(?P<id>\d+)/reconcile', array( 'methods'=>'POST', 'callback'=>array( $this, 'reconcile_payment_batch' ), 'permission_callback'=>function(){ return Stockland_Authority::can_approve_payroll(); } ) );
 		register_rest_route( $ns, '/hr/statutory-remittances/(?P<id>\d+)/reconcile', array( 'methods'=>'POST', 'callback'=>array( $this, 'reconcile_remittance' ), 'permission_callback'=>function(){ return $this->can_finance(); } ) );
-		register_rest_route( $ns, '/hr/employee-reimbursements', array( array( 'methods'=>'GET', 'callback'=>array( $this, 'list_reimbursements' ), 'permission_callback'=>function(){ return Stockland_Authority::can_view_hr(); } ), array( 'methods'=>'POST', 'callback'=>array( $this, 'create_reimbursement' ), 'permission_callback'=>function(){ return Stockland_Authority::can_manage_hr() || Stockland_Authority::can_view_hr(); } ) ) );
+		register_rest_route( $ns, '/hr/employee-reimbursements', array( array( 'methods'=>'GET', 'callback'=>array( $this, 'list_reimbursements' ), 'permission_callback'=>function(){ return Stockland_Authority::can_view_hr_lifecycle(); } ), array( 'methods'=>'POST', 'callback'=>array( $this, 'create_reimbursement' ), 'permission_callback'=>function(){ return Stockland_Authority::can_manage_hr_lifecycle() || Stockland_Authority::can_view_hr_lifecycle(); } ) ) );
 		register_rest_route( $ns, '/hr/employee-reimbursements/(?P<id>\d+)/approve', array( 'methods'=>'POST', 'callback'=>array( $this, 'approve_reimbursement' ), 'permission_callback'=>function(){ return Stockland_Authority::can_approve_payroll(); } ) );
 		register_rest_route( $ns, '/hr/employee-reimbursements/(?P<id>\d+)/pay', array( 'methods'=>'POST', 'callback'=>array( $this, 'pay_reimbursement' ), 'permission_callback'=>function(){ return Stockland_Authority::can_approve_payroll(); } ) );
 
 		register_rest_route( $ns, '/hr/individual-payees', array(
-			array( 'methods'=>'GET', 'callback'=>array( $this, 'list_payees' ), 'permission_callback'=>function(){ return Stockland_Authority::can_view_hr(); } ),
-			array( 'methods'=>'POST', 'callback'=>array( $this, 'create_payee' ), 'permission_callback'=>function(){ return Stockland_Authority::can_manage_hr(); } ),
+			array( 'methods'=>'GET', 'callback'=>array( $this, 'list_payees' ), 'permission_callback'=>function(){ return Stockland_Authority::can_view_hr_lifecycle(); } ),
+			array( 'methods'=>'POST', 'callback'=>array( $this, 'create_payee' ), 'permission_callback'=>function(){ return Stockland_Authority::can_manage_hr_lifecycle(); } ),
 		) );
 		register_rest_route( $ns, '/hr/individual-payees/(?P<id>\d+)/approve', array( 'methods'=>'POST', 'callback'=>array( $this, 'approve_payee' ), 'permission_callback'=>function(){ return Stockland_Authority::can_approve_payroll(); } ) );
-		register_rest_route( $ns, '/hr/individual-payees/(?P<id>\d+)/obligations', array( 'methods'=>'POST', 'callback'=>array( $this, 'create_payee_obligation' ), 'permission_callback'=>function(){ return Stockland_Authority::can_manage_hr(); } ) );
-		register_rest_route( $ns, '/hr/individual-payee-obligations', array( 'methods'=>'GET', 'callback'=>array( $this, 'list_payee_obligations' ), 'permission_callback'=>function(){ return Stockland_Authority::can_view_hr(); } ) );
+		register_rest_route( $ns, '/hr/individual-payees/(?P<id>\d+)/obligations', array( 'methods'=>'POST', 'callback'=>array( $this, 'create_payee_obligation' ), 'permission_callback'=>function(){ return Stockland_Authority::can_manage_hr_lifecycle(); } ) );
+		register_rest_route( $ns, '/hr/individual-payee-obligations', array( 'methods'=>'GET', 'callback'=>array( $this, 'list_payee_obligations' ), 'permission_callback'=>function(){ return Stockland_Authority::can_view_hr_lifecycle(); } ) );
 		register_rest_route( $ns, '/hr/individual-payee-obligations/(?P<id>\d+)/decision', array( 'methods'=>'POST', 'callback'=>array( $this, 'decide_payee_obligation' ), 'permission_callback'=>function(){ return Stockland_Authority::can_approve_payroll(); } ) );
 		register_rest_route( $ns, '/hr/individual-payee-obligations/(?P<id>\d+)/pay', array( 'methods'=>'POST', 'callback'=>array( $this, 'pay_payee_obligation' ), 'permission_callback'=>function(){ return Stockland_Authority::can_approve_payroll(); } ) );
 		register_rest_route( $ns, '/hr/individual-payee-obligations/(?P<id>\d+)/settle-in-kind', array( 'methods'=>'POST', 'callback'=>array( $this, 'settle_payee_in_kind' ), 'permission_callback'=>function(){ return Stockland_Authority::can_approve_payroll(); } ) );
 
 		register_rest_route( $ns, '/hr/resources', array(
-			array( 'methods'=>'GET', 'callback'=>array( $this, 'list_resources' ), 'permission_callback'=>function(){ return Stockland_Authority::can_view_hr(); } ),
-			array( 'methods'=>'POST', 'callback'=>array( $this, 'upload_resource' ), 'permission_callback'=>function(){ return Stockland_Authority::can_manage_hr(); } ),
+			array( 'methods'=>'GET', 'callback'=>array( $this, 'list_resources' ), 'permission_callback'=>function(){ return Stockland_Authority::can_view_hr_lifecycle(); } ),
+			array( 'methods'=>'POST', 'callback'=>array( $this, 'upload_resource' ), 'permission_callback'=>function(){ return Stockland_Authority::can_manage_hr_lifecycle(); } ),
 		) );
 		register_rest_route( $ns, '/hr/resources/(?P<id>\d+)/approve', array( 'methods'=>'POST', 'callback'=>array( $this, 'approve_resource' ), 'permission_callback'=>function(){ return Stockland_Authority::can_approve_payroll(); } ) );
-		register_rest_route( $ns, '/hr/resources/(?P<id>\\d+)/revise', array( 'methods'=>'POST', 'callback'=>array( $this, 'revise_resource' ), 'permission_callback'=>function(){ return Stockland_Authority::can_manage_hr(); } ) );
-		register_rest_route( $ns, '/hr/resources/(?P<id>\d+)/download', array( 'methods'=>'GET', 'callback'=>array( $this, 'download_resource' ), 'permission_callback'=>function(){ return Stockland_Authority::can_view_hr(); } ) );
+		register_rest_route( $ns, '/hr/resources/(?P<id>\\d+)/revise', array( 'methods'=>'POST', 'callback'=>array( $this, 'revise_resource' ), 'permission_callback'=>function(){ return Stockland_Authority::can_manage_hr_lifecycle(); } ) );
+		register_rest_route( $ns, '/hr/resources/(?P<id>\d+)/download', array( 'methods'=>'GET', 'callback'=>array( $this, 'download_resource' ), 'permission_callback'=>function(){ return Stockland_Authority::can_view_hr_lifecycle(); } ) );
 
 		register_rest_route( $ns, '/hr/management-social', array(
-			array( 'methods'=>'GET', 'callback'=>array( $this, 'list_social' ), 'permission_callback'=>function(){ return Stockland_Authority::can_view_hr(); } ),
-			array( 'methods'=>'POST', 'callback'=>array( $this, 'create_social_campaign' ), 'permission_callback'=>function(){ return Stockland_Authority::can_manage_hr(); } ),
+			array( 'methods'=>'GET', 'callback'=>array( $this, 'list_social' ), 'permission_callback'=>function(){ return Stockland_Authority::can_view_hr_lifecycle(); } ),
+			array( 'methods'=>'POST', 'callback'=>array( $this, 'create_social_campaign' ), 'permission_callback'=>function(){ return Stockland_Authority::can_manage_hr_lifecycle(); } ),
 		) );
-		register_rest_route( $ns, '/hr/management-social/(?P<id>\d+)/snapshots', array( 'methods'=>'POST', 'callback'=>array( $this, 'create_social_snapshot' ), 'permission_callback'=>function(){ return Stockland_Authority::can_manage_hr(); } ) );
+		register_rest_route( $ns, '/hr/management-social/(?P<id>\d+)/snapshots', array( 'methods'=>'POST', 'callback'=>array( $this, 'create_social_snapshot' ), 'permission_callback'=>function(){ return Stockland_Authority::can_manage_hr_lifecycle(); } ) );
 	}
 
 	private function legal_rule_bundle( $start, $end ) {
@@ -540,7 +540,7 @@ final class Stockland_REST_HR_Payroll_Cycle extends Stockland_REST_Base {
 	public function list_resources( WP_REST_Request $req ) {
 		global $wpdb;
 		$role = strtoupper( sanitize_key( (string) Stockland_Authority::role() ) );
-		$manager = Stockland_Authority::can_manage_hr() || $this->is_owner();
+		$manager = Stockland_Authority::can_manage_hr_lifecycle() || $this->is_owner();
 		if ( $manager ) {
 			$sql = "SELECT id,resource_code,title,description,role_code,language_code,resource_type,version_label,supersedes_resource_id,file_sha256,file_name,mime_type,status,created_by,approved_by,approved_at,created_at FROM %i WHERE status IN ('DRAFT','APPROVED','SUPERSEDED') ORDER BY COALESCE(supersedes_resource_id,id) DESC,created_at DESC,id DESC";
 			$rows = Stockland_DB::read_results( $wpdb->prepare( $sql, $this->table( 'hr_resources' ) ), ARRAY_A );
@@ -629,7 +629,7 @@ final class Stockland_REST_HR_Payroll_Cycle extends Stockland_REST_Base {
 		try{$r=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',$this->table('hr_resources'),$id),ARRAY_A);if(!$r||$r['status']!=='DRAFT')throw new RuntimeException('Only draft HR resources can be approved.');if((int)$r['created_by']===(int)get_current_user_id())throw new RuntimeException('Maker-checker: a resource creator cannot approve their own resource.');$parentId=(int)($r['supersedes_resource_id']??0);if($parentId>0){$parent=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',$this->table('hr_resources'),$parentId),ARRAY_A);if(!$parent||$parent['status']!=='APPROVED')throw new RuntimeException('The prior document version is no longer current/approved.');if($parent['resource_type']!==$r['resource_type']||$parent['role_code']!==$r['role_code']||$parent['language_code']!==$r['language_code']||$parent['version_label']===$r['version_label'])throw new RuntimeException('A replacement must keep the same document type, role and language and must use a new version label.');if(Stockland_DB::update_record($this->table('hr_resources'),array('status'=>'SUPERSEDED'),array('id'=>$parentId,'status'=>'APPROVED'))===false)throw new RuntimeException('Prior document version could not be superseded.');if(!$this->event('hr-resource',$parentId,'RESOURCE_SUPERSEDED','APPROVED','SUPERSEDED',array('replaced_by_resource_id'=>$id,'new_version'=>$r['version_label'])))throw new RuntimeException('Prior document supersession audit event failed.');}$f=Stockland_HR_Private_Vault::resolve($r['private_file_ref'],$r['file_sha256']);if(is_wp_error($f))throw new RuntimeException($f->get_error_message());if(!hash_equals((string)$r['mime_type'],(string)$f['mime_type'])&&!($r['mime_type']==='application/zip'&&in_array(pathinfo((string)$r['file_name'],PATHINFO_EXTENSION),array('docx','xlsx'),true)))throw new RuntimeException('Stored MIME type no longer matches resource metadata.');if(Stockland_DB::update_record($this->table('hr_resources'),array('status'=>'APPROVED','approved_by'=>get_current_user_id(),'approved_at'=>current_time('mysql')),array('id'=>$id,'status'=>'DRAFT'))===false)throw new RuntimeException('Resource approval update failed.');if(!$this->event('hr-resource',$id,'RESOURCE_APPROVED','DRAFT','APPROVED',array('approval_note'=>$note,'file_sha256'=>$r['file_sha256'])))throw new RuntimeException('Resource approval audit failed.');if(false===Stockland_DB::execute_query('COMMIT'))throw new RuntimeException('Resource approval commit failed.');return rest_ensure_response(array('id'=>$id,'status'=>'APPROVED'));}catch(Throwable $e){Stockland_DB::execute_query('ROLLBACK');return $this->bad('hr_resource_approval_failed',$e->getMessage(),409);}
 	}
 	public function download_resource( WP_REST_Request $req ) {
-		$id=(int)$req['id'];$r=$this->row('hr_resources',$id);$manager=Stockland_Authority::can_manage_hr()||$this->is_owner();if(!$r||($r['status']!=='APPROVED'&&!($manager&&$r['status']==='SUPERSEDED')))return $this->bad('hr_resource_not_available','Only approved current resources or manager-authorized historical versions are downloadable.',404);
+		$id=(int)$req['id'];$r=$this->row('hr_resources',$id);$manager=Stockland_Authority::can_manage_hr_lifecycle()||$this->is_owner();if(!$r||($r['status']!=='APPROVED'&&!($manager&&$r['status']==='SUPERSEDED')))return $this->bad('hr_resource_not_available','Only approved current resources or manager-authorized historical versions are downloadable.',404);
 		$role=strtoupper(sanitize_key((string)Stockland_Authority::role()));if('ALL'!==strtoupper((string)$r['role_code'])&&$role!==strtoupper((string)$r['role_code'])&&!$manager)return $this->bad('hr_resource_forbidden','This resource is not assigned to the authenticated role.',403);
 		$f=Stockland_HR_Private_Vault::resolve($r['private_file_ref'],$r['file_sha256']);if(is_wp_error($f))return $f;
 		// Fail closed: never release private HR files unless the immutable download event is recorded.
@@ -643,7 +643,7 @@ final class Stockland_REST_HR_Payroll_Cycle extends Stockland_REST_Base {
 	public function list_reimbursements( WP_REST_Request $req ) {
 		global $wpdb;
 		$user_id=get_current_user_id();
-		if(Stockland_Authority::can_manage_hr()||$this->is_owner()){
+		if(Stockland_Authority::can_manage_hr_lifecycle()||$this->is_owner()){
 			$rows=Stockland_DB::read_results($wpdb->prepare('SELECT id,claim_code,employee_id,location_id,expense_category,description,business_purpose,incurred_date,amount,currency,receipt_resource_id,status,submitted_at,approved_at,expense_account_code,payable_account_code,payment_method,payment_reference,bank_statement_reference,paid_at,created_by,created_at FROM %i ORDER BY id DESC LIMIT 200',$this->table('hr_employee_reimbursements')),ARRAY_A);
 		}else{
 			$emp=Stockland_DB::read_row($wpdb->prepare('SELECT id FROM %i WHERE wp_user_id=%d LIMIT 1',$this->table('employees'),$user_id),ARRAY_A);
@@ -658,7 +658,7 @@ final class Stockland_REST_HR_Payroll_Cycle extends Stockland_REST_Base {
 		global $wpdb;
 		$emp=Stockland_DB::read_row($wpdb->prepare('SELECT id,employee_id,wp_user_id,branch_location_id,status FROM %i WHERE id=%d',$this->table('employees'),$employee_id),ARRAY_A);
 		if(!$emp||strtoupper((string)$emp['status'])!=='ACTIVE')return $this->bad('hr_reimbursement_employee_invalid','Reimbursement requires an active employee.',409);
-		if(!Stockland_Authority::can_manage_hr()&&!$this->is_owner()&&(int)$emp['wp_user_id']!==(int)get_current_user_id())return $this->bad('hr_reimbursement_self_only','Employees may submit only their own claim; HR can submit on behalf of an employee.',403);
+		if(!Stockland_Authority::can_manage_hr_lifecycle()&&!$this->is_owner()&&(int)$emp['wp_user_id']!==(int)get_current_user_id())return $this->bad('hr_reimbursement_self_only','Employees may submit only their own claim; HR can submit on behalf of an employee.',403);
 		if(!empty($emp['branch_location_id'])&&!Stockland_Authority::can_access_location((int)$emp['branch_location_id']))return $this->bad('hr_location_forbidden','Employee is outside the authenticated location scope.',403);
 		$receipt=Stockland_DB::read_row($wpdb->prepare("SELECT id,status,resource_type,file_sha256 FROM %i WHERE id=%d",$this->table('hr_resources'),$resource_id),ARRAY_A);
 		if(!$receipt||$receipt['status']!=='APPROVED'||$receipt['resource_type']!=='EXPENSE_RECEIPT')return $this->bad('hr_reimbursement_receipt_required','An approved private EXPENSE_RECEIPT resource is required.',409);
