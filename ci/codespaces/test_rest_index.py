@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
 
-from check_rest_index import EXPECTED_ROUTES, validate_index
+from check_rest_index import EXPECTED_ROUTES, load_document, validate_index
 
 
 def valid_index() -> dict:
@@ -40,6 +41,34 @@ class RestIndexContractTests(unittest.TestCase):
         document["routes"]["/stockland/v1/app/bootstrap"] = {"endpoints": []}
         with self.assertRaisesRegex(ValueError, "no endpoint definitions"):
             validate_index(document)
+
+    def test_loads_utf8_bom_rest_index_json(self) -> None:
+        import json
+        import tempfile
+        with tempfile.NamedTemporaryFile("wb") as body:
+            body.write(bytes.fromhex("efbbbf") + json.dumps(valid_index()).encode("utf-8"))
+            body.flush()
+            with patch("sys.argv", ["check_rest_index.py", body.name]):
+                self.assertEqual(len(validate_index(load_document())), 2)
+
+    def test_rejects_non_object_rest_index(self) -> None:
+        import json
+        import tempfile
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8") as body:
+            json.dump(["not", "an", "object"], body)
+            body.flush()
+            with patch("sys.argv", ["check_rest_index.py", body.name]):
+                with self.assertRaisesRegex(ValueError, "REST index JSON must be an object"):
+                    load_document()
+
+    def test_invalid_json_error_includes_response_preview(self) -> None:
+        import tempfile
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8") as body:
+            body.write("<html>WordPress error</html>")
+            body.flush()
+            with patch("sys.argv", ["check_rest_index.py", body.name]):
+                with self.assertRaisesRegex(ValueError, "response preview"):
+                    load_document()
 
     def test_rejects_untyped_rest_index(self) -> None:
         with self.assertRaisesRegex(ValueError, "namespaces array"):

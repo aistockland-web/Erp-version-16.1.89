@@ -20,9 +20,23 @@ smoke_site() {
 
   curl --fail --silent --show-error --retry 10 --retry-all-errors \
     -H "Host: $host_header" "http://$service/wp-login.php" >/dev/null
-  curl --fail --silent --show-error --retry 10 --retry-all-errors \
-    -H "Host: $host_header" "http://$service/wp-json/" \
-    | python3 "$REPO_ROOT/ci/codespaces/check_rest_index.py"
+  local rest_body
+  rest_body="$(mktemp)"
+  if ! curl --fail --silent --show-error --retry 10 --retry-all-errors \
+    -H "Accept: application/json" -H "Host: $host_header" \
+    --output "$rest_body" --write-out "REST HTTP %{http_code}; content-type %{content_type}; bytes %{size_download}\n" \
+    "http://$service/wp-json/"; then
+    rm -f "$rest_body"
+    return 1
+  fi
+  if ! python3 "$REPO_ROOT/ci/codespaces/check_rest_index.py" "$rest_body"; then
+    echo "REST index diagnostic from $service ($site):" >&2
+    head -c 320 "$rest_body" | tr '\n' ' ' >&2
+    printf '\n' >&2
+    rm -f "$rest_body"
+    return 1
+  fi
+  rm -f "$rest_body"
 
   echo "PASS WordPress login, Stockland REST contract and plugin $version at $site"
 }

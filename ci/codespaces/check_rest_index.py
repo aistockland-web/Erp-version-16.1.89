@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import sys
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Any
 
 EXPECTED_ROUTES = {
@@ -57,14 +58,36 @@ def validate_index(document: Mapping[str, Any]) -> list[str]:
     ]
 
 
+def load_document() -> Mapping[str, Any]:
+    if len(sys.argv) > 2:
+        raise ValueError("usage: check_rest_index.py [response-body.json]")
+    if len(sys.argv) == 2:
+        payload = Path(sys.argv[1]).read_bytes()
+    else:
+        payload = sys.stdin.buffer.read()
+    if not payload:
+        raise ValueError("WordPress REST index response body is empty")
+    text = payload.decode("utf-8-sig", errors="replace").strip()
+    try:
+        document = json.loads(text)
+    except json.JSONDecodeError as exc:
+        preview = " ".join(text[:240].split())
+        raise ValueError(
+            f"REST response is not JSON ({exc}); response preview={preview!r}"
+        ) from exc
+    if not isinstance(document, Mapping):
+        raise ValueError("WordPress REST index JSON must be an object")
+    return document
+
+
 def main() -> int:
     try:
-        document = json.load(sys.stdin)
+        document = load_document()
         for message in validate_index(document):
             print(message)
         print("PASS Stockland REST namespace and route contract")
         return 0
-    except (json.JSONDecodeError, ValueError, TypeError) as exc:
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError, TypeError) as exc:
         print(f"FAIL Stockland REST contract: {exc}", file=sys.stderr)
         return 1
 
