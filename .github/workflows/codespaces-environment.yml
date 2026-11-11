@@ -54,7 +54,7 @@ jobs:
         run: |
           set -euo pipefail
           bash .devcontainer/initialize-host.sh
-          docker compose --project-directory . -f .devcontainer/docker-compose.yml --profile mysql8 config --quiet
+          docker compose --project-directory .devcontainer -f .devcontainer/docker-compose.yml --profile mysql8 config --quiet
 
       - name: Build the PHP 8.3 / Node 22 Codespaces toolchain
         run: |
