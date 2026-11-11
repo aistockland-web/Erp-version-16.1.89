@@ -10,6 +10,89 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 final class Stockland_HR_Lifecycle {
 	const SCHEMA_VERSION = '16.2.1';
 
+	/** Returns the DDL fingerprint for this independent 37-table extension. */
+	public static function schema_signature() {
+		$digest = is_file( __FILE__ ) && is_readable( __FILE__ ) ? hash_file( 'sha256', __FILE__ ) : false;
+		return false === $digest ? '' : hash( 'sha256', self::SCHEMA_VERSION . '|' . $digest );
+	}
+
+	/** Returns lifecycle extension keys that are not yet physically present. */
+	public static function missing_tables() {
+		global $wpdb;
+		$prefix = $wpdb->prefix . 'stock_';
+		$found = Stockland_DB::read_col( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $prefix ) . '%' ) );
+		$keys = array();
+		foreach ( (array) $found as $table ) {
+			if ( is_string( $table ) && 0 === strpos( $table, $prefix ) ) {
+				$keys[] = substr( $table, strlen( $prefix ) );
+			}
+		}
+		return array_values( array_diff( self::table_keys(), $keys ) );
+	}
+
+	/** Verifies an explicit Owner approval for the exact lifecycle DDL fingerprint. */
+	public static function approval_is_current() {
+		$approval = get_option( 'stockland_hr_lifecycle_schema_migration_approval', array() );
+		$signature = self::schema_signature();
+		return is_array( $approval )
+			&& '' !== $signature
+			&& self::SCHEMA_VERSION === (string) ( $approval['schema_version'] ?? '' )
+			&& hash_equals( $signature, (string) ( $approval['schema_signature'] ?? '' ) )
+			&& (int) ( $approval['approved_by'] ?? 0 ) > 0
+			&& ! empty( $approval['approved_at'] )
+			&& strlen( trim( (string) ( $approval['reason'] ?? '' ) ) ) >= 12;
+	}
+
+	/**
+	 * Creates only missing lifecycle tables; it never alters legacy tables.
+	 *
+	 * @param int $batch_size Maximum number of missing lifecycle tables to create.
+	 * @return array Physical progress after the bounded batch.
+	 */
+	public static function install( $batch_size = 1 ) {
+		if ( ! is_user_logged_in() || ! current_user_can( 'stockland_install_schema' ) || ! Stockland_Authority::is_owner() || ! self::approval_is_current() ) {
+			throw new RuntimeException( 'Explicit Owner approval for this exact HR lifecycle DDL fingerprint is required. No lifecycle DDL was executed.' );
+		}
+		global $wpdb;
+		$batch_size = max( 1, min( 5, (int) $batch_size ) );
+		$missing = self::missing_tables();
+		$wanted = array_slice( $missing, 0, $batch_size );
+		if ( ! $wanted ) {
+			return array( 'complete' => true, 'installed_batch' => 0, 'missing_tables' => array() );
+		}
+		$ddls = self::table_ddl( $wpdb->prefix, $wpdb->get_charset_collate() );
+		$prefix = $wpdb->prefix . 'stock_';
+		$created = array();
+		foreach ( $ddls as $sql ) {
+			if ( ! preg_match( '/^\\s*CREATE TABLE\\s+([^\\s(]+)/i', $sql, $match ) ) {
+				continue;
+			}
+			$full = trim( $match[1], '`' );
+			$key = preg_replace( '/^' . preg_quote( $prefix, '/' ) . '/', '', $full );
+			if ( ! in_array( $key, $wanted, true ) ) {
+				continue;
+			}
+			$wpdb->last_error = '';
+			$create = preg_replace( '/^\\s*CREATE TABLE\\s+/i', 'CREATE TABLE IF NOT EXISTS ', $sql, 1 );
+			Stockland_DB::execute_query( $create );
+			if ( ! empty( $wpdb->last_error ) ) {
+				throw new RuntimeException( 'HR lifecycle table ' . sanitize_key( $key ) . ' could not be created: ' . $wpdb->last_error );
+			}
+			$exists = Stockland_DB::read_var( $wpdb->prepare( 'SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=%s AND TABLE_NAME=%s', DB_NAME, $prefix . $key ) );
+			if ( ! $exists ) {
+				throw new RuntimeException( 'HR lifecycle table ' . sanitize_key( $key ) . ' was not physically verified.' );
+			}
+			$created[] = $key;
+		}
+		$after = self::missing_tables();
+		return array(
+			'complete' => empty( $after ),
+			'installed_batch' => count( $created ),
+			'created_tables' => $created,
+			'missing_tables' => $after,
+		);
+	}
+
 	public static function table_keys() {
 		return array(
 			'hr_workforce_plans','hr_positions','hr_requisitions','hr_candidates',
