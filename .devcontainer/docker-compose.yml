@@ -137,6 +137,8 @@ services:
       WP_MARIADB_URL: http://localhost:8080
       WP_MYSQL_URL: http://localhost:8081
       STOCKLAND_ARTIFACT_DIR: /artifacts
+      CODESPACE_NAME: ${CODESPACE_NAME:-}
+      GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN: ${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-}
     entrypoint: ["bash", "-lc"]
     command: ["sleep infinity"]
     depends_on:
