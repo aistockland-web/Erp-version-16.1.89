@@ -1,0 +1,129 @@
+name: Stockland 16.2.13 and 16.2.15 exact-package gates
+
+on:
+  push:
+    branches:
+      - infra/stockland-erp-e2e-codespaces-2026-11-11
+    paths:
+      - 'STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER (1).zip'
+      - 'STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER.zip.sha256'
+      - 'STOCKLAND_ERP_16.2.15_LOCAL_REVIEW_CANDIDATE_WORDPRESS_INSTALLER.zip'
+      - 'STOCKLAND_ERP_16.2.15_LOCAL_REVIEW_CANDIDATE_WORDPRESS_INSTALLER.zip.sha256'
+      - 'ci/codespaces/**'
+      - '.devcontainer/**'
+      - 'scripts/codespaces/**'
+      - '.github/workflows/stockland-candidate-e2e.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER (1).zip'
+      - 'STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER.zip.sha256'
+      - 'STOCKLAND_ERP_16.2.15_LOCAL_REVIEW_CANDIDATE_WORDPRESS_INSTALLER.zip'
+      - 'STOCKLAND_ERP_16.2.15_LOCAL_REVIEW_CANDIDATE_WORDPRESS_INSTALLER.zip.sha256'
+      - 'ci/codespaces/**'
+      - '.devcontainer/**'
+      - 'scripts/codespaces/**'
+      - '.github/workflows/stockland-candidate-e2e.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stockland-candidate-e2e-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  exact-package-static:
+    name: Exact package and syntax — PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ["8.3", "8.4"]
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          tools: none
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+
+      - name: Install locked CSS parser
+        run: npm ci --prefix ci/cssqa --ignore-scripts --no-audit --no-fund
+
+      - name: Verify exact ZIPs, hashes, sidecars and safe extraction
+        run: python3 ci/codespaces/validate_candidate_packages.py --extract-root "$RUNNER_TEMP/stockland-candidates" --summary "$RUNNER_TEMP/stockland-candidate-summary.json"
+
+      - name: Print candidate receipt
+        run: cat "$RUNNER_TEMP/stockland-candidate-summary.json"
+
+      - name: Lint every packaged PHP file
+        shell: bash
+        run: |
+          set -euo pipefail
+          for release in 16.2.13 16.2.15; do
+            root="$RUNNER_TEMP/stockland-candidates/$release/stockland-erp-app"
+            count=0
+            while IFS= read -r -d '' file; do
+              php -l "$file" >/dev/null
+              count=$((count + 1))
+            done < <(find "$root" -type f -name '*.php' -print0)
+            echo "PASS PHP ${{ matrix.php }}: $release — $count files"
+          done
+
+      - name: Check packaged JavaScript, JSON and CSS
+        shell: bash
+        run: |
+          set -euo pipefail
+          for release in 16.2.13 16.2.15; do
+            root="$RUNNER_TEMP/stockland-candidates/$release/stockland-erp-app"
+            while IFS= read -r -d '' file; do
+              node --check "$file"
+            done < <(find "$root" -type f -name '*.js' -print0)
+            node ci/codespaces/check_web_assets.js "$root"
+          done
+
+  wordpress-database-e2e:
+    name: WordPress clean install, 16.2.13 → 16.2.15 upgrade and MySQL 8 parity
+    needs: exact-package-static
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Create isolated local-only credentials
+        run: bash .devcontainer/initialize-host.sh
+
+      - name: Start disposable MariaDB and MySQL WordPress sites
+        run: docker compose --project-directory .devcontainer -f .devcontainer/docker-compose.yml --profile mysql8 up -d --build
+
+      - name: Install WP-CLI, bootstrap and smoke-test WordPress
+        run: |
+          set -euo pipefail
+          docker compose --project-directory .devcontainer -f .devcontainer/docker-compose.yml exec -T --user root workspace env COMPOSER_ALLOW_SUPERUSER=1 bash .devcontainer/post-create.sh
+          docker compose --project-directory .devcontainer -f .devcontainer/docker-compose.yml exec -T --user root workspace bash scripts/codespaces/bootstrap_mysql8_site.sh
+          docker compose --project-directory .devcontainer -f .devcontainer/docker-compose.yml exec -T --user root workspace bash scripts/codespaces/smoke_test_sites.sh
+
+      - name: Capture service logs on failure
+        if: failure()
+        run: docker compose --project-directory .devcontainer -f .devcontainer/docker-compose.yml --profile mysql8 logs --no-color
+
+      - name: Remove disposable databases and WordPress volumes
+        if: always()
+        run: docker compose --project-directory .devcontainer -f .devcontainer/docker-compose.yml --profile mysql8 down --volumes --remove-orphans

@@ -1,0 +1,77 @@
+name: Stockland Codespaces environment validation
+
+on:
+  push:
+    branches:
+      - infra/stockland-erp-e2e-codespaces-2026-11-11
+    paths:
+      - '.devcontainer/**'
+      - '.gitignore'
+      - '.github/workflows/codespaces-environment.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.devcontainer/**'
+      - '.gitignore'
+      - '.github/workflows/codespaces-environment.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stockland-codespaces-environment-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate Stockland devcontainer and WordPress services
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Validate devcontainer JSON and shell scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m json.tool .devcontainer/devcontainer.json >/dev/null
+          bash -n .devcontainer/initialize-host.sh
+          bash -n .devcontainer/post-create.sh
+          bash -n scripts/codespaces/bootstrap_wordpress_sites.sh
+          bash -n scripts/codespaces/bootstrap_mysql8_site.sh
+          bash -n scripts/codespaces/smoke_test_sites.sh
+          bash -n scripts/codespaces/run_mysql8_parity.sh
+          python3 -m json.tool ci/codespaces/candidate-packages.json >/dev/null
+
+      - name: Create isolated CI credentials and validate Compose
+        run: |
+          set -euo pipefail
+          bash .devcontainer/initialize-host.sh
+          docker compose --project-directory .devcontainer -f .devcontainer/docker-compose.yml --profile mysql8 config --quiet
+
+      - name: Build the PHP 8.3 / Node 22 Codespaces toolchain
+        run: |
+          docker build --pull --tag stockland-erp-codespaces-qa --file .devcontainer/Dockerfile .devcontainer
+
+      - name: Verify the Codespaces runtime image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm stockland-erp-codespaces-qa php -v
+          docker run --rm stockland-erp-codespaces-qa node --version
+          docker run --rm stockland-erp-codespaces-qa composer --version
+          modules="$(docker run --rm stockland-erp-codespaces-qa php -m)"
+          for extension in curl dom fileinfo json mbstring mysqli openssl pdo_mysql simplexml xml zip; do
+            if ! grep -qi "^$extension$" <<< "$modules"; then
+              echo "Missing PHP extension: $extension" >&2
+              exit 1
+            fi
+          done
+          echo "PASS PHP 8.3, required WordPress extensions, Node 22 and Composer"
