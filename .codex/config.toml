@@ -2,3 +2,6 @@
 # Local CLI only; no API keys, credentials, marketplace plugins, or cloud agents.
 [agents]
 max_concurrent_threads_per_session = 1
+
+[plugins."superpowers@stockland-codex"]
+enabled = true
