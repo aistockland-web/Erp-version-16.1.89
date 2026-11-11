@@ -10,6 +10,9 @@ import re
 import shutil
 import sys
 import tempfile
+import subprocess
+import stat
+import zipfile
 from pathlib import Path, PurePosixPath
 
 BASELINE = {
@@ -17,6 +20,11 @@ BASELINE = {
     "sha256": "74e3205d0b42151997dc356c29b09204688accee817c17a013a70cf90be04c13",
     "size_bytes": 2188684,
     "php_files": 80,
+    "sidecar": "STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER.zip.sha256",
+    "sidecar_logical_filename": "STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER (1).zip",
+    "repository": "aistockland-web/Erp-version-16.1.89",
+    "artifact_commit_sha": "1c3b743296b7a1f4e3b8a0b481e6883b5fed4154",
+    "archive_git_blob_sha": "908bbff20399438c76a15233ecd1b4bc5957fe58",
 }
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -32,6 +40,92 @@ def sha256_file(path: Path) -> str:
 def manifest_digest(files: dict[str, str]) -> str:
     raw = json.dumps(files, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(raw).hexdigest()
+
+
+def git_output(*args: str) -> str:
+    result = subprocess.run(
+        ["git", *args], cwd=ROOT, capture_output=True, text=True, check=False
+    )
+    if result.returncode:
+        detail = result.stderr.strip() or result.stdout.strip()
+        raise RuntimeError(f"Git provenance command failed ({' '.join(args)}): {detail}")
+    return result.stdout.strip()
+
+
+def verify_git_artifact_provenance(report: dict) -> dict:
+    """Verify the pinned ZIP's immutable Git object and its ancestry in this checkout."""
+    recorded = report.get("artifact_provenance")
+    if not isinstance(recorded, dict):
+        raise RuntimeError(".13 intake report has no Git artifact provenance record")
+    expected = {
+        "repository": BASELINE["repository"],
+        "artifact_commit_sha": BASELINE["artifact_commit_sha"],
+        "archive_git_blob_sha": BASELINE["archive_git_blob_sha"],
+    }
+    for key, value in expected.items():
+        if recorded.get(key) != value:
+            raise RuntimeError(f".13 Git artifact provenance mismatch for {key}")
+    verified_head = recorded.get("verified_head_sha")
+    if not isinstance(verified_head, str) or not re.fullmatch(r"[0-9a-f]{40}", verified_head):
+        raise RuntimeError(".13 provenance does not contain a full verified Git HEAD SHA")
+    current_head = git_output("rev-parse", "HEAD")
+    if verified_head != current_head:
+        raise RuntimeError("Package intake report was generated for a different Git HEAD")
+    git_output("merge-base", "--is-ancestor", BASELINE["artifact_commit_sha"], current_head)
+    committed_blob = git_output(
+        "rev-parse", f"{BASELINE['artifact_commit_sha']}:{BASELINE['archive']}"
+    )
+    current_blob = git_output("rev-parse", f"{current_head}:{BASELINE['archive']}")
+    if committed_blob != BASELINE["archive_git_blob_sha"] or current_blob != committed_blob:
+        raise RuntimeError(".13 archive Git blob does not match its pinned artifact provenance")
+    return expected
+
+
+def verify_archive_matches_report(report: dict) -> None:
+    """Recompute archive SHA, sidecar, ZIP safety and every member hash independently."""
+    archive_path = ROOT / BASELINE["archive"]
+    sidecar_path = ROOT / BASELINE["sidecar"]
+    if not archive_path.is_file() or not sidecar_path.is_file():
+        raise RuntimeError("Pinned .13 archive or SHA-256 sidecar is missing from the repository")
+    if archive_path.stat().st_size != BASELINE["size_bytes"]:
+        raise RuntimeError("Pinned .13 archive byte size changed")
+    if sha256_file(archive_path) != BASELINE["sha256"]:
+        raise RuntimeError("Pinned .13 archive SHA-256 changed")
+    sidecar_fields = sidecar_path.read_text(encoding="utf-8").strip().split(maxsplit=1)
+    if sidecar_fields != [BASELINE["sha256"], BASELINE["sidecar_logical_filename"]]:
+        raise RuntimeError("Pinned .13 sidecar digest or logical archive filename changed")
+
+    actual = {}
+    with zipfile.ZipFile(archive_path) as package:
+        if package.testzip() is not None:
+            raise RuntimeError("Pinned .13 archive CRC verification failed")
+        names = [info.filename for info in package.infolist()]
+        if len(names) != len(set(names)):
+            raise RuntimeError("Pinned .13 archive contains duplicate ZIP paths")
+        for info in package.infolist():
+            name = info.filename
+            if not name or "\\\\" in name or name.startswith(("/", "\\\\")):
+                raise RuntimeError(f"Unsafe path in pinned .13 archive: {name!r}")
+            relative = PurePosixPath(name)
+            if relative.is_absolute() or any(part in ("", ".", "..") for part in relative.parts):
+                raise RuntimeError(f"Unsafe path in pinned .13 archive: {name!r}")
+            if not relative.parts or relative.parts[0] != "stockland-erp-app":
+                raise RuntimeError(f"Unexpected root in pinned .13 archive: {name!r}")
+            if stat.S_ISLNK((info.external_attr >> 16) & 0xFFFF):
+                raise RuntimeError(f"Symlink in pinned .13 archive: {name!r}")
+            if info.is_dir():
+                continue
+            actual[str(relative.relative_to("stockland-erp-app"))] = hashlib.sha256(
+                package.read(info)
+            ).hexdigest()
+    if actual != report["files"]:
+        missing = sorted(set(report["files"]) - set(actual))[:8]
+        extra = sorted(set(actual) - set(report["files"]))[:8]
+        changed = sorted(name for name in set(actual) & set(report["files"]) if actual[name] != report["files"][name])[:8]
+        raise RuntimeError(
+            "Intake report file manifest does not match the actual pinned ZIP; "
+            f"missing={missing}, extra={extra}, changed={changed}"
+        )
 
 
 def read_baseline_report(path: Path) -> dict:
@@ -61,6 +155,8 @@ def read_baseline_report(path: Path) -> dict:
             raise RuntimeError(f"Unsafe source path in intake manifest: {name!r}")
         if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
             raise RuntimeError(f"Invalid source digest for {name!r}")
+    verify_git_artifact_provenance(report)
+    verify_archive_matches_report(report)
     return report
 
 
@@ -98,6 +194,9 @@ def verify_source_tree(source: Path, report: dict) -> None:
 def expected_provenance(report: dict) -> dict:
     return {
         "source_version": "16.2.13",
+        "repository": BASELINE["repository"],
+        "artifact_commit_sha": BASELINE["artifact_commit_sha"],
+        "archive_git_blob_sha": BASELINE["archive_git_blob_sha"],
         "archive": BASELINE["archive"],
         "archive_sha256": BASELINE["sha256"],
         "generated_by": "scripts/codespaces/bootstrap_project_source.py",
