@@ -111,19 +111,19 @@ jobs:
         run: bash .devcontainer/initialize-host.sh
 
       - name: Start disposable MariaDB and MySQL WordPress sites
-        run: docker compose --project-directory . -f .devcontainer/docker-compose.yml --profile mysql8 up -d --build
+        run: docker compose --project-directory .devcontainer -f .devcontainer/docker-compose.yml --profile mysql8 up -d --build
 
       - name: Install WP-CLI, bootstrap and smoke-test WordPress
         run: |
           set -euo pipefail
-          docker compose --project-directory . -f .devcontainer/docker-compose.yml exec -T workspace bash .devcontainer/post-create.sh
-          docker compose --project-directory . -f .devcontainer/docker-compose.yml exec -T workspace bash scripts/codespaces/bootstrap_mysql8_site.sh
-          docker compose --project-directory . -f .devcontainer/docker-compose.yml exec -T workspace bash scripts/codespaces/smoke_test_sites.sh
+          docker compose --project-directory .devcontainer -f .devcontainer/docker-compose.yml exec -T workspace bash .devcontainer/post-create.sh
+          docker compose --project-directory .devcontainer -f .devcontainer/docker-compose.yml exec -T workspace bash scripts/codespaces/bootstrap_mysql8_site.sh
+          docker compose --project-directory .devcontainer -f .devcontainer/docker-compose.yml exec -T workspace bash scripts/codespaces/smoke_test_sites.sh
 
       - name: Capture service logs on failure
         if: failure()
-        run: docker compose --project-directory . -f .devcontainer/docker-compose.yml --profile mysql8 logs --no-color
+        run: docker compose --project-directory .devcontainer -f .devcontainer/docker-compose.yml --profile mysql8 logs --no-color
 
       - name: Remove disposable databases and WordPress volumes
         if: always()
-        run: docker compose --project-directory . -f .devcontainer/docker-compose.yml --profile mysql8 down --volumes --remove-orphans
+        run: docker compose --project-directory .devcontainer -f .devcontainer/docker-compose.yml --profile mysql8 down --volumes --remove-orphans
