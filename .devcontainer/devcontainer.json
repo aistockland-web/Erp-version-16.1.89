@@ -1,5 +1,5 @@
 {
-  "name": "Stockland Ethiopia ERP — PHP 8.3 / Node 22 / Python 3.12 / WordPress E2E",
+  "name": "Stockland Ethiopia ERP — Free Codespaces profile (2 core / 8 GB)",
   "dockerComposeFile": "docker-compose.yml",
   "service": "workspace",
   "workspaceFolder": "/workspaces/stockland-erp",
@@ -17,7 +17,11 @@
       "enableNonRootDocker": true
     }
   },
-  "forwardPorts": [8080, 8081, 8082],
+  "forwardPorts": [
+    8080,
+    8081,
+    8082
+  ],
   "portsAttributes": {
     "8080": {
       "label": "Stockland ERP 16.2.13 operational baseline — private QA",
@@ -48,5 +52,10 @@
         "redhat.vscode-yaml"
       ]
     }
+  },
+  "hostRequirements": {
+    "cpus": 2,
+    "memory": "8gb",
+    "storage": "32gb"
   }
 }
