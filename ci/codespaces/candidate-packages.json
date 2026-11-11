@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "packages": [
+    {
+      "release": "16.2.13",
+      "role": "operational_upgrade_baseline",
+      "archive": "STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER (1).zip",
+      "sidecar": "STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER.zip.sha256",
+      "sha256": "74e3205d0b42151997dc356c29b09204688accee817c17a013a70cf90be04c13",
+      "size_bytes": 2188684,
+      "file_count": 113,
+      "php_count": 80
+    },
+    {
+      "release": "16.2.15",
+      "role": "selected_update_candidate",
+      "archive": "STOCKLAND_ERP_16.2.15_LOCAL_REVIEW_CANDIDATE_WORDPRESS_INSTALLER.zip",
+      "sidecar": "STOCKLAND_ERP_16.2.15_LOCAL_REVIEW_CANDIDATE_WORDPRESS_INSTALLER.zip.sha256",
+      "sha256": "8c46bf052dd5d9553964909b6d56268b2c195e8a056f74bfb423ae9d21d142df",
+      "size_bytes": 2206932
+    }
+  ]
+}
