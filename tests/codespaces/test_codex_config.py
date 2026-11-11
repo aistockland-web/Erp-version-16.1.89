@@ -27,7 +27,7 @@ class CodexConfigurationTests(unittest.TestCase):
 
     def test_stockland_delivery_skill_is_present(self) -> None:
         skill = (ROOT / ".agents/skills/stockland-erp-delivery/SKILL.md").read_text()
-        self.assertTrue(skill.startswith("---\\nname: stockland-erp-delivery\\n"))
+        self.assertTrue(skill.startswith("---\nname: stockland-erp-delivery\n"))
         self.assertIn("one complete, production-grade Stockland WordPress ERP/PWA", skill)
         self.assertIn("49 legacy", skill)
 
