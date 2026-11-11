@@ -54,7 +54,7 @@ def main() -> int:
         script = bootstrap_path.read_text(encoding="utf-8")
     except OSError as exc:
         fail(f"Codex bootstrap script is missing: {exc}")
-    if not re.search(r'^CODEX_VERSION="[0-9]+\\.[0-9]+\\.[0-9]+"$', script, re.MULTILINE):
+    if not re.search(r'^CODEX_VERSION="[0-9]+\.[0-9]+\.[0-9]+"$', script, re.MULTILINE):
         fail("Codex CLI package version must be pinned")
     if "@openai/codex@$CODEX_VERSION" not in script:
         fail("bootstrap must install the pinned Codex package")
