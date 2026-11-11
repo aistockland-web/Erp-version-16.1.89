@@ -14,6 +14,27 @@ mkdir -p "$WP213" "$WPUPGRADE" "$PLUGINS213" "$PLUGINSUPGRADE" "$CREDS"
 chmod 700 "$CREDS"
 
 python3 ci/codespaces/verify_installers.py --verify-all --report "$RUNTIME/installer-verification.json"
+
+plugin_entry_for() {
+  python3 - "$RUNTIME/installer-verification.json" "$1" <<'PY'
+import json, sys
+from pathlib import PurePosixPath
+report = json.loads(open(sys.argv[1], encoding="utf-8").read())
+package = next(item for item in report["packages"] if item["version"] == sys.argv[2])
+entry = PurePosixPath(package["plugin_entry_point"]).relative_to("stockland-erp-app")
+print("stockland-erp-app/" + entry.as_posix())
+PY
+}
+
+PLUGIN_213="$(plugin_entry_for 16.2.13)"
+PLUGIN_215="$(plugin_entry_for 16.2.15)"
+if [[ "$PLUGIN_213" != "$PLUGIN_215" ]]; then
+  echo "Candidate changes the WordPress plugin entry path; refusing an implicit in-place update." >&2
+  echo "16.2.13: $PLUGIN_213" >&2
+  echo "16.2.15: $PLUGIN_215" >&2
+  exit 1
+fi
+
 python3 ci/codespaces/verify_installers.py --extract-version 16.2.13 --destination-root "$PLUGINS213"
 python3 ci/codespaces/verify_installers.py --extract-version 16.2.13 --destination-root "$PLUGINSUPGRADE"
 
@@ -75,24 +96,24 @@ print("PASS WordPress REST index and Stockland namespace")
 PY
 }
 
-wait_for_site http://localhost:8080
-wait_for_site http://localhost:8081
+wait_for_site http://wordpress-213
+wait_for_site http://wordpress-upgrade
 
 echo "Install/activate 16.2.13 on MariaDB 10.11"
 install_sandbox wp213 "$CREDS/wordpress-16.2.13-mariadb.env" http://localhost:8080
-wp213 plugin activate stockland-erp-app
-wp213 plugin is-active stockland-erp-app
-check_rest http://localhost:8080 16.2.13-mariadb
+wp213 plugin activate "$PLUGIN_213"
+wp213 plugin is-active "$PLUGIN_213"
+check_rest http://wordpress-213 16.2.13-mariadb
 
 echo "Install/activate 16.2.13 on MySQL 8.0.46"
 install_sandbox wpupgrade "$CREDS/wordpress-upgrade-mysql.env" http://localhost:8081
-wpupgrade plugin activate stockland-erp-app
-wpupgrade plugin is-active stockland-erp-app
+wpupgrade plugin activate "$PLUGIN_213"
+wpupgrade plugin is-active "$PLUGIN_213"
 
 echo "Replace plugin files with verified 16.2.15 candidate; retain test database"
 python3 ci/codespaces/verify_installers.py --extract-version 16.2.15 --destination-root "$PLUGINSUPGRADE"
-wpupgrade plugin is-active stockland-erp-app
-check_rest http://localhost:8081 16.2.15-mysql-update
+wpupgrade plugin is-active "$PLUGIN_215"
+check_rest http://wordpress-upgrade 16.2.15-mysql-update
 
 {
   echo "# Stockland ERP Codespaces acceptance"
