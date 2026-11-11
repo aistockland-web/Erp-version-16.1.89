@@ -28,6 +28,8 @@ def main() -> int:
     config_path = root / ".codex" / "config.toml"
     agents_path = root / ".codex" / "agents"
     bootstrap_path = root / "scripts" / "codespaces" / "bootstrap_codex.sh"
+    devcontainer_path = root / ".devcontainer" / "devcontainer.json"
+    skill_path = root / ".agents" / "skills" / "stockland-erp-delivery" / "SKILL.md"
 
     try:
         config = tomllib.loads(config_path.read_text(encoding="utf-8"))
@@ -51,6 +53,35 @@ def main() -> int:
             fail(f"{filename} has empty instructions")
 
     try:
+        devcontainer = __import__("json").loads(devcontainer_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        fail(f"Dev Container JSON cannot be parsed: {exc}")
+    host = devcontainer.get("hostRequirements", {})
+    if host != {"cpus": 4, "memory": "16gb", "storage": "64gb"}:
+        fail(f"Dev Container must request the Owner's 4-core/16-GB/64-GB profile, found {host!r}")
+    extensions = devcontainer.get("customizations", {}).get("vscode", {}).get("extensions", [])
+    for extension in ("GitHub.copilot", "GitHub.copilot-chat"):
+        if extension not in extensions:
+            fail(f"VS Code extension is missing: {extension}")
+
+    try:
+        skill = skill_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        fail(f"Stockland delivery skill is missing: {exc}")
+    if not skill.startswith("---\\nname: stockland-erp-delivery\\n"):
+        fail("Stockland delivery skill frontmatter is invalid")
+    for required in ("16.2.13", "16.2.15", "16.1.95", "49 legacy", "POS", "payroll"):
+        if required.casefold() not in skill.casefold():
+            fail(f"Stockland delivery skill is missing required project scope: {required}")
+
+    try:
+        copilot = (root / ".github" / "copilot-instructions.md").read_text(encoding="utf-8")
+    except OSError as exc:
+        fail(f"GitHub Copilot repository instructions are missing: {exc}")
+    if "Stockland Ethiopia" not in copilot or "PLEDGER" not in copilot:
+        fail("Copilot instructions do not contain the ERP business scope")
+
+    try:
         script = bootstrap_path.read_text(encoding="utf-8")
     except OSError as exc:
         fail(f"Codex bootstrap script is missing: {exc}")
@@ -65,6 +96,7 @@ def main() -> int:
 
     print("PASS project config and four scoped agent profiles; one thread; no plugins, MCP or API keys.")
     print("PASS optional CLI installer is pinned and uses ChatGPT device authentication.")
+    print("PASS 4-core/16-GB Codespaces profile, Copilot Free extensions, Stockland delivery skill and Copilot instructions.")
     return 0
 
 
