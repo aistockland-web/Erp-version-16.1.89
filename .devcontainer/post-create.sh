@@ -47,6 +47,9 @@ if ! command -v wp >/dev/null 2>&1; then
 fi
 wp --info
 
+mkdir -p "$ROOT/artifacts/codespaces"
+sudo chmod 0777 /artifacts
+
 python3 scripts/codespaces/verify_candidate_archives.py \
   --report "$STOCKLAND_ARTIFACT_DIR/package-intake.json" \
   --extract-root /tmp/stockland-candidate-packages
