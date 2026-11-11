@@ -81,8 +81,10 @@ upgrade_site() {
   marker_value="$(run_wp "$path" "$public_url" option get "$marker")"
   [[ "$marker_value" == "created-on-$engine-before-16.2.15" ]] || { echo "$engine synthetic marker lost" >&2; return 1; }
   count_after="$(run_wp "$path" "$public_url" db query "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE();" --skip-column-names)"
-  curl --fail --silent --header "Host: $host" "http://$internal/wp-json/" >/dev/null
-  curl --fail --silent --header "Host: $host" "http://$internal/wp-login.php" >/dev/null
+  rest_code="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --header "Host: $host" "http://$internal/wp-json/")"
+  login_code="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --header "Host: $host" "http://$internal/wp-login.php")"
+  [[ "$rest_code" =~ ^(200|301|302|307|308)$ ]] || { echo "$engine REST smoke check returned HTTP $rest_code" >&2; return 1; }
+  [[ "$login_code" =~ ^(200|301|302|307|308)$ ]] || { echo "$engine login smoke check returned HTTP $login_code" >&2; return 1; }
   {
     printf 'engine=%s\n' "$engine"
     printf 'database_version=%s\n' "$db_version"
