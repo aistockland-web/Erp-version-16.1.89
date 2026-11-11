@@ -69,7 +69,7 @@ jobs:
           for version in 16.2.13 16.2.15; do
             root="$RUNNER_TEMP/stockland/$version/stockland-erp-app"
             while IFS= read -r -d '' file; do node --check "$file"; done < <(find "$root" -type f -name '*.js' -print0)
-            node ci/codespaces/check_package_assets.js "$root"
+            NODE_PATH="$GITHUB_WORKSPACE/ci/cssqa/node_modules" node ci/codespaces/check_package_assets.js "$root"
           done
       - name: Verifier harness unit tests
         run: python3 -m unittest discover -s ci/codespaces -p 'test_*.py' -v
