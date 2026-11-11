@@ -3,7 +3,7 @@ set -euo pipefail
 
 cd /workspaces/stockland-erp
 
-# The CI Compose runner may mount the checkout under a different host UID.
+# Keep the mounted Codespaces checkout trusted when CI uses a different host UID.
 git config --global --add safe.directory "$PWD"
 
 echo "=== Stockland ERP Codespaces toolchain ==="
@@ -14,6 +14,18 @@ npm --version
 python3 --version
 git --version
 if command -v gh >/dev/null 2>&1; then gh --version; fi
+
+echo "=== Prepare only generated QA directories for the non-root workspace user ==="
+WORKSPACE_UID="$(id -u)"
+WORKSPACE_GID="$(id -g)"
+for directory in ci/cssqa ci/phpcs artifacts/codespaces; do
+  sudo install -d -m 0755 -o "$WORKSPACE_UID" -g "$WORKSPACE_GID" "$directory"
+done
+for generated in ci/cssqa/node_modules ci/phpcs/vendor; do
+  if [[ -e "$generated" ]]; then
+    sudo chown -R "$WORKSPACE_UID:$WORKSPACE_GID" "$generated"
+  fi
+done
 
 echo "=== Required PHP extensions ==="
 php -m
@@ -54,8 +66,13 @@ if ! command -v wp >/dev/null 2>&1; then
 fi
 wp --info
 
-echo "=== Verify both committed installer packages ==="
-python3 ci/codespaces/validate_candidate_packages.py --extract-root /tmp/stockland-candidate-packages
+echo "=== Verify the exact locked baseline and selected repaired candidate ==="
+CANDIDATE_LOCK_PATH="${STOCKLAND_DEV_CANDIDATE_LOCK_PATH:-ci/codespaces/candidate-packages.json}"
+if [[ ! -f "$CANDIDATE_LOCK_PATH" ]]; then
+  echo "Candidate package lock not found: $CANDIDATE_LOCK_PATH" >&2
+  exit 1
+fi
+python3 ci/codespaces/validate_candidate_packages.py --lock-file "$CANDIDATE_LOCK_PATH" --extract-root /tmp/stockland-candidate-packages
 
 echo "=== Bootstrap isolated WordPress/MariaDB baseline and upgrade test sites ==="
 bash scripts/codespaces/bootstrap_wordpress_sites.sh

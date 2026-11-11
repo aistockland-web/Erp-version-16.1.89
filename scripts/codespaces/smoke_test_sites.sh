@@ -1,38 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-wp_as_www() {
-  local site="${1:?WordPress site path is required}"
-  shift
-  local db_host
-  local db_name
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$REPO_ROOT"
 
-  case "$site" in
-    /var/www/html/site-baseline)
-      db_host="${STOCKLAND_DEV_DB_HOST:?Missing MariaDB host}"
-      db_name="${STOCKLAND_DEV_DB_BASELINE:?Missing baseline database name}"
-      ;;
-    /var/www/html/site-upgrade)
-      db_host="${STOCKLAND_DEV_DB_HOST:?Missing MariaDB host}"
-      db_name="${STOCKLAND_DEV_DB_UPGRADE:?Missing upgrade database name}"
-      ;;
-    /var/www/html/site-mysql8)
-      db_host="${STOCKLAND_DEV_MYSQL8_DB_HOST:-mysql8}"
-      db_name="${STOCKLAND_DEV_MYSQL8_DB_NAME:-stockland_wp_mysql8}"
-      ;;
-    *)
-      echo "Unknown isolated WordPress site: $site" >&2
-      return 2
-      ;;
-  esac
-
-  sudo -u www-data env HOME=/tmp \
-    WORDPRESS_DB_HOST="$db_host:${STOCKLAND_DEV_DB_PORT:-3306}" \
-    WORDPRESS_DB_NAME="$db_name" \
-    WORDPRESS_DB_USER="${STOCKLAND_DEV_DB_USER:?Missing WordPress database user}" \
-    WORDPRESS_DB_PASSWORD="${STOCKLAND_DEV_DB_PASSWORD:?Missing WordPress database password}" \
-    wp --path="$site" "$@"
-}
+source "$REPO_ROOT/scripts/codespaces/wp_cli_wrapper.sh"
 
 smoke_site() {
   local site="$1"
@@ -41,15 +13,32 @@ smoke_site() {
   local expected="$4"
   local version
 
-  wp_as_www "$site" core is-installed --skip-plugins --skip-themes
-  wp_as_www "$site" plugin is-active stockland-erp-app
-  version="$(wp_as_www "$site" plugin get stockland-erp-app --field=version)"
+  wp_as_www --path="$site" core is-installed --skip-plugins --skip-themes
+  wp_as_www --path="$site" plugin is-active stockland-erp-app
+  version="$(wp_as_www --path="$site" plugin get stockland-erp-app --field=version)"
   [[ "$version" == "$expected" ]] || { echo "Expected $expected at $site; found $version" >&2; return 1; }
 
-  curl --fail --silent --show-error --retry 10 --retry-all-errors -H "Host: $host_header" "http://$service/wp-login.php" >/dev/null
-  curl --fail --silent --show-error --retry 10 --retry-all-errors -H "Host: $host_header" "http://$service/wp-json/" | python3 -c 'import json,sys; data=json.load(sys.stdin); assert isinstance(data.get("namespaces"), list)'
+  curl --fail --silent --show-error --retry 10 --retry-all-errors \
+    -H "Host: $host_header" "http://$service/wp-login.php" >/dev/null
+  local rest_body
+  rest_body="$(mktemp)"
+  if ! curl --fail --silent --show-error --retry 10 --retry-all-errors \
+    -H "Accept: application/json" -H "Host: $host_header" \
+    --output "$rest_body" --write-out "REST HTTP %{http_code}; content-type %{content_type}; bytes %{size_download}\n" \
+    "http://$service/?rest_route=/"; then
+    rm -f "$rest_body"
+    return 1
+  fi
+  if ! python3 "$REPO_ROOT/ci/codespaces/check_rest_index.py" "$rest_body"; then
+    echo "REST index diagnostic from $service ($site):" >&2
+    head -c 320 "$rest_body" | tr '\n' ' ' >&2
+    printf '\n' >&2
+    rm -f "$rest_body"
+    return 1
+  fi
+  rm -f "$rest_body"
 
-  echo "PASS WordPress login, REST index and plugin $version at $site"
+  echo "PASS WordPress login, Stockland REST contract and plugin $version at $site"
 }
 
 smoke_site "/var/www/html/site-baseline" "wordpress_baseline" "localhost:8080" "16.2.13"
@@ -59,4 +48,4 @@ if [[ -f /var/www/html/site-mysql8/wp-config.php ]]; then
   smoke_site "/var/www/html/site-mysql8" "wordpress_mysql8" "localhost:8082" "16.2.15"
 fi
 
-echo "PASS Stockland isolated WordPress smoke checks."
+echo "PASS isolated Stockland WordPress smoke checks."

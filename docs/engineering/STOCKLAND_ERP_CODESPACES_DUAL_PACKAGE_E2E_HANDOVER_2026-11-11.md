@@ -35,14 +35,15 @@ The 16.2.15 candidate has no verified exact-package run associated with its orig
 - MariaDB 10.11 is private and internal. Two separate databases and WordPress sites are provisioned.
 - Baseline port 8080 installs 16.2.13 from a clean WordPress instance.
 - Upgrade port 8081 installs 16.2.13 and then replaces it with 16.2.15 to exercise the candidate's upgrade/activation path.
-- Optional MySQL 8.0.46 profile creates a separate WordPress instance on private port 8082 and clean-installs 16.2.15.
+- Optional MySQL 8.0.46 profile creates a separate WordPress instance on private port 8082, installs 16.2.13 first, snapshots the disposable database, updates to 16.2.15, and checks that the synthetic marker survives.
 
 This is a development and QA environment only. It has no production credential, domain, data, deployment secret or live database connection.
 
 ## 4. CI workflows
 
 - codespaces-environment.yml validates Dev Container JSON, shell scripts, Compose config, the PHP 8.3/Node 22 toolchain image and required PHP modules.
-- stockland-candidate-e2e.yml locks both package identities, validates SHA-256/sidecars/byte size/ZIP CRC/root/path/duplicates and plugin header versions, lints every packaged PHP file on PHP 8.3 and 8.4, checks JS/JSON/CSS, and runs disposable WordPress clean-install/upgrade tests on MariaDB plus optional-profile MySQL 8.0.46.
+- stockland-candidate-e2e.yml locks both package identities, validates SHA-256/sidecars/byte size/ZIP CRC/root/path/duplicates and plugin header versions, lints every packaged PHP file on PHP 8.3 and 8.4, checks JS/JSON/CSS, and runs disposable WordPress baseline/upgrade tests on MariaDB and MySQL 8.0.46.
+- The runtime REST smoke check requests the WordPress REST index through `/?rest_route=/` so plain-permalink test sites are supported. For the pre-schema activation state used by clean-install and upgrade tests, it requires `stockland/v16` with `/stockland/v16/setup/status` (GET), `/stockland/v16/setup/advance` (POST), and `/stockland/v16/app/access/bootstrap` (GET). It does not require the full-schema `/app/bootstrap` or `/system/ping` routes before the protected setup workflow has completed.
 - Full PHPCS/WPCS, Semgrep, CodeQL, dependency/license/secret scans, real browser/device checks, complete operational workflow acceptance and all production controls remain separate gates. This handover does not mark them PASS.
 
 ## 5. Commands
@@ -58,3 +59,15 @@ This is a development and QA environment only. It has no production credential, 
 No application plugin source, business database, schema, live transaction, historical ledger, audit chain, employee record, SOP payload or production installation is modified by this infrastructure target. The workflow only mounts the two committed candidate archives into isolated WordPress test instances.
 
 The five Stockland locations, single-company ERP model, POS/cart, inventory/central warehouse, requisitions/reservations/transfers/receiving, finance/procurement/AP/AR/GL, HR/payroll, private resources and reporting remain under the full project implementation plan. The Codespaces target is the first environment/quality gate, not the final ERP completion milestone.
+
+
+## 7. Exact .15 package repair gate — 11 November 2026
+
+The original 16.2.15 archive and its locked SHA-256 remain unchanged. The exact-package validator found that the single member `stockland-erp-app/includes/class-stockland-schema-contract.php` begins with a PHP doc comment but has no opening PHP tag, causing raw output when WordPress includes it.
+
+The E2E workflow now recomputes and verifies the original .15 hash, locked size and sidecar before making any repair; requires the malformed member to match the reviewed signature; prepends only the missing `<?php` opening tag; writes a separately named archive and SHA-256 sidecar; verifies every non-target member remains byte-identical; and passes that exact repaired artifact through PHP 8.3/8.4 checks and the MariaDB 10.11/MySQL 8.0.46 WordPress upgrade tests.
+
+The candidate hash emitted by CI is the identity for that repaired artifact. The original .15 ZIP remains preserved as historical evidence. This is not production authorization.
+
+
+The runtime handoff includes a repo-relative `repaired-candidate-lock.json` alongside the ZIP, sidecar and receipt. The workspace's `post-create.sh` validates that lock and its mounted artifact, then uses the same archive path for the MariaDB .13-to-.15 bootstrap. Only the PHP 8.3 matrix job publishes the shared candidate artifact, avoiding duplicate artifact names from the PHP 8.3/8.4 matrix.

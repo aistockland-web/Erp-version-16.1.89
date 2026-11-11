@@ -3,13 +3,14 @@ name: Stockland Codespaces environment validation
 on:
   push:
     branches:
-      - infra/stockland-erp-e2e-codespaces-2026-11-11
+      - 'infra/**'
+      - 'fix/**'
     paths:
       - '.devcontainer/**'
       - '.gitignore'
       - '.github/workflows/codespaces-environment.yml'
   pull_request:
-    branches: [main]
+    branches: [main, 'infra/**']
     paths:
       - '.devcontainer/**'
       - '.gitignore'
@@ -47,7 +48,9 @@ jobs:
           bash -n scripts/codespaces/bootstrap_wordpress_sites.sh
           bash -n scripts/codespaces/bootstrap_mysql8_site.sh
           bash -n scripts/codespaces/smoke_test_sites.sh
+          bash -n scripts/codespaces/wp_cli_wrapper.sh
           bash -n scripts/codespaces/run_mysql8_parity.sh
+          python3 ci/codespaces/test_rest_index.py
           python3 -m json.tool ci/codespaces/candidate-packages.json >/dev/null
 
       - name: Create isolated CI credentials and validate Compose
