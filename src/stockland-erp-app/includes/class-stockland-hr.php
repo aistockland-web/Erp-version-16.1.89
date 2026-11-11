@@ -50,6 +50,20 @@ class Stockland_HR {
 		return hash( 'sha256', self::DB_VERSION . '|' . implode( '|', $parts ) );
 	}
 
+	/**
+	 * Determines whether legacy HR schema work changes an existing table.
+	 *
+	 * Fresh creation of the four baseline tables is part of the 49-table install.
+	 * ALTER operations on existing legacy HR/payroll tables require Owner approval.
+	 *
+	 * @return bool Whether explicit Owner approval is required.
+	 */
+	public static function schema_approval_required() {
+		$missing = self::missing_tables();
+		$has_existing = count( $missing ) < count( self::table_keys() );
+		return ! empty( self::upgrade_gaps() ) || ( ! empty( $missing ) && $has_existing );
+	}
+
 	/** Add-only HR/payroll columns required by the component statutory model. */
 	public static function required_columns() {
 		return array(
