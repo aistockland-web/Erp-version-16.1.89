@@ -82,7 +82,8 @@ install_sandbox() {
 }
 
 check_rest() {
-  local url="$1" port="$2" label="$3" output="$RUNTIME/rest-$label.json"
+  local url="$1" port="$2" label="$3"
+  local output="$RUNTIME/rest-$label.json"
   curl --fail --silent --show-error --retry 12 --retry-delay 2 --retry-connrefused \
     --header "Host: localhost:$port" "$url/wp-json/" --output "$output"
   python3 - "$output" <<'PY'
