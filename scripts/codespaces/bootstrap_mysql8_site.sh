@@ -20,9 +20,7 @@ done
 mkdir -p "$ARTIFACT_DIR"
 chmod 0777 "$ARTIFACT_DIR"
 
-wp_as_www() {
-  sudo -u www-data env HOME=/tmp wp "$@"
-}
+source "$REPO_ROOT/scripts/codespaces/wp_cli_wrapper.sh"
 
 for attempt in $(seq 1 120); do
   if [[ -f "$SITE/wp-config.php" && -f "$SITE/wp-load.php" ]]; then
