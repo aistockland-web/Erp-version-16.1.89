@@ -1,0 +1,100 @@
+name: Stockland final-delivery source intake and Codespaces preflight
+
+on:
+  push:
+    branches: ["delivery/**"]
+    paths:
+      - "AGENTS.md"
+      - ".devcontainer/**"
+      - "scripts/codespaces/**"
+      - "ci/codespaces/**"
+      - "src/README.md"
+      - "docs/AGENT_FIRST_PROMPT.md"
+      - "docs/engineering/STOCKLAND_ERP_FINAL_CODESPACES_ONE_CLICK_RELEASE_RUNBOOK_2026-11-11.md"
+      - ".github/workflows/stockland-final-delivery-preflight.yml"
+  pull_request:
+    branches: ["main", "infra/**", "fix/**"]
+    paths:
+      - "AGENTS.md"
+      - ".devcontainer/**"
+      - "scripts/codespaces/**"
+      - "ci/codespaces/**"
+      - "src/README.md"
+      - "docs/AGENT_FIRST_PROMPT.md"
+      - "docs/engineering/STOCKLAND_ERP_FINAL_CODESPACES_ONE_CLICK_RELEASE_RUNBOOK_2026-11-11.md"
+      - ".github/workflows/stockland-final-delivery-preflight.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stockland-final-delivery-preflight-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-intake:
+    name: Verify exact .13 source and safe Codespaces materializer
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Validate Codespaces scripts and devcontainer configuration
+        run: |
+          set -euo pipefail
+          python3 -m json.tool .devcontainer/devcontainer.json >/dev/null
+          bash -n .devcontainer/initialize-host.sh
+          bash -n .devcontainer/post-create.sh
+          bash -n scripts/codespaces/bootstrap_project_source.sh
+          bash -n scripts/codespaces/bootstrap_wordpress_sites.sh
+          bash -n scripts/codespaces/bootstrap_mysql8_site.sh
+          bash -n scripts/codespaces/run_mysql8_parity.sh
+          python3 -m py_compile scripts/codespaces/verify_candidate_archives.py scripts/codespaces/bootstrap_project_source.py scripts/codespaces/test_project_source.py
+      - name: Exercise source importer regression tests
+        run: |
+          set -euo pipefail
+          cd scripts/codespaces
+          python3 -m unittest -v test_project_source.py
+      - name: Recompute exact .13/.15 original package hashes and extract safely
+        run: |
+          set -euo pipefail
+          python3 scripts/codespaces/verify_candidate_archives.py \
+            --report "$RUNNER_TEMP/stockland-package-intake.json" \
+            --extract-root "$RUNNER_TEMP/stockland-candidates"
+      - name: Materialize and re-hash the real .13 editable source in a disposable runner folder
+        run: |
+          set -euo pipefail
+          python3 scripts/codespaces/bootstrap_project_source.py \
+            --stage-root "$RUNNER_TEMP/stockland-candidates" \
+            --intake-report "$RUNNER_TEMP/stockland-package-intake.json" \
+            --destination "$RUNNER_TEMP/stockland-editable/src/stockland-erp-app" \
+            --marker "$RUNNER_TEMP/stockland-editable/src/.stockland-erp-app.source.json"
+          python3 - "$RUNNER_TEMP/stockland-package-intake.json" "$RUNNER_TEMP/stockland-editable/src/stockland-erp-app" <<'PY'
+          import hashlib, json, pathlib, sys
+          manifest=json.load(open(sys.argv[1],encoding="utf-8"))["16.2.13"]["files"]
+          root=pathlib.Path(sys.argv[2])
+          actual={p.relative_to(root).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in root.rglob("*") if p.is_file()}
+          assert actual == manifest, "editable source does not equal the exact .13 archive manifest"
+          print(f"PASS: {len(actual)} .13 files match the exact per-file SHA-256 manifest")
+          PY
+          printf '%s\n' 'source-rebuild-preservation-check' > "$RUNNER_TEMP/stockland-editable/src/stockland-erp-app/.preserve-check"
+          cp "$RUNNER_TEMP/stockland-editable/src/.stockland-erp-app.source.json" "$RUNNER_TEMP/source-marker.before"
+          python3 scripts/codespaces/bootstrap_project_source.py \
+            --stage-root "$RUNNER_TEMP/stockland-candidates" \
+            --intake-report "$RUNNER_TEMP/stockland-package-intake.json" \
+            --destination "$RUNNER_TEMP/stockland-editable/src/stockland-erp-app" \
+            --marker "$RUNNER_TEMP/stockland-editable/src/.stockland-erp-app.source.json" \
+            --allow-local-modifications
+          grep -qx 'source-rebuild-preservation-check' "$RUNNER_TEMP/stockland-editable/src/stockland-erp-app/.preserve-check"
+          cmp "$RUNNER_TEMP/source-marker.before" "$RUNNER_TEMP/stockland-editable/src/.stockland-erp-app.source.json"
+      - name: Confirm source artifacts and evidence were generated
+        run: |
+          set -euo pipefail
+          test -s "$RUNNER_TEMP/stockland-editable/src/.stockland-erp-app.source.json"
+          test -s "$RUNNER_TEMP/stockland-editable/src/stockland-erp-app/stockland-inventory.php"
+          git diff --check

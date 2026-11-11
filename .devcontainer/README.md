@@ -6,7 +6,7 @@ This is the real Stockland ERP engineering workspace, not a sample application. 
 
 Open the repository's Codespaces creation page and choose branch:
 
-https://github.com/codespaces/new?repo=aistockland-web%2FErp-version-16.1.89&ref=infra%2Fstockland-erp-e2e-codespaces-2026-11-11
+https://github.com/codespaces/new?repo=aistockland-web%2FErp-version-16.1.89&ref=delivery%2Fstockland-full-erp-completion-2026-11-11
 
 The host initialization creates random development-only credentials in the ignored repository-root .env file. They are not committed or printed.
 
@@ -58,3 +58,23 @@ bash scripts/codespaces/smoke_test_sites.sh
 This environment uses isolated synthetic databases and random local credentials. Never import production databases, employee files, real payroll, customer/supplier details, real payments or stock ledgers. Never make the database port public. Never use production credentials. Do not run migrations or test destructive operations against the live Stockland site.
 
 The 16.2.13 archive remains the operational/upgrade baseline. The 16.2.15 archive remains a candidate until exact archive validation, WordPress install/update, database compatibility and all separate release acceptance gates pass. A green Codespaces build is not production approval.
+
+
+## Final full-ERP delivery path
+
+The Owner's single objective and copy-ready agent prompt are in [docs/AGENT_FIRST_PROMPT.md](../docs/AGENT_FIRST_PROMPT.md). The complete Codespaces, full business acceptance and one-click installer runbook is [here](../docs/engineering/STOCKLAND_ERP_FINAL_CODESPACES_ONE_CLICK_RELEASE_RUNBOOK_2026-11-11.md). Read the repository-root AGENTS.md before implementation.
+
+The canonical editable runtime source is `src/stockland-erp-app/`, not the disposable WordPress site or an extracted /tmp candidate. On first Codespaces post-create the environment verifies the exact .13/.15 original ZIP identities, creates or reuses a distinct repaired .15 QA candidate, verifies the .13 per-file manifest, and materializes the real .13 source plus `src/.stockland-erp-app.source.json`. A marked source tree is preserved on rebuild; an unmarked existing folder is never overwritten.
+
+Check source intake:
+
+```bash
+test -f src/.stockland-erp-app.source.json
+test -f src/stockland-erp-app/stockland-inventory.php
+python3 scripts/codespaces/test_project_source.py
+git status --short --branch
+```
+
+The repaired .15 QA artifact is distinct from the original candidate ZIP. Do not rename its digest to the original digest. The first post-create uses the repaired artifact for disposable WordPress activation/update; the original .13 archive remains the operational baseline.
+
+After the smoke tests, the next target is the resumable ERP setup wizard and physical schema/data verification on MariaDB 10.11 and MySQL 8.0.46, followed by full authenticated module workflows and full-cycle HR/payroll. A 12-table WordPress-only receipt is not full ERP schema acceptance. Build the final installable WordPress ZIP only from the final reviewed canonical source commit, with release manifest, file hashes, SBOM, build receipt and exact SHA-256. The standard WordPress plugin-upload flow is the final installer interface; production publication/deployment follows final Owner release authorization.
