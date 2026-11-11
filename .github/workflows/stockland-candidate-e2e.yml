@@ -117,8 +117,8 @@ jobs:
         run: |
           set -euo pipefail
           docker compose --project-directory .devcontainer -f .devcontainer/docker-compose.yml exec -T --user root workspace env COMPOSER_ALLOW_SUPERUSER=1 bash .devcontainer/post-create.sh
-          docker compose --project-directory .devcontainer -f .devcontainer/docker-compose.yml exec -T workspace bash scripts/codespaces/bootstrap_mysql8_site.sh
-          docker compose --project-directory .devcontainer -f .devcontainer/docker-compose.yml exec -T workspace bash scripts/codespaces/smoke_test_sites.sh
+          docker compose --project-directory .devcontainer -f .devcontainer/docker-compose.yml exec -T --user root workspace bash scripts/codespaces/bootstrap_mysql8_site.sh
+          docker compose --project-directory .devcontainer -f .devcontainer/docker-compose.yml exec -T --user root workspace bash scripts/codespaces/smoke_test_sites.sh
 
       - name: Capture service logs on failure
         if: failure()
