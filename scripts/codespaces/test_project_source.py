@@ -80,7 +80,7 @@ class SourceBootstrapTests(unittest.TestCase):
         self.baseline["size_bytes"] = archive_path.stat().st_size
         sidecar_path = self.root / self.baseline["sidecar"]
         sidecar_path.write_text(
-            self.baseline["sha256"] + "  " + self.baseline["sidecar_logical_filename"] + "\\n",
+            self.baseline["sha256"] + "  " + self.baseline["sidecar_logical_filename"] + "\n",
             encoding="utf-8",
         )
         payload = {
@@ -121,7 +121,7 @@ class SourceBootstrapTests(unittest.TestCase):
         self.assertEqual(mark["archive_git_blob_sha"], self.baseline["archive_git_blob_sha"])
         self.assertEqual(
             mark["archive_sha256"],
-            "74e3205d0b42151997dc356c29b09204688accee817c17a013a70cf90be04c13",
+            self.baseline["sha256"],
         )
         self.assertEqual(mark["file_count"], len(self.files))
 
