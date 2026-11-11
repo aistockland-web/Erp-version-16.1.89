@@ -2,9 +2,11 @@
 """Regression tests for exact, crash-safe and non-destructive source import."""
 from __future__ import annotations
 
+import hashlib
 import json
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
@@ -16,6 +18,35 @@ class SourceBootstrapTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
+        self.baseline = dict(importer.BASELINE)
+        self.baseline.update({
+            "sha256": "",
+            "size_bytes": 0,
+            "php_files": 80,
+            "artifact_commit_sha": "b" * 40,
+            "archive_git_blob_sha": "c" * 40,
+        })
+        self.baseline_patch = patch.object(importer, "BASELINE", self.baseline)
+        self.baseline_patch.start()
+        self.addCleanup(self.baseline_patch.stop)
+        self.root_patch = patch.object(importer, "ROOT", self.root)
+        self.root_patch.start()
+        self.addCleanup(self.root_patch.stop)
+
+        def fake_git(*args):
+            if args == ("rev-parse", "HEAD"):
+                return "a" * 40
+            if args == ("merge-base", "--is-ancestor", "b" * 40, "a" * 40):
+                return ""
+            if args == ("rev-parse", "b" * 40 + ":" + self.baseline["archive"]):
+                return "c" * 40
+            if args == ("rev-parse", "a" * 40 + ":" + self.baseline["archive"]):
+                return "c" * 40
+            raise AssertionError("Unexpected Git provenance command: " + repr(args))
+
+        self.git_patch = patch.object(importer, "git_output", side_effect=fake_git)
+        self.git_patch.start()
+        self.addCleanup(self.git_patch.stop)
         self.stage = self.root / "stage"
         self.app = self.stage / "16_2_13" / "stockland-erp-app"
         self.app.mkdir(parents=True)
@@ -40,11 +71,23 @@ class SourceBootstrapTests(unittest.TestCase):
             path.relative_to(self.app).as_posix(): sha256_file(path)
             for path in self.app.rglob("*") if path.is_file()
         }
+        archive_path = self.root / self.baseline["archive"]
+        with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as package:
+            for path in self.app.rglob("*"):
+                if path.is_file():
+                    package.write(path, "stockland-erp-app/" + path.relative_to(self.app).as_posix())
+        self.baseline["sha256"] = hashlib.sha256(archive_path.read_bytes()).hexdigest()
+        self.baseline["size_bytes"] = archive_path.stat().st_size
+        sidecar_path = self.root / self.baseline["sidecar"]
+        sidecar_path.write_text(
+            self.baseline["sha256"] + "  " + self.baseline["sidecar_logical_filename"] + "\\n",
+            encoding="utf-8",
+        )
         payload = {
             "16.2.13": {
-                "filename": "STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER (1).zip",
-                "sha256": "74e3205d0b42151997dc356c29b09204688accee817c17a013a70cf90be04c13",
-                "size_bytes": 2188684,
+                "filename": self.baseline["archive"],
+                "sha256": self.baseline["sha256"],
+                "size_bytes": self.baseline["size_bytes"],
                 "php_files": 80,
                 "file_count": len(self.files),
                 "plugin_root": "stockland-erp-app/",
@@ -52,6 +95,12 @@ class SourceBootstrapTests(unittest.TestCase):
                 "duplicate_paths": 0,
                 "unsafe_paths": 0,
                 "files": self.files,
+                "artifact_provenance": {
+                    "repository": self.baseline["repository"],
+                    "artifact_commit_sha": self.baseline["artifact_commit_sha"],
+                    "archive_git_blob_sha": self.baseline["archive_git_blob_sha"],
+                    "verified_head_sha": "a" * 40,
+                },
             }
         }
         self.report.write_text(json.dumps(payload), encoding="utf-8")
@@ -67,6 +116,9 @@ class SourceBootstrapTests(unittest.TestCase):
         self.assertTrue((self.dest / "stockland-inventory.php").is_file())
         mark = json.loads(self.marker.read_text(encoding="utf-8"))
         self.assertEqual(mark["source_version"], "16.2.13")
+        self.assertEqual(mark["repository"], self.baseline["repository"])
+        self.assertEqual(mark["artifact_commit_sha"], self.baseline["artifact_commit_sha"])
+        self.assertEqual(mark["archive_git_blob_sha"], self.baseline["archive_git_blob_sha"])
         self.assertEqual(
             mark["archive_sha256"],
             "74e3205d0b42151997dc356c29b09204688accee817c17a013a70cf90be04c13",
@@ -164,6 +216,23 @@ class SourceBootstrapTests(unittest.TestCase):
         self.assertTrue(self.import_source())
         self.assertTrue(self.dest.is_dir())
         self.assertTrue(self.marker.is_file())
+
+    def test_report_manifest_is_recomputed_from_the_actual_pinned_archive(self):
+        payload = json.loads(self.report.read_text(encoding="utf-8"))
+        payload["16.2.13"]["files"]["stockland-inventory.php"] = "0" * 64
+        self.report.write_text(json.dumps(payload), encoding="utf-8")
+        with self.assertRaisesRegex(RuntimeError, "manifest does not match the actual pinned ZIP"):
+            self.import_source()
+        self.assertFalse(self.dest.exists())
+        self.assertFalse(self.marker.exists())
+
+    def test_wrong_git_artifact_blob_is_rejected(self):
+        payload = json.loads(self.report.read_text(encoding="utf-8"))
+        payload["16.2.13"]["artifact_provenance"]["archive_git_blob_sha"] = "0" * 40
+        self.report.write_text(json.dumps(payload), encoding="utf-8")
+        with self.assertRaisesRegex(RuntimeError, "Git artifact provenance mismatch"):
+            self.import_source()
+        self.assertFalse(self.dest.exists())
 
     def test_detects_tampered_staging_file_before_copy(self):
         (self.app / "includes" / "fixture-00.php").write_text(
