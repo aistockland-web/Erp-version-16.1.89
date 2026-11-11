@@ -92,7 +92,7 @@ def validate_package(package: dict, extract_root: Path) -> dict:
                 fail(f"{release}: file count {len(infos)} != locked {package['file_count']}")
 
             plugin_header = archive.read("stockland-erp-app/stockland-inventory.php").decode("utf-8", "replace")
-            match = re.search(r"(?mi)^Version:\s*([0-9]+(?:\.[0-9]+)+)", plugin_header)
+            match = re.search(r"(?mi)^\s*\*?\s*Version:\s*([0-9]+(?:\.[0-9]+)+)", plugin_header)
             if not match or match.group(1) != release:
                 fail(f"{release}: plugin header version does not match the locked release")
 
