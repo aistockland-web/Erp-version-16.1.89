@@ -79,7 +79,7 @@ assert_plugin_version() {
   local expected="$2"
   local actual
   wp_as_www "$site" plugin is-active stockland-erp-app
-  actual="$(wp_as_www "$site" plugin get stockland-erp-app --field=version)"
+  actual="$(wp_as_www "$site" plugin get stockland-erp-app --field=version --skip-plugins --skip-themes)"
   if [[ "$actual" != "$expected" ]]; then
     echo "Expected plugin $expected at $site, found $actual" >&2
     exit 1
