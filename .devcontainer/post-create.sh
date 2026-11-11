@@ -2,6 +2,13 @@
 set -euo pipefail
 cd /workspaces/stockland-erp
 
+# Docker may create bind-mount parents as root while starting the WordPress
+# services. Give the unprivileged workspace user ownership of disposable QA
+# state before creating WordPress files, reports and generated credentials.
+sudo mkdir -p .codespaces/runtime
+sudo chown -R vscode:vscode .codespaces
+chmod 700 .codespaces .codespaces/runtime
+
 php --version
 composer --version
 python3 --version
