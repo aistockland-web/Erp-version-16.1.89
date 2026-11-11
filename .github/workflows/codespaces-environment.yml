@@ -48,13 +48,14 @@ jobs:
           bash -n scripts/codespaces/bootstrap_mysql8_site.sh
           bash -n scripts/codespaces/smoke_test_sites.sh
           bash -n scripts/codespaces/run_mysql8_parity.sh
+          python3 ci/codespaces/test_rest_index.py
           python3 -m json.tool ci/codespaces/candidate-packages.json >/dev/null
 
       - name: Create isolated CI credentials and validate Compose
         run: |
           set -euo pipefail
           bash .devcontainer/initialize-host.sh
-          docker compose --project-directory . -f .devcontainer/docker-compose.yml --profile mysql8 config --quiet
+          docker compose -f .devcontainer/docker-compose.yml --profile mysql8 config --quiet
 
       - name: Build the PHP 8.3 / Node 22 Codespaces toolchain
         run: |
