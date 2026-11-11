@@ -5,10 +5,10 @@ cd /workspaces/stockland-erp
 # Docker may create bind-mount parents as root while starting the WordPress
 # services. Give the unprivileged workspace user ownership of disposable QA
 # state before creating WordPress files, reports and generated credentials.
-sudo mkdir -p .codespaces/runtime
-sudo chown -R vscode:vscode /workspaces/stockland-erp
+sudo mkdir -p .codespaces/runtime/credentials ci/phpcs/vendor ci/cssqa/node_modules
+sudo chown -R vscode:vscode .codespaces/runtime ci/phpcs/vendor ci/cssqa/node_modules
 git config --global --add safe.directory /workspaces/stockland-erp
-chmod 700 .codespaces .codespaces/runtime
+chmod 700 .codespaces/runtime .codespaces/runtime/credentials
 
 php --version
 composer --version
