@@ -1,0 +1,17 @@
+# QA dependencies
+/ci/cssqa/node_modules/
+/ci/phpcs/vendor/
+/node_modules/
+/vendor/
+/coverage/
+/.phpunit.cache/
+
+# Local config and Codespaces runtime, DB credentials, WordPress files and uploads
+/.env
+/.env.*
+!.env.example
+/.codespaces/runtime/
+
+# Local logs
+*.log
+*.tmp

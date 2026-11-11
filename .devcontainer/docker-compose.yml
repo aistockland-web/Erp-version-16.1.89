@@ -1,0 +1,117 @@
+services:
+  workspace:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/workspaces/stockland-erp:cached
+    working_dir: /workspaces/stockland-erp
+    command: sleep infinity
+    environment:
+      STOCKLAND_TEST_DB_HOST: mariadb-213
+      STOCKLAND_TEST_DB_PORT: "3306"
+      STOCKLAND_TEST_DB_NAME: stockland_213
+      STOCKLAND_TEST_DB_USER: stockland_dev
+      STOCKLAND_TEST_DB_PASSWORD: stockland_local_only
+      STOCKLAND_MYSQL_DB_HOST: mysql-215
+      STOCKLAND_MYSQL_DB_PORT: "3306"
+      STOCKLAND_MYSQL_DB_NAME: stockland_215
+      STOCKLAND_MYSQL_DB_USER: stockland_dev
+      STOCKLAND_MYSQL_DB_PASSWORD: stockland_local_only
+    depends_on:
+      mariadb-213:
+        condition: service_healthy
+      mysql-215:
+        condition: service_healthy
+
+  mariadb-213:
+    image: mariadb:10.11
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: stockland_213
+      MARIADB_USER: stockland_dev
+      MARIADB_PASSWORD: stockland_local_only
+      MARIADB_ROOT_PASSWORD: stockland_root_local_only
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - stockland-mariadb-213:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  mysql-215:
+    image: mysql:8.0.46
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: stockland_215
+      MYSQL_USER: stockland_dev
+      MYSQL_PASSWORD: stockland_local_only
+      MYSQL_ROOT_PASSWORD: stockland_root_local_only
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - stockland-mysql-215:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping --host=127.0.0.1 --user=root --password=$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+
+  wordpress-213:
+    image: wordpress:7.1.4-php8.3-apache
+    restart: unless-stopped
+    depends_on:
+      mariadb-213:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+    environment:
+      WORDPRESS_DB_HOST: mariadb-213:3306
+      WORDPRESS_DB_NAME: stockland_213
+      WORDPRESS_DB_USER: stockland_dev
+      WORDPRESS_DB_PASSWORD: stockland_local_only
+      WORDPRESS_CONFIG_EXTRA: |
+        define('WP_ENVIRONMENT_TYPE', 'local');
+        define('WP_DEBUG', true);
+        define('WP_DEBUG_LOG', true);
+        define('DISALLOW_FILE_EDIT', true);
+        define('WP_AUTO_UPDATE_CORE', false);
+    volumes:
+      - ../.codespaces/runtime/wordpress/16.2.13:/var/www/html
+      - ../.codespaces/runtime/plugins/16.2.13:/var/www/html/wp-content/plugins
+      - stockland-uploads-213:/var/www/html/wp-content/uploads
+
+  wordpress-upgrade:
+    image: wordpress:7.1.4-php8.3-apache
+    restart: unless-stopped
+    depends_on:
+      mysql-215:
+        condition: service_healthy
+    ports:
+      - "8081:80"
+    environment:
+      WORDPRESS_DB_HOST: mysql-215:3306
+      WORDPRESS_DB_NAME: stockland_215
+      WORDPRESS_DB_USER: stockland_dev
+      WORDPRESS_DB_PASSWORD: stockland_local_only
+      WORDPRESS_CONFIG_EXTRA: |
+        define('WP_ENVIRONMENT_TYPE', 'local');
+        define('WP_DEBUG', true);
+        define('WP_DEBUG_LOG', true);
+        define('DISALLOW_FILE_EDIT', true);
+        define('WP_AUTO_UPDATE_CORE', false);
+    volumes:
+      - ../.codespaces/runtime/wordpress/upgrade:/var/www/html
+      - ../.codespaces/runtime/plugins/upgrade:/var/www/html/wp-content/plugins
+      - stockland-uploads-upgrade:/var/www/html/wp-content/uploads
+
+volumes:
+  stockland-mariadb-213:
+  stockland-mysql-215:
+  stockland-uploads-213:
+  stockland-uploads-upgrade:

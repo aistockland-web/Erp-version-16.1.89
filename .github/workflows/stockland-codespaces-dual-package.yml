@@ -1,0 +1,121 @@
+name: Stockland Codespaces and 16.2.13-to-16.2.15 gates
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.devcontainer/**'
+      - 'ci/codespaces/**'
+      - '.github/copilot-instructions.md'
+      - '.github/instructions/**'
+      - '.github/workflows/stockland-codespaces-dual-package.yml'
+      - 'AGENTS.md'
+      - 'docs/engineering/STOCKLAND_ERP_CODESPACES_DUAL_PACKAGE_EXECUTION_2026-11-11.md'
+      - 'STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER (1).zip'
+      - 'STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER.zip.sha256'
+      - 'STOCKLAND_ERP_16.2.15_LOCAL_REVIEW_CANDIDATE_WORDPRESS_INSTALLER.zip'
+      - 'STOCKLAND_ERP_16.2.15_LOCAL_REVIEW_CANDIDATE_WORDPRESS_INSTALLER.zip.sha256'
+  push:
+    branches: [work/codespaces-end-to-end-2026-11-11]
+    paths:
+      - '.devcontainer/**'
+      - 'ci/codespaces/**'
+      - '.github/copilot-instructions.md'
+      - '.github/instructions/**'
+      - '.github/workflows/stockland-codespaces-dual-package.yml'
+      - 'AGENTS.md'
+      - 'docs/engineering/STOCKLAND_ERP_CODESPACES_DUAL_PACKAGE_EXECUTION_2026-11-11.md'
+      - 'STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER (1).zip'
+      - 'STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER.zip.sha256'
+      - 'STOCKLAND_ERP_16.2.15_LOCAL_REVIEW_CANDIDATE_WORDPRESS_INSTALLER.zip'
+      - 'STOCKLAND_ERP_16.2.15_LOCAL_REVIEW_CANDIDATE_WORDPRESS_INSTALLER.zip.sha256'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stockland-dual-package-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  exact-package-and-static:
+    name: Exact .13/.15 packages (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.3', '8.4']
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Verify ZIP hashes, sidecars, CRC and paths
+        run: |
+          python3 ci/codespaces/verify_installers.py --verify-all
+          python3 ci/codespaces/verify_installers.py --extract-version 16.2.13 --destination-root "$RUNNER_TEMP/stockland/16.2.13"
+          python3 ci/codespaces/verify_installers.py --extract-version 16.2.15 --destination-root "$RUNNER_TEMP/stockland/16.2.15"
+      - name: PHP lint on every PHP file
+        run: |
+          set -euo pipefail
+          for version in 16.2.13 16.2.15; do
+            root="$RUNNER_TEMP/stockland/$version/stockland-erp-app"
+            docker run --rm -v "$root:/src:ro" "php:${{ matrix.php }}-cli" sh -lc 'find /src -type f -name "*.php" -print0 | xargs -0 -n1 php -l'
+          done
+      - name: Node, JSON and CSS/PostCSS package checks
+        run: |
+          set -euo pipefail
+          npm ci --prefix ci/cssqa --ignore-scripts --no-audit --no-fund
+          for version in 16.2.13 16.2.15; do
+            root="$RUNNER_TEMP/stockland/$version/stockland-erp-app"
+            while IFS= read -r -d '' file; do node --check "$file"; done < <(find "$root" -type f -name '*.js' -print0)
+            node ci/codespaces/check_package_assets.js "$root"
+          done
+      - name: Verifier harness unit tests
+        run: python3 -m unittest discover -s ci/codespaces -p 'test_*.py' -v
+
+  wordpress-database-lifecycle:
+    name: WordPress lifecycle on MariaDB and MySQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Validate devcontainer and Compose
+        run: |
+          python3 -m json.tool .devcontainer/devcontainer.json >/dev/null
+          bash -n .devcontainer/post-create.sh
+          bash -n ci/codespaces/acceptance.sh
+          docker compose -f .devcontainer/docker-compose.yml config --quiet
+      - name: Build/start disposable WordPress and DB stack
+        run: docker compose -f .devcontainer/docker-compose.yml up -d --build workspace mariadb-213 mysql-215 wordpress-213 wordpress-upgrade
+      - name: Provision and run exact package acceptance
+        run: docker compose -f .devcontainer/docker-compose.yml exec -T workspace bash .devcontainer/post-create.sh
+      - name: Tear down test containers and synthetic volumes
+        if: always()
+        run: docker compose -f .devcontainer/docker-compose.yml down -v
+
+  coding-standards:
+    name: PHPCS/WPCS on exact .13 and .15
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install PHP and Composer
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer:v2
+      - name: Verify and extract both packages
+        run: |
+          python3 ci/codespaces/verify_installers.py --extract-version 16.2.13 --destination-root "$RUNNER_TEMP/stockland/16.2.13"
+          python3 ci/codespaces/verify_installers.py --extract-version 16.2.15 --destination-root "$RUNNER_TEMP/stockland/16.2.15"
+      - name: Install locked PHPCS/WPCS dependencies
+        run: composer install --working-dir=ci/phpcs --no-interaction --prefer-dist --no-progress
+      - name: Run WordPress Coding Standards without suppressing findings
+        run: |
+          set -euo pipefail
+          for version in 16.2.13 16.2.15; do
+            ci/phpcs/vendor/bin/phpcs --standard=ci/qa/stockland-phpcs.xml --report=summary "$RUNNER_TEMP/stockland/$version/stockland-erp-app"
+          done
