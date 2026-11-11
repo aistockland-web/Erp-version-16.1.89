@@ -55,5 +55,6 @@ sudo chmod 0777 /artifacts
 python3 scripts/codespaces/verify_candidate_archives.py \
   --report "$STOCKLAND_ARTIFACT_DIR/package-intake.json" \
   --extract-root /tmp/stockland-candidate-packages
+bash scripts/codespaces/bootstrap_project_source.sh
 bash scripts/codespaces/bootstrap_wordpress.sh
 echo "Codespaces ready. Both WordPress sites contain synthetic QA data only."

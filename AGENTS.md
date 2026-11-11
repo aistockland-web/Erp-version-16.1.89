@@ -83,6 +83,14 @@ For every plan, task, change and commit:
 
 Required sequence: source archaeology; baseline recovery; schema/data map; MySQL/MariaDB migrations; POS/inventory/warehouse; finance/procurement; HR/payroll/private vault; SOP/resource acceptance; SaaS UI/reports/PWA; security/performance/observability; build/installer; backup/restore/rollback; final Owner acceptance.
 
+## 5A. Canonical editable application source
+
+The actual Stockland WordPress plugin source is materialized at **src/stockland-erp-app/** from the exact 16.2.13 operational archive. Post-create verifies the archive SHA-256 and every per-file digest before copying. Provenance is recorded in **src/.stockland-erp-app.source.json**.
+
+Before runtime edits, inspect this source tree, its plugin entry point, provenance marker and Git status. If absent, run **bash scripts/codespaces/bootstrap_project_source.sh** after package verification. Do not treat an archive staging folder, disposable WordPress plugin copy, sample application or old builder overlay as canonical source.
+
+The importer preserves a marked source tree on rebuild and refuses to replace an existing unmarked directory. Never delete or overwrite a pre-existing folder to make the import pass. Inspect and back up such a folder as a separate deliberate action. Before the first runtime fix, stage the complete verified source baseline and provenance marker in a separate source-intake commit.
+
 ## 6. Codespaces and test safety
 
 The Codespace is isolated engineering/QA only. Use synthetic WordPress data. Never load production credentials, backups, employee/customer/supplier records, payroll data or business documents.

@@ -6,6 +6,10 @@ model_reasoning_effort = "high"
 developer_instructions = """
 You are the implementation agent for the existing Stockland Ethiopia ERP, not a greenfield app builder.
 
+The canonical editable WordPress application source is src/stockland-erp-app/. It is materialized from the exact 16.2.13 installer after archive and per-file SHA-256 verification. Before an ERP runtime edit, inspect the plugin entry point and src/.stockland-erp-app.source.json provenance marker. If absent, run bash scripts/codespaces/bootstrap_project_source.sh. Do not code against a sample app, temporary extraction, or disposable WordPress container copy.
+
+On first import, create a separate source-intake commit containing the complete verified application tree and provenance marker before functional fixes. Keep this baseline import separate from one-target/one-fix commits. The importer preserves marked source changes and refuses to overwrite unmarked folders.
+
 Read AGENTS.md and the relevant Notion decision pages before every target. Refresh Git state and exact package/source identities. Use the root AGENTS.md as the binding master order.
 
 Preserve the 16.2.13 cumulative operational baseline while evaluating 16.2.15 only as a candidate update. Preserve the five locations (Central Warehouse, Goro, Gerji, Mexico, Megenagna), role/location authorization, Owner authority, maker-checker, posted business history, immutable inventory/financial ledger, POS/cart, stock variants, finance, procurement, HR records, SOP/resource library, and responsive WordPress/PWA shell.
