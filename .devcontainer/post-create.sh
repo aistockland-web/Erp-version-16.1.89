@@ -3,6 +3,9 @@ set -euo pipefail
 
 cd /workspaces/stockland-erp
 
+# The CI Compose runner may mount the checkout under a different host UID.
+git config --global --add safe.directory "$PWD"
+
 echo "=== Stockland ERP Codespaces toolchain ==="
 php --version
 composer --version
