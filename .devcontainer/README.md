@@ -6,7 +6,7 @@ This is the real Stockland ERP engineering workspace, not a sample application. 
 
 Open the repository's Codespaces creation page and choose branch:
 
-https://github.com/codespaces/new?repo=aistockland-web%2FErp-version-16.1.89&ref=infra%2Fstockland-erp-e2e-codespaces-2026-11-11
+https://github.com/codespaces/new?repo=aistockland-web%2FErp-version-16.1.89&ref=delivery%2Fstockland-full-erp-completion-2026-11-11
 
 The host initialization creates random development-only credentials in the ignored repository-root .env file. They are not committed or printed.
 
