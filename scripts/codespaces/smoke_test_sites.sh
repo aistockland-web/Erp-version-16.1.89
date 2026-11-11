@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-wp_as_www() {
-  sudo -u www-data env HOME=/tmp wp "$@"
-}
+source "$REPO_ROOT/scripts/codespaces/wp_cli_wrapper.sh"
 
 smoke_site() {
   local site="$1"
