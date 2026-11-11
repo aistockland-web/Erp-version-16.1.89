@@ -3,7 +3,8 @@ name: Stockland 16.2.13 and 16.2.15 exact-package gates
 on:
   push:
     branches:
-      - infra/stockland-erp-e2e-codespaces-2026-11-11
+      - 'infra/**'
+      - 'fix/**'
     paths:
       - 'STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER (1).zip'
       - 'STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER.zip.sha256'
@@ -14,7 +15,7 @@ on:
       - 'scripts/codespaces/**'
       - '.github/workflows/stockland-candidate-e2e.yml'
   pull_request:
-    branches: [main]
+    branches: [main, 'infra/**']
     paths:
       - 'STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER (1).zip'
       - 'STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER.zip.sha256'
@@ -67,7 +68,12 @@ jobs:
         run: npm ci --prefix ci/cssqa --ignore-scripts --no-audit --no-fund
 
       - name: Verify exact ZIPs, hashes, sidecars and safe extraction
+        id: verify-candidate-packages
         run: python3 ci/codespaces/validate_candidate_packages.py --extract-root "$RUNNER_TEMP/stockland-candidates" --summary "$RUNNER_TEMP/stockland-candidate-summary.json"
+
+      - name: Diagnose PHP entrypoint raw-output candidate
+        if: always()
+        run: python3 ci/codespaces/diagnose_php_entrypoint.py
 
       - name: Print candidate receipt
         run: cat "$RUNNER_TEMP/stockland-candidate-summary.json"
@@ -116,9 +122,17 @@ jobs:
       - name: Install WP-CLI, bootstrap and smoke-test WordPress
         run: |
           set -euo pipefail
-          docker compose --project-directory .devcontainer -f .devcontainer/docker-compose.yml exec -T --user root workspace env COMPOSER_ALLOW_SUPERUSER=1 bash .devcontainer/post-create.sh
-          docker compose --project-directory .devcontainer -f .devcontainer/docker-compose.yml exec -T --user root workspace bash scripts/codespaces/bootstrap_mysql8_site.sh
-          docker compose --project-directory .devcontainer -f .devcontainer/docker-compose.yml exec -T --user root workspace bash scripts/codespaces/smoke_test_sites.sh
+          docker compose --project-directory .devcontainer -f .devcontainer/docker-compose.yml exec -T workspace bash .devcontainer/post-create.sh
+          docker compose --project-directory .devcontainer -f .devcontainer/docker-compose.yml exec -T workspace bash scripts/codespaces/bootstrap_mysql8_site.sh
+          docker compose --project-directory .devcontainer -f .devcontainer/docker-compose.yml exec -T workspace bash scripts/codespaces/smoke_test_sites.sh
+
+      - name: Upload MySQL 8.0.46 upgrade receipt
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: stockland-mysql8-upgrade-evidence
+          path: artifacts/codespaces/*.txt
+          if-no-files-found: warn
 
       - name: Capture service logs on failure
         if: failure()

@@ -28,6 +28,19 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def php_raw_output_issue(source: bytes) -> bool:
+    """Detect PHP code/comment text emitted before an opening PHP tag."""
+    if source.startswith(bytes.fromhex("efbbbf")):
+        source = source[3:]
+    tags = [position for position in (source.find(b"<?php"), source.find(b"<?=")) if position >= 0]
+    prefix = source[: min(tags)] if tags else source
+    code_starts = (
+        b"/**", b"/*", b"namespace ", b"class ", b"final class ",
+        b"abstract class ", b"trait ", b"interface ", b"function ",
+        b"require ", b"require_once ", b"include ", b"include_once ", b"$",
+    )
+    return any(line.strip().startswith(code_starts) for line in prefix.splitlines())
+
 def validate_member_path(name: str) -> None:
     if not name or "\\" in name or name.startswith("/") or re.match(r"^[A-Za-z]:", name):
         fail("unsafe archive path: " + repr(name))
@@ -96,7 +109,11 @@ def validate_package(package: dict, extract_root: Path) -> dict:
             if not match or match.group(1) != release:
                 fail(f"{release}: plugin header version does not match the locked release")
 
-            php_count = sum(name.endswith(".php") for name in names)
+            php_names = [name for name in names if name.lower().endswith(".php")]
+            php_count = len(php_names)
+            raw_php_files = [name for name in php_names if php_raw_output_issue(archive.read(name))]
+            if raw_php_files:
+                fail(f"{release}: PHP code/comment text appears before an opening tag and would be emitted as raw output: {raw_php_files}")
             if "php_count" in package and php_count != package["php_count"]:
                 fail(f"{release}: PHP file count {php_count} != locked {package['php_count']}")
 

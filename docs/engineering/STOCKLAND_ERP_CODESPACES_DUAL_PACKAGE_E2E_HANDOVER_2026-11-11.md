@@ -35,14 +35,15 @@ The 16.2.15 candidate has no verified exact-package run associated with its orig
 - MariaDB 10.11 is private and internal. Two separate databases and WordPress sites are provisioned.
 - Baseline port 8080 installs 16.2.13 from a clean WordPress instance.
 - Upgrade port 8081 installs 16.2.13 and then replaces it with 16.2.15 to exercise the candidate's upgrade/activation path.
-- Optional MySQL 8.0.46 profile creates a separate WordPress instance on private port 8082 and clean-installs 16.2.15.
+- Optional MySQL 8.0.46 profile creates a separate WordPress instance on private port 8082, installs 16.2.13 first, snapshots the disposable database, updates to 16.2.15, and checks that the synthetic marker survives.
 
 This is a development and QA environment only. It has no production credential, domain, data, deployment secret or live database connection.
 
 ## 4. CI workflows
 
 - codespaces-environment.yml validates Dev Container JSON, shell scripts, Compose config, the PHP 8.3/Node 22 toolchain image and required PHP modules.
-- stockland-candidate-e2e.yml locks both package identities, validates SHA-256/sidecars/byte size/ZIP CRC/root/path/duplicates and plugin header versions, lints every packaged PHP file on PHP 8.3 and 8.4, checks JS/JSON/CSS, and runs disposable WordPress clean-install/upgrade tests on MariaDB plus optional-profile MySQL 8.0.46.
+- stockland-candidate-e2e.yml locks both package identities, validates SHA-256/sidecars/byte size/ZIP CRC/root/path/duplicates and plugin header versions, lints every packaged PHP file on PHP 8.3 and 8.4, checks JS/JSON/CSS, and runs disposable WordPress baseline/upgrade tests on MariaDB and MySQL 8.0.46.
+- The runtime REST check requires `stockland/v1` with `/stockland/v1/app/bootstrap` and `stockland/v16` with `/stockland/v16/system/ping`. The same validator has unit tests for missing namespace and route cases. A generic WordPress REST index response is insufficient.
 - Full PHPCS/WPCS, Semgrep, CodeQL, dependency/license/secret scans, real browser/device checks, complete operational workflow acceptance and all production controls remain separate gates. This handover does not mark them PASS.
 
 ## 5. Commands

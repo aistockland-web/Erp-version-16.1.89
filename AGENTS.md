@@ -73,13 +73,15 @@ The 16.2.13 archive is stored in main as STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALL
 The Dev Container is Stockland-specific:
 - PHP 8.3, Node.js 22, Python 3.12, Composer, GitHub CLI, WP-CLI (only after upstream SHA-256 verification), Docker CLI support and the repository's locked QA dependencies.
 - MariaDB 10.11 isolated service and two disposable WordPress sites: baseline install of 16.2.13 and a separate 16.2.13 → 16.2.15 update/activation site.
-- Optional MySQL 8.0.46 site for clean-install compatibility.
+- Optional MySQL 8.0.46 WordPress site that installs 16.2.13 and executes the same exact 16.2.13 → 16.2.15 upgrade path, including a disposable pre-update SQL snapshot and marker-preservation check.
 - Private forwarded ports: 8080 baseline, 8081 upgrade, 8082 optional MySQL 8.
 - Generated random credentials only in ignored local .env. Never add environment credentials or production tokens to Git.
 
 Use the repository workflows and commands under .devcontainer/, ci/codespaces/, scripts/codespaces/ and .github/workflows/. Keep all DB ports internal. No production domain, DB, credentials, employee files, customer records, payroll, real ledger transactions or live plugin belongs in this Codespace.
 
 The GitHub repo is the PHP WordPress ERP. The referenced github/dotnet-codespaces repository is only a general configuration reference. Never copy its .NET sample app, C# packages, sample database, or unrelated demo content into Stockland.
+
+The Codespaces REST smoke test must assert the exact Stockland namespaces and routes declared in the committed packages: `stockland/v1` (`/stockland/v1/app/bootstrap`) and `stockland/v16` (`/stockland/v16/system/ping`). A WordPress HTTP 200 or a generic `namespaces` array is not proof of Stockland REST registration.
 
 ## 5. Non-negotiable business, schema and security invariants
 

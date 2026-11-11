@@ -13,38 +13,7 @@ for package in "$PACKAGE_16213" "$PACKAGE_16215"; do
   [[ -f "$package" ]] || { echo "Missing candidate package: $package" >&2; exit 1; }
 done
 
-wp_as_www() {
-  local site="${1:?WordPress site path is required}"
-  shift
-  local db_host
-  local db_name
-
-  case "$site" in
-    /var/www/html/site-baseline)
-      db_host="${STOCKLAND_DEV_DB_HOST:?Missing MariaDB host}"
-      db_name="${STOCKLAND_DEV_DB_BASELINE:?Missing baseline database name}"
-      ;;
-    /var/www/html/site-upgrade)
-      db_host="${STOCKLAND_DEV_DB_HOST:?Missing MariaDB host}"
-      db_name="${STOCKLAND_DEV_DB_UPGRADE:?Missing upgrade database name}"
-      ;;
-    /var/www/html/site-mysql8)
-      db_host="${STOCKLAND_DEV_MYSQL8_DB_HOST:-mysql8}"
-      db_name="${STOCKLAND_DEV_MYSQL8_DB_NAME:-stockland_wp_mysql8}"
-      ;;
-    *)
-      echo "Unknown isolated WordPress site: $site" >&2
-      return 2
-      ;;
-  esac
-
-  sudo -u www-data env HOME=/tmp \
-    WORDPRESS_DB_HOST="$db_host:${STOCKLAND_DEV_DB_PORT:-3306}" \
-    WORDPRESS_DB_NAME="$db_name" \
-    WORDPRESS_DB_USER="${STOCKLAND_DEV_DB_USER:?Missing WordPress database user}" \
-    WORDPRESS_DB_PASSWORD="${STOCKLAND_DEV_DB_PASSWORD:?Missing WordPress database password}" \
-    wp --path="$site" "$@"
-}
+source "$REPO_ROOT/scripts/codespaces/wp_cli_wrapper.sh"
 
 wait_for_site() {
   local site="$1"
@@ -63,23 +32,23 @@ install_core_if_needed() {
   local site="$1"
   local url="$2"
   local title="$3"
-  if ! wp_as_www "$site" core is-installed --skip-plugins --skip-themes >/dev/null 2>&1; then
-    wp_as_www "$site" core install --url="$url" --title="$title" --admin_user="$STOCKLAND_DEV_WP_ADMIN_USER" --admin_password="$STOCKLAND_DEV_WP_ADMIN_PASSWORD" --admin_email="qa@example.invalid" --skip-email
+  if ! wp_as_www --path="$site" core is-installed --skip-plugins --skip-themes >/dev/null 2>&1; then
+    wp_as_www --path="$site" core install --url="$url" --title="$title" --admin_user="$STOCKLAND_DEV_WP_ADMIN_USER" --admin_password="$STOCKLAND_DEV_WP_ADMIN_PASSWORD" --admin_email="qa@example.invalid" --skip-email
   fi
 }
 
 install_local_plugin() {
   local site="$1"
   local archive="$2"
-  wp_as_www "$site" plugin install "$archive" --force --activate
+  wp_as_www --path="$site" plugin install "$archive" --force --activate
 }
 
 assert_plugin_version() {
   local site="$1"
   local expected="$2"
   local actual
-  wp_as_www "$site" plugin is-active stockland-erp-app
-  actual="$(wp_as_www "$site" plugin get stockland-erp-app --field=version --skip-plugins --skip-themes)"
+  wp_as_www --path="$site" plugin is-active stockland-erp-app
+  actual="$(wp_as_www --path="$site" plugin get stockland-erp-app --field=version)"
   if [[ "$actual" != "$expected" ]]; then
     echo "Expected plugin $expected at $site, found $actual" >&2
     exit 1

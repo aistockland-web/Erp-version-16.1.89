@@ -16,7 +16,7 @@ The host initialization creates random development-only credentials in the ignor
 - MariaDB 10.11 with two isolated WordPress sites and separate databases.
 - Baseline site on private port 8080: installs the exact 16.2.13 operational package.
 - Upgrade site on private port 8081: installs 16.2.13 first, then replaces it with the selected 16.2.15 candidate to exercise the upgrade/activation path.
-- Optional MySQL 8.0.46 site on private port 8082: clean-installs 16.2.15 and exercises its WordPress bootstrap path.
+- Optional MySQL 8.0.46 site on private port 8082: installs the 16.2.13 baseline first, then upgrades to 16.2.15 and verifies the synthetic marker and pre-update database snapshot.
 - Repository-locked PostCSS and PHPCS/WPCS development dependencies. These are engineering tools, not plugin runtime dependencies.
 
 The database ports are internal to the Compose network. Only the private WordPress preview ports are forwarded.
@@ -30,6 +30,7 @@ php -v
 node -v
 python3 --version
 wp --info
+python3 ci/codespaces/test_rest_index.py
 bash scripts/codespaces/smoke_test_sites.sh
 ~~~
 
@@ -41,7 +42,7 @@ Run this from the Codespaces terminal:
 bash scripts/codespaces/run_mysql8_parity.sh
 ~~~
 
-It starts the optional MySQL 8 service, creates a disposable WordPress instance, installs the exact 16.2.15 candidate, and checks activation and REST availability.
+It starts the optional MySQL 8 service, creates a disposable WordPress instance, installs the exact 16.2.13 baseline, snapshots the disposable database, upgrades to the exact 16.2.15 candidate, verifies marker preservation, and records a local QA receipt.
 
 ## Repository QA commands
 

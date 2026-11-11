@@ -11,3 +11,6 @@
 /.phpunit.cache/
 *.log
 *.tmp
+
+# Disposable QA receipts and SQL snapshots; never commit or publish as source.
+/artifacts/codespaces/
