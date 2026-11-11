@@ -5,12 +5,13 @@ on:
     branches:
       - 'infra/**'
       - 'fix/**'
+      - 'delivery/**'
     paths:
       - '.devcontainer/**'
       - '.gitignore'
       - '.github/workflows/codespaces-environment.yml'
   pull_request:
-    branches: [main, 'infra/**']
+    branches: [main, 'infra/**', 'fix/**']
     paths:
       - '.devcontainer/**'
       - '.gitignore'
