@@ -5,7 +5,7 @@ You are continuing the existing Stockland Ethiopia ERP project. The Owner's obje
 ## Mandatory reading
 
 1. Read repository-root `AGENTS.md`.
-2. Read [the final Codespaces and one-click release runbook](engineering/STOCKLAND_ERP_FINAL_CODESPACES_ONE_CLICK_RELEASE_RUNBOOK_2026-11-11.md).
+2. Read [the final Codespaces and one-click release runbook](engineering/STOCKLAND_ERP_FINAL_CODESPACES_ONE_CLICK_RELEASE_RUNBOOK_2026-11-11.md) and [the Free-plan single-Codespace/Codex setup](engineering/CODEX_CODESPACES_SETUP_2026-11-11.md).
 3. Read [the three-month history handover](engineering/STOCKLAND_ERP_THREE_MONTH_HISTORY_RECONCILIATION_AND_PRE_CODESPACE_HANDOVER_2026-11-05.md) and [incremental delivery directive](engineering/STOCKLAND_ERP_INCREMENTAL_TARGET_COMMITS_AND_PRODUCTION_COMPLETION_2026-11-05.md).
 4. Read the latest Notion records linked from AGENTS.md: 9 Nov cumulative deep audit, 11 Nov dual-version Codespaces/E2E, 11 Nov next execution target, and full HR/payroll requirements.
 5. Refresh live GitHub branches, ancestry, PRs, exact workflow runs/jobs/artifacts, package locks and branch protections. The last verified successful E2E base is PR #83 head `cc2bde441022a0ee11df76756df22c10bdc6d910`; this is a historical anchor until refreshed.
@@ -89,3 +89,10 @@ Build one complete WordPress plugin ZIP from the final canonical commit. It must
 Do not declare production readiness until the exact final source/package, full database and business workflows, security, payroll/legal, backup/restore/rollback, browser/PWA, stakeholder and Owner acceptance are evidenced. Continue engineering GO throughout; keep each technical/legal gate visible and close it with an actual fix or required approval.
 
 **This is the sole delivery objective. Start from the current repository/Codespace state, fix forward, commit incrementally and finish the complete Stockland ERP.**
+
+
+## Current one-Codespace create link and schema control
+
+Create only one Codespace from the branch linked in README.md after checking remaining Free quota. Follow docs/engineering/CODEX_CODESPACES_SETUP_2026-11-11.md. Recommended minimum is 2 cores / 8 GB / 32 GB, with one local MariaDB profile and MySQL 8.0.46 in GitHub Actions. Do not enable paid overage, Codex Cloud, API keys, marketplace plugins or duplicate Codespaces.
+
+Notion Target 6 is the current Owner schema boundary: protect the 49-key legacy operational baseline; keep 37 HR lifecycle tables and 33 HRX keys separate and unapproved; no automatic lifecycle DDL or existing legacy HR ALTER without exact written Owner approval; do not globally block non-HR operational routes; payroll finalization remains fail-closed without effective-dated qualified review.
