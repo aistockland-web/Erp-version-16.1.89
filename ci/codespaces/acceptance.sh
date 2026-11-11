@@ -85,14 +85,24 @@ check_rest() {
   local url="$1" port="$2" label="$3"
   local output="$RUNTIME/rest-$label.json"
   curl --fail --silent --show-error --retry 12 --retry-delay 2 --retry-connrefused \
-    --header "Host: localhost:$port" "$url/wp-json/" --output "$output"
+    --header "Host: localhost:$port" \
+    --output "$output" --write-out "WordPress REST HTTP %{http_code}\n" \
+    "$url/index.php?rest_route=/"
+  if [[ ! -s "$output" ]]; then
+    echo "WordPress REST endpoint returned an empty response: $url/index.php?rest_route=/" >&2
+    exit 1
+  fi
   python3 - "$output" <<'PY'
 import json, sys
 from pathlib import Path
-data = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+body = Path(sys.argv[1]).read_text(encoding="utf-8")
+try:
+    data = json.loads(body)
+except json.JSONDecodeError as error:
+    raise SystemExit("WordPress REST endpoint did not return JSON: " + str(error) + "; body prefix=" + repr(body[:240]))
 namespaces = [str(item).lower() for item in data.get("namespaces", [])]
 if not namespaces or not any("stockland" in item for item in namespaces):
-    raise SystemExit("Stockland namespace is absent from the WordPress REST index")
+    raise SystemExit("Stockland namespace is absent from the WordPress REST index: " + repr(namespaces))
 print("PASS WordPress REST index and Stockland namespace")
 PY
 }
