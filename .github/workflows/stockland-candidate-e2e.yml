@@ -5,6 +5,7 @@ on:
     branches:
       - 'infra/**'
       - 'fix/**'
+      - 'delivery/**'
     paths:
       - 'STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER (1).zip'
       - 'STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER.zip.sha256'
@@ -15,7 +16,7 @@ on:
       - 'scripts/codespaces/**'
       - '.github/workflows/stockland-candidate-e2e.yml'
   pull_request:
-    branches: [main, 'infra/**']
+    branches: [main, 'infra/**', 'fix/**']
     paths:
       - 'STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER (1).zip'
       - 'STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER.zip.sha256'
