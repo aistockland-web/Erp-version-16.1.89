@@ -55,6 +55,24 @@ jobs:
           python3 ci/codespaces/verify_installers.py --verify-all
           python3 ci/codespaces/verify_installers.py --extract-version 16.2.13 --destination-root "$RUNNER_TEMP/stockland/16.2.13"
           python3 ci/codespaces/verify_installers.py --extract-version 16.2.15 --destination-root "$RUNNER_TEMP/stockland/16.2.15"
+      - name: Inventory REST route and namespace registration in both exact packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          report="$RUNNER_TEMP/stockland-rest-registration-inventory.txt"
+          for version in 16.2.13 16.2.15; do
+            root="$RUNNER_TEMP/stockland/$version/stockland-erp-app"
+            echo "===== $version: register_rest_route / rest_api_init / namespace =====" | tee -a "$report"
+            grep -RnE -C 2 'register_rest_route|rest_api_init|namespace[[:space:]]*=' "$root" --include='*.php' >> "$report" || true
+          done
+          cat "$report"
+      - name: Upload REST route registration source inventory
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: stockland-rest-registration-inventory
+          path: ${{ runner.temp }}/stockland-rest-registration-inventory.txt
+          if-no-files-found: warn
       - name: PHP lint on every PHP file
         run: |
           set -euo pipefail
