@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$REPO_ROOT"
+
 source "$REPO_ROOT/scripts/codespaces/wp_cli_wrapper.sh"
 
 smoke_site() {
@@ -19,7 +22,7 @@ smoke_site() {
     -H "Host: $host_header" "http://$service/wp-login.php" >/dev/null
   curl --fail --silent --show-error --retry 10 --retry-all-errors \
     -H "Host: $host_header" "http://$service/wp-json/" \
-    | python3 ci/codespaces/check_rest_index.py
+    | python3 "$REPO_ROOT/ci/codespaces/check_rest_index.py"
 
   echo "PASS WordPress login, Stockland REST contract and plugin $version at $site"
 }
