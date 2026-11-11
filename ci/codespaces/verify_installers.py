@@ -43,7 +43,7 @@ def sha256_file(path):
 
 def validate_member_path(name):
     """Return safe path parts below the one permitted plugin root."""
-    if not name or "\\\\" in name:
+    if not name or "\\" in name:
         raise VerificationError("empty or non-portable ZIP path: " + repr(name))
     is_directory = name.endswith("/")
     normalized = name[:-1] if is_directory else name
