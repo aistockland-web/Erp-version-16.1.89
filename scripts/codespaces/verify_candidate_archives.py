@@ -238,7 +238,7 @@ def main() -> None:
     )
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(
-        json.dumps(results, indent=2, sort_keys=True) + "\\n", encoding="utf-8"
+        json.dumps(results, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
     print(f"Report: {args.report}")
 
