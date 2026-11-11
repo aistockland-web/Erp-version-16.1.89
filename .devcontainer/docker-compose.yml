@@ -25,6 +25,8 @@ services:
       WP_MARIADB_URL: http://localhost:8080
       WP_MYSQL_URL: http://localhost:8081
       STOCKLAND_ARTIFACT_DIR: /artifacts
+      CODESPACE_NAME: ${CODESPACE_NAME:-}
+      GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN: ${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-}
     depends_on:
       db-mariadb:
         condition: service_healthy
@@ -70,7 +72,7 @@ services:
     volumes:
       - mysql-data:/var/lib/mysql
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping --host=127.0.0.1 --user=root --password=\"$$${MYSQL_ROOT_PASSWORD}\" --silent"]
+      test: ["CMD-SHELL", "mysqladmin ping --host=127.0.0.1 --user=root --password=\"${MYSQL_ROOT_PASSWORD}\" --silent"]
       interval: 5s
       timeout: 5s
       retries: 40
@@ -125,7 +127,7 @@ services:
     user: "33:33"
     working_dir: /workspaces/stockland-erp
     volumes:
-      - ..:/workspaces/stockland-erp:ro
+      - ..:/workspaces/stockland-erp
       - wordpress-mariadb-data:/var/www/wp-mariadb
       - wordpress-mysql-data:/var/www/wp-mysql
       - ../artifacts/codespaces:/artifacts
