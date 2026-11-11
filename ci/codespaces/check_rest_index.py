@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail-closed smoke check for the Stockland REST contract in a WP REST index."""
+"""Fail-closed smoke check for the Stockland pre-schema WordPress REST contract."""
 from __future__ import annotations
 
 import json
@@ -9,8 +9,11 @@ from pathlib import Path
 from typing import Any
 
 EXPECTED_ROUTES = {
-    "stockland/v1": ("/stockland/v1/app/bootstrap",),
-    "stockland/v16": ("/stockland/v16/system/ping",),
+    "stockland/v16": {
+        "/stockland/v16/setup/status": {"GET"},
+        "/stockland/v16/setup/advance": {"POST"},
+        "/stockland/v16/app/access/bootstrap": {"GET"},
+    },
 }
 
 
@@ -22,13 +25,13 @@ def validate_index(document: Mapping[str, Any]) -> list[str]:
     if not isinstance(routes, dict):
         raise ValueError("WordPress REST index has no routes object")
 
-    namespace_set = set(item for item in namespaces if isinstance(item, str))
+    namespace_set = {item for item in namespaces if isinstance(item, str)}
     errors: list[str] = []
     for namespace, required_routes in EXPECTED_ROUTES.items():
         if namespace not in namespace_set:
             errors.append(f"missing namespace {namespace}")
             continue
-        for route in required_routes:
+        for route, expected_methods in required_routes.items():
             route_data = routes.get(route)
             if not isinstance(route_data, dict):
                 errors.append(f"missing registered route {route}")
@@ -37,23 +40,31 @@ def validate_index(document: Mapping[str, Any]) -> list[str]:
             if not isinstance(endpoints, list) or not endpoints:
                 errors.append(f"route {route} has no endpoint definitions")
                 continue
-            methods = {
-                method.upper()
-                for endpoint in endpoints
-                if isinstance(endpoint, dict)
-                for method in (
-                    endpoint.get("methods", [])
-                    if isinstance(endpoint.get("methods", []), list)
-                    else [endpoint.get("methods")]
+            methods: set[str] = set()
+            for endpoint in endpoints:
+                if not isinstance(endpoint, dict):
+                    continue
+                advertised = endpoint.get("methods", [])
+                if isinstance(advertised, str):
+                    advertised = [advertised]
+                if isinstance(advertised, list):
+                    methods.update(
+                        method.upper()
+                        for method in advertised
+                        if isinstance(method, str)
+                    )
+            missing_methods = expected_methods - methods
+            if missing_methods:
+                errors.append(
+                    f"route {route} is missing expected methods {sorted(missing_methods)}"
                 )
-                if isinstance(method, str)
-            }
-            if not methods:
-                errors.append(f"route {route} does not advertise HTTP methods")
     if errors:
         raise ValueError("; ".join(errors))
     return [
-        f"PASS {namespace}: " + ", ".join(required_routes)
+        f"PASS {namespace}: " + ", ".join(
+            f"{route} [{'/'.join(sorted(methods))}]"
+            for route, methods in required_routes.items()
+        )
         for namespace, required_routes in EXPECTED_ROUTES.items()
     ]
 
@@ -85,9 +96,9 @@ def main() -> int:
         document = load_document()
         for message in validate_index(document):
             print(message)
-        print("PASS Stockland REST namespace and route contract")
+        print("PASS Stockland fresh-install REST namespace and route contract")
         return 0
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError, TypeError) as exc:
+    except (OSError, UnicodeDecodeError, ValueError, TypeError) as exc:
         print(f"FAIL Stockland REST contract: {exc}", file=sys.stderr)
         return 1
 

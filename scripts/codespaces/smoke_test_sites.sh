@@ -25,7 +25,7 @@ smoke_site() {
   if ! curl --fail --silent --show-error --retry 10 --retry-all-errors \
     -H "Accept: application/json" -H "Host: $host_header" \
     --output "$rest_body" --write-out "REST HTTP %{http_code}; content-type %{content_type}; bytes %{size_download}\n" \
-    "http://$service/wp-json/"; then
+    "http://$service/?rest_route=/"; then
     rm -f "$rest_body"
     return 1
   fi

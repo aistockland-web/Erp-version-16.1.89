@@ -43,7 +43,7 @@ This is a development and QA environment only. It has no production credential, 
 
 - codespaces-environment.yml validates Dev Container JSON, shell scripts, Compose config, the PHP 8.3/Node 22 toolchain image and required PHP modules.
 - stockland-candidate-e2e.yml locks both package identities, validates SHA-256/sidecars/byte size/ZIP CRC/root/path/duplicates and plugin header versions, lints every packaged PHP file on PHP 8.3 and 8.4, checks JS/JSON/CSS, and runs disposable WordPress baseline/upgrade tests on MariaDB and MySQL 8.0.46.
-- The runtime REST check requires `stockland/v1` with `/stockland/v1/app/bootstrap` and `stockland/v16` with `/stockland/v16/system/ping`. The same validator has unit tests for missing namespace and route cases. A generic WordPress REST index response is insufficient.
+- The runtime REST smoke check requests the WordPress REST index through `/?rest_route=/` so plain-permalink test sites are supported. For the pre-schema activation state used by clean-install and upgrade tests, it requires `stockland/v16` with `/stockland/v16/setup/status` (GET), `/stockland/v16/setup/advance` (POST), and `/stockland/v16/app/access/bootstrap` (GET). It does not require the full-schema `/app/bootstrap` or `/system/ping` routes before the protected setup workflow has completed.
 - Full PHPCS/WPCS, Semgrep, CodeQL, dependency/license/secret scans, real browser/device checks, complete operational workflow acceptance and all production controls remain separate gates. This handover does not mark them PASS.
 
 ## 5. Commands
