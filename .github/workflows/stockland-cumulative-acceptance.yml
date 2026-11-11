@@ -1,0 +1,267 @@
+name: Stockland ERP 16.2.13 to 16.2.15 cumulative candidate gates
+
+on:
+  push:
+    branches: ["integration/**"]
+    paths:
+      - "AGENTS.md"
+      - ".devcontainer/**"
+      - ".github/agents/**"
+      - ".github/copilot-instructions.md"
+      - ".github/workflows/stockland-cumulative-acceptance.yml"
+      - "scripts/codespaces/**"
+      - "STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER*.zip"
+      - "STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER*.sha256"
+      - "STOCKLAND_ERP_16.2.15_LOCAL_REVIEW_CANDIDATE_WORDPRESS_INSTALLER*.zip"
+      - "STOCKLAND_ERP_16.2.15_LOCAL_REVIEW_CANDIDATE_WORDPRESS_INSTALLER*.sha256"
+  pull_request:
+    branches: [main]
+    paths:
+      - "AGENTS.md"
+      - ".devcontainer/**"
+      - ".github/agents/**"
+      - ".github/copilot-instructions.md"
+      - ".github/workflows/stockland-cumulative-acceptance.yml"
+      - "scripts/codespaces/**"
+      - "STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER*.zip"
+      - "STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER*.sha256"
+      - "STOCKLAND_ERP_16.2.15_LOCAL_REVIEW_CANDIDATE_WORDPRESS_INSTALLER*.zip"
+      - "STOCKLAND_ERP_16.2.15_LOCAL_REVIEW_CANDIDATE_WORDPRESS_INSTALLER*.sha256"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stockland-cumulative-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  candidate-identity:
+    name: Exact .13/.15 ZIP identity and path comparison
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Verify pinned hashes, sidecars, ZIP CRC and paths
+        run: python scripts/codespaces/verify_candidate_archives.py --report "$RUNNER_TEMP/package-intake.json" --extract-root "$RUNNER_TEMP/stockland-candidates"
+      - name: Upload exact package inventory
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: stockland-16213-16215-package-intake
+          path: ${{ runner.temp }}/package-intake.json
+          if-no-files-found: error
+
+  devcontainer:
+    name: Validate Codespaces JSON, Compose and PHP image
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Validate configuration and scripts
+        run: |
+          set -euo pipefail
+          python3 -m json.tool .devcontainer/devcontainer.json >/dev/null
+          bash -n .devcontainer/post-create.sh
+          bash -n scripts/codespaces/bootstrap_wordpress.sh
+          python3 -m py_compile scripts/codespaces/verify_candidate_archives.py
+          docker compose -f .devcontainer/docker-compose.yml config --quiet
+      - name: Build PHP 8.3 workspace image
+        run: docker compose -f .devcontainer/docker-compose.yml build workspace
+
+  package-static:
+    name: PHP ${{ matrix.php-version }} plus JS/JSON/CSS syntax
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ["8.3", "8.4"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
+        with:
+          php-version: ${{ matrix.php-version }}
+          coverage: none
+          tools: none
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - name: Verify and extract exact archives
+        run: python scripts/codespaces/verify_candidate_archives.py --report "$RUNNER_TEMP/intake.json" --extract-root "$RUNNER_TEMP/stockland-candidates"
+      - name: Lint all packaged PHP files
+        shell: bash
+        run: |
+          set -euo pipefail
+          for version in 16_2_13 16_2_15; do
+            app="$RUNNER_TEMP/stockland-candidates/$version/stockland-erp-app"
+            count=0
+            while IFS= read -r -d '' file; do php -l "$file"; count=$((count+1)); done < <(find "$app" -type f -name '*.php' -print0)
+            test "$count" -gt 0
+            echo "PASS $version: $count PHP files"
+          done
+      - name: Validate JavaScript and JSON
+        shell: bash
+        run: |
+          set -euo pipefail
+          for version in 16_2_13 16_2_15; do
+            app="$RUNNER_TEMP/stockland-candidates/$version/stockland-erp-app"
+            while IFS= read -r -d '' file; do node --check "$file"; done < <(find "$app" -type f \\( -name '*.js' -o -name '*.mjs' \\) -print0)
+            while IFS= read -r -d '' file; do python -m json.tool "$file" >/dev/null; done < <(find "$app" -type f -name '*.json' -print0)
+          done
+      - name: Install repository-locked PostCSS
+        run: npm ci --prefix ci/cssqa --ignore-scripts --no-audit --no-fund
+      - name: Parse CSS and verify ordered module parity
+        env:
+          NODE_PATH: ${{ github.workspace }}/ci/cssqa/node_modules
+        run: |
+          node - "$RUNNER_TEMP/stockland-candidates" <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const postcss = require('postcss');
+          const root = process.argv[2];
+          for (const version of ['16_2_13', '16_2_15']) {
+            const app = path.join(root, version, 'stockland-erp-app');
+            const cssFiles = [];
+            const walk = dir => {
+              for (const ent of fs.readdirSync(dir, {withFileTypes: true})) {
+                const full = path.join(dir, ent.name);
+                if (ent.isDirectory()) walk(full);
+                else if (ent.name.endsWith('.css')) cssFiles.push(full);
+              }
+            };
+            walk(app);
+            if (!cssFiles.length) throw new Error(version + ': no CSS assets');
+            for (const file of cssFiles) postcss.parse(fs.readFileSync(file, 'utf8'), {from:file});
+            const mod = path.join(app, 'assets/css/modules.json');
+            const appCss = path.join(app, 'assets/app.css');
+            if (fs.existsSync(mod) && fs.existsSync(appCss)) {
+              const manifest = JSON.parse(fs.readFileSync(mod, 'utf8'));
+              const built = manifest.modules.map(name => fs.readFileSync(path.join(app, 'assets/css', name), 'utf8').trim()).join('\\n\\n') + '\\n';
+              if (built !== fs.readFileSync(appCss, 'utf8')) throw new Error(version + ': CSS module parity failed');
+            }
+            console.log('PASS ' + version + ': parsed ' + cssFiles.length + ' CSS files');
+          }
+          NODE
+
+  wpcs-comparison:
+    name: Comparative PHPCS/WPCS diagnostics
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
+        with:
+          php-version: "8.3"
+          coverage: none
+          tools: composer:v2
+      - name: Install locked PHPCS/WPCS
+        run: composer install --working-dir=ci/phpcs --no-interaction --prefer-dist --no-progress
+      - name: Extract exact archives
+        run: python scripts/codespaces/verify_candidate_archives.py --report "$RUNNER_TEMP/intake.json" --extract-root "$RUNNER_TEMP/stockland-candidates"
+      - name: Run full WPCS diagnostics for .13 and .15
+        shell: bash
+        run: |
+          set +e
+          mkdir -p "$RUNNER_TEMP/wpcs"
+          phpcs="ci/phpcs/vendor/bin/phpcs"
+          "$phpcs" --standard=ci/qa/stockland-phpcs.xml --extensions=php --report=json --report-file="$RUNNER_TEMP/wpcs/16.2.13.json" "$RUNNER_TEMP/stockland-candidates/16_2_13/stockland-erp-app"
+          "$phpcs" --standard=ci/qa/stockland-phpcs.xml --extensions=php --report=json --report-file="$RUNNER_TEMP/wpcs/16.2.15.json" "$RUNNER_TEMP/stockland-candidates/16_2_15/stockland-erp-app"
+          set -e
+          python - "$RUNNER_TEMP/wpcs/16.2.13.json" "$RUNNER_TEMP/wpcs/16.2.15.json" "$GITHUB_STEP_SUMMARY" <<'PY'
+          import json,sys
+          base=json.load(open(sys.argv[1],encoding="utf-8")).get("totals",{})
+          cand=json.load(open(sys.argv[2],encoding="utf-8")).get("totals",{})
+          rows=[
+            "## Complete PHPCS/WPCS diagnostic",
+            f"- 16.2.13: {base.get('errors',0)} errors; {base.get('warnings',0)} warnings; {base.get('fixable',0)} fixable.",
+            f"- 16.2.15: {cand.get('errors',0)} errors; {cand.get('warnings',0)} warnings; {cand.get('fixable',0)} fixable.",
+            "- Coding-standard findings are not vulnerability counts. Do not suppress or mislabel them."
+          ]
+          with open(sys.argv[3],"a",encoding="utf-8") as f: f.write("\\n".join(rows)+"\\n")
+          print("\\n".join(rows))
+          if cand.get("errors",0)>base.get("errors",0) or cand.get("warnings",0)>base.get("warnings",0):
+            raise SystemExit("FAIL: candidate WPCS counts regress versus .13")
+          print("PASS: aggregate candidate WPCS counts do not exceed .13")
+          PY
+      - name: Upload both WPCS reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: stockland-wpcs-16213-16215
+          path: ${{ runner.temp }}/wpcs/*.json
+          if-no-files-found: warn
+
+  semgrep-and-secrets:
+    name: Semgrep PHP and Gitleaks archive scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Extract exact archives
+        run: python scripts/codespaces/verify_candidate_archives.py --report "$RUNNER_TEMP/intake.json" --extract-root "$RUNNER_TEMP/stockland-candidates"
+      - name: Install Semgrep CLI
+        run: python -m pip install --disable-pip-version-check semgrep
+      - name: Scan both PHP trees
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/semgrep"
+          for version in 16_2_13 16_2_15; do
+            app="$RUNNER_TEMP/stockland-candidates/$version/stockland-erp-app"
+            semgrep scan --metrics=off --config p/php --config p/security-audit --include '*.php' --json --output "$RUNNER_TEMP/semgrep/$version.json" "$app"
+            count="$(find "$app" -type f -name '*.php' | wc -l | tr -d '[:space:]')"
+            test "$count" -gt 0
+            python ci/qa/summarize-semgrep.py "$RUNNER_TEMP/semgrep/$version.json" --expected-targets "$count"
+          done
+      - name: Scan extracted packages for secrets
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/gitleaks"
+          for version in 16_2_13 16_2_15; do
+            docker run --rm -v "$RUNNER_TEMP/stockland-candidates/$version/stockland-erp-app:/scan:ro" -v "$RUNNER_TEMP/gitleaks:/report" ghcr.io/gitleaks/gitleaks:v8.28.0 dir /scan --redact --report-format sarif --report-path "/report/$version.sarif"
+          done
+      - name: Upload Semgrep and secret reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: stockland-semgrep-gitleaks-16213-16215
+          path: |
+            ${{ runner.temp }}/semgrep/*.json
+            ${{ runner.temp }}/gitleaks/*.sarif
+          if-no-files-found: warn
+
+  wordpress-mariadb-mysql-e2e:
+    name: WordPress .13 to .15 upgrade on MariaDB and MySQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Verify exact archives
+        run: python scripts/codespaces/verify_candidate_archives.py --report "$RUNNER_TEMP/intake.json"
+      - name: Prepare disposable evidence directory
+        run: mkdir -p artifacts/codespaces && chmod 0777 artifacts/codespaces
+      - name: Start isolated WordPress and DB services
+        run: docker compose -f .devcontainer/docker-compose.yml --profile ci up -d --wait db-mariadb db-mysql wordpress-mariadb wordpress-mysql wp-cli
+      - name: Install .13 and update to .15 on both engines
+        run: docker compose -f .devcontainer/docker-compose.yml --profile ci exec -T wp-cli bash /workspaces/stockland-erp/scripts/codespaces/bootstrap_wordpress.sh
+      - name: Upload upgrade receipts and SQL snapshots
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: stockland-wordpress-mariadb-mysql-e2e
+          path: artifacts/codespaces/
+          if-no-files-found: warn
+      - name: Destroy disposable DB and WordPress volumes
+        if: always()
+        run: docker compose -f .devcontainer/docker-compose.yml --profile ci down --volumes --remove-orphans
