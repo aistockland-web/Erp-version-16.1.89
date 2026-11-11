@@ -121,7 +121,7 @@ class Stockland_REST_Sales extends Stockland_REST_Base {
 		$has_location   = (bool) $location_id;
 		$has_date       = (bool) $date;
 		$location_value = $has_location ? (int) $location_id : 0;
-		$date_value     = $has_date ? (string) $date : '';
+		$date_value     = $has_date ? (string) $date : '1000-01-01'; // valid neutral date: strict MySQL 8 rejects '' for DATE comparisons
 
 		if ( $can_see_profit ) {
 			$rows = Stockland_DB::read_results(

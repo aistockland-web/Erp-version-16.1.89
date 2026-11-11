@@ -1041,7 +1041,7 @@ class Stockland_Accounting {
 		// MySQL START TRANSACTION would implicitly commit that outer transaction,
 		// breaking all-or-nothing behavior. Detect the transaction state and use a
 		// savepoint when an outer transaction is already active.
-		$in_transaction = (int) Stockland_DB::read_var( 'SELECT @@session.in_transaction' ) === 1;
+		$in_transaction = true === Stockland_DB::in_transaction();
 		$savepoint      = 'stockland_gl_' . wp_rand( 100000, 999999 );
 		if ( $in_transaction ) {
 			if ( false === Stockland_DB::execute_query( $wpdb->prepare( 'SAVEPOINT %i', $savepoint ) ) ) {

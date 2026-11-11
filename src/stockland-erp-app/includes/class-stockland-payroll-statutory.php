@@ -1,6 +1,7 @@
 <?php
 /**
- * Statutory Ethiopian employment-income tax and private-pension calculations.
+ * Deterministic statutory payroll arithmetic driven only by an approved rule bundle.
+ * This class does not assert current Ethiopian legal applicability or ship statutory rates.
  *
  * @package Stockland_ERP
  */
@@ -9,42 +10,29 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit; }
 
 /**
- * Versioned Ethiopian monthly employment-income withholding and private-pension
- * arithmetic. This service does not determine whether an allowance is legally
- * exempt; an authorized owner must classify components and record the basis.
- *
- * Tax source: Ethiopia Income Tax (Amendment) Proclamation No. 1395/2025,
- * amended employment-income monthly brackets (Article 11). Pension rates use
- * the private-organization pension contribution framework (employee 7%, employer
- * 11%). Rules must be reviewed by the employer's Ethiopian payroll adviser when
- * legislation/directives change. Historical payroll rows are never recalculated.
+ * Approved, effective-dated payroll arithmetic. Current rates and rule dates are
+ * supplied from the database only after independent qualified review and Owner approval.
+ * No historic percentages, tax bands, dates or legal interpretations are defaults.
  */
 final class Stockland_Payroll_Statutory {
-	const RULE_VERSION          = 'ET-PAYE-1395-2025-v3-PENSION-BASE';
-	const EMPLOYEE_PENSION_RATE = '0.07';
-	const EMPLOYER_PENSION_RATE = '0.11';
-	// Proclamation No. 1395/2025, Effective Date clause 4(3), applies the other
-	// amendments to income derived as of 8 July 2025. The Gazette publication date
-	// (1 September 2025) is not the statutory application date.
-	const LAW_EFFECTIVE_DATE = '2025-07-08';
-	// July 2025 crosses the 8 July statutory boundary. This monthly calculator does
-	// not silently prorate or rewrite posted July payroll: hold that month for a
-	// separately approved split-period calculation. August is the first full month.
-	const EFFECTIVE_DATE = '2025-08-01';
+	const RULE_VERSION          = 'NO_APPROVED_RULE_SET';
+	const EMPLOYEE_PENSION_RATE = '';
+	const EMPLOYER_PENSION_RATE = '';
+	const LAW_EFFECTIVE_DATE    = '';
+	const EFFECTIVE_DATE        = '';
 
 	/**
 	 * Server-authoritative component catalog for the compensation editor.
-	 * Cash/benefit types are taxable by default. The current amendment repeals exemptions
-	 * granted outside its permitted framework, so the UI must not auto-exempt a category
-	 * merely because it is called transport, meal, medical, hardship or reimbursement.
-	 * Owner-confirmed exceptions require a clause/reference and supporting evidence.
+	 * Cash/benefit categories are not automatically exempted by their label. Any
+	 * non-taxable treatment must come from an exact effective-dated approved rule
+	 * bundle and supporting evidence; no legal conclusion is embedded here.
 	 */
 	public static function allowance_catalog() {
 		return array(
 			'GENERAL_CASH'  => array(
 				'label'             => 'General cash allowance',
 				'default_treatment' => 'TAXABLE',
-				'description'       => 'Taxable by default under the employment-income schedule.',
+				'description'       => 'No exemption is inferred from the component label; apply only an approved current rule.',
 			),
 			'HOUSING'       => array(
 				'label'             => 'Housing / rent allowance',
@@ -125,22 +113,27 @@ final class Stockland_Payroll_Statutory {
 			return 'Compensation contains a negative amount.';
 		}
 		$status       = strtoupper( trim( (string) ( $record['statutory_classification_status'] ?? '' ) ) );
+		$creator_id       = (int) ( $record['created_by'] ?? 0 );
+		$approver_id      = (int) ( $record['approved_by'] ?? 0 );
+		$explicit_approval = 'APPROVED' === strtoupper( (string) ( $record['approval_status'] ?? '' ) )
+			&& $creator_id > 0
+			&& $approver_id > 0
+			&& $approver_id !== $creator_id
+			&& ! empty( $record['approved_at'] )
+			&& '0000-00-00 00:00:00' !== (string) $record['approved_at'];
+		if ( ! $explicit_approval ) {
+			return 'Compensation is not supported by an explicit independent approval actor and timestamp.';
+		}
 		$manager_safe = 'MANAGEMENT_PREPARED' === $status && 0 === $exempt_minor && $pensionable_minor === $base_minor;
-		$rule_classified = 'RULE_CLASSIFIED' === $status && 'APPROVED' === strtoupper( (string) ( $record['approval_status'] ?? '' ) ) && ( 0 === $exempt_minor || ( ! empty( $record['allowance_rule_set_id'] ) && ! empty( $record['allowance_rule_version'] ) ) );
+		$rule_classified = 'RULE_CLASSIFIED' === $status && ( 0 === $exempt_minor || ( ! empty( $record['allowance_rule_set_id'] ) && ! empty( $record['allowance_rule_version'] ) ) );
 		if ( 'OWNER_CLASSIFIED' !== $status && ! $manager_safe && ! $rule_classified ) {
 			return 'Compensation needs Owner classification; Management-prepared entries are accepted only for taxable allowances, zero exemptions, and pensionable salary equal to base salary.';
 		}
-		try {
-			self::calculate(
-				Stockland_Money::decimal( $base_minor ),
-				Stockland_Money::decimal( $taxable_minor ),
-				Stockland_Money::decimal( $exempt_minor ),
-				Stockland_Money::decimal( $pensionable_minor ),
-				Stockland_Money::decimal( $other_minor )
-			);
-		} catch ( Throwable $e ) {
-			return 'Compensation amounts cannot produce a valid payroll calculation; review gross pay, pensionable salary, and deductions.';
-		}
+		// This validator classifies and validates the saved compensation record only.
+		// It deliberately does not call calculate() because no approved, effective-dated
+		// statutory rule bundle is supplied here. The payroll-cycle generator performs
+		// calculation separately with its independently approved rule bundle and fails
+		// closed when that bundle is missing or out of date.
 		$raw_components  = trim( (string) ( $record['allowance_breakdown_json'] ?? '' ) );
 		$legacy_snapshot = '' === $raw_components;
 		if ( $legacy_snapshot ) {
@@ -229,46 +222,9 @@ final class Stockland_Payroll_Statutory {
 		return '';
 	}
 
-	/** Monthly brackets and credits are exposed to the front end from this authoritative source. */
+	/** Returns no default PAYE bands; only an approved database ruleset may supply them. */
 	public static function monthly_tax_bands() {
-		return array(
-			array(
-				'up_to'  => '2000.00',
-				'rate'   => '0.00',
-				'credit' => '0.00',
-				'label'  => 'ETB 0–2,000',
-			),
-			array(
-				'up_to'  => '4000.00',
-				'rate'   => '0.15',
-				'credit' => '300.00',
-				'label'  => 'ETB 2,001–4,000',
-			),
-			array(
-				'up_to'  => '7000.00',
-				'rate'   => '0.20',
-				'credit' => '500.00',
-				'label'  => 'ETB 4,001–7,000',
-			),
-			array(
-				'up_to'  => '10000.00',
-				'rate'   => '0.25',
-				'credit' => '850.00',
-				'label'  => 'ETB 7,001–10,000',
-			),
-			array(
-				'up_to'  => '14000.00',
-				'rate'   => '0.30',
-				'credit' => '1350.00',
-				'label'  => 'ETB 10,001–14,000',
-			),
-			array(
-				'up_to'  => null,
-				'rate'   => '0.35',
-				'credit' => '2050.00',
-				'label'  => 'Above ETB 14,000',
-			),
-		);
+		return array();
 	}
 
 	/**
@@ -298,8 +254,11 @@ final class Stockland_Payroll_Statutory {
 			throw new InvalidArgumentException( 'Pensionable salary cannot exceed gross pay.' );
 		}
 
-		if ( ! is_array( $rules ) || ! isset( $rules['employee_pension_rate'], $rules['employer_pension_rate'], $rules['monthly_tax_bands'], $rules['tax_base_method'], $rules['rule_version'] ) ) {
-			throw new InvalidArgumentException( 'An approved effective-dated statutory rule set is required; no legacy payroll fallback is permitted.' );
+		if ( ! is_array( $rules ) || 'APPROVED' !== strtoupper( (string) ( $rules['status'] ?? '' ) ) || empty( $rules['rule_version'] ) || empty( $rules['rule_set_id'] ) || (int) ( $rules['approved_by'] ?? 0 ) < 1 || empty( $rules['approved_at'] ) || ! array_key_exists( 'employee_pension_rate', $rules ) || null === $rules['employee_pension_rate'] || '' === $rules['employee_pension_rate'] || ! array_key_exists( 'employer_pension_rate', $rules ) || null === $rules['employer_pension_rate'] || '' === $rules['employer_pension_rate'] || empty( $rules['monthly_tax_bands'] ) || empty( $rules['tax_base_method'] ) ) {
+			throw new InvalidArgumentException( 'An independently reviewed, Owner-approved, effective-dated statutory rule set is required; no legacy payroll fallback is permitted.' );
+		}
+		if ( ! preg_match( '/^[a-f0-9]{64}$/iD', (string) ( $rules['source_sha256'] ?? '' ) ) || empty( $rules['source_url'] ) || ! class_exists( 'Stockland_HR_Lifecycle' ) || ! Stockland_HR_Lifecycle::has_qualified_legal_review( $rules ) ) {
+			throw new InvalidArgumentException( 'The approved statutory rule set is missing its official source hash or independent qualified review evidence.' );
 		}
 		$employee_rate = $rules['employee_pension_rate'];
 		$employer_rate = $rules['employer_pension_rate'];
@@ -353,9 +312,9 @@ final class Stockland_Payroll_Statutory {
 			'deduction_total'         => $deduction_total,
 			'net_pay'                 => $net,
 			'employer_cost_total'     => Stockland_Money::add( $gross, $employer_pension ),
-			'tax_rule_version'        => (string) ( $rules['rule_version'] ?? self::RULE_VERSION ),
+			'tax_rule_version'        => (string) $rules['rule_version'],
 			'statutory_rule_set_id'   => isset( $rules['rule_set_id'] ) ? (int) $rules['rule_set_id'] : null,
-			'statutory_rule_version'  => (string) ( $rules['rule_version'] ?? self::RULE_VERSION ),
+			'statutory_rule_version'  => (string) $rules['rule_version'],
 			'statutory_status'        => 'CALCULATED',
 		);
 	}
@@ -371,53 +330,28 @@ final class Stockland_Payroll_Statutory {
 	 * @throws InvalidArgumentException When taxable income is invalid or negative.
 	 */
 	public static function income_tax( $taxable_income, $bands = null ) {
-		if ( ! is_array( $bands ) || ! $bands ) { throw new InvalidArgumentException( 'Approved effective-dated PAYE bands are required; no legacy fallback is permitted.' ); }
+		if ( ! is_array( $bands ) || ! $bands ) {
+			throw new InvalidArgumentException( 'Approved effective-dated PAYE bands are required; no legacy fallback is permitted.' );
+		}
 		$income = self::amount( $taxable_income, 'Taxable income' );
 		$minor  = Stockland_Money::minor( $income );
-		if ( is_array( $bands ) ) {
-			if ( ! $bands ) {
-				throw new InvalidArgumentException( 'Approved PAYE schedule contains no tax bands.' );
+		foreach ( $bands as $band ) {
+			if ( ! is_array( $band ) || ! isset( $band['rate'], $band['credit'] ) || ! is_numeric( $band['rate'] ) || ! is_numeric( $band['credit'] ) || (float) $band['rate'] < 0 || (float) $band['rate'] > 1 ) {
+				throw new InvalidArgumentException( 'Approved PAYE band is invalid.' );
 			}
-			foreach ( $bands as $band ) {
-				if ( ! is_array( $band ) || ! isset( $band['rate'], $band['credit'] ) || ! is_numeric( $band['rate'] ) || ! is_numeric( $band['credit'] ) || (float) $band['rate'] < 0 || (float) $band['rate'] > 1 ) {
-					throw new InvalidArgumentException( 'Approved PAYE band is invalid.' );
-				}
-				$upper = array_key_exists( 'up_to', $band ) && null !== $band['up_to'] ? Stockland_Money::minor( $band['up_to'] ) : null;
-				if ( null !== $upper && $minor > $upper ) {
-					continue;
-				}
-				$rate = (string) $band['rate'];
-				$credit = self::amount( $band['credit'], 'PAYE band credit' );
-				$tax = Stockland_Money::subtract( Stockland_Money::percentage( $income, $rate ), $credit );
-				if ( Stockland_Money::minor( $tax ) < 0 ) {
-					$tax = '0.00';
-				}
-				return array( $tax, number_format( (float) $rate * 100, 2, '.', '' ) );
+			$upper = array_key_exists( 'up_to', $band ) && null !== $band['up_to'] ? Stockland_Money::minor( $band['up_to'] ) : null;
+			if ( null !== $upper && $minor > $upper ) {
+				continue;
 			}
-			throw new InvalidArgumentException( 'Taxable income is outside the approved PAYE bands.' );
+			$rate   = (string) $band['rate'];
+			$credit = self::amount( $band['credit'], 'PAYE band credit' );
+			$tax    = Stockland_Money::subtract( Stockland_Money::percentage( $income, $rate ), $credit );
+			if ( Stockland_Money::minor( $tax ) < 0 ) {
+				$tax = '0.00';
+			}
+			return array( $tax, number_format( (float) $rate * 100, 2, '.', '' ) );
 		}
-		if ( $minor <= 200000 ) {
-			return array( '0.00', '0.00' ); }
-		if ( $minor <= 400000 ) {
-			$rate   = '0.15';
-			$credit = '300.00';
-			$pct    = '15.00'; } elseif ( $minor <= 700000 ) {
-			$rate   = '0.20';
-			$credit = '500.00';
-			$pct    = '20.00'; } elseif ( $minor <= 1000000 ) {
-				$rate   = '0.25';
-				$credit = '850.00';
-				$pct    = '25.00'; } elseif ( $minor <= 1400000 ) {
-				$rate   = '0.30';
-				$credit = '1350.00';
-				$pct    = '30.00'; } else {
-					$rate   = '0.35';
-					$credit = '2050.00';
-					$pct    = '35.00'; }
-				$tax = Stockland_Money::subtract( Stockland_Money::percentage( $income, $rate ), $credit );
-				if ( Stockland_Money::minor( $tax ) < 0 ) {
-					$tax = '0.00'; }
-				return array( $tax, $pct );
+		throw new InvalidArgumentException( 'Taxable income is outside the approved PAYE bands.' );
 	}
 
 	/**

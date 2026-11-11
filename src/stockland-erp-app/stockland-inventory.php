@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       Stockland Ethiopia ERP
  * Description:       Stockland Ethiopia ERP for retail, wholesale, inventory, finance, HR and payroll operations.
- * Version:           16.2.13
+ * Version:           16.2.18
  * Author:            Stockland Ethiopia
  * Text Domain:       stockland-inventory
  * Requires PHP:      8.3
@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit; // No direct access.
 }
 
-define( 'STOCKLAND_VERSION', '16.2.13' );
+define( 'STOCKLAND_VERSION', '16.2.18' );
 define( 'STOCKLAND_ROLE_CAPS_VERSION', '16.1.66-finance-procurement-authority-v1' );
 define( 'STOCKLAND_CORE_SCHEMA_VERSION', '16.1.1' );
 define( 'STOCKLAND_ACCOUNTING_SCHEMA_VERSION', '16.1.15' );
@@ -62,6 +62,8 @@ require_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-sale-math.php';
 require_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-business-calendar.php';
 require_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-integrity.php';
 require_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-schema-contract.php';
+require_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-installer.php';
+require_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-release-authorization.php';
 
 require_once STOCKLAND_PLUGIN_DIR . 'includes/rest/class-rest-controller.php';
 require_once STOCKLAND_PLUGIN_DIR . 'includes/rest/class-rest-setup.php';
@@ -102,9 +104,15 @@ register_activation_hook(
 	function () {
 		try {
 			Stockland_Activator::begin_activation();
-			// HR remains outside the activation request on shared hosting. It will be
-			// installed by the protected administrator setup path after activation.
 			delete_option( 'stockland_activation_error' );
+			// One-pack install: build Core, Accounting/Procurement and HR/Payroll inside
+			// a bounded time budget. Anything unfinished (slow host, or an existing install
+			// that needs the Owner's written HR approval) stays resumable from System Control.
+			try {
+				Stockland_Installer::run( get_current_user_id(), 20 );
+			} catch ( Throwable $install_error ) {
+				Stockland_Runtime_Diagnostics::log_error( 'Stockland one-pack installer deferred: ' . $install_error->getMessage() );
+			}
 		} catch ( Throwable $e ) {
 			update_option(
 				'stockland_activation_error',
@@ -254,6 +262,7 @@ function stockland_init_plugin() {
 		new Stockland_REST_HR_Payroll_Cycle();
 		new Stockland_REST_SOP_Library();
 		new Stockland_REST_Wholesale();
+		add_action( 'rest_api_init', array( 'Stockland_Release_Authorization', 'register_routes' ) );
 
 		delete_option( 'stockland_boot_error' );
 	} catch ( Throwable $e ) {

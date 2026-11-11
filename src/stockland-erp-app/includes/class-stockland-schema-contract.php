@@ -1,9 +1,14 @@
 <?php
 /**
- * Read-only classifier for the fixed 86-table ERP base plus the known additive
- * 33-table HRX extension found on existing installations. The HRX tables are
- * recognized and preserved, but are not activated or consumed by this release.
- * Unknown plugin-owned table keys remain a blocking contract mismatch.
+ * Read-only classifier for source-declared table-key inventories.
+ *
+ * Counts are diagnostic, not an Owner-approved schema contract. The legacy
+ * operational subset (29 Core + 16 Accounting/Procurement + 4 legacy HR keys)
+ * is 49 keys; the current HR lifecycle source adds further keys, but no final
+ * HR table count or migration is approved by this class. Known HRX keys are
+ * recognized for preservation only; they are not activated or consumed.
+ * Never infer schema approval from a count. Exact columns, indexes, defaults,
+ * relationships and existing rows require a separately approved reconciliation.
  *
  * @package Stockland_ERP
  */
@@ -12,7 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 final class Stockland_Schema_Contract {
-	/** Exact table keys from Cloud AI's 0.9.4 review HRX DDL contract. */
+	/** Known additive HRX key names for read-only recognition; not schema approval. */
 	public static function hrx_extension_keys() {
 		return array(
 			'hrx_org_units',

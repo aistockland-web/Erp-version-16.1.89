@@ -838,6 +838,7 @@ final class Stockland_HR_Lifecycle {
 		if ( ! is_array( $payload ) || empty( $payload['monthly_tax_bands'] ) || empty( $payload['employee_pension_rate'] ) || empty( $payload['employer_pension_rate'] ) || empty( $payload['tax_base_method'] ) ) {
 			return new WP_Error( 'payroll_rules_invalid', 'The approved payroll rule version is incomplete; payroll was not generated.', array( 'status' => 409 ) );
 		}
+		$payload['status'] = 'APPROVED';
 		$payload['rule_version'] = (string) $row['version_label'];
 		$payload['rule_set_id'] = (int) $row['id'];
 		$payload['effective_from'] = (string) $row['effective_from'];

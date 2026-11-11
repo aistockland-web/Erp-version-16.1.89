@@ -2,7 +2,7 @@
 /*
  * Stockland Ethiopia ERP 16.1.44 — canonical frontend UI layer
  * FRONTEND-ONLY RELEASE: layout, typography, spacing, accessibility and responsive behavior.
- * No ERP business logic, REST contract, 49-table schema, ledger, POS or import workflow is changed here.
+ * No ERP business logic, REST contract, legacy schema inventory, ledger, POS or import workflow is changed here.
  * Local Bootstrap 5 base + one Stockland semantic layer; no CDN dependency.
  */
 /*

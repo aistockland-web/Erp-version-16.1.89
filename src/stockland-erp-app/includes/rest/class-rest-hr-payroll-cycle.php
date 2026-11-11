@@ -218,11 +218,11 @@ final class Stockland_REST_HR_Payroll_Cycle extends Stockland_REST_Base {
 				$loc = (int) ( $emp['branch_location_id'] ?? 0 );
 				try {
 					if ( $loc > 0 && ! Stockland_Authority::can_access_location( $loc ) ) { throw new RuntimeException( 'Employee is outside the authenticated payroll-location scope.' ); }
-					$comp = Stockland_DB::read_row( $wpdb->prepare( "SELECT * FROM %i WHERE employee_id=%d AND effective_from<=%s AND COALESCE(approval_status,'APPROVED')='APPROVED' ORDER BY effective_from DESC,id DESC LIMIT 1", $this->table( 'employee_compensation' ), $employee_id, $run['end_date'] ), ARRAY_A );
+					$comp = Stockland_DB::read_row( $wpdb->prepare( "SELECT * FROM %i WHERE employee_id=%d AND effective_from<=%s AND approval_status='APPROVED' AND created_by>0 AND approved_by>0 AND approved_by<>created_by AND approved_at IS NOT NULL AND approved_at<>'0000-00-00 00:00:00' ORDER BY effective_from DESC,id DESC LIMIT 1", $this->table( 'employee_compensation' ), $employee_id, $run['end_date'] ), ARRAY_A );
 					if ( ! $comp ) { throw new RuntimeException( 'No approved effective-dated compensation exists.' ); }
 					$src = $this->employee_source_items( $emp, $comp, $bundle );
 					$input = array( 'employee_ref'=>(string)$emp['employee_id'],'period_date'=>$run['end_date'],'items'=>$src['items'] );
-					$calc = Stockland_HR_Payroll_Calculator::calculate( $input, $bundle, false );
+					$calc = Stockland_HR_Payroll_Calculator::calculate( $input, $bundle );
 					$stored_pensionable = Stockland_Money::minor( $comp['pensionable_salary'] ?? $comp['base_salary'] );
 					$calculated_pensionable = Stockland_Money::minor( $calc['totals']['pensionable_earnings'] );
 					if ( $stored_pensionable !== $calculated_pensionable ) { throw new RuntimeException( 'Pensionable base mismatch between approved compensation and reviewed component treatments; legal classification must be reconciled.' ); }
@@ -575,8 +575,7 @@ final class Stockland_REST_HR_Payroll_Cycle extends Stockland_REST_Base {
 			'file_name' => $stored['file_name'], 'mime_type' => $stored['mime_type'], 'status' => 'DRAFT', 'created_by' => get_current_user_id(),
 		);
 		if ( false === Stockland_DB::insert_record( $this->table( 'hr_resources' ), $row ) ) {
-			$file_info = Stockland_HR_Private_Vault::resolve( $stored['private_file_ref'], $stored['file_sha256'] );
-			if ( ! is_wp_error( $file_info ) ) { @unlink( $file_info['path'] ); }
+			Stockland_HR_Private_Vault::delete( $stored['private_file_ref'] );
 			return $this->bad( 'hr_resource_metadata_save_failed', 'Private file metadata could not be saved; the new file was discarded.', 409 );
 		}
 		global $wpdb;
@@ -613,8 +612,7 @@ final class Stockland_REST_HR_Payroll_Cycle extends Stockland_REST_Base {
 			'file_name' => $stored['file_name'], 'mime_type' => $stored['mime_type'], 'status' => 'DRAFT', 'created_by' => get_current_user_id(),
 		);
 		if ( false === Stockland_DB::insert_record( $this->table( 'hr_resources' ), $row ) ) {
-			$file_info = Stockland_HR_Private_Vault::resolve( $stored['private_file_ref'], $stored['file_sha256'] );
-			if ( ! is_wp_error( $file_info ) ) { @unlink( $file_info['path'] ); }
+			Stockland_HR_Private_Vault::delete( $stored['private_file_ref'] );
 			return $this->bad( 'hr_resource_revision_save_failed', 'Replacement document could not be saved; its private file was discarded.', 409 );
 		}
 		global $wpdb;

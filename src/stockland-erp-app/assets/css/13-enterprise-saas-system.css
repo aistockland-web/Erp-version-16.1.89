@@ -1,5 +1,5 @@
 /*
- * Stockland ERP 16.2.13 — Enterprise SaaS design system.
+ * Stockland ERP 16.2.14 — Enterprise SaaS design system.
  * Presentation layer only: preserves existing PHP hooks, JS IDs, REST payloads,
  * workflow state, role capability checks, ledger and business data contracts.
  * One Stockland Sapphire scheme; semantic state colors remain distinct.
@@ -249,7 +249,6 @@ body[data-sl-theme],body[data-sl-theme="sapphire"]{
 #stockland-app #hrPage .sl-hrlc-section-summary:hover{background:#f7f9fd}
 #stockland-app #hrPage .sl-hrlc-section-title{font-size:13px;font-weight:780;color:#203650;letter-spacing:-.01em}
 #stockland-app #hrPage .sl-hrlc-section-summary small,#stockland-app #hrPage .sl-hrlc-section-desc{font-size:10.5px;line-height:1.5;color:#8291a5}
-#stockland-app #hrPage .sl-hrlc-section-icon{border:1px solid #dbe6f7;border-radius:12px;background:#eff4ff;color:#315fc0}
 #stockland-app #hrPage .sl-hrlc-section-body{padding:16px;background:#fff}
 #stockland-app #hrPage .sl-hrlc-form,#stockland-app #hrPage .sl-hrlc-panel{min-width:0;border-color:#e6ecf3;border-radius:12px;background:#fbfcfe}
 #stockland-app #hrPage .sl-hrlc-form>summary{font-size:12px;font-weight:750;color:#334b68}

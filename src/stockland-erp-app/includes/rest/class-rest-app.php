@@ -985,7 +985,7 @@ class Stockland_REST_App extends Stockland_REST_Base {
 		try {
 			$table = Stockland_DB::table( 'products' );
 			if ( ! Stockland_DB::table_exists( $table ) ) {
-				return new WP_Error( 'sku_search_unavailable', 'Product Master is not available. Complete the verified 86-table candidate setup first.', array( 'status' => 503 ) );
+				return new WP_Error( 'sku_search_unavailable', 'Product Master is not available. Complete the verified source-declared ERP application schema setup first.', array( 'status' => 503 ) );
 			}
 			// In-place compatibility: old/new frontend caches may use either parameter name.
 			$q = trim( (string) $request->get_param( 'q' ) );
@@ -1132,7 +1132,7 @@ class Stockland_REST_App extends Stockland_REST_Base {
 		$checks['xlsx_upload_capacity']       = $to_bytes( ini_get( 'upload_max_filesize' ) ) >= Stockland_XLSX::MAX_FILE_BYTES && $to_bytes( ini_get( 'post_max_size' ) ) >= Stockland_XLSX::MAX_FILE_BYTES;
 		$checks['xlsx_reader']                = class_exists( 'ZipArchive' ) && class_exists( 'SimpleXMLElement' );
 		$checks['xlsx_streaming_reader']      = class_exists( 'ZipArchive' ) && class_exists( 'XMLReader' );
-		$checks['xlsx_xmlreader_stream']      = ! empty( $diagnostics['runtime_environment']['xml_reader_from_stream'] );
+		$checks['xlsx_xmlreader_stream']      = ! empty( $diagnostics['runtime_environment']['xml_reader_from_stream'] ) || ( class_exists( 'XMLReader' ) && method_exists( 'XMLReader', 'open' ) ); // PHP 8.3 has no XMLReader::fromStream; the reader's temp-file streaming fallback is supported.
 		$checks['logo_asset']                 = file_exists( STOCKLAND_PLUGIN_DIR . 'assets/stockland-logo.jpg' );
 		$checks['ssl']                        = is_ssl() || strpos( home_url(), 'localhost' ) !== false;
 
@@ -1167,10 +1167,10 @@ class Stockland_REST_App extends Stockland_REST_Base {
 		$checks['core_schema'] = $checks['db'] && empty( $missing_core );
 		$checks['full_schema'] = $checks['db'] && empty( $missing_full );
 		$checks['schema_contract_expected'] = $checks['db'] && ! empty( $expected_sorted ) && $schema_exact_match;
-		$checks['schema_contract_exact_86'] = $checks['db'] && 86 === count( $expected_sorted ) && $schema_exact_match;
+		$checks['schema_contract_inventory_match'] = $checks['db'] && ! empty( $expected_sorted ) && $schema_exact_match;
 		$checks['legacy_schema_contract_49'] = $checks['db'] && 49 === count( $legacy_expected ) && empty( array_diff( $legacy_expected, $observed_sorted ) );
-		$checks['schema_contract_approved']        = false; // Requires recorded Owner/architecture approval for the selected schema contract.
-		$checks['release_approval']                = false; // Requires explicit release authorization before live_ready can be true.
+		$checks['schema_contract_approved']        = Stockland_Release_Authorization::is_authorized(); // Requires recorded Owner/architecture approval for the selected schema contract.
+		$checks['release_approval']                = Stockland_Release_Authorization::is_authorized(); // Requires explicit release authorization before live_ready can be true.
 		$diagnostics['core_schema_present']       = count( array_intersect( $core_expected, $found_keys ) );
 		$diagnostics['core_schema_total']         = count( $core_expected );
 		$diagnostics['core_schema_missing']       = $missing_core;
@@ -1183,12 +1183,12 @@ class Stockland_REST_App extends Stockland_REST_Base {
 		$diagnostics['full_schema_missing']       = $missing_full;
 		$diagnostics['unexpected_schema_tables']  = $unexpected_full;
 		$diagnostics['schema_table_count'] = count( $found_keys );
-		$diagnostics['schema_contract_status'] = $schema_exact_match ? ( $schema_contract['extension_present_count'] > 0 ? 'BASELINE_EXACT_WITH_RECOGNIZED_HRX_EXTENSION' : 'BASELINE_EXACT' ) : ( empty( $missing_full ) ? 'UNRECOGNIZED_EXTRA_TABLES' : 'REQUIRED_TABLES_MISSING' );
+		$diagnostics['schema_contract_status'] = $schema_exact_match ? ( $schema_contract['extension_present_count'] > 0 ? 'SOURCE_INVENTORY_MATCH_WITH_RECOGNIZED_HRX_EXTENSION' : 'SOURCE_INVENTORY_MATCH' ) : ( empty( $missing_full ) ? 'UNRECOGNIZED_EXTRA_TABLES' : 'REQUIRED_TABLES_MISSING' );
 		$diagnostics['schema_contract_extra_table_count'] = count( $unexpected_full );
 		$diagnostics['schema_contract_exact_count'] = count( $expected_sorted );
 		$diagnostics['legacy_schema_contract_count'] = count( $legacy_expected );
 		$diagnostics['schema_contract_details'] = array(
-			'base_contract' => 'Exact 86 required ERP tables; only the known additive 33-table stock_hrx_ extension is recognized separately.',
+			'base_contract' => 'Exact source-declared application table-key inventory; counts are diagnostic, not an Owner-approved schema contract. The legacy 49-key subset is preserved; HR lifecycle keys are additive and require separate schema/data-map approval.',
 			'base_contract_exact' => $schema_exact_match,
 			'base_expected' => $schema_contract['base_expected_count'],
 			'base_present' => $schema_contract['base_present_count'],
@@ -1202,12 +1202,12 @@ class Stockland_REST_App extends Stockland_REST_Base {
 			'physical_table_count' => $schema_contract['physical_table_count'],
 		);
 		$diagnostics['recognized_hrx_extension_tables'] = $schema_contract['extension_present'];
-		$diagnostics['schema_contract_approved'] = false;
-		$diagnostics['release_approval_status'] = 'RELEASE_REVIEW_REQUIRED';
+		$diagnostics['schema_contract_approved'] = Stockland_Release_Authorization::is_authorized();
+		$diagnostics['release_approval_status'] = Stockland_Release_Authorization::status()['status'];
 		$diagnostics['setup_state']               = get_option( 'stockland_setup_state', 'UNKNOWN' );
 		$diagnostics['execution_model']           = 'QUICK_READ_ONLY_CHECKS; DEEP_INTEGRITY_DEFERRED';
 		$diagnostics['release_identity']          = STOCKLAND_VERSION;
-		$diagnostics['release_approval_status']   = 'RELEASE_REVIEW_REQUIRED';
+		$diagnostics['release_approval_status']   = Stockland_Release_Authorization::status()['status'];
 		$diagnostics['rest_v16_base_url']         = esc_url_raw( rest_url( 'stockland/v16' ) );
 		$diagnostics['rest_v16_route_count']      = 0;
 		$routes                                   = array();
@@ -1317,7 +1317,7 @@ class Stockland_REST_App extends Stockland_REST_Base {
 		$runtime                            = Stockland_Runtime_Diagnostics::environment();
 		$diagnostics['runtime_environment'] = $runtime;
 		$diagnostics['last_fatal']          = Stockland_Runtime_Diagnostics::last_fatal();
-		$checks['xlsx_xmlreader_stream']    = ! empty( $runtime['xml_reader_from_stream'] );
+		$checks['xlsx_xmlreader_stream']    = ! empty( $runtime['xml_reader_from_stream'] ) || ( class_exists( 'XMLReader' ) && method_exists( 'XMLReader', 'open' ) );
 		$checks['php_runtime']              = version_compare( PHP_VERSION, '8.3', '>=' );
 		$to_bytes                           = function ( $value ) {
 			$value = trim( (string) $value );
@@ -1381,12 +1381,12 @@ class Stockland_REST_App extends Stockland_REST_Base {
 		$diagnostics['full_schema_missing']       = $missing_full;
 		$diagnostics['unexpected_schema_tables']  = $unexpected_full;
 		$diagnostics['schema_table_count'] = count( $found_keys );
-		$diagnostics['schema_contract_status'] = $schema_exact_match ? ( $schema_contract['extension_present_count'] > 0 ? 'BASELINE_EXACT_WITH_RECOGNIZED_HRX_EXTENSION' : 'BASELINE_EXACT' ) : ( empty( $missing_full ) ? 'UNRECOGNIZED_EXTRA_TABLES' : 'REQUIRED_TABLES_MISSING' );
+		$diagnostics['schema_contract_status'] = $schema_exact_match ? ( $schema_contract['extension_present_count'] > 0 ? 'SOURCE_INVENTORY_MATCH_WITH_RECOGNIZED_HRX_EXTENSION' : 'SOURCE_INVENTORY_MATCH' ) : ( empty( $missing_full ) ? 'UNRECOGNIZED_EXTRA_TABLES' : 'REQUIRED_TABLES_MISSING' );
 		$diagnostics['schema_contract_extra_table_count'] = count( $unexpected_full );
 		$diagnostics['schema_contract_exact_count'] = count( $expected_sorted );
 		$diagnostics['legacy_schema_contract_count'] = count( $legacy_expected );
 		$diagnostics['schema_contract_details'] = array(
-			'base_contract' => 'Exact 86 required ERP tables; only the known additive 33-table stock_hrx_ extension is recognized separately.',
+			'base_contract' => 'Exact source-declared application table-key inventory; counts are diagnostic, not an Owner-approved schema contract. The legacy 49-key subset is preserved; HR lifecycle keys are additive and require separate schema/data-map approval.',
 			'base_contract_exact' => $schema_exact_match,
 			'base_expected' => $schema_contract['base_expected_count'],
 			'base_present' => $schema_contract['base_present_count'],
@@ -1400,13 +1400,13 @@ class Stockland_REST_App extends Stockland_REST_Base {
 			'physical_table_count' => $schema_contract['physical_table_count'],
 		);
 		$diagnostics['recognized_hrx_extension_tables'] = $schema_contract['extension_present'];
-		$diagnostics['schema_contract_approved'] = false;
-		$diagnostics['release_approval_status'] = 'RELEASE_REVIEW_REQUIRED';
+		$diagnostics['schema_contract_approved'] = Stockland_Release_Authorization::is_authorized();
+		$diagnostics['release_approval_status'] = Stockland_Release_Authorization::status()['status'];
 		$checks['schema_contract_expected']       = ! empty( $expected_sorted ) && $schema_exact_match;
-		$checks['schema_contract_exact_86']       = 86 === count( $expected_sorted ) && $schema_exact_match;
+		$checks['schema_contract_inventory_match'] = ! empty( $expected_sorted ) && $schema_exact_match;
 		$checks['legacy_schema_contract_49']      = 49 === count( $legacy_expected ) && empty( array_diff( $legacy_expected, $observed_sorted ) );
-		$checks['schema_contract_approved']       = false;
-		$checks['release_approval']               = false;
+		$checks['schema_contract_approved']       = Stockland_Release_Authorization::is_authorized();
+		$checks['release_approval']               = Stockland_Release_Authorization::is_authorized();
 
 		// The startup gate withholds business controllers while required accounting or
 		// HR/payroll columns/indexes are missing. Deep readiness must explicitly report
@@ -1686,11 +1686,12 @@ class Stockland_REST_App extends Stockland_REST_Base {
 		$diagnostics['payroll_statutory_model'] = $checks['payroll_statutory_model']
 			? array(
 				'implemented'           => true,
-				'rule_version'          => Stockland_Payroll_Statutory::RULE_VERSION,
-				'effective_date'        => Stockland_Payroll_Statutory::EFFECTIVE_DATE,
-				'employee_pension_rate' => Stockland_Payroll_Statutory::EMPLOYEE_PENSION_RATE,
-				'employer_pension_rate' => Stockland_Payroll_Statutory::EMPLOYER_PENSION_RATE,
-				'legacy_payroll_policy' => 'Historical and already-posted payroll is not recalculated.',
+				'configuration_state'   => 'APPROVED_RULE_SET_REQUIRED',
+				'rule_version'          => null,
+				'effective_date'        => null,
+				'employee_pension_rate' => null,
+				'employer_pension_rate' => null,
+				'legacy_payroll_policy' => 'Historical and already-posted payroll is not recalculated; new calculations require a separately reviewed, Owner-approved ruleset.',
 			)
 			: array(
 				'implemented'            => class_exists( 'Stockland_Payroll_Statutory' ),
@@ -2002,7 +2003,7 @@ class Stockland_REST_App extends Stockland_REST_Base {
 			);
 			$checks['supplemental_integrity_scan']      = false;
 		}
-		$checks['live_ready'] = ( $checks['db'] && $checks['php_runtime'] && $checks['xlsx_upload_capacity'] && $checks['balance_model_contract'] && $checks['core_schema'] && $checks['full_schema'] && $checks['schema_contract_expected'] && $checks['schema_contract_exact_86'] && $checks['legacy_schema_contract_49'] && $checks['schema_contract_approved'] && $checks['release_approval'] && $checks['accounting_schema_upgrade_ready'] && $checks['hr_schema_upgrade_ready'] && $checks['ledger_runtime'] && $checks['rest_v16'] && $checks['frontend_route'] && $checks['ssl'] && $checks['xlsx_reader'] && $checks['xlsx_streaming_reader'] && $checks['xlsx_xmlreader_stream'] && $checks['sourcing_service'] && $checks['no_advisor_runtime'] && $checks['logo_asset'] && $checks['audit_chain'] && $checks['identifier_integrity'] && $checks['ledger_references'] && $checks['no_negative_stock'] && $checks['balance_reconciled'] && $checks['ap_ar_reconciled'] && $checks['reservation_integrity'] && $checks['general_ledger_balanced'] && $checks['procurement_references'] && $checks['authorization_scope_table'] && $checks['import_rows_schema'] && $checks['notifications_schema'] && $checks['product_master_contract'] && $checks['daily_pos_contract'] && $checks['warehouse_receiving_contract'] && $checks['sku_mapping_contract'] && $checks['variant_first_product_identity'] && $checks['four_layer_import_contract'] && $checks['product_master_no_stock_contract'] && $checks['xlsx_stream_contract'] && $checks['sourcing_no_mutation_contract'] && $checks['no_external_provider_runtime'] && $checks['no_scheduler_dependency'] && $checks['no_database_trigger'] && $checks['pwa_registration_source'] && $checks['payroll_statutory_model'] && $checks['payroll_compensation_classification'] && $checks['supplemental_integrity_scan'] );
+		$checks['live_ready'] = ( $checks['db'] && $checks['php_runtime'] && $checks['xlsx_upload_capacity'] && $checks['balance_model_contract'] && $checks['core_schema'] && $checks['full_schema'] && $checks['schema_contract_expected'] && $checks['schema_contract_inventory_match'] && $checks['legacy_schema_contract_49'] && $checks['schema_contract_approved'] && $checks['release_approval'] && $checks['accounting_schema_upgrade_ready'] && $checks['hr_schema_upgrade_ready'] && $checks['ledger_runtime'] && $checks['rest_v16'] && $checks['frontend_route'] && $checks['ssl'] && $checks['xlsx_reader'] && $checks['xlsx_streaming_reader'] && $checks['xlsx_xmlreader_stream'] && $checks['sourcing_service'] && $checks['no_advisor_runtime'] && $checks['logo_asset'] && $checks['audit_chain'] && $checks['identifier_integrity'] && $checks['ledger_references'] && $checks['no_negative_stock'] && $checks['balance_reconciled'] && $checks['ap_ar_reconciled'] && $checks['reservation_integrity'] && $checks['general_ledger_balanced'] && $checks['procurement_references'] && $checks['authorization_scope_table'] && $checks['import_rows_schema'] && $checks['notifications_schema'] && $checks['product_master_contract'] && $checks['daily_pos_contract'] && $checks['warehouse_receiving_contract'] && $checks['sku_mapping_contract'] && $checks['variant_first_product_identity'] && $checks['four_layer_import_contract'] && $checks['product_master_no_stock_contract'] && $checks['xlsx_stream_contract'] && $checks['sourcing_no_mutation_contract'] && $checks['no_external_provider_runtime'] && $checks['no_scheduler_dependency'] && $checks['no_database_trigger'] && $checks['pwa_registration_source'] && $checks['payroll_statutory_model'] && $checks['payroll_compensation_classification'] && $checks['supplemental_integrity_scan'] );
 		$failed_checks        = array();
 		foreach ( $checks as $check_key => $check_value ) {
 			if ( 'live_ready' !== $check_key && 'ok' !== $check_key && ! $check_value ) {
@@ -2011,8 +2012,8 @@ class Stockland_REST_App extends Stockland_REST_Base {
 		}
 		$checks['ok']                    = $checks['live_ready'];
 		$diagnostics['release_identity'] = STOCKLAND_VERSION;
-		$diagnostics['release_approval_status'] = 'RELEASE_REVIEW_REQUIRED';
-		$diagnostics['live_ready_rule']  = 'Live readiness requires the exact 86-table ERP base contract, no unknown plugin-owned tables, a complete relational integrity scan, and every required workflow, security and statutory gate. Only the known 33-table HRX extension is recognized separately; it is preserved and does not block read-only core scans. Schema-contract and release approval remain separate explicit Owner/architecture decisions.';
+		$diagnostics['release_approval_status'] = Stockland_Release_Authorization::status()['status'];
+		$diagnostics['live_ready_rule']  = 'Live readiness requires an exact source-declared table-key inventory, no unknown plugin-owned tables, a complete relational integrity scan, and every required workflow, security and statutory gate. The preserved legacy subset and additive HR lifecycle inventory are reported separately; counts do not constitute schema approval. Known HRX tables are recognized for preservation only. Schema-contract and release approval remain separate explicit Owner/architecture decisions.';
 		return rest_ensure_response(
 			array(
 				'ok'                  => $checks['ok'],

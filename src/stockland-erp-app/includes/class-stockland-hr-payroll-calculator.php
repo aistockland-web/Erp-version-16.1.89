@@ -1,15 +1,13 @@
 <?php
 /**
- * Stockland candidate payroll calculation service; approved legal rules required.
+ * Deterministic payroll calculation service.
  *
- * This file is not wired into the production ERP and is not a statutory calculator release.
- * It requires a reviewed, versioned, effective-dated rule bundle. Test-only bundles are
- * accepted solely when the caller explicitly enables synthetic tests; every result carries
- * a synthetic_only marker and must never be used for live payroll.
+ * The installed runtime accepts only an independently reviewed, Owner-approved,
+ * effective-dated rule bundle. Synthetic fixtures belong in the external QA suite
+ * and are deliberately not represented in this production class.
  */
 final class Stockland_HR_Payroll_Calculator {
 	const RULE_STATUS_APPROVED = 'APPROVED';
-	const RULE_STATUS_SYNTHETIC = 'SYNTHETIC_TEST_ONLY';
 	const RATE_SCALE = 1000000;
 
 	private static function fail( $code, $message ) {
@@ -57,17 +55,12 @@ final class Stockland_HR_Payroll_Calculator {
 		return intdiv( ( $minor * $rate_micro ) + intdiv( self::RATE_SCALE, 2 ), self::RATE_SCALE );
 	}
 
-	private static function assert_rule_bundle( $rules, $period_date, $allow_synthetic ) {
+	private static function assert_rule_bundle( $rules, $period_date ) {
 		if ( ! is_array( $rules ) ) {
 			self::fail( 'rule_bundle_missing', 'a versioned legal-rule bundle is required; no hardcoded statutory fallback exists' );
 		}
 		$status = isset( $rules['status'] ) ? $rules['status'] : '';
-		$synthetic = self::RULE_STATUS_SYNTHETIC === $status;
-		if ( $synthetic ) {
-			if ( true !== $allow_synthetic || true !== ( $rules['synthetic_only'] ?? false ) ) {
-				self::fail( 'synthetic_rules_blocked', 'synthetic test rules may only be used by an explicit isolated-test caller' );
-			}
-		} elseif ( self::RULE_STATUS_APPROVED !== $status ) {
+		if ( self::RULE_STATUS_APPROVED !== $status ) {
 			self::fail( 'rule_not_approved', 'rule bundle is not approved; final payroll calculation is blocked' );
 		}
 		foreach ( array( 'rule_version', 'jurisdiction', 'effective_from', 'source_sha256', 'reviewer_id', 'approved_at', 'paye_tax_base_method', 'paye_bands', 'employee_pension_rate', 'employer_pension_rate', 'pensionable_base_method', 'component_treatments', 'rounding_method' ) as $required ) {
@@ -87,7 +80,7 @@ final class Stockland_HR_Payroll_Calculator {
 		if ( $period_date < $rules['effective_from'] || ( isset( $rules['effective_to'] ) && null !== $rules['effective_to'] && $period_date > $rules['effective_to'] ) ) {
 			self::fail( 'rule_out_of_date', 'no approved rule is effective for the requested payroll date' );
 		}
-		if ( self::RULE_STATUS_APPROVED === $status && ( empty( $rules['reviewer_id'] ) || empty( $rules['approved_at'] ) || empty( $rules['official_source_url'] ) || empty( $rules['approval_evidence_ref'] ) ) ) {
+		if ( empty( $rules['reviewer_id'] ) || empty( $rules['approved_at'] ) || empty( $rules['official_source_url'] ) || empty( $rules['approval_evidence_ref'] ) || (int) ( $rules['approved_by'] ?? 0 ) < 1 ) {
 			self::fail( 'rule_approval_evidence_missing', 'approved rule requires reviewer, approval time, official source and approval evidence reference' );
 		}
 		if ( ! in_array( $rules['paye_tax_base_method'], array( 'TAXABLE_EARNINGS', 'TAXABLE_EARNINGS_LESS_EMPLOYEE_PENSION' ), true ) ) {
@@ -141,7 +134,7 @@ final class Stockland_HR_Payroll_Calculator {
 				self::fail( 'component_treatment_conflict', 'deductions, reimbursements and employer-cost components cannot be marked taxable/pensionable by this calculation model' );
 			}
 		}
-		return $synthetic;
+		return true;
 	}
 
 	private static function progressive_tax( $taxable_minor, $bands ) {
@@ -174,7 +167,7 @@ final class Stockland_HR_Payroll_Calculator {
 	}
 
 	/**
-	 * Calculate one synthetic/reviewed payroll line from approved inputs.
+	 * Calculate one payroll line from approved inputs.
 	 *
 	 * $input = ['employee_ref'=>'masked/test reference', 'period_date'=>'YYYY-MM-DD',
 	 *           'items'=>[['code'=>'BASE','amount'=>'100.00','source_ref'=>'contract-approval-id']]]
@@ -182,14 +175,13 @@ final class Stockland_HR_Payroll_Calculator {
 	 *
 	 * @param array $input Payroll period date and itemized approved inputs.
 	 * @param array $rules Effective-dated legal rule bundle.
-	 * @param bool  $allow_synthetic_test_rules Explicit test-only switch; false by default.
 	 * @return array Itemized result and calculation trace.
 	 */
-	public static function calculate( $input, $rules, $allow_synthetic_test_rules = false ) {
+	public static function calculate( $input, $rules ) {
 		if ( ! is_array( $input ) || ! isset( $input['period_date'], $input['items'] ) || ! preg_match( '/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/D', (string) $input['period_date'] ) || ! is_array( $input['items'] ) || ! $input['items'] ) {
 			self::fail( 'input_invalid', 'period_date and a non-empty itemized inputs list are required' );
 		}
-		$synthetic = self::assert_rule_bundle( $rules, (string) $input['period_date'], $allow_synthetic_test_rules );
+		self::assert_rule_bundle( $rules, (string) $input['period_date'] );
 		$sum = array( 'earnings' => 0, 'taxable_earnings' => 0, 'pensionable_earnings' => 0, 'deductions' => 0, 'reimbursements' => 0, 'employer_costs' => 0 );
 		$seen_sources = array();
 		$line_trace = array();
@@ -259,8 +251,7 @@ final class Stockland_HR_Payroll_Calculator {
 			'employer_total_cost' => self::minor_money( $employer_total ),
 		);
 		return array(
-			'status' => $synthetic ? 'SYNTHETIC_TEST_ONLY' : 'CALCULATED_REQUIRES_APPROVAL',
-			'synthetic_only' => $synthetic,
+			'status' => 'CALCULATED_REQUIRES_APPROVAL',
 			'rule_bundle_status_confirmed' => $rules['status'],
 			'employee_ref' => isset( $input['employee_ref'] ) && is_string( $input['employee_ref'] ) ? $input['employee_ref'] : null,
 			'period_date' => $input['period_date'],
@@ -279,7 +270,7 @@ final class Stockland_HR_Payroll_Calculator {
 			'totals' => $totals,
 			'posting_allowed' => false,
 			'payment_allowed' => false,
-			'note' => $synthetic ? 'TOY FIXTURE ONLY — not Ethiopian law, not an approved payroll result, and must never be posted or paid.' : 'Calculated candidate preview only. Posting/payment require separately authorized workflow, exact frozen snapshot, review, legal gates and GL reconciliation.',
+			'note' => 'Calculated candidate preview only. Posting/payment require separately authorized workflow, exact frozen snapshot, review, legal gates and GL reconciliation.',
 		);
 	}
 }

@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Business calendar stored as a versioned JSON policy in the existing settings
- * table so the ERP keeps its 86-table candidate contract. The calendar is deliberately
+ * table so the ERP retains its source-declared calendar table alongside the preserved application inventory. The calendar is deliberately
  * fail-closed for malformed saved state. A missing/blank setting defaults to
  * every date being open until Management explicitly defines weekend/holiday rules.
  */

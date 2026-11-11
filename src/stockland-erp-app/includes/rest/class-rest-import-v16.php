@@ -2831,7 +2831,7 @@ class Stockland_REST_Import_V16 {
 		global $wpdb;
 		$requested_source_system = $r->get_param( 'source_system' );
 		$source                  = sanitize_text_field( $requested_source_system ? $requested_source_system : 'THIRD_PARTY_POS' );
-		$rows                    = Stockland_DB::read_results( $wpdb->prepare( 'SELECT m.id,m.source_system,m.external_code,m.live_sku,m.source_name,m.mapping_note,m.effective_from,m.effective_to,m.is_active,p.product_name FROM %i m LEFT JOIN %i p ON (p.variant_id=m.variant_id OR (m.variant_id IS NULL AND p.sku=m.live_sku)) WHERE m.source_system=%s ORDER BY m.external_code LIMIT 500', 'product_code_maps', $source, 'products' ), ARRAY_A );
+		$rows                    = Stockland_DB::read_results( $wpdb->prepare( 'SELECT m.id,m.source_system,m.external_code,m.live_sku,m.source_name,m.mapping_note,m.effective_from,m.effective_to,m.is_active,p.product_name FROM %i m LEFT JOIN %i p ON (p.variant_id=m.variant_id OR (m.variant_id IS NULL AND p.sku=m.live_sku)) WHERE m.source_system=%s ORDER BY m.external_code LIMIT 500', Stockland_DB::table( 'product_code_maps' ), Stockland_DB::table( 'products' ), $source ), ARRAY_A );
 		return rest_ensure_response( $rows );}
 	/**
 	 * Creates or updates an external product-code mapping after validation.

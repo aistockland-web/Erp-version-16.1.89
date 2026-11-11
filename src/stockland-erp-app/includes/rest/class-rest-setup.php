@@ -50,6 +50,23 @@ class Stockland_REST_Setup {
 	}
 
 	/**
+	 * Checks whether the current source-declared HR schema version has explicit Owner approval.
+	 *
+	 * @return bool Whether a version-bound approval record is present.
+	 */
+	private function hr_schema_approval_is_current() {
+		$approval = get_option( 'stockland_hr_schema_migration_approval', array() );
+		$signature = Stockland_HR::schema_signature();
+		return is_array( $approval )
+			&& '' !== $signature
+			&& Stockland_HR::DB_VERSION === (string) ( $approval['schema_version'] ?? '' )
+			&& hash_equals( $signature, (string) ( $approval['schema_signature'] ?? '' ) )
+			&& (int) ( $approval['approved_by'] ?? 0 ) > 0
+			&& ! empty( $approval['approved_at'] )
+			&& strlen( trim( (string) ( $approval['reason'] ?? '' ) ) ) >= 12;
+	}
+
+	/**
 	 * Checks whether the current session may view setup progress.
 	 *
 	 * @return bool Whether the current user is authenticated.
@@ -102,7 +119,7 @@ class Stockland_REST_Setup {
 	private function access_controller() {
 		// class-rest-app.php is always included by the plugin bootstrap. We instantiate
 		// it only for these lightweight access operations while the application schema
-		// is incomplete; operational ERP routes remain locked behind the 86/86 gate.
+		// is incomplete; operational routes remain gated by physical module verification.
 		return new Stockland_REST_App();
 	}
 
@@ -186,7 +203,7 @@ class Stockland_REST_Setup {
 			)
 		);
 
-		// Pre-schema access bridge. This is deliberately available before 86/86 so a
+		// Pre-schema access bridge. This is deliberately available before full schema readiness so a
 		// native WordPress administrator/authorized manager can activate ERP profiles
 		// from the ERP frontend without being forced into wp-admin user-role assignment.
 		// Once the full schema is ready, Stockland_REST_App owns these routes and this
@@ -279,7 +296,7 @@ class Stockland_REST_Setup {
 			'core_schema'                     => empty( $snapshot['core']['missing'] ),
 			'full_schema'                     => empty( $snapshot['total']['missing'] ),
 			'schema_contract_expected'        => false,
-			'schema_contract_exact_86'        => false,
+			'schema_contract_inventory_match' => false,
 			'legacy_schema_contract_49'       => false,
 			'schema_contract_approved'        => false,
 			'release_approval'                => false,
@@ -327,9 +344,9 @@ class Stockland_REST_Setup {
 				$contract = Stockland_Schema_Contract::assess( $observed, $expected, Stockland_Schema_Contract::hrx_extension_keys() );
 				$missing = $contract['base_missing'];
 				$unexpected = $contract['unexpected_keys'];
-				$exact = 86 === count( $expected ) && ! empty( $contract['base_contract_exact'] );
+				$exact = ! empty( $expected ) && ! empty( $contract['base_contract_exact'] );
 				$checks['schema_contract_expected'] = $exact;
-				$checks['schema_contract_exact_86'] = $exact;
+				$checks['schema_contract_inventory_match'] = $exact;
 				$checks['legacy_schema_contract_49'] = 49 === count( $legacy_expected ) && empty( $legacy_missing );
 				$schema_evidence = array(
 					'expected_count' => count( $expected ),
@@ -344,7 +361,7 @@ class Stockland_REST_Setup {
 				);
 			} catch ( Throwable $e ) {
 				$checks['schema_contract_expected'] = false;
-				$checks['schema_contract_exact_86'] = false;
+				$checks['schema_contract_inventory_match'] = false;
 				$checks['legacy_schema_contract_49'] = false;
 				$schema_evidence['status'] = 'SCHEMA_QUERY_FAILED';
 			}
@@ -361,7 +378,7 @@ class Stockland_REST_Setup {
 			'core_schema_present'   => $snapshot['core']['present'] ?? 0,
 			'core_schema_total'     => $snapshot['core']['total'] ?? 29,
 			'full_schema_present'   => $snapshot['total']['present'] ?? 0,
-			'full_schema_total'     => $snapshot['total']['total'] ?? 86,
+			'full_schema_total'     => $snapshot['total']['total'] ?? 0,
 			'schema_set_evidence'   => $schema_evidence,
 			'schema_contract_approved' => false,
 			'release_approval_status' => 'RELEASE_REVIEW_REQUIRED',
@@ -382,7 +399,7 @@ class Stockland_REST_Setup {
 				'payroll_compensation_classification',
 				'full_import_and_workflow_contract_gates',
 			),
-			'live_ready_rule'       => 'This setup response identifies schema gates preventing business endpoints from registering. Full integrity scans have not run in setup mode.',
+			'live_ready_rule'       => 'This setup response reports the source-declared required application table inventory and the preserved legacy subset. Table counts are diagnostic only; full integrity scans have not run in setup mode.',
 		);
 		$checks['live_ready'] = false;
 		$checks['ok']         = false;
@@ -478,6 +495,8 @@ class Stockland_REST_Setup {
 				'missing'      => $hr,
 				'upgrade_gaps' => $hr_gaps,
 				'ready'        => empty( $hr ) && empty( $hr_gaps ),
+				'schema_version' => Stockland_HR::DB_VERSION,
+				'schema_approval_required' => ( ! empty( $hr ) || ! empty( $hr_gaps ) ) && ! $this->hr_schema_approval_is_current(),
 			),
 			'total'              => array(
 				'present' => $present,
@@ -539,6 +558,34 @@ class Stockland_REST_Setup {
 					$progress = array( 'complete' => empty( Stockland_Accounting::missing_tables() ) && empty( Stockland_Accounting::upgrade_gaps() ) );
 				}
 			} else {
+				if ( ! $this->hr_schema_approval_is_current() ) {
+					$approved = rest_sanitize_boolean( $request->get_param( 'approve_hr_schema' ) );
+					$reason   = sanitize_text_field( (string) $request->get_param( 'approval_reason' ) );
+					if ( ! $approved || strlen( trim( $reason ) ) < 12 ) {
+						return new WP_Error(
+							'hr_schema_approval_required',
+							'Owner approval and a written reason are required before additive HR/Payroll schema creation or migration. No HR schema change was attempted.',
+							array( 'status' => 409, 'schema_version' => Stockland_HR::DB_VERSION )
+						);
+					}
+					$actor = get_current_user_id();
+					$stamp = current_time( 'mysql' );
+					if ( ! Stockland_Audit::log( $actor, null, 'HR_SCHEMA_MIGRATION_APPROVED', null, null, null, Stockland_HR::DB_VERSION . ':' . Stockland_HR::schema_signature(), $reason, 'HR_SCHEMA_' . Stockland_HR::DB_VERSION, $actor ) ) {
+						return new WP_Error( 'hr_schema_approval_audit_failed', 'The Owner approval could not be written to the immutable audit chain. No HR schema change was attempted.', array( 'status' => 500 ) );
+					}
+					update_option(
+						'stockland_hr_schema_migration_approval',
+						array(
+							'schema_version' => Stockland_HR::DB_VERSION,
+							'schema_signature' => Stockland_HR::schema_signature(),
+							'approved_by'    => $actor,
+							'approved_at'    => $stamp,
+							'reason'         => $reason,
+							'source'         => 'PROTECTED_SETUP',
+						),
+						false
+					);
+				}
 				$progress = Stockland_HR::install( 1 );
 				if ( ! is_array( $progress ) ) {
 					$progress = array(); }

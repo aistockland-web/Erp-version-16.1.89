@@ -773,7 +773,7 @@ class Stockland_Activator {
 		$tables[] = "CREATE TABLE {$p}stock_balances (
             location_id BIGINT UNSIGNED NOT NULL,
             sku VARCHAR(64) NOT NULL,
-            variant_id BIGINT UNSIGNED NULL,
+            variant_id BIGINT UNSIGNED NOT NULL,
             physical_qty DECIMAL(14,2) NOT NULL DEFAULT 0,
             updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY  (location_id,variant_id),

@@ -181,7 +181,44 @@ class Stockland_DB {
 			return self::schema_query( $query );
 		}
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- Executes caller-prepared DML/transaction statements or fixed SQL; preparing again would change semantics.
-		return $wpdb->query( $query );
+		$result = $wpdb->query( $query );
+		if ( false !== $result ) {
+			if ( preg_match( '/^(START\s+TRANSACTION|BEGIN)\b/i', $sql ) ) {
+				self::$transaction_open = true;
+			} elseif ( preg_match( '/^(COMMIT|ROLLBACK)(\s+WORK)?\s*;?\s*$/i', $sql ) ) {
+				self::$transaction_open = false;
+			}
+		}
+		return $result;
+	}
+
+	/**
+	 * Tracked transaction state for servers without MariaDB's @@session.in_transaction.
+	 *
+	 * @var bool
+	 */
+	private static $transaction_open = false;
+
+	/**
+	 * Whether a server-side transaction is currently open on this connection.
+	 *
+	 * MariaDB exposes this authoritatively as @@session.in_transaction. MySQL 8 has no such
+	 * variable, so the state is tracked from the START TRANSACTION / COMMIT / ROLLBACK
+	 * statements that all plugin code issues through execute_query().
+	 *
+	 * @return bool|null True/false, or null when the state cannot be determined (callers fail closed).
+	 */
+	public static function in_transaction() {
+		global $wpdb;
+		static $is_mariadb = null;
+		if ( null === $is_mariadb ) {
+			$is_mariadb = false !== stripos( (string) $wpdb->db_server_info(), 'mariadb' );
+		}
+		if ( $is_mariadb ) {
+			$state = self::read_var( 'SELECT @@session.in_transaction' );
+			return null === $state ? null : ( 1 === (int) $state );
+		}
+		return self::$transaction_open;
 	}
 
 	/**

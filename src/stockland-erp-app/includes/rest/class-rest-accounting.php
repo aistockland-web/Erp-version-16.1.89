@@ -660,6 +660,12 @@ class Stockland_REST_Accounting extends Stockland_REST_Base {
 			'notes'           => sanitize_text_field( $p['notes'] ?? ( $existing['notes'] ?? '' ) ),
 			'created_by'      => get_current_user_id(),
 		);
+		if ( '' !== $code && ! $id ) {
+			$dup = (int) Stockland_DB::read_var( $wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE customer_code=%s', Stockland_DB::table( 'customers' ), $code ) );
+			if ( $dup > 0 ) {
+				return new WP_Error( 'duplicate_customer_code', 'A customer with this code already exists. Use a different code or leave it blank for an automatic number.', array( 'status' => 409 ) );
+			}
+		}
 		if ( false === Stockland_DB::execute_query( 'START TRANSACTION' ) ) {
 			return new WP_Error( 'transaction_failed', 'Could not start customer transaction.', array( 'status' => 500 ) );
 		}
@@ -2216,9 +2222,9 @@ class Stockland_REST_Accounting extends Stockland_REST_Base {
 					$company_wide ? 0 : 1,
 					$location_filter,
 					$has_from ? 1 : 0,
-					$has_from ? $date_from : '',
+					$has_from ? $date_from : '1000-01-01', // valid neutral date: strict MySQL 8 rejects '' for DATE comparisons
 					$has_to ? 1 : 0,
-					$has_to ? $date_to : '',
+					$has_to ? $date_to : '9999-12-31',
 					$has_category ? 1 : 0,
 					$has_category ? $category : ''
 				),
@@ -2249,9 +2255,9 @@ class Stockland_REST_Accounting extends Stockland_REST_Base {
 				$company_wide ? 0 : 1,
 				$location_filter,
 				$has_from ? 1 : 0,
-				$has_from ? $date_from : '',
+				$has_from ? $date_from : '1000-01-01', // valid neutral date: strict MySQL 8 rejects '' for DATE comparisons
 				$has_to ? 1 : 0,
-				$has_to ? $date_to : '',
+				$has_to ? $date_to : '9999-12-31',
 				$has_category ? 1 : 0,
 				$has_category ? $category : ''
 			)
@@ -2281,9 +2287,9 @@ class Stockland_REST_Accounting extends Stockland_REST_Base {
 				$company_wide ? 0 : 1,
 				$location_filter,
 				$has_from ? 1 : 0,
-				$has_from ? $date_from : '',
+				$has_from ? $date_from : '1000-01-01', // valid neutral date: strict MySQL 8 rejects '' for DATE comparisons
 				$has_to ? 1 : 0,
-				$has_to ? $date_to : '',
+				$has_to ? $date_to : '9999-12-31',
 				$has_category ? 1 : 0,
 				$has_category ? $category : ''
 			),
@@ -2313,9 +2319,9 @@ class Stockland_REST_Accounting extends Stockland_REST_Base {
 				$company_wide ? 0 : 1,
 				$location_filter,
 				$has_from ? 1 : 0,
-				$has_from ? $date_from : '',
+				$has_from ? $date_from : '1000-01-01', // valid neutral date: strict MySQL 8 rejects '' for DATE comparisons
 				$has_to ? 1 : 0,
-				$has_to ? $date_to : '',
+				$has_to ? $date_to : '9999-12-31',
 				$has_category ? 1 : 0,
 				$has_category ? $category : '',
 				$per_page,

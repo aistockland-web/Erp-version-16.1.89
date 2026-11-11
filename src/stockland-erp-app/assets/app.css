@@ -2,7 +2,7 @@
 /*
  * Stockland Ethiopia ERP 16.1.44 — canonical frontend UI layer
  * FRONTEND-ONLY RELEASE: layout, typography, spacing, accessibility and responsive behavior.
- * No ERP business logic, REST contract, 49-table schema, ledger, POS or import workflow is changed here.
+ * No ERP business logic, REST contract, legacy schema inventory, ledger, POS or import workflow is changed here.
  * Local Bootstrap 5 base + one Stockland semantic layer; no CDN dependency.
  */
 /*
@@ -72,6 +72,7 @@ button,input,select,textarea{font:inherit}
 #stockland-app button:focus-visible,#stockland-app a:focus-visible,#stockland-app input:focus-visible,#stockland-app select:focus-visible,#stockland-app textarea:focus-visible{outline:0;box-shadow:var(--sl-focus)!important}
 #stockland-app .sl-shell{height:100%;min-height:0;display:grid;grid-template-columns:var(--sl-sidebar-w) minmax(0,1fr);background:var(--sl-canvas)}
 #stockland-app .sl-main{min-width:0;min-height:0;height:100%;display:grid;grid-template-rows:var(--sl-header-h) minmax(0,1fr);background:var(--sl-canvas)}
+
 /* Stockland ERP 16.1.91 • Shell, navigation, top bar and controls • Ordered source module. */
 #stockland-app .sl-sidebar{min-width:0;height:100%;overflow-y:auto;overflow-x:hidden;background:var(--sl-navy);border-right:1px solid rgba(255,255,255,.10);color:#fff;padding:18px 13px;scrollbar-width:thin}
 #stockland-app .sl-sidebar::-webkit-scrollbar,#stockland-app .sl-content::-webkit-scrollbar{width:9px}
@@ -178,6 +179,7 @@ button,input,select,textarea{font:inherit}
  .sl-global-search-result{grid-template-columns:32px minmax(0,1fr);gap:8px}
  .sl-global-search-result-type{display:none}
 }
+
 /* Stockland ERP 16.1.91 • Page hierarchy, cards, forms, tables and data components • Ordered source module. */
 .sl-content{min-width:0;min-height:0;overflow:auto;background:var(--sl-canvas);padding:28px clamp(15px,2.4vw,36px) 44px;scroll-behavior:smooth}
 .sl-content-inner{width:100%;max-width:1720px;margin:0 auto}
@@ -283,6 +285,7 @@ button,input,select,textarea{font:inherit}
 
 /* Health evidence is a long report: keep its heading in normal flow so mobile scrolling never covers the status panel. */
 .sl-content-inner>.sl-page-title-static{position:relative;top:auto;z-index:auto;margin-top:0;padding-top:0;padding-bottom:0;background:transparent;box-shadow:none}
+
 /* Stockland ERP 16.1.91 • Dialogs, overlays, workflow steps and notifications • Ordered source module. */
 .sl-modal{position:fixed;inset:0;z-index:2147483002;background:rgba(5,19,38,.52);display:grid;place-items:center;padding:14px}.sl-modal>div{width:min(760px,100%);max-height:min(88vh,780px);overflow:auto;background:#fff;border:1px solid #bfd0e0;border-radius:16px;box-shadow:var(--sl-shadow-lg)}
 .sl-overlay{position:fixed;inset:0;z-index:2147483003;display:grid;place-items:center;padding:14px;background:rgba(5,20,40,.52)}.sl-drawer{position:fixed;right:0;top:0;bottom:0;width:min(560px,94vw);overflow:auto;background:#fff;border-left:1px solid #bed0e2;box-shadow:-20px 0 60px rgba(4,22,45,.18);padding:17px}.sl-drawer-head,.sl-command-head,.sl-mobile-panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.sl-drawer-head h2,.sl-command-head h2{margin:0;color:var(--sl-ink);font-size:19px;font-weight:900}.sl-icon-btn{width:36px;height:36px;display:grid;place-items:center;border:1px solid #cbd8e5;border-radius:9px;background:#fff;color:var(--sl-ink);cursor:pointer;font-size:18px;line-height:1}.sl-command{width:min(700px,96vw);max-height:86vh;overflow:hidden;border:1px solid #bfd0e0;border-radius:16px;background:#fff;box-shadow:var(--sl-shadow-lg)}.sl-command-head{padding:15px 16px;border-bottom:1px solid var(--sl-line)}.sl-command-input{display:block;width:calc(100% - 24px);margin:12px;border:1px solid #c9d6e4;border-radius:9px;padding:11px;color:var(--sl-ink)}.sl-command-list{max-height:55vh;overflow:auto;padding:4px 7px}.sl-command-list>button{width:100%;display:grid;grid-template-columns:34px minmax(0,1fr) auto;align-items:center;gap:9px;padding:9px;border:0;border-radius:9px;background:#fff;text-align:left;cursor:pointer}.sl-command-list>button:hover{background:#f1f6fc}.sl-command-list b{display:block;font-size:10px;color:var(--sl-ink)}.sl-command-list small{display:block;color:var(--sl-muted);font-size:8px;margin-top:2px}.sl-command-list kbd{padding:3px 6px;border:1px solid #d4dee8;border-radius:6px;background:#f8fafc;color:#73869a;font-size:8px}.sl-command-foot{padding:10px 14px;border-top:1px solid var(--sl-line);display:flex;gap:8px;align-items:center}.sl-command-foot span{font-size:8px;font-weight:900;color:var(--sl-cobalt);text-transform:uppercase}.sl-command-foot small{color:var(--sl-muted);font-size:8px}
@@ -355,6 +358,7 @@ body.sl-mobile-menu-open{overflow:hidden!important;overscroll-behavior:none}
 .sl-mobile-panel .sl-nav button{width:100%;min-width:0;min-height:46px;grid-template-columns:30px minmax(0,1fr);align-items:center;white-space:normal;text-align:left;transform:none}
 .sl-mobile-panel .sl-nav button:hover{transform:none}
 .sl-mobile-panel .sl-nav-text{min-width:0;white-space:normal;overflow-wrap:anywhere;word-break:normal}
+
 /* Stockland ERP 16.1.91 • Breakpoint and responsive layout rules • Ordered source module. */
 /* ==========================================================================
    16.1.39 RESPONSIVE SYSTEM
@@ -566,6 +570,7 @@ body.sl-mobile-menu-open{overflow:hidden!important;overscroll-behavior:none}
   #stockland-app .sl-notification-trigger{justify-content:center;min-width:40px;padding-inline:8px}
   #stockland-app .sl-wp-admin{padding-inline:9px;font-size:10px}
 }
+
 /* Stockland ERP 16.1.91 • Mobile diagnostics and operational content guards • Ordered source module. */
 /* 16.1.44 mobile health / statutory payroll overflow guard */
 .sl-health-grid>div{min-width:0;overflow-wrap:anywhere;word-break:normal}
@@ -915,6 +920,7 @@ body[data-sl-theme] #stockland-app .sl-sidebar,
     background-position:center,64% center;
   }
 }
+
 /* Stockland ERP 16.1.78 dashboard: data-driven command center aligned to the approved layout. */
 #stockland-app .sl-dashboard-shell{display:grid;grid-template-columns:minmax(0,1fr) minmax(270px,318px);gap:14px;align-items:start;min-width:0}
 #stockland-app .sl-dashboard-main,#stockland-app .sl-dashboard-side{display:grid;gap:13px;min-width:0}
@@ -1388,6 +1394,7 @@ body[data-sl-theme] #stockland-app .sl-sidebar,
 
 /* Keep grouped System Health payroll diagnostics readable on phone and desktop. */
 #stockland-app .sl-system-health-panel .sl-payroll-readiness-reasons{margin:8px 0 0;padding-inline-start:22px;display:grid;gap:5px;overflow-wrap:anywhere}#stockland-app .sl-system-health-panel .sl-payroll-readiness-reasons li{padding-inline-start:2px;line-height:1.45}
+
 /* STK-UI-162-WORKSHEET — spreadsheet-style catalog, inventory and report data. */
 body[data-sl-view="products"] #stockland-app .sl-panel,
 body[data-sl-view="inventory"] #stockland-app .sl-panel,
@@ -1545,6 +1552,7 @@ body[data-sl-view="dailyreport"] #stockland-app .sl-grid-compact>.sl-card .meta,
   #stockland-app .sl-card,#stockland-app .sl-panel {break-inside:avoid; page-break-inside:avoid}
   #stockland-app .sl-card::before {display:none!important}
 }
+
 /* 16.1.84 — Premium classic SaaS command center. Presentation-only; live data and actions remain bound to the existing ERP. */
 #stockland-app .sl-dashboard-page{display:grid;gap:14px;min-width:0;color:var(--sl-text)}
 #stockland-app .sl-dashboard-welcome{display:flex;justify-content:space-between;align-items:center;gap:16px;min-width:0;padding:8px 0 4px}
@@ -1726,6 +1734,7 @@ body[data-sl-view="dailyreport"] #stockland-app .sl-grid-compact>.sl-card .meta,
  #stockland-app .sl-dashboard-date b{font-size:10px}
  #stockland-app .sl-dashboard-date small{font-size:9px}
 }
+
 /* 16.1.86 — reference-matched desktop SaaS shell, isolated search, and Bootstrap light bridge. */
 #stockland-app[data-bs-theme="light"],
 #stockland-app .sl-root[data-bs-theme="light"],
@@ -2103,6 +2112,7 @@ body[data-sl-view="dailyreport"] #stockland-app .sl-grid-compact>.sl-card .meta,
  #stockland-app .sl-side-footer small{font-size:8px!important;line-height:1.35!important;margin-top:4px!important;white-space:nowrap}
  #stockland-app .sl-side-footer b{font-size:9px!important;line-height:1.25!important}
 }
+
 /* 16.1.87 — Owner-only wholesale recommendation desk. All quantities are server-returned read-only advice. */
 #stockland-app .sl-owner-wholesale-advice{margin-top:14px;min-width:0;overflow:hidden}
 #stockland-app .sl-owner-wholesale-advice>.sl-block-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 16px;background:#fbfdff;border-bottom:1px solid #e8eef5}
@@ -2344,6 +2354,7 @@ body[data-sl-view="pos"] #stockland-app #posResult { min-width: 0; overflow-wrap
 @media (max-width: 359px) {
   body[data-sl-view="pos"] #stockland-app .sl-grid-compact { grid-template-columns: minmax(0, 1fr); }
 }
+
 /* HRIS lifecycle workspace: conservative SAP/Odoo-style data density with polished mobile-first accordion holders and social platform cards. */
 #hrPage .sl-hrlc-flow{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;margin:16px 0 22px}
 #hrPage .sl-hrlc-flow span{display:flex;align-items:center;justify-content:center;min-height:48px;border:1px solid var(--sl-border,#d9e1e8);border-radius:12px;background:var(--sl-surface,#fff);padding:8px;text-align:center;font-size:12px;font-weight:700;color:var(--sl-ink,#243346)}
@@ -2352,8 +2363,6 @@ body[data-sl-view="pos"] #stockland-app #posResult { min-width: 0; overflow-wrap
 #hrPage .sl-hrlc-section-summary::-webkit-details-marker{display:none}
 #hrPage .sl-hrlc-section-summary:focus-visible{outline:3px solid var(--sl-primary,#2f5fe9);outline-offset:-4px;border-radius:14px}
 #hrPage .sl-hrlc-section-heading{display:flex;align-items:center;gap:13px;min-width:0;flex:1}
-#hrPage .sl-hrlc-section-icon{display:flex;align-items:center;justify-content:center;flex:0 0 44px;width:44px;height:44px;border:1px solid rgba(43,96,232,.14);border-radius:13px;background:#f0f5ff;color:#244fc8;font-size:22px;line-height:1}
-#hrPage .sl-hrlc-icon-art{display:block;width:22px;height:22px;flex:0 0 22px;stroke:currentColor}
 #hrPage .sl-hrlc-section-titles{display:flex;flex-direction:column;gap:4px;min-width:0}
 #hrPage .sl-hrlc-section-titles strong{color:var(--sl-ink,#233147);font-size:15px;font-weight:750;line-height:1.35;overflow-wrap:anywhere}
 #hrPage .sl-hrlc-section-titles small{color:var(--sl-muted,#64748b);font-size:12px;font-weight:400;line-height:1.5;overflow-wrap:anywhere}
@@ -2386,13 +2395,6 @@ body[data-sl-view="pos"] #stockland-app #posResult { min-width: 0; overflow-wrap
 #hrPage .sl-hrlc-social-card{display:flex;align-items:center;gap:13px;min-width:0;padding:15px;border:1px solid var(--sl-border,#d9e1e8);border-radius:14px;background:#fff;color:var(--sl-ink,#233147);text-decoration:none;transition:border-color .16s ease,box-shadow .16s ease,transform .16s ease}
 #hrPage .sl-hrlc-social-card:hover{border-color:rgba(47,95,233,.45);box-shadow:0 7px 22px rgba(30,64,175,.09);transform:translateY(-1px);text-decoration:none}
 #hrPage .sl-hrlc-social-card:focus-visible{outline:3px solid var(--sl-primary,#2f5fe9);outline-offset:2px}
-#hrPage .sl-hrlc-social-icon{display:flex;align-items:center;justify-content:center;flex:0 0 46px;width:46px;height:46px;min-width:46px;min-height:46px;max-width:46px;max-height:46px;box-sizing:border-box;border-radius:14px;color:#fff;overflow:hidden}
-#hrPage .sl-hrlc-social-icon.facebook{background:#1877f2}
-#hrPage .sl-hrlc-social-icon.instagram{background:linear-gradient(135deg,#7444c8,#d94885 58%,#f7a33b)}
-#hrPage .sl-hrlc-social-icon.tiktok{background:#151515}
-#hrPage .sl-hrlc-social-icon.youtube{background:#ff0033}
-#hrPage .sl-hrlc-social-icon>svg.sl-hrlc-social-icon-art{display:block!important;box-sizing:border-box!important;width:24px!important;height:24px!important;min-width:24px!important;min-height:24px!important;max-width:24px!important;max-height:24px!important;flex:0 0 24px!important;margin:0!important;padding:0!important;transform:none!important;zoom:1!important;fill:none!important;stroke:currentColor!important;stroke-width:1.8px!important;stroke-linecap:round!important;stroke-linejoin:round!important;vector-effect:non-scaling-stroke!important;filter:none!important}
-#hrPage .sl-hrlc-social-icon>svg.sl-hrlc-social-icon-art *{fill:none!important;stroke:currentColor!important;stroke-width:1.8px!important;stroke-linecap:round!important;stroke-linejoin:round!important;vector-effect:non-scaling-stroke!important;filter:none!important}
 #hrPage .sl-hrlc-social-copy{display:flex;flex:1;flex-direction:column;gap:5px;min-width:0}
 #hrPage .sl-hrlc-social-copy strong{font-size:13px;line-height:1.4;font-weight:750;overflow-wrap:anywhere}
 #hrPage .sl-hrlc-social-copy small{font-size:12px;line-height:1.5;color:var(--sl-muted,#64748b);overflow-wrap:anywhere}
@@ -2412,9 +2414,8 @@ body[data-sl-view="pos"] #stockland-app #posResult { min-width: 0; overflow-wrap
 #hrPage .sl-hrlc-section[open]{border-color:rgba(47,95,233,.28);box-shadow:0 8px 25px rgba(30,64,175,.075)}
 #hrPage .sl-hrlc-section-title{display:block;color:var(--sl-ink,#233147);font-size:15px;font-weight:750;line-height:1.35;overflow-wrap:anywhere}
 #hrPage .sl-hrlc-section-titles small{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-#hrPage .sl-hrlc-section[open]>.sl-hrlc-section-summary .sl-hrlc-section-icon{border-color:rgba(47,95,233,.25);background:#e5edff;color:#244fc8}
 @media(max-width:1180px){#hrPage .sl-hrlc-flow{grid-template-columns:repeat(4,minmax(0,1fr))}#hrPage .sl-hrlc-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:700px){#hrPage .sl-hrlc-flow{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}#hrPage .sl-hrlc-flow span{min-height:42px;font-size:11px}#hrPage .sl-hrlc-section{border-radius:14px;margin:10px 0}#hrPage .sl-hrlc-section-summary{padding:13px 12px;gap:9px}#hrPage .sl-hrlc-section-heading{gap:10px}#hrPage .sl-hrlc-section-icon{flex-basis:38px;width:38px;height:38px;border-radius:11px;font-size:19px}#hrPage .sl-hrlc-icon-art{width:20px;height:20px;flex-basis:20px}#hrPage .sl-hrlc-section-titles strong{font-size:13px}#hrPage .sl-hrlc-section-titles small{font-size:11px;line-height:1.4}#hrPage .sl-hrlc-section-toggle{flex-basis:30px;width:30px;height:30px}#hrPage .sl-hrlc-section-body{padding:11px 10px 13px}#hrPage .sl-hrlc-grid{grid-template-columns:minmax(0,1fr);padding:12px;gap:10px}#hrPage .sl-hrlc-grid .full{grid-column:auto}#hrPage .sl-hrlc-form>summary{padding:12px}#hrPage .sl-hrlc-panel .sl-table{min-width:0}#hrPage .sl-hrlc-panel .sl-table td:last-child{min-width:0}#hrPage .sl-hrlc-panel .sl-table td{overflow-wrap:anywhere}#hrPage .sl-hrlc-panel .sl-btn-sm{white-space:normal}#hrPage .sl-hrlc-social-grid{grid-template-columns:minmax(0,1fr);gap:9px}#hrPage .sl-hrlc-social-card{padding:12px}#hrPage .sl-hrlc-social-icon{flex-basis:40px;width:40px;height:40px;border-radius:12px}}
+@media(max-width:700px){#hrPage .sl-hrlc-flow{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}#hrPage .sl-hrlc-flow span{min-height:42px;font-size:11px}#hrPage .sl-hrlc-section{border-radius:14px;margin:10px 0}#hrPage .sl-hrlc-section-summary{padding:13px 12px;gap:9px}#hrPage .sl-hrlc-section-heading{gap:10px}#hrPage .sl-hrlc-section-titles strong{font-size:13px}#hrPage .sl-hrlc-section-titles small{font-size:11px;line-height:1.4}#hrPage .sl-hrlc-section-toggle{flex-basis:30px;width:30px;height:30px}#hrPage .sl-hrlc-section-body{padding:11px 10px 13px}#hrPage .sl-hrlc-grid{grid-template-columns:minmax(0,1fr);padding:12px;gap:10px}#hrPage .sl-hrlc-grid .full{grid-column:auto}#hrPage .sl-hrlc-form>summary{padding:12px}#hrPage .sl-hrlc-panel .sl-table{min-width:0}#hrPage .sl-hrlc-panel .sl-table td:last-child{min-width:0}#hrPage .sl-hrlc-panel .sl-table td{overflow-wrap:anywhere}#hrPage .sl-hrlc-panel .sl-btn-sm{white-space:normal}#hrPage .sl-hrlc-social-grid{grid-template-columns:minmax(0,1fr);gap:9px}#hrPage .sl-hrlc-social-card{padding:12px}}
 @media(prefers-reduced-motion:reduce){#hrPage .sl-hrlc-social-card{transition:none}#hrPage .sl-hrlc-social-card:hover{transform:none}}
 /* SaaS two-column module workspace: all sections are independent side-by-side dropdown holders. */
 #hrPage{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start;min-width:0}
@@ -2428,21 +2429,6 @@ body[data-sl-view="pos"] #stockland-app #posResult { min-width: 0; overflow-wrap
 #hrPage .sl-hrlc-section-body .sl-table-wrap{overflow-x:auto}
 @media(max-width:700px){#hrPage{grid-template-columns:minmax(0,1fr);gap:10px}#hrPage>.sl-hrlc-toolbar,#hrPage>[data-hrlc-search-empty],#hrPage>.sl-grid,#hrPage>.sl-hrlc-flow,#hrPage>.sl-hrlc-cycle,#hrPage>.sl-hrlc-section{grid-column:1}#hrPage .sl-hrlc-cycle{grid-template-columns:minmax(0,1fr);gap:10px}#hrPage .sl-hrlc-section-summary{min-height:0;height:auto}}
 @media print{#hrPage{display:block}#hrPage>.sl-hrlc-section,#hrPage .sl-hrlc-cycle>.sl-hrlc-section{margin:10px 0}}
-
-/* HR icon isolation contract:
-   Scope directly to the HR workspace (not a theme-specific outer wrapper).
-   Fix the icon box AND each SVG primitive so global svg/path rules cannot
-   stretch the viewBox, increase stroke thickness, fill line drawings, or shift it. */
-#hrPage .sl-hrlc-section-icon{display:inline-flex!important;align-items:center!important;justify-content:center!important;box-sizing:border-box!important;flex:0 0 44px!important;width:44px!important;height:44px!important;min-width:44px!important;min-height:44px!important;max-width:44px!important;max-height:44px!important;padding:0!important;position:relative!important;overflow:visible!important}
-#hrPage .sl-hrlc-section-icon>svg.sl-hrlc-icon-art{display:block!important;box-sizing:content-box!important;width:22px!important;height:22px!important;min-width:22px!important;min-height:22px!important;max-width:22px!important;max-height:22px!important;flex:0 0 22px!important;flex-shrink:0!important;margin:0!important;padding:0!important;position:static!important;inset:auto!important;transform:none!important;zoom:1!important;overflow:visible!important;fill:none!important;stroke:currentColor!important;stroke-width:1.7px!important;stroke-linecap:round!important;stroke-linejoin:round!important;vector-effect:non-scaling-stroke!important;filter:none!important}
-#hrPage .sl-hrlc-section-icon>svg.sl-hrlc-icon-art *,
-#hrPage .sl-hrlc-section-icon>svg.sl-hrlc-icon-art *::before,
-#hrPage .sl-hrlc-section-icon>svg.sl-hrlc-icon-art *::after{box-sizing:content-box!important;fill:none!important;stroke:currentColor!important;stroke-width:1.7px!important;stroke-linecap:round!important;stroke-linejoin:round!important;vector-effect:non-scaling-stroke!important;filter:none!important}
-@media(max-width:700px){
- #hrPage .sl-hrlc-section-icon{flex-basis:38px!important;width:38px!important;height:38px!important;min-width:38px!important;min-height:38px!important;max-width:38px!important;max-height:38px!important}
- #hrPage .sl-hrlc-section-icon>svg.sl-hrlc-icon-art{width:20px!important;height:20px!important;min-width:20px!important;min-height:20px!important;max-width:20px!important;max-height:20px!important;flex-basis:20px!important;stroke-width:1.6px!important}
- #hrPage .sl-hrlc-section-icon>svg.sl-hrlc-icon-art *{stroke-width:1.6px!important}
-}
 
 /* HR document-control editor and modal: self-contained, responsive, keyboard safe. */
 .sl-hrlc-resource-dialog{width:min(760px,calc(100vw - 28px));max-width:760px;max-height:calc(100dvh - 28px);padding:0;border:1px solid #d7e0eb;border-radius:18px;background:#fff;color:#233147;box-shadow:0 24px 80px rgba(15,23,42,.25);overflow:auto}
@@ -2487,8 +2473,9 @@ body[data-sl-view="pos"] #stockland-app #posResult { min-width: 0; overflow-wrap
 #stockland-app .sl-pos-cart-result .sl-notice{overflow-wrap:anywhere}
 @media(max-width:900px){#stockland-app .sl-pos-cart-summary{grid-template-columns:repeat(2,minmax(0,1fr))}#stockland-app .sl-pos-cart-meta{gap:10px;padding:13px}}
 @media(max-width:620px){#stockland-app .sl-pos-cart-meta{grid-template-columns:minmax(0,1fr);padding:12px}#stockland-app .sl-pos-cart-meta .full{grid-column:1}#stockland-app .sl-pos-cart-summary{grid-template-columns:minmax(0,1fr);gap:8px;padding:10px}#stockland-app .sl-pos-cart-summary>div{flex-direction:row;align-items:center;justify-content:space-between;gap:10px}#stockland-app .sl-pos-cart-summary b{font-size:14px;text-align:right}#stockland-app .sl-pos-cart-cell-input{width:88px}#stockland-app .sl-pos-cart-add-row{align-items:stretch;flex-direction:column}#stockland-app .sl-pos-cart-add-row .sl-sub{min-width:0}}
+
 /*
- * Stockland ERP 16.2.13 — Enterprise SaaS design system.
+ * Stockland ERP 16.2.14 — Enterprise SaaS design system.
  * Presentation layer only: preserves existing PHP hooks, JS IDs, REST payloads,
  * workflow state, role capability checks, ledger and business data contracts.
  * One Stockland Sapphire scheme; semantic state colors remain distinct.
@@ -2738,7 +2725,6 @@ body[data-sl-theme],body[data-sl-theme="sapphire"]{
 #stockland-app #hrPage .sl-hrlc-section-summary:hover{background:#f7f9fd}
 #stockland-app #hrPage .sl-hrlc-section-title{font-size:13px;font-weight:780;color:#203650;letter-spacing:-.01em}
 #stockland-app #hrPage .sl-hrlc-section-summary small,#stockland-app #hrPage .sl-hrlc-section-desc{font-size:10.5px;line-height:1.5;color:#8291a5}
-#stockland-app #hrPage .sl-hrlc-section-icon{border:1px solid #dbe6f7;border-radius:12px;background:#eff4ff;color:#315fc0}
 #stockland-app #hrPage .sl-hrlc-section-body{padding:16px;background:#fff}
 #stockland-app #hrPage .sl-hrlc-form,#stockland-app #hrPage .sl-hrlc-panel{min-width:0;border-color:#e6ecf3;border-radius:12px;background:#fbfcfe}
 #stockland-app #hrPage .sl-hrlc-form>summary{font-size:12px;font-weight:750;color:#334b68}

@@ -191,7 +191,7 @@ class Stockland_REST_Products extends Stockland_REST_Base {
 		try {
 			$table = Stockland_DB::table( 'products' );
 			if ( ! Stockland_DB::table_exists( $table ) ) {
-				return new WP_Error( 'product_master_unavailable', 'Product Master table is not available. Complete the verified 49-table ERP setup first.', array( 'status' => 503 ) );
+				return new WP_Error( 'product_master_unavailable', 'Product Master table is not available. Complete the verified full ERP application schema setup first.', array( 'status' => 503 ) );
 			}
 			$can              = current_user_can( 'stockland_view_cost_and_profit' );
 			$manage           = current_user_can( 'stockland_manage_products' );

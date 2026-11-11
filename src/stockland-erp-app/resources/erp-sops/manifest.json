@@ -6,7 +6,8 @@
   "baseline_reference": {
     "version": "16.1.95 source baseline",
     "sha256": "494e777247508d009dfdb216c9607bb1bc96717197e94a0e8ad3459b7cc81625",
-    "schema_contract_tables": 49
+    "legacy_operational_subset_reference_keys": 49,
+    "note": "Historical 16.1.95 operational subset reference only; not approval of the full application schema or HR lifecycle migration."
   },
   "documents": [
     {
@@ -573,7 +574,7 @@
     "live_deployment": "NOT_VERIFIED"
   },
   "baseline_note": "Source base is locked 16.1.95; deployed 16.1.98-HRX-REVIEW-ONLY package hash not recovered. Keep existing HR Process Center resources and add this as a distinct ERP-wide SOP section only after exact source parity, backup, isolated staging, and acceptance.",
-  "integration_target": "Stockland ERP 16.2.13",
+  "integration_target": "Stockland ERP 16.2.14",
   "source_note": "Imported from the user-provided 16.1.101 document pack. HRX physical-table references have been replaced with neutral source-map references to avoid mixing separate HR schema architectures.",
   "physical_schema_policy": "SOPs describe business procedures. Physical database mappings must be taken from the exact active ERP package source map; this library does not define or install an HR schema."
 }

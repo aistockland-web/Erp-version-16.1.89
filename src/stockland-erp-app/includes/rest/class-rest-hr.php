@@ -263,12 +263,13 @@ class Stockland_REST_HR extends Stockland_REST_Base {
 				'payroll'         => $payroll_visible ? $this->payroll_rows() : array(),
 				'payroll_visible' => $payroll_visible,
 				'statutory_rules' => array(
-					'rule_version'          => Stockland_Payroll_Statutory::RULE_VERSION,
-					'law_effective_date'    => Stockland_Payroll_Statutory::LAW_EFFECTIVE_DATE,
-					'first_full_month'      => Stockland_Payroll_Statutory::EFFECTIVE_DATE,
-					'employee_pension_rate' => Stockland_Payroll_Statutory::EMPLOYEE_PENSION_RATE,
-					'employer_pension_rate' => Stockland_Payroll_Statutory::EMPLOYER_PENSION_RATE,
-					'monthly_tax_bands'     => Stockland_Payroll_Statutory::monthly_tax_bands(),
+					'status'                 => 'APPROVED_RULE_SET_REQUIRED',
+					'rule_version'          => null,
+					'law_effective_date'    => null,
+					'first_full_month'      => null,
+					'employee_pension_rate' => null,
+					'employer_pension_rate' => null,
+					'monthly_tax_bands'     => array(),
 					'allowance_catalog'     => Stockland_Payroll_Statutory::allowance_catalog(),
 				),
 			)
@@ -789,50 +790,6 @@ class Stockland_REST_HR extends Stockland_REST_Base {
 	 */
 	public function payroll_create( WP_REST_Request $r ) {
 		return new WP_Error( 'hr_legacy_payroll_retired', 'Legacy payroll mutations are retired. Use the frozen payroll-run API, qualified legal-review gate, independent Owner approval, recipient settlement and statutory reconciliation.', array( 'status' => 409 ) );
-		if ( ! $this->payroll_manager() ) {
-			return $this->deny( 'Only active Stockland Management can prepare payroll; the Owner has read and final-approval access.', 403 );
-		}global $wpdb;
-		$p     = $r->get_json_params();
-		$key   = sanitize_text_field( $p['period_key'] ?? '' );
-		$start = $this->valid_date( $p['start_date'] ?? null, null );
-		$end   = $this->valid_date( $p['end_date'] ?? null, null );
-		if ( '' === $key || ! $start || ! $end || $start > $end ) {
-			return new WP_Error( 'invalid', 'Valid period_key, start_date and end_date are required.', array( 'status' => 400 ) );
-		}$month_start = substr( $start, 0, 7 ) . '-01';
-		$month_end    = gmdate( 'Y-m-t', strtotime( $start . ' 00:00:00 UTC' ) );
-		if ( $start !== $month_start || $end !== $month_end || substr( $start, 0, 7 ) !== $key ) {
-			return new WP_Error( 'payroll_month_required', 'Statutory PAYE is monthly: use period key YYYY-MM with the first and last date of that same calendar month.', array( 'status' => 400 ) );
-		}if ( $start < Stockland_Payroll_Statutory::EFFECTIVE_DATE ) {
-			return new WP_Error( 'historical_tax_rule_unavailable', 'This monthly statutory calculator starts on ' . Stockland_Payroll_Statutory::EFFECTIVE_DATE . '. The law applies from ' . Stockland_Payroll_Statutory::LAW_EFFECTIVE_DATE . '; July 2025 crosses that boundary and requires separately approved split-period treatment. Preserve posted payroll; do not silently recalculate historical periods.', array( 'status' => 400 ) );
-		}if ( Stockland_DB::read_var( $wpdb->prepare( 'SELECT id FROM %i WHERE period_key=%s', Stockland_DB::table( 'payroll_periods' ), $key ) ) ) {
-			return new WP_Error( 'duplicate', 'Payroll period already exists.', array( 'status' => 409 ) );
-		}
-		if ( false === Stockland_DB::execute_query( 'START TRANSACTION' ) ) {
-			return new WP_Error( 'transaction_failed', 'Could not start payroll-period transaction.', array( 'status' => 500 ) );
-		}
-		try {
-			$ok = Stockland_DB::insert_record(
-				Stockland_DB::table( 'payroll_periods' ),
-				array(
-					'period_key' => $key,
-					'start_date' => $start,
-					'end_date'   => $end,
-					'status'     => 'DRAFT',
-					'notes'      => sanitize_textarea_field( $p['notes'] ?? '' ),
-					'created_by' => get_current_user_id(),
-				)
-			);
-			if ( false === $ok ) {
-				throw new Exception( $wpdb->last_error ? $wpdb->last_error : 'Could not create payroll period.' );
-			}$id = (int) $wpdb->insert_id;
-			if ( ! Stockland_Audit::log( get_current_user_id(), null, 'PAYROLL_PERIOD_CREATE', null, null, null, 'DRAFT', $key, 'PAY' . $id ) ) {
-				throw new Exception( 'Audit event could not be recorded; payroll period was not committed.' );
-			}if ( false === Stockland_DB::execute_query( 'COMMIT' ) ) {
-				throw new Exception( 'Payroll-period commit failed.' );
-			}return rest_ensure_response( Stockland_DB::read_row( $wpdb->prepare( 'SELECT * FROM %i WHERE id=%d', Stockland_DB::table( 'payroll_periods' ), $id ), ARRAY_A ) );
-		} catch ( Throwable $x ) {
-			Stockland_DB::execute_query( 'ROLLBACK' );
-			return new WP_Error( 'save_failed', $x->getMessage(), array( 'status' => 500 ) );}
 	}
 
 	/**
@@ -846,7 +803,7 @@ class Stockland_REST_HR extends Stockland_REST_Base {
 	private function compensation_segments( $employee, $period ) {
 		global $wpdb;
 		$table = Stockland_DB::table( 'employee_compensation' );
-		$rows  = Stockland_DB::read_results( $wpdb->prepare( 'SELECT * FROM %i WHERE employee_id=%d AND effective_from<=%s AND COALESCE(approval_status,\'APPROVED\')=\'APPROVED\' ORDER BY effective_from ASC,id ASC', $table, (int) $employee['id'], $period['end_date'] ), ARRAY_A );
+		$rows  = Stockland_DB::read_results( $wpdb->prepare( 'SELECT * FROM %i WHERE employee_id=%d AND effective_from<=%s AND approval_status=\'APPROVED\' AND created_by>0 AND approved_by>0 AND approved_by<>created_by AND approved_at IS NOT NULL AND approved_at<>\'0000-00-00 00:00:00\' ORDER BY effective_from ASC,id ASC', $table, (int) $employee['id'], $period['end_date'] ), ARRAY_A );
 		if ( ! $rows ) {
 			return array();
 		}

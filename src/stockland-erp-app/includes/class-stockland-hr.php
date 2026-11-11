@@ -20,12 +20,30 @@ class Stockland_HR {
 	const DB_VERSION = STOCKLAND_HR_SCHEMA_VERSION;
 
 	/**
-	 * Returns the fixed application table keys owned by the HR component.
+	 * Returns the source-declared application table keys owned by the HR component.
 	 *
 	 * @return array<string> HR/payroll table keys.
 	 */
 	public static function table_keys() {
 		return array_merge( array( 'employees', 'employee_compensation', 'payroll_periods', 'payroll_lines' ), Stockland_HR_Lifecycle::table_keys() );
+	}
+
+	/**
+	 * Returns a signature for the exact HR/payroll DDL source files.
+	 *
+	 * @return string SHA-256 signature binding approval to the current DDL bytes.
+	 */
+	public static function schema_signature() {
+		$files = array( __FILE__, STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-hr-lifecycle.php' );
+		$parts = array();
+		foreach ( $files as $file ) {
+			$digest = is_file( $file ) && is_readable( $file ) ? hash_file( 'sha256', $file ) : false;
+			if ( false === $digest ) {
+				return '';
+			}
+			$parts[] = $digest;
+		}
+		return hash( 'sha256', self::DB_VERSION . '|' . implode( '|', $parts ) );
 	}
 
 	/** Add-only HR/payroll columns required by the component statutory model. */
@@ -38,7 +56,7 @@ class Stockland_HR {
 				'statutory_classification_status' => "VARCHAR(20) NOT NULL DEFAULT 'REVIEW_REQUIRED' AFTER pensionable_salary",
 				'statutory_classification_note'   => 'VARCHAR(255) NULL AFTER statutory_classification_status',
 				'allowance_breakdown_json'        => 'LONGTEXT NULL AFTER statutory_classification_note',
-				'approval_status'                => "VARCHAR(24) NOT NULL DEFAULT 'APPROVED' AFTER allowance_breakdown_json",
+				'approval_status'                => "VARCHAR(24) NOT NULL DEFAULT 'DRAFT' AFTER allowance_breakdown_json",
 				'approved_by'                    => 'BIGINT UNSIGNED NULL AFTER approval_status',
 				'approved_at'                    => 'DATETIME NULL AFTER approved_by',
 				'statutory_rule_set_id'           => 'BIGINT UNSIGNED NULL AFTER approved_at',
@@ -60,10 +78,10 @@ class Stockland_HR {
 				'other_deduction_total'    => 'DECIMAL(14,2) NOT NULL DEFAULT 0.00 AFTER deduction_total',
 				'taxable_income'           => 'DECIMAL(14,2) NOT NULL DEFAULT 0.00 AFTER gross_pay',
 				'income_tax'               => 'DECIMAL(14,2) NOT NULL DEFAULT 0.00 AFTER taxable_income',
-				'income_tax_rate'          => 'DECIMAL(5,2) NOT NULL DEFAULT 0.00 AFTER income_tax',
+				'income_tax_rate'          => 'DECIMAL(5,2) NULL DEFAULT NULL AFTER income_tax',
 				'pensionable_salary'       => 'DECIMAL(14,2) NOT NULL DEFAULT 0.00 AFTER income_tax_rate',
-				'employee_pension_rate'    => 'DECIMAL(6,4) NOT NULL DEFAULT 0.0700 AFTER pensionable_salary',
-				'employer_pension_rate'    => 'DECIMAL(6,4) NOT NULL DEFAULT 0.1100 AFTER employee_pension_rate',
+				'employee_pension_rate'    => 'DECIMAL(6,4) NULL DEFAULT NULL AFTER pensionable_salary',
+				'employer_pension_rate'    => 'DECIMAL(6,4) NULL DEFAULT NULL AFTER employee_pension_rate',
 				'employee_pension'         => 'DECIMAL(14,2) NOT NULL DEFAULT 0.00 AFTER employer_pension_rate',
 				'employer_pension'         => 'DECIMAL(14,2) NOT NULL DEFAULT 0.00 AFTER employee_pension',
 				'tax_rule_version'         => 'VARCHAR(40) NULL AFTER employer_pension',
@@ -109,6 +127,72 @@ class Stockland_HR {
 			foreach ( $columns as $name => $definition ) {
 				if ( ! in_array( $name, $known, true ) ) {
 					$gaps[] = $key . '.' . $name; }
+			}
+		}
+		return array_merge( $gaps, self::statutory_rate_default_gaps() );
+	}
+
+	/** Read-only metadata check for legacy statutory-rate defaults. */
+	private static function statutory_rate_default_gaps() {
+		global $wpdb;
+		$table = $wpdb->prefix . 'stock_payroll_lines';
+		$exists = Stockland_DB::read_var( $wpdb->prepare( 'SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=%s AND TABLE_NAME=%s', DB_NAME, $table ) );
+		if ( ! $exists ) { return array(); }
+		$rows = $wpdb->get_results( 'SHOW COLUMNS FROM `' . esc_sql( $table ) . '`', ARRAY_A );
+		if ( ! is_array( $rows ) ) { return array( 'payroll_lines.__rate_column_metadata_unavailable__' ); }
+		$metadata = array(); foreach ( $rows as $row ) { if ( isset( $row['Field'] ) ) { $metadata[ $row['Field'] ] = $row; } }
+		$gaps = array();
+		foreach ( array( 'income_tax_rate', 'employee_pension_rate', 'employer_pension_rate' ) as $column ) {
+			if ( ! isset( $metadata[ $column ] ) || 'YES' !== strtoupper( (string) ( $metadata[ $column ]['Null'] ?? '' ) ) || null !== ( $metadata[ $column ]['Default'] ?? null ) ) {
+				$gaps[] = 'payroll_lines.' . $column . '.__neutral_default__';
+			}
+		}
+		return $gaps;
+	}
+
+	/**
+	 * Removes legacy statutory-rate defaults without rewriting existing payroll rows.
+	 * Stored historical values remain intact; newly created lines must supply rates from
+	 * a separately approved effective-dated ruleset.
+	 *
+	 * @return array<string> Remaining metadata gaps.
+	 */
+	private static function normalize_statutory_rate_defaults() {
+		global $wpdb;
+		$table = $wpdb->prefix . 'stock_payroll_lines';
+		$exists = Stockland_DB::read_var( $wpdb->prepare( 'SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=%s AND TABLE_NAME=%s', DB_NAME, $table ) );
+		if ( ! $exists ) {
+			return array();
+		}
+		$rows = $wpdb->get_results( 'SHOW COLUMNS FROM `' . esc_sql( $table ) . '`', ARRAY_A );
+		if ( ! is_array( $rows ) ) {
+			return array( 'payroll_lines.__rate_column_metadata_unavailable__' );
+		}
+		$metadata = array();
+		foreach ( $rows as $row ) {
+			if ( isset( $row['Field'] ) ) {
+				$metadata[ $row['Field'] ] = $row;
+			}
+		}
+		$definitions = array(
+			'income_tax_rate'       => 'DECIMAL(5,2) NULL DEFAULT NULL',
+			'employee_pension_rate' => 'DECIMAL(6,4) NULL DEFAULT NULL',
+			'employer_pension_rate' => 'DECIMAL(6,4) NULL DEFAULT NULL',
+		);
+		$gaps = array();
+		foreach ( $definitions as $column => $definition ) {
+			if ( ! isset( $metadata[ $column ] ) ) {
+				$gaps[] = 'payroll_lines.' . $column;
+				continue;
+			}
+			$row = $metadata[ $column ];
+			if ( 'YES' !== strtoupper( (string) ( $row['Null'] ?? '' ) ) || null !== ( $row['Default'] ?? null ) ) {
+				$wpdb->last_error = '';
+				// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- The table/column names and target DDL are fixed internal allowlists.
+				$result = Stockland_DB::execute_query( 'ALTER TABLE `' . esc_sql( $table ) . '` MODIFY COLUMN `' . esc_sql( $column ) . '` ' . $definition );
+				if ( false === $result || ! empty( $wpdb->last_error ) ) {
+					$gaps[] = 'payroll_lines.' . $column . '.__neutral_default_migration_failed__';
+				}
 			}
 		}
 		return $gaps;
@@ -166,6 +250,10 @@ class Stockland_HR {
 			if ( $limit_tables > 0 && $processed >= $limit_tables ) {
 				break; }
 		}
+		$rate_default_gaps = self::normalize_statutory_rate_defaults();
+		if ( $rate_default_gaps ) {
+			throw new RuntimeException( 'HR statutory-rate column metadata could not be normalized safely: ' . implode( ', ', $rate_default_gaps ) );
+		}
 		return array(
 			'processed_tables' => $processed,
 			'errors'           => $errors,
@@ -192,6 +280,23 @@ class Stockland_HR {
 	}
 
 	/**
+	 * Checks the explicit, version-bound Owner approval for additive HR schema changes.
+	 *
+	 * @return bool Whether the current HR schema version has a recorded approval.
+	 */
+	private static function schema_migration_approved() {
+		$approval = get_option( 'stockland_hr_schema_migration_approval', array() );
+		$signature = self::schema_signature();
+		return is_array( $approval )
+			&& '' !== $signature
+			&& self::DB_VERSION === (string) ( $approval['schema_version'] ?? '' )
+			&& hash_equals( $signature, (string) ( $approval['schema_signature'] ?? '' ) )
+			&& (int) ( $approval['approved_by'] ?? 0 ) > 0
+			&& ! empty( $approval['approved_at'] )
+			&& strlen( trim( (string) ( $approval['reason'] ?? '' ) ) ) >= 12;
+	}
+
+	/**
 	 * Runs a protected, bounded HR schema install/repair when authorized.
 	 *
 	 * @return void
@@ -199,7 +304,7 @@ class Stockland_HR {
 	public static function maybe_install() {
 		// Schema installation is never a public/front-end operation. It is an
 		// Owner/Administrator setup/repair action, matching the shared-hosting model.
-		if ( ! is_user_logged_in() || ! is_admin() || wp_doing_ajax() || ! current_user_can( 'stockland_install_schema' ) ) {
+		if ( ! is_user_logged_in() || ! is_admin() || wp_doing_ajax() || ! current_user_can( 'stockland_install_schema' ) || ! self::schema_migration_approved() ) {
 			return;
 		}
 		// Short error-only backoff; normal successful setup/progress is never throttled.
@@ -234,7 +339,7 @@ class Stockland_HR {
 	}
 
 	/**
-	 * Creates the fixed HR/payroll tables and applies add-only column migrations.
+	 * Creates the source-declared HR/payroll tables and applies add-only column migrations.
 	 *
 	 * @param int $batch_size Number of tables to create in a bounded setup batch; zero means all.
 	 * @return array Installation status and remaining schema gaps.
@@ -242,6 +347,9 @@ class Stockland_HR {
 	 */
 	public static function install( $batch_size = 0 ) {
 		$batch_size = max( 0, (int) $batch_size );
+		if ( ! is_user_logged_in() || ! current_user_can( 'stockland_install_schema' ) || ! self::schema_migration_approved() ) {
+			throw new RuntimeException( 'Owner approval for this exact additive HR schema version is required before HR tables or columns can be changed.' );
+		}
 		global $wpdb;
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		$p      = $wpdb->prefix;
@@ -341,10 +449,10 @@ class Stockland_HR {
             gross_pay DECIMAL(14,2) NOT NULL DEFAULT 0,
             taxable_income DECIMAL(14,2) NOT NULL DEFAULT 0,
             income_tax DECIMAL(14,2) NOT NULL DEFAULT 0,
-            income_tax_rate DECIMAL(5,2) NOT NULL DEFAULT 0,
+            income_tax_rate DECIMAL(5,2) NULL DEFAULT NULL,
             pensionable_salary DECIMAL(14,2) NOT NULL DEFAULT 0,
-            employee_pension_rate DECIMAL(6,4) NOT NULL DEFAULT 0.0700,
-            employer_pension_rate DECIMAL(6,4) NOT NULL DEFAULT 0.1100,
+            employee_pension_rate DECIMAL(6,4) NULL DEFAULT NULL,
+            employer_pension_rate DECIMAL(6,4) NULL DEFAULT NULL,
             employee_pension DECIMAL(14,2) NOT NULL DEFAULT 0,
             employer_pension DECIMAL(14,2) NOT NULL DEFAULT 0,
             tax_rule_version VARCHAR(40) NULL,

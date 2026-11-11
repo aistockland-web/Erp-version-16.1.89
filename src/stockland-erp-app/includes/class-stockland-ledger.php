@@ -24,11 +24,11 @@ class Stockland_Ledger {
 	 */
 	private static function begin_unit_of_work( &$owns_transaction, &$savepoint ) {
 		global $wpdb;
-		$state = Stockland_DB::read_var( 'SELECT @@session.in_transaction' );
+		$state = Stockland_DB::in_transaction();
 		if ( null === $state ) {
 			return false; // Unknown transaction state is unsafe; fail closed.
 		}
-		$owns_transaction = ( 0 === (int) $state );
+		$owns_transaction = ! $state;
 		$savepoint        = '';
 		if ( $owns_transaction ) {
 			return false !== Stockland_DB::execute_query( 'START TRANSACTION' );
