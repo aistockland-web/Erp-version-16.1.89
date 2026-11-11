@@ -111,19 +111,27 @@ jobs:
         run: bash .devcontainer/initialize-host.sh
 
       - name: Start disposable MariaDB and MySQL WordPress sites
-        run: docker compose --project-directory . -f .devcontainer/docker-compose.yml --profile mysql8 up -d --build
+        run: docker compose -f .devcontainer/docker-compose.yml --profile mysql8 up -d --build
 
       - name: Install WP-CLI, bootstrap and smoke-test WordPress
         run: |
           set -euo pipefail
-          docker compose --project-directory . -f .devcontainer/docker-compose.yml exec -T workspace bash .devcontainer/post-create.sh
-          docker compose --project-directory . -f .devcontainer/docker-compose.yml exec -T workspace bash scripts/codespaces/bootstrap_mysql8_site.sh
-          docker compose --project-directory . -f .devcontainer/docker-compose.yml exec -T workspace bash scripts/codespaces/smoke_test_sites.sh
+          docker compose -f .devcontainer/docker-compose.yml exec -T workspace bash .devcontainer/post-create.sh
+          docker compose -f .devcontainer/docker-compose.yml exec -T workspace bash scripts/codespaces/bootstrap_mysql8_site.sh
+          docker compose -f .devcontainer/docker-compose.yml exec -T workspace bash scripts/codespaces/smoke_test_sites.sh
+
+      - name: Upload MySQL 8.0.46 upgrade receipt
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: stockland-mysql8-upgrade-evidence
+          path: artifacts/codespaces/*.txt
+          if-no-files-found: warn
 
       - name: Capture service logs on failure
         if: failure()
-        run: docker compose --project-directory . -f .devcontainer/docker-compose.yml --profile mysql8 logs --no-color
+        run: docker compose -f .devcontainer/docker-compose.yml --profile mysql8 logs --no-color
 
       - name: Remove disposable databases and WordPress volumes
         if: always()
-        run: docker compose --project-directory . -f .devcontainer/docker-compose.yml --profile mysql8 down --volumes --remove-orphans
+        run: docker compose -f .devcontainer/docker-compose.yml --profile mysql8 down --volumes --remove-orphans
