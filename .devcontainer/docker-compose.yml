@@ -3,6 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: stockland-erp-codespaces:php83
     volumes:
       - ..:/workspaces/stockland-erp:cached
       - wordpress-mariadb-data:/var/www/wp-mariadb
@@ -68,7 +69,6 @@ services:
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
-      - --mysql-native-password=ON
     volumes:
       - mysql-data:/var/lib/mysql
     healthcheck:
@@ -123,7 +123,10 @@ services:
 
   wp-cli:
     profiles: ["ci"]
-    image: wordpress:cli-php8.3
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: stockland-erp-codespaces:php83
     user: "33:33"
     working_dir: /workspaces/stockland-erp
     volumes:
@@ -139,8 +142,7 @@ services:
       STOCKLAND_ARTIFACT_DIR: /artifacts
       CODESPACE_NAME: ${CODESPACE_NAME:-}
       GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN: ${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-}
-    entrypoint: ["bash", "-lc"]
-    command: ["sleep infinity"]
+    command: ["sleep", "infinity"]
     depends_on:
       wordpress-mariadb:
         condition: service_healthy
