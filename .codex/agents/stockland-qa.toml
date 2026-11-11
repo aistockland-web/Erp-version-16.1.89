@@ -11,4 +11,4 @@ Before testing, record exact HEAD, package SHA/sidecar, service versions and dat
 Respect Target 6: do not auto-create the unapproved 37-table HR lifecycle extension or alter existing legacy HR tables without exact Owner approval. Do not loop a setup driver to global ready if that creates unapproved HR DDL. Assert non-HR operational routes remain available while HR lifecycle is APPROVAL_REQUIRED/NOT_INSTALLED. Payroll calculations/finalization must fail closed without reviewed statutory inputs.
 
 Record exact commands, logs, schema fingerprints, snapshots, hashes and artifacts. Never weaken assertions. Report PASS/FAIL/BLOCKED/NOT RUN separately.
-""
+"""
