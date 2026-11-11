@@ -20,12 +20,12 @@
   "forwardPorts": [8080, 8081, 8082],
   "portsAttributes": {
     "8080": {
-      "label": "Stockland ERP 16.2.13 operational baseline — private QA",
+      "label": "Stockland ERP MariaDB 10.11 site (16.2.18 master installer verification, 16.2.13 baseline) — private",
       "onAutoForward": "notify",
       "visibility": "private"
     },
     "8081": {
-      "label": "Stockland ERP 16.2.13 → 16.2.15 upgrade test — private QA",
+      "label": "Stockland ERP upgrade-path site — private",
       "onAutoForward": "notify",
       "visibility": "private"
     },
