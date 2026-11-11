@@ -160,3 +160,10 @@ Use the latest explicit Owner schema/HR design decisions; resolve historical tab
 Build the final one-click plugin ZIP from the final canonical source commit, not from an unreviewed local folder or test artifact. Include one plugin root, release manifest, full per-file hashes, source commit/tree, dependency/license inventory, SBOM, build receipt, CI evidence, package size and independently calculated SHA-256 sidecar. Upload as a downloadable CI artifact for review. Formal publication, live installation and deployment require the applicable final Owner release decision.
 
 Keep engineering GO and the single product objective throughout. Report exact PASS, FAIL, BLOCKED, NOT RUN and OWNER INPUT REQUIRED states; never convert skipped or partial tests into acceptance.
+
+
+## 12. One free-tier Codespace and optional local Codex
+
+The only current prepared create link is the one in README.md, on branch feat/stockland-free-codespaces-codex-2026-11-11. Follow docs/engineering/CODEX_CODESPACES_SETUP_2026-11-11.md. Use one Codespace with the requested 4-core/16-GB/64-GB profile only when GitHub shows it as available; confirm quota, with no paid overage. Keep private ports, default MariaDB and CI-first MySQL. Codex CLI is optional on ChatGPT Free; sign in with device auth only, no API key or Codex Cloud. Copilot Free is optional with limited chat/agent use and 2,000 monthly completions; it does not include cloud coding-agent access. No paid marketplace plugin or external MCP is configured.
+
+The most recent schema/HR governance is Notion Target 6 (11 Nov): 49 operational legacy keys are kept separate from the unapproved 37 HR lifecycle extension and 33 recognized HRX keys. Do not auto-create lifecycle DDL or alter existing legacy HR tables without exact written Owner approval. Do not let HR lifecycle readiness block unrelated POS, inventory, warehouse, finance and reporting routes. Keep payroll finalization fail-closed without approved effective-dated rules and qualified Ethiopian review. See docs/engineering/CODEX_CODESPACES_SETUP_2026-11-11.md and the current Notion execution record.

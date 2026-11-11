@@ -14,3 +14,11 @@
 
 # Disposable QA receipts and SQL snapshots; never commit or publish as source.
 /artifacts/codespaces/
+
+# Codex local credentials/sessions; never commit device tokens.
+.codex/auth.json
+.codex/auth.json.*
+.codex/sessions/
+.codex/log/
+.codex/tmp/
+artifacts/codex/

@@ -1,0 +1,60 @@
+name: Stockland free-plan Codex configuration checks
+
+on:
+  push:
+    branches: ["feat/**", "delivery/**"]
+    paths:
+      - ".codex/**"
+      - ".agents/skills/**"
+      - "scripts/codespaces/bootstrap_codex.sh"
+      - "scripts/codespaces/validate_codex_config.py"
+      - "tests/codespaces/test_codex_config.py"
+      - ".devcontainer/devcontainer.json"
+      - ".github/copilot-instructions.md"
+      - "README.md"
+      - "AGENTS.md"
+      - "docs/AGENT_FIRST_PROMPT.md"
+      - "docs/engineering/CODEX_CODESPACES_SETUP_2026-11-11.md"
+      - ".github/workflows/stockland-free-plan-codex.yml"
+  pull_request:
+    branches: [main, "delivery/**"]
+    paths:
+      - ".codex/**"
+      - ".agents/skills/**"
+      - "scripts/codespaces/bootstrap_codex.sh"
+      - "scripts/codespaces/validate_codex_config.py"
+      - "tests/codespaces/test_codex_config.py"
+      - ".devcontainer/devcontainer.json"
+      - ".github/copilot-instructions.md"
+      - "README.md"
+      - "AGENTS.md"
+      - "docs/AGENT_FIRST_PROMPT.md"
+      - "docs/engineering/CODEX_CODESPACES_SETUP_2026-11-11.md"
+      - ".github/workflows/stockland-free-plan-codex.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stockland-free-plan-codex-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate local Codex and Free Codespaces config
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Validate devcontainer JSON
+        run: python3 -m json.tool .devcontainer/devcontainer.json >/dev/null
+      - name: Validate TOML, sandbox roles, free Copilot, skill and no plugins or credentials
+        run: python3 scripts/codespaces/validate_codex_config.py
+      - name: Run policy regression tests
+        run: python3 -m unittest discover -s tests/codespaces -p 'test_codex_config.py' -v
+      - name: Validate optional bootstrap shell
+        run: bash -n scripts/codespaces/bootstrap_codex.sh
