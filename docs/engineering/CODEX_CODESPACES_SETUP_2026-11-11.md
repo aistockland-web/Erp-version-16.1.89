@@ -94,3 +94,13 @@ Codex may independently inspect, edit, test, commit to working branches, and ope
 - invent statutory rules, employee values, business records, or SOP approval.
 
 Owner involvement remains necessary only for account sign-in/installation steps, missing business/legal decisions, paid capacity, production credentials, destructive or irreversible data changes, and final live release/deployment authorization.
+
+
+## Repository handover status — 11 November 2026
+
+- Codex workspace branch: `codex/stockland-agent-workspace-2026-11-11`.
+- Draft handover PR to the active integration branch: [PR #80](https://github.com/aistockland-web/Erp-version-16.1.89/pull/80).
+- Exact PR head: `33108758d367fab4eca90d7c3c62f614b0dd35f3`; base integration head at PR opening: `6c7152c361a21e6169fe7f48e3c43f8d63117715`.
+- Focused Codex config validation passed on push [run 42949157594](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/42949157594) and on PR [run 42949299469](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/42949299469). Both runs tested the exact same head SHA and completed successfully.
+- This is tooling/agent setup only. The live Codespace was not remotely edited or authenticated from this chat. On Codespace rebuild/post-create, the pinned Codex CLI is installed if absent; the Owner must complete ChatGPT device sign-in and install Superpowers once.
+- The full .13-to-.15 WordPress/MariaDB/MySQL runtime acceptance remains a separate ERP acceptance gate. This Codex PR does not certify the ERP or approve production release.
