@@ -40,7 +40,7 @@ if (fs.existsSync(moduleManifest) && fs.existsSync(appCss)) {
     if (!fs.existsSync(source)) throw new Error('Missing CSS source module: ' + name);
     return fs.readFileSync(source, 'utf8').trim();
   });
-  const expected = chunks.join('\n\n') + '\n';
+  const expected = chunks.join('\n') + '\n';
   const actual = fs.readFileSync(appCss, 'utf8');
   if (actual !== expected) {
     throw new Error('Compiled app.css does not match the ordered source modules.');
