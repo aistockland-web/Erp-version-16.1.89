@@ -81,12 +81,15 @@ jobs:
           print(f"PASS: {len(actual)} .13 files match the exact per-file SHA-256 manifest")
           PY
           printf '%s\n' 'source-rebuild-preservation-check' > "$RUNNER_TEMP/stockland-editable/src/stockland-erp-app/.preserve-check"
+          cp "$RUNNER_TEMP/stockland-editable/src/.stockland-erp-app.source.json" "$RUNNER_TEMP/source-marker.before"
           python3 scripts/codespaces/bootstrap_project_source.py \
             --stage-root "$RUNNER_TEMP/stockland-candidates" \
             --intake-report "$RUNNER_TEMP/stockland-package-intake.json" \
             --destination "$RUNNER_TEMP/stockland-editable/src/stockland-erp-app" \
-            --marker "$RUNNER_TEMP/stockland-editable/src/.stockland-erp-app.source.json"
+            --marker "$RUNNER_TEMP/stockland-editable/src/.stockland-erp-app.source.json" \
+            --allow-local-modifications
           grep -qx 'source-rebuild-preservation-check' "$RUNNER_TEMP/stockland-editable/src/stockland-erp-app/.preserve-check"
+          cmp "$RUNNER_TEMP/source-marker.before" "$RUNNER_TEMP/stockland-editable/src/.stockland-erp-app.source.json"
       - name: Confirm source artifacts and evidence were generated
         run: |
           set -euo pipefail
