@@ -57,8 +57,8 @@ def main() -> int:
     except (OSError, ValueError) as exc:
         fail(f"Dev Container JSON cannot be parsed: {exc}")
     host = devcontainer.get("hostRequirements", {})
-    if host != {"cpus": 4, "memory": "16gb", "storage": "64gb"}:
-        fail(f"Dev Container must request the Owner's 4-core/16-GB/64-GB profile, found {host!r}")
+    if host != {"cpus": 4, "memory": "16gb"}:
+        fail(f"Dev Container must request the Owner's 4-core/16-GB profile without imposing a disk size, found {host!r}")
     extensions = devcontainer.get("customizations", {}).get("vscode", {}).get("extensions", [])
     for extension in ("GitHub.copilot", "GitHub.copilot-chat"):
         if extension not in extensions:
@@ -96,7 +96,7 @@ def main() -> int:
 
     print("PASS project config and four scoped agent profiles; one thread; no plugins, MCP or API keys.")
     print("PASS optional CLI installer is pinned and uses ChatGPT device authentication.")
-    print("PASS 4-core/16-GB Codespaces profile, Copilot Free extensions, Stockland delivery skill and Copilot instructions.")
+    print("PASS 4-core/16-GB Codespaces profile with account-selected disk size, Copilot Free extensions, Stockland delivery skill and Copilot instructions.")
     return 0
 
 
