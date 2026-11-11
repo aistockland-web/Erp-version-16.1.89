@@ -19,6 +19,8 @@ services:
       STOCKLAND_DEV_DB_PASSWORD: ${STOCKLAND_DEV_DB_PASSWORD:?Run .devcontainer/initialize-host.sh first}
       STOCKLAND_DEV_DB_BASELINE: stockland_wp_baseline
       STOCKLAND_DEV_DB_UPGRADE: stockland_wp_upgrade
+      STOCKLAND_DEV_MYSQL8_DB_HOST: mysql8
+      STOCKLAND_DEV_MYSQL8_DB_NAME: stockland_wp_mysql8
       STOCKLAND_DEV_WP_ADMIN_USER: stockland_owner
       STOCKLAND_DEV_WP_ADMIN_PASSWORD: ${STOCKLAND_DEV_WP_ADMIN_PASSWORD:?Run .devcontainer/initialize-host.sh first}
       STOCKLAND_DEV_WP_BASELINE_URL: http://wordpress_baseline
