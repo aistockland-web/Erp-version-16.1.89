@@ -1,0 +1,150 @@
+services:
+  workspace:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/workspaces/stockland-erp:cached
+      - wordpress-mariadb-data:/var/www/wp-mariadb
+      - wordpress-mysql-data:/var/www/wp-mysql
+      - ../artifacts/codespaces:/artifacts
+    command: sleep infinity
+    environment:
+      STOCKLAND_MARIADB_DB_HOST: db-mariadb
+      STOCKLAND_MARIADB_DB_PORT: "3306"
+      STOCKLAND_MARIADB_DB_NAME: stockland_dev
+      STOCKLAND_MARIADB_DB_USER: stockland_dev
+      STOCKLAND_MARIADB_DB_PASSWORD: stockland_dev_only
+      STOCKLAND_MYSQL_DB_HOST: db-mysql
+      STOCKLAND_MYSQL_DB_PORT: "3306"
+      STOCKLAND_MYSQL_DB_NAME: stockland_dev
+      STOCKLAND_MYSQL_DB_USER: stockland_dev
+      STOCKLAND_MYSQL_DB_PASSWORD: stockland_dev_only
+      WP_MARIADB_PATH: /var/www/wp-mariadb
+      WP_MYSQL_PATH: /var/www/wp-mysql
+      WP_MARIADB_URL: http://localhost:8080
+      WP_MYSQL_URL: http://localhost:8081
+      STOCKLAND_ARTIFACT_DIR: /artifacts
+    depends_on:
+      db-mariadb:
+        condition: service_healthy
+      db-mysql:
+        condition: service_healthy
+      wordpress-mariadb:
+        condition: service_healthy
+      wordpress-mysql:
+        condition: service_healthy
+
+  db-mariadb:
+    image: mariadb:10.11
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: stockland_root_dev_only
+      MARIADB_DATABASE: stockland_dev
+      MARIADB_USER: stockland_dev
+      MARIADB_PASSWORD: stockland_dev_only
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --innodb-file-per-table=1
+    volumes:
+      - mariadb-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+
+  db-mysql:
+    image: mysql:8.0.46
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: stockland_root_dev_only
+      MYSQL_DATABASE: stockland_dev
+      MYSQL_USER: stockland_dev
+      MYSQL_PASSWORD: stockland_dev_only
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --mysql-native-password=ON
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping --host=127.0.0.1 --user=root --password=\"$$${MYSQL_ROOT_PASSWORD}\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+
+  wordpress-mariadb:
+    image: wordpress:php8.3-apache
+    restart: unless-stopped
+    depends_on:
+      db-mariadb:
+        condition: service_healthy
+    environment:
+      WORDPRESS_DB_HOST: db-mariadb:3306
+      WORDPRESS_DB_NAME: stockland_dev
+      WORDPRESS_DB_USER: stockland_dev
+      WORDPRESS_DB_PASSWORD: stockland_dev_only
+      WORDPRESS_TABLE_PREFIX: wp_
+    ports:
+      - "8080:80"
+    volumes:
+      - wordpress-mariadb-data:/var/www/html
+    healthcheck:
+      test: ["CMD-SHELL", "php -r '$$s=@fsockopen(\"127.0.0.1\",80); exit($$s?0:1);'"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+
+  wordpress-mysql:
+    image: wordpress:php8.3-apache
+    restart: unless-stopped
+    depends_on:
+      db-mysql:
+        condition: service_healthy
+    environment:
+      WORDPRESS_DB_HOST: db-mysql:3306
+      WORDPRESS_DB_NAME: stockland_dev
+      WORDPRESS_DB_USER: stockland_dev
+      WORDPRESS_DB_PASSWORD: stockland_dev_only
+      WORDPRESS_TABLE_PREFIX: wp_
+    ports:
+      - "8081:80"
+    volumes:
+      - wordpress-mysql-data:/var/www/html
+    healthcheck:
+      test: ["CMD-SHELL", "php -r '$$s=@fsockopen(\"127.0.0.1\",80); exit($$s?0:1);'"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+
+  wp-cli:
+    profiles: ["ci"]
+    image: wordpress:cli-php8.3
+    user: "33:33"
+    working_dir: /workspaces/stockland-erp
+    volumes:
+      - ..:/workspaces/stockland-erp:ro
+      - wordpress-mariadb-data:/var/www/wp-mariadb
+      - wordpress-mysql-data:/var/www/wp-mysql
+      - ../artifacts/codespaces:/artifacts
+    environment:
+      WP_MARIADB_PATH: /var/www/wp-mariadb
+      WP_MYSQL_PATH: /var/www/wp-mysql
+      WP_MARIADB_URL: http://localhost:8080
+      WP_MYSQL_URL: http://localhost:8081
+      STOCKLAND_ARTIFACT_DIR: /artifacts
+    entrypoint: ["bash", "-lc"]
+    command: ["sleep infinity"]
+    depends_on:
+      wordpress-mariadb:
+        condition: service_healthy
+      wordpress-mysql:
+        condition: service_healthy
+
+volumes:
+  mariadb-data:
+  mysql-data:
+  wordpress-mariadb-data:
+  wordpress-mysql-data:

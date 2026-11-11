@@ -1,0 +1,12 @@
+/.env
+/.env.*
+!.env.example
+/.devcontainer/.env.local
+/artifacts/codespaces/
+/ci/cssqa/node_modules/
+/ci/phpcs/vendor/
+/node_modules/
+/vendor/
+/coverage/
+/.phpunit.cache/
+*.log
