@@ -82,9 +82,9 @@ install_sandbox() {
 }
 
 check_rest() {
-  local url="$1" label="$2" output="$RUNTIME/rest-$label.json"
+  local url="$1" port="$2" label="$3" output="$RUNTIME/rest-$label.json"
   curl --fail --silent --show-error --retry 12 --retry-delay 2 --retry-connrefused \
-    "$url/wp-json/" --output "$output"
+    --header "Host: localhost:$port" "$url/wp-json/" --output "$output"
   python3 - "$output" <<'PY'
 import json, sys
 from pathlib import Path
@@ -103,7 +103,7 @@ echo "Install/activate 16.2.13 on MariaDB 10.11"
 install_sandbox wp213 "$CREDS/wordpress-16.2.13-mariadb.env" http://localhost:8080
 wp213 plugin activate "$PLUGIN_213"
 wp213 plugin is-active "$PLUGIN_213"
-check_rest http://wordpress-213 16.2.13-mariadb
+check_rest http://wordpress-213 8080 16.2.13-mariadb
 
 echo "Install/activate 16.2.13 on MySQL 8.0.46"
 install_sandbox wpupgrade "$CREDS/wordpress-upgrade-mysql.env" http://localhost:8081
@@ -113,7 +113,7 @@ wpupgrade plugin is-active "$PLUGIN_213"
 echo "Replace plugin files with verified 16.2.15 candidate; retain test database"
 python3 ci/codespaces/verify_installers.py --extract-version 16.2.15 --destination-root "$PLUGINSUPGRADE"
 wpupgrade plugin is-active "$PLUGIN_215"
-check_rest http://wordpress-upgrade 16.2.15-mysql-update
+check_rest http://wordpress-upgrade 8081 16.2.15-mysql-update
 
 {
   echo "# Stockland ERP Codespaces acceptance"
