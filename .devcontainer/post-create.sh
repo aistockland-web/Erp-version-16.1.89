@@ -18,7 +18,7 @@ if command -v gh >/dev/null 2>&1; then gh --version; fi
 echo "=== Prepare only generated QA directories for the non-root workspace user ==="
 WORKSPACE_UID="$(id -u)"
 WORKSPACE_GID="$(id -g)"
-for directory in ci/cssqa ci/phpcs artifacts/codespaces; do
+for directory in ci/cssqa ci/phpcs artifacts/codespaces src; do
   sudo install -d -m 0755 -o "$WORKSPACE_UID" -g "$WORKSPACE_GID" "$directory"
 done
 for generated in ci/cssqa/node_modules ci/phpcs/vendor; do
