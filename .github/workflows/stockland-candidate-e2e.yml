@@ -110,7 +110,7 @@ jobs:
           done
 
       - name: Publish the exact repaired .15 candidate for isolated WordPress testing
-        if: success()
+        if: success() && matrix.php == '8.3'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: stockland-repaired-16.2.15-candidate
@@ -118,6 +118,7 @@ jobs:
             artifacts/codespaces/STOCKLAND_ERP_16.2.15_REPAIRED_CANDIDATE_WORDPRESS_INSTALLER.zip
             artifacts/codespaces/STOCKLAND_ERP_16.2.15_REPAIRED_CANDIDATE_WORDPRESS_INSTALLER.zip.sha256
             artifacts/codespaces/repair-receipt.json
+            artifacts/codespaces/repaired-candidate-lock.json
           if-no-files-found: error
           retention-days: 5
 
@@ -145,8 +146,8 @@ jobs:
       - name: Install WP-CLI, bootstrap and smoke-test WordPress
         run: |
           set -euo pipefail
-          docker compose --project-directory .devcontainer -f .devcontainer/docker-compose.yml exec -T workspace bash .devcontainer/post-create.sh
-          docker compose --project-directory .devcontainer -f .devcontainer/docker-compose.yml exec -T workspace bash scripts/codespaces/bootstrap_mysql8_site.sh
+          docker compose --project-directory .devcontainer -f .devcontainer/docker-compose.yml exec -T workspace env STOCKLAND_DEV_16215_PACKAGE_PATH=/workspaces/stockland-erp/artifacts/codespaces/STOCKLAND_ERP_16.2.15_REPAIRED_CANDIDATE_WORDPRESS_INSTALLER.zip STOCKLAND_DEV_CANDIDATE_LOCK_PATH=artifacts/codespaces/repaired-candidate-lock.json bash .devcontainer/post-create.sh
+          docker compose --project-directory .devcontainer -f .devcontainer/docker-compose.yml exec -T workspace env STOCKLAND_DEV_16215_PACKAGE_PATH=/workspaces/stockland-erp/artifacts/codespaces/STOCKLAND_ERP_16.2.15_REPAIRED_CANDIDATE_WORDPRESS_INSTALLER.zip bash scripts/codespaces/bootstrap_mysql8_site.sh
           docker compose --project-directory .devcontainer -f .devcontainer/docker-compose.yml exec -T workspace bash scripts/codespaces/smoke_test_sites.sh
 
       - name: Upload MySQL 8.0.46 upgrade receipt

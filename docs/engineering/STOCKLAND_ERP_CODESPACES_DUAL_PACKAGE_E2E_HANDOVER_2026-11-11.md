@@ -68,3 +68,6 @@ The original 16.2.15 archive and its locked SHA-256 remain unchanged. The exact-
 The E2E workflow now recomputes and verifies the original .15 hash, locked size and sidecar before making any repair; requires the malformed member to match the reviewed signature; prepends only the missing `<?php` opening tag; writes a separately named archive and SHA-256 sidecar; verifies every non-target member remains byte-identical; and passes that exact repaired artifact through PHP 8.3/8.4 checks and the MariaDB 10.11/MySQL 8.0.46 WordPress upgrade tests.
 
 The candidate hash emitted by CI is the identity for that repaired artifact. The original .15 ZIP remains preserved as historical evidence. This is not production authorization.
+
+
+The runtime handoff includes a repo-relative `repaired-candidate-lock.json` alongside the ZIP, sidecar and receipt. The workspace's `post-create.sh` validates that lock and its mounted artifact, then uses the same archive path for the MariaDB .13-to-.15 bootstrap. Only the PHP 8.3 matrix job publishes the shared candidate artifact, avoiding duplicate artifact names from the PHP 8.3/8.4 matrix.

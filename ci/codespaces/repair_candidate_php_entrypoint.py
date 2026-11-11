@@ -148,6 +148,30 @@ def repair_archive(source: Path, output: Path, expected_sha256: str, expected_si
     }
 
 
+
+def workspace_candidate_lock(
+    baseline: dict[str, Any],
+    selected: dict[str, Any],
+    output: Path,
+    sidecar: Path,
+    repository_root: Path = ROOT,
+) -> dict[str, Any]:
+    """Build a second lock with repo-relative paths for the mounted Codespaces checkout."""
+    root = Path(repository_root).resolve()
+    try:
+        archive_relative = Path(output).resolve().relative_to(root)
+        sidecar_relative = Path(sidecar).resolve().relative_to(root)
+    except ValueError as exc:
+        raise ValueError("workspace repair artifact and sidecar must live inside the repository") from exc
+    repaired = dict(selected)
+    repaired.update({
+        "role": "repaired_selected_update_candidate",
+        "archive": archive_relative.as_posix(),
+        "sidecar": sidecar_relative.as_posix(),
+    })
+    return {"schema_version": 1, "packages": [dict(baseline), repaired]}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output-dir", type=Path, default=ROOT / "artifacts" / "codespaces")
@@ -200,6 +224,18 @@ def main() -> int:
             json.dumps({"schema_version": 1, "packages": [baseline, repaired_package]}, indent=2) + "\n",
             encoding="utf-8",
         )
+
+        workspace_lock_path = output_dir / "repaired-candidate-lock.json"
+        workspace_selected = dict(selected)
+        workspace_selected.update({
+            "sha256": result["repaired_sha256"],
+            "size_bytes": result["repaired_bytes"],
+        })
+        workspace_lock = workspace_candidate_lock(baseline, workspace_selected, output, sidecar)
+        workspace_lock_path.write_text(json.dumps(workspace_lock, indent=2) + "\n", encoding="utf-8")
+        os.chmod(workspace_lock_path, 0o644)
+        result["workspace_lock"] = workspace_lock_path.name
+        receipt_path.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
         print("PASS " + json.dumps(result, sort_keys=True))
         return 0
     except (OSError, ValueError, KeyError, json.JSONDecodeError, zipfile.BadZipFile) as exc:

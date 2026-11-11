@@ -7,7 +7,7 @@ import unittest
 import zipfile
 from pathlib import Path
 
-from repair_candidate_php_entrypoint import repair_archive, digest_file
+from repair_candidate_php_entrypoint import repair_archive, digest_file, workspace_candidate_lock
 
 TARGET = "stockland-erp-app/includes/class-stockland-schema-contract.php"
 
@@ -65,6 +65,19 @@ class CandidatePhpEntrypointRepairTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "audited PHP doc-comment signature"):
             repair_archive(self.source, self.output, digest_file(self.source), self.source.stat().st_size)
         self.assertFalse(self.output.exists())
+
+    def test_workspace_lock_uses_paths_relative_to_mounted_repository(self) -> None:
+        repository = self.root / "repo"
+        artifact_dir = repository / "artifacts" / "codespaces"
+        archive = artifact_dir / "repaired.zip"
+        sidecar = artifact_dir / "repaired.zip.sha256"
+        baseline = {"release": "16.2.13", "archive": "baseline.zip", "sidecar": "baseline.zip.sha256"}
+        selected = {"release": "16.2.15", "sha256": "a" * 64, "size_bytes": 123}
+        lock = workspace_candidate_lock(baseline, selected, archive, sidecar, repository)
+        self.assertEqual(lock["packages"][1]["archive"], "artifacts/codespaces/repaired.zip")
+        self.assertEqual(lock["packages"][1]["sidecar"], "artifacts/codespaces/repaired.zip.sha256")
+        self.assertEqual(lock["packages"][1]["sha256"], selected["sha256"])
+        self.assertEqual(lock["packages"][1]["size_bytes"], selected["size_bytes"])
 
     def test_missing_target_is_rejected(self) -> None:
         with zipfile.ZipFile(self.source, "w") as archive:

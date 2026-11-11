@@ -66,8 +66,13 @@ if ! command -v wp >/dev/null 2>&1; then
 fi
 wp --info
 
-echo "=== Verify both committed installer packages ==="
-python3 ci/codespaces/validate_candidate_packages.py --extract-root /tmp/stockland-candidate-packages
+echo "=== Verify the exact locked baseline and selected repaired candidate ==="
+CANDIDATE_LOCK_PATH="${STOCKLAND_DEV_CANDIDATE_LOCK_PATH:-ci/codespaces/candidate-packages.json}"
+if [[ ! -f "$CANDIDATE_LOCK_PATH" ]]; then
+  echo "Candidate package lock not found: $CANDIDATE_LOCK_PATH" >&2
+  exit 1
+fi
+python3 ci/codespaces/validate_candidate_packages.py --lock-file "$CANDIDATE_LOCK_PATH" --extract-root /tmp/stockland-candidate-packages
 
 echo "=== Bootstrap isolated WordPress/MariaDB baseline and upgrade test sites ==="
 bash scripts/codespaces/bootstrap_wordpress_sites.sh
