@@ -43,10 +43,24 @@ codex login --device-auth
 
 Complete ChatGPT sign-in using the one-time device flow in the Owner's browser. Do not use an OpenAI API key. API usage is separately billed and is outside this free-only plan. Never paste device codes/tokens, ~/.codex/auth.json, GitHub tokens or credentials into Git, issue comments, Notion, chat or screenshots.
 
+### One-time optional Superpowers plugin installation
+
+After device sign-in, from the repository root run:
+
+```bash
+codex plugin marketplace add .
+codex plugin marketplace list
+codex
+```
+
+In the Codex terminal, open `/plugins`, select **Superpowers** under **Stockland ERP Engineering**, and choose **Install Plugin**. Start a new Codex session to load it. The marketplace pins upstream commit `22f0b463e7a5e579904dd6211a520321035526f7`; the upstream project identifies its license as MIT. This is a free, optional workflow aid for planning, test-driven development, debugging and review. The ERP instructions remain authoritative when they differ from a generic plugin suggestion. No paid model, API key or cloud agent is used.
+
+The bootstrap sets `SUPERPOWERS_DISABLE_TELEMETRY=true` in the local shell profile to disable the plugin's optional visual-companion telemetry.
+
 Codex CLI is pinned to version 0.167.1 in the local installer. Codex project configuration is loaded only after the repository is trusted. GitHub Copilot uses the root .github/copilot-instructions.md, which carries the same Stockland master scope and schema approval rules:
 - .codex/config.toml limits concurrent agent threads to one.
 - Four project-scoped agents provide read-only exploration, workspace-write implementation, read-only review and isolated QA.
-- Minimal configuration enables no third-party plugins, no external MCP endpoints, no paid services and no cloud agent.
+- The optional Superpowers plugin is pinned to an immutable upstream commit from its MIT-licensed repository. It is installed only after the Owner chooses Install in Codex; no plugin, paid service or cloud agent is required for the ERP build. External MCP servers remain disabled in the minimal Free configuration.
 - Project auth/session files are ignored by Git.
 - Copilot Free is an optional assistant with monthly usage limits. Cloud agent runs and paid AI credits are not part of this workflow.
 
