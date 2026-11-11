@@ -14,7 +14,7 @@ The authoritative source and acceptance decisions live in the linked Notion engi
 
 Create a Codespace from the active engineering branch:
 
-https://github.com/codespaces/new?repo=aistockland-web%2FErp-version-16.1.89&ref=feat%2Fstockland-free-codespaces-codex-2026-11-11
+https://github.com/codespaces/new?repo=aistockland-web%2FErp-version-16.1.89&ref=delivery%2Fstockland-full-erp-completion-2026-11-11
 
 The Dev Container requests 4 cores / 16 GB RAM / 64 GB storage for the single interactive workspace, subject to GitHub account/repository/region availability. It provisions PHP 8.3, Node 22, Python 3.12, Composer, checksum-verified WP-CLI, MariaDB 10.11 and private WordPress QA instances. MySQL 8.0.46 remains CI-first to control storage and compute.
 
