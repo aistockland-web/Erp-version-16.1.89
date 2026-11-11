@@ -5,7 +5,7 @@ import argparse, hashlib, json, shutil, stat, sys, zipfile
 from pathlib import Path, PurePosixPath
 ROOT=Path(__file__).resolve().parents[2]
 PACKAGES={
- '16.2.13': {'archive':'STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER (1).zip','sidecar':'STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER.zip.sha256','sha256':'74e3205d0b42151997dc356c29b09204688accee817c17a013a70cf90be04c13','size_bytes':2188684,'entries':113,'php_files':80,'logical_sidecar_name':'STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER.zip'},
+ '16.2.13': {'archive':'STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER (1).zip','sidecar':'STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER.zip.sha256','sha256':'74e3205d0b42151997dc356c29b09204688accee817c17a013a70cf90be04c13','size_bytes':2188684,'entries':113,'php_files':80,'logical_sidecar_name':'STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER (1).zip'},
  '16.2.15': {'archive':'STOCKLAND_ERP_16.2.15_LOCAL_REVIEW_CANDIDATE_WORDPRESS_INSTALLER.zip','sidecar':'STOCKLAND_ERP_16.2.15_LOCAL_REVIEW_CANDIDATE_WORDPRESS_INSTALLER.zip.sha256','sha256':'8c46bf052dd5d9553964909b6d56268b2c195e8a056f74bfb423ae9d21d142df'}
 }
 def digest(path):
