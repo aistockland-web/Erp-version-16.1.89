@@ -134,8 +134,9 @@ class SourceBootstrapTests(unittest.TestCase):
         changed = self.dest / "includes" / "fixture-00.php"
         changed.write_text("<?php\n// engineer change\n", encoding="utf-8")
 
-        with self.assertRaisesRegex(RuntimeError, "differs from the exact .13 intake manifest"):
-            self.import_source()
+        with patch.dict("os.environ", {"STOCKLAND_SOURCE_STRICT": "1"}):
+            with self.assertRaisesRegex(RuntimeError, "drifted from the exact .13 intake manifest"):
+                self.import_source()
 
         self.assertIn("engineer change", changed.read_text(encoding="utf-8"))
         self.assertTrue(self.marker.is_file())
@@ -188,6 +189,17 @@ class SourceBootstrapTests(unittest.TestCase):
             self.import_source()
 
         self.assertEqual(keep.read_text(encoding="utf-8"), "preserve")
+
+    def test_marked_source_symlink_is_rejected_even_in_non_strict_mode(self):
+        self.import_source()
+        link = self.dest / "includes" / "unsafe-link.php"
+        link.symlink_to(self.dest / "includes" / "fixture-00.php")
+
+        with self.assertRaisesRegex(RuntimeError, "Symlink in source tree"):
+            self.import_source()
+
+        self.assertTrue(link.is_symlink())
+        self.assertTrue(self.marker.is_file())
 
     def test_marker_is_not_published_when_source_directory_move_fails(self):
         with patch("bootstrap_project_source.os.rename", side_effect=OSError("simulated move failure")):
@@ -253,12 +265,9 @@ class SourceBootstrapTests(unittest.TestCase):
         with contextlib.redirect_stdout(out):
             self.assertFalse(materialize(self.stage, self.report, self.dest, self.marker))
         self.assertIn("WARNING: editable source differs", out.getvalue())
-        os.environ["STOCKLAND_SOURCE_STRICT"] = "1"
-        try:
+        with patch.dict(os.environ, {"STOCKLAND_SOURCE_STRICT": "1"}):
             with self.assertRaisesRegex(RuntimeError, "drifted"):
                 materialize(self.stage, self.report, self.dest, self.marker)
-        finally:
-            del os.environ["STOCKLAND_SOURCE_STRICT"]
 
     def test_marker_is_not_left_behind_when_the_move_fails(self):
         from unittest import mock
