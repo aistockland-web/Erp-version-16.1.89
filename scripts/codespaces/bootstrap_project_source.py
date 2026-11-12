@@ -160,13 +160,22 @@ def read_baseline_report(path: Path) -> dict:
     return report
 
 
-def verify_source_tree(source: Path, report: dict) -> None:
+def assert_source_tree_safe(source: Path) -> None:
+    """Reject unsafe filesystem objects before deciding whether ordinary drift is tolerable."""
     if source.is_symlink() or not source.is_dir():
         raise RuntimeError(f"Source directory is absent or unsafe: {source}")
-    actual = {}
     for item in source.rglob("*"):
         if item.is_symlink():
             raise RuntimeError(f"Symlink in source tree: {item}")
+    entry = source / "stockland-inventory.php"
+    if entry.is_symlink() or not entry.is_file():
+        raise RuntimeError("WordPress entry point stockland-inventory.php is missing or unsafe")
+
+
+def verify_source_tree(source: Path, report: dict) -> None:
+    assert_source_tree_safe(source)
+    actual = {}
+    for item in source.rglob("*"):
         if item.is_file():
             actual[item.relative_to(source).as_posix()] = sha256_file(item)
     expected = report["files"]
@@ -283,24 +292,28 @@ def materialize(
 
         if marker.exists() or marker.is_symlink():
             read_and_verify_marker(marker, provenance)
+            # A marker establishes provenance, not that the current working tree is unchanged.
+            # Reject unsafe filesystem objects unconditionally before handling ordinary code drift.
+            assert_source_tree_safe(destination)
             try:
                 verify_source_tree(destination, report)
             except RuntimeError as error:
-                if not allow_local_modifications:
+                if os.environ.get("STOCKLAND_SOURCE_STRICT", "").strip() == "1":
                     raise RuntimeError(
-                        "Existing marked editable source differs from the exact .13 intake manifest. "
-                        "All files were preserved. Review and commit/save the local changes, or rerun "
-                        "with --allow-local-modifications to explicitly keep this non-baseline working tree. "
+                        "Existing marked editable source has drifted from the exact .13 intake manifest "
+                        "while STOCKLAND_SOURCE_STRICT=1 is enabled. All files were preserved. "
                         f"Verification detail: {error}"
                     ) from error
-                if not (destination / "stockland-inventory.php").is_file():
-                    raise RuntimeError(
-                        "Modified source is missing its WordPress entry point; preserving it and refusing "
-                        "the local-modification override."
-                    ) from error
+                if allow_local_modifications:
+                    print(
+                        "WARNING: preserving an explicitly allowed locally modified source tree. "
+                        "It is not verified as byte-identical to the pinned .13 package."
+                    )
+                    return False
                 print(
-                    "WARNING: preserving an explicitly allowed locally modified source tree. "
-                    "It is not verified as byte-identical to the pinned .13 package."
+                    "WARNING: editable source differs from the exact .13 intake manifest; "
+                    "preserving all files without overwriting them. Set STOCKLAND_SOURCE_STRICT=1 "
+                    f"to fail instead. Verification detail: {error}"
                 )
                 return False
             print(f"PASS: existing source re-hashed and matches the exact .13 manifest: {destination}")
