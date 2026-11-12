@@ -34,3 +34,10 @@ The dotnet-codespaces repository is reference material only. Do not introduce .N
 ## Reporting
 
 Use PASS, FAIL, BLOCKED, NOT RUN and OWNER INPUT distinctly. Name the exact branch/SHA, files, tests, workflow run and artifact hash. Never call a candidate production-ready based only on static syntax, successful environment creation or a green CI workflow.
+
+
+## Current Owner schema and Free-plan controls (11 November 2026)
+
+The latest Notion Target 6 controls schema behavior: preserve the 49-key legacy operational baseline (29 Core/Operations + 16 Accounting/Procurement + four legacy HR/payroll). Keep the 37-table HR lifecycle extension and 33 recognized HRX keys separate; neither is approved for automatic installation. Do not create lifecycle DDL or ALTER existing legacy HR/payroll tables without exact written Owner approval tied to the reviewed DDL fingerprint. HR lifecycle review must not block independent POS, inventory, warehouse, finance and reporting routes. Keep payroll finalization fail-closed without approved, effective-dated statutory rules and qualified Ethiopian review. New pension DDL defaults are neutral zero; historic data remains unchanged.
+
+The interactive Codespace is configured for 4 CPU / 16 GB RAM. No fixed disk minimum is imposed by devcontainer.json; choose the smallest account-available storage size that supports the Docker images and source workspace. GitHub Free includes 120 Codespaces core-hours and 15 GB-month storage; at 4 cores the compute allowance covers up to 30 active hours per billing cycle. Monitor account usage and keep paid overage disabled. GitHub Copilot Free provides 2,000 monthly inline completions with limited chat/agent usage; the cloud coding agent and paid AI credits are outside this project. Use Copilot IDE/CLI only within its free allowance. Codex local CLI is optional and uses ChatGPT account sign-in, never an API key.

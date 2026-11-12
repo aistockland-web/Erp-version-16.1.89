@@ -1,5 +1,5 @@
 {
-  "name": "Stockland Ethiopia ERP — PHP 8.3 / Node 22 / Python 3.12 / WordPress E2E",
+  "name": "Stockland Ethiopia ERP — Free Codespaces profile (4 core / 16 GB RAM)",
   "dockerComposeFile": "docker-compose.yml",
   "service": "workspace",
   "workspaceFolder": "/workspaces/stockland-erp",
@@ -17,7 +17,11 @@
       "enableNonRootDocker": true
     }
   },
-  "forwardPorts": [8080, 8081, 8082],
+  "forwardPorts": [
+    8080,
+    8081,
+    8082
+  ],
   "portsAttributes": {
     "8080": {
       "label": "Stockland ERP MariaDB 10.11 site (16.2.18 master installer verification, 16.2.13 baseline) — private",
@@ -45,8 +49,14 @@
         "esbenp.prettier-vscode",
         "GitHub.vscode-pull-request-github",
         "ms-azuretools.vscode-docker",
-        "redhat.vscode-yaml"
+        "redhat.vscode-yaml",
+        "GitHub.copilot",
+        "GitHub.copilot-chat"
       ]
     }
+  },
+  "hostRequirements": {
+    "cpus": 4,
+    "memory": "16gb"
   }
 }

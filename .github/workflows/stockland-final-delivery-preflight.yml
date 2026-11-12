@@ -39,6 +39,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
@@ -81,12 +83,15 @@ jobs:
           print(f"PASS: {len(actual)} .13 files match the exact per-file SHA-256 manifest")
           PY
           printf '%s\n' 'source-rebuild-preservation-check' > "$RUNNER_TEMP/stockland-editable/src/stockland-erp-app/.preserve-check"
+          cp "$RUNNER_TEMP/stockland-editable/src/.stockland-erp-app.source.json" "$RUNNER_TEMP/source-marker.before"
           python3 scripts/codespaces/bootstrap_project_source.py \
             --stage-root "$RUNNER_TEMP/stockland-candidates" \
             --intake-report "$RUNNER_TEMP/stockland-package-intake.json" \
             --destination "$RUNNER_TEMP/stockland-editable/src/stockland-erp-app" \
-            --marker "$RUNNER_TEMP/stockland-editable/src/.stockland-erp-app.source.json"
+            --marker "$RUNNER_TEMP/stockland-editable/src/.stockland-erp-app.source.json" \
+            --allow-local-modifications
           grep -qx 'source-rebuild-preservation-check' "$RUNNER_TEMP/stockland-editable/src/stockland-erp-app/.preserve-check"
+          cmp "$RUNNER_TEMP/source-marker.before" "$RUNNER_TEMP/stockland-editable/src/.stockland-erp-app.source.json"
       - name: Confirm source artifacts and evidence were generated
         run: |
           set -euo pipefail

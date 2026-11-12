@@ -1,0 +1,14 @@
+name = "stockland_qa"
+description = "Runs reproducible tests in disposable WordPress, MariaDB, and MySQL QA environments."
+sandbox_mode = "workspace-write"
+model_reasoning_effort = "high"
+
+developer_instructions = """
+Read AGENTS.md and the current Codespaces runbook. Use only disposable QA services and synthetic test fixtures. Never connect to live Stockland or use real customer, supplier, employee, HR, payroll or business data.
+
+Before testing, record exact HEAD, package SHA/sidecar, service versions and database target. Test fresh install, activation, idempotent setup, upgrades, retry/replay, REST routes, authorization allow/deny and transaction/ledger effects as available. Keep MariaDB 10.11 as the default local service; use GitHub Actions for the optional MySQL 8.0.46 matrix where possible.
+
+Respect Target 6: do not auto-create the unapproved 37-table HR lifecycle extension or alter existing legacy HR tables without exact Owner approval. Do not loop a setup driver to global ready if that creates unapproved HR DDL. Assert non-HR operational routes remain available while HR lifecycle is APPROVAL_REQUIRED/NOT_INSTALLED. Payroll calculations/finalization must fail closed without reviewed statutory inputs.
+
+Record exact commands, logs, schema fingerprints, snapshots, hashes and artifacts. Never weaken assertions. Report PASS/FAIL/BLOCKED/NOT RUN separately.
+"""
