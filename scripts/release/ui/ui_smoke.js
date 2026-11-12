@@ -47,8 +47,10 @@ const isLocal = (url) => {
       if (message.type() === 'error') fail('browser console error: ' + message.text());
     });
     page.on('requestfailed', (request) => {
-      if (isLocal(request.url())) {
-        fail('same-origin request failed: ' + request.url() + ' (' + (request.failure()?.errorText || 'unknown') + ')');
+      const reason = request.failure()?.errorText || 'unknown';
+      // Navigation replaces the current document and may legitimately cancel its in-flight requests.
+      if (isLocal(request.url()) && !/ERR_ABORTED/.test(reason)) {
+        fail('same-origin request failed: ' + request.url() + ' (' + reason + ')');
       }
     });
     page.on('response', (response) => {
