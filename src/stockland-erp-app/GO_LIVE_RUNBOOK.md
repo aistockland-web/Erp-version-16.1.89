@@ -23,3 +23,7 @@ Restore the backup. Deactivating the plugin leaves all data in place.
 
 ## Separation of duties (by design)
 Preparers cannot approve their own payments/invoices; the Owner does not prepare customer invoices. Use distinct users per role.
+
+## Host requirements checked before go-live
+
+`live_ready` stays false until the web host allows spreadsheet uploads: PHP `upload_max_filesize` and `post_max_size` must both be at least 8 MB (recommended 16 MB and 20 MB), and PHP 8.3 or newer with MariaDB 10.6+ or MySQL 8.0+. Change them in `php.ini` or the hosting panel, then reload System Control.
