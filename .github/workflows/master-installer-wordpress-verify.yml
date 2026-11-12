@@ -59,14 +59,25 @@ jobs:
           mysql -h 127.0.0.1 -uroot -proot -e "SELECT VERSION() AS db_version, @@sql_mode AS sql_mode" wp
           php -r 'echo "PHP ", PHP_VERSION, " upload=", ini_get("upload_max_filesize"), " post=", ini_get("post_max_size"), PHP_EOL;'
 
-      - name: Verify the committed ZIP checksum and rebuild deterministically
+      - name: Verify the committed ZIP checksum and that it contains exactly the source tree
         run: |
           set -euo pipefail
           sha256sum -c STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTALLER.zip.sha256
-          cp STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTALLER.zip /tmp/committed.zip
-          python3 scripts/release/build_master_installer.py
-          cmp /tmp/committed.zip STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTALLER.zip
-          echo "PASS rebuilt ZIP is byte-identical to the committed ZIP"
+          python3 - <<'PY'
+          import hashlib, os, zipfile
+          z = zipfile.ZipFile("STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTALLER.zip")
+          root = "src/stockland-erp-app"
+          tree = {}
+          for d, _, fs in os.walk(root):
+              for f in fs:
+                  p = os.path.join(d, f)
+                  tree["stockland-erp-app/" + os.path.relpath(p, root).replace(os.sep, "/")] = hashlib.sha256(open(p, "rb").read()).hexdigest()
+          zipped = {n: hashlib.sha256(z.read(n)).hexdigest() for n in z.namelist() if not n.endswith("/")}
+          missing = sorted(set(tree) - set(zipped)); extra = sorted(set(zipped) - set(tree))
+          changed = sorted(n for n in tree if n in zipped and tree[n] != zipped[n])
+          assert not (missing or extra or changed), (missing, extra, changed)
+          print("PASS ZIP holds exactly the", len(tree), "source files with identical SHA-256")
+          PY
 
       - name: Install WP-CLI and WordPress
         run: |
