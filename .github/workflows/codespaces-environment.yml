@@ -46,12 +46,15 @@ jobs:
           python3 -m json.tool .devcontainer/devcontainer.json >/dev/null
           bash -n .devcontainer/initialize-host.sh
           bash -n .devcontainer/post-create.sh
+          bash -n .devcontainer/verify-master-installer.sh
           bash -n scripts/codespaces/bootstrap_wordpress_sites.sh
           bash -n scripts/codespaces/bootstrap_mysql8_site.sh
           bash -n scripts/codespaces/smoke_test_sites.sh
           bash -n scripts/codespaces/wp_cli_wrapper.sh
           bash -n scripts/codespaces/run_mysql8_parity.sh
-          python3 ci/codespaces/test_rest_index.py
+          bash -n scripts/release/verify_master_installer.sh
+          bash -n scripts/release/e2e/run_all.sh
+          python3 -m unittest discover -s ci/codespaces -p 'test_*.py' -v
           python3 -m json.tool ci/codespaces/candidate-packages.json >/dev/null
 
       - name: Create isolated CI credentials and validate Compose
