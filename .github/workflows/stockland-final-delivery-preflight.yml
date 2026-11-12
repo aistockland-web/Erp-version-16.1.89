@@ -8,6 +8,7 @@ on:
       - ".devcontainer/**"
       - "scripts/codespaces/**"
       - "ci/codespaces/**"
+      - "src/.stockland-erp-app.source.json"
       - "src/README.md"
       - "docs/AGENT_FIRST_PROMPT.md"
       - "docs/engineering/STOCKLAND_ERP_FINAL_CODESPACES_ONE_CLICK_RELEASE_RUNBOOK_2026-11-11.md"
@@ -19,6 +20,7 @@ on:
       - ".devcontainer/**"
       - "scripts/codespaces/**"
       - "ci/codespaces/**"
+      - "src/.stockland-erp-app.source.json"
       - "src/README.md"
       - "docs/AGENT_FIRST_PROMPT.md"
       - "docs/engineering/STOCKLAND_ERP_FINAL_CODESPACES_ONE_CLICK_RELEASE_RUNBOOK_2026-11-11.md"
@@ -51,6 +53,7 @@ jobs:
           bash -n .devcontainer/initialize-host.sh
           bash -n .devcontainer/post-create.sh
           bash -n scripts/codespaces/bootstrap_project_source.sh
+          bash -n scripts/codespaces/start-final-completion-agent.sh
           bash -n scripts/codespaces/bootstrap_wordpress_sites.sh
           bash -n scripts/codespaces/bootstrap_mysql8_site.sh
           bash -n scripts/codespaces/run_mysql8_parity.sh

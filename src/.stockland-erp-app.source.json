@@ -1,0 +1,11 @@
+{
+  "archive": "STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER (1).zip",
+  "archive_git_blob_sha": "908bbff20399438c76a15233ecd1b4bc5957fe58",
+  "archive_sha256": "74e3205d0b42151997dc356c29b09204688accee817c17a013a70cf90be04c13",
+  "artifact_commit_sha": "1c3b743296b7a1f4e3b8a0b481e6883b5fed4154",
+  "file_count": 113,
+  "file_manifest_sha256": "7b5b3276d4ffe8bcc25b0f0fb2acd28ee2558b2cb41732db1e681d791e8a573e",
+  "generated_by": "scripts/codespaces/bootstrap_project_source.py",
+  "repository": "aistockland-web/Erp-version-16.1.89",
+  "source_version": "16.2.13"
+}

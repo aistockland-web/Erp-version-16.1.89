@@ -78,3 +78,7 @@ git status --short --branch
 The repaired .15 QA artifact is distinct from the original candidate ZIP. Do not rename its digest to the original digest. The first post-create uses the repaired artifact for disposable WordPress activation/update; the original .13 archive remains the operational baseline.
 
 After the smoke tests, the next target is the resumable ERP setup wizard and physical schema/data verification on MariaDB 10.11 and MySQL 8.0.46, followed by full authenticated module workflows and full-cycle HR/payroll. A 12-table WordPress-only receipt is not full ERP schema acceptance. Build the final installable WordPress ZIP only from the final reviewed canonical source commit, with release manifest, file hashes, SBOM, build receipt and exact SHA-256. The standard WordPress plugin-upload flow is the final installer interface; production publication/deployment follows final Owner release authorization.
+
+## 16.2.18 master installer verification
+
+`bash .devcontainer/verify-master-installer.sh [mariadb|mysql8|all]` builds `STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTALLER.zip` from `src/stockland-erp-app/`, resets the disposable WordPress databases, installs the ZIP through WordPress, activates once, verifies all 86 tables, setup state and the business-workflow regression scripts. Use the MySQL 8 profile (`docker compose --profile mysql8 up -d`) for the `mysql8` target. Synthetic data only; the script refuses to run without `STOCKLAND_DISPOSABLE_SITE=yes`.

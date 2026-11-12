@@ -1,0 +1,377 @@
+/* 16.1.86 — reference-matched desktop SaaS shell, isolated search, and Bootstrap light bridge. */
+#stockland-app[data-bs-theme="light"],
+#stockland-app .sl-root[data-bs-theme="light"],
+#stockland-app [data-bs-theme="light"] {
+  --bs-body-font-family:var(--sl-font);
+  --bs-body-color:var(--sl-text);
+  --bs-body-bg:var(--sl-canvas);
+  --bs-emphasis-color:var(--sl-ink);
+  --bs-secondary-color:var(--sl-muted);
+  --bs-tertiary-color:var(--sl-muted-2);
+  --bs-secondary-bg:var(--sl-panel-soft);
+  --bs-tertiary-bg:var(--sl-canvas);
+  --bs-primary:#2563eb;
+  --bs-primary-rgb:37,99,235;
+  --bs-success:#059669;
+  --bs-success-rgb:5,150,105;
+  --bs-warning:#f59e0b;
+  --bs-warning-rgb:245,158,11;
+  --bs-danger:#dc3545;
+  --bs-danger-rgb:220,53,69;
+  --bs-border-color:var(--sl-line);
+  --bs-link-color:#2563eb;
+  --bs-link-hover-color:#1d4ed8;
+  --bs-focus-ring-color:rgba(37,99,235,.2);
+  color-scheme:light;
+}
+#stockland-app[data-bs-theme="light"] .btn-primary,
+#stockland-app .sl-root[data-bs-theme="light"] .btn-primary{--bs-btn-bg:#2563eb;--bs-btn-border-color:#2563eb;--bs-btn-hover-bg:#1d4ed8;--bs-btn-hover-border-color:#1d4ed8;--bs-btn-active-bg:#1e40af;--bs-btn-active-border-color:#1e40af}
+#stockland-app[data-bs-theme="light"] .btn-success,
+#stockland-app .sl-root[data-bs-theme="light"] .btn-success{--bs-btn-bg:#059669;--bs-btn-border-color:#059669;--bs-btn-hover-bg:#047857;--bs-btn-hover-border-color:#047857}
+
+@media (min-width:992px){
+  #stockland-app{--sl-sidebar-w:228px;--sl-header-h:56px}
+  #stockland-app .sl-shell{grid-template-columns:228px minmax(0,1fr)}
+  #stockland-app .sl-main{grid-template-rows:56px minmax(0,1fr)}
+  #stockland-app .sl-top{
+    display:grid!important;grid-template-columns:32px minmax(220px,1fr) auto auto!important;
+    align-items:center;gap:10px;min-height:56px;height:56px;padding:6px 14px;
+    background:#fff;border-bottom:1px solid #e7edf4;box-shadow:0 2px 9px rgba(14,43,77,.045)
+  }
+  #stockland-app .sl-top-left{width:32px;height:34px;display:flex;align-items:center;justify-content:center;gap:0;overflow:visible}
+  #stockland-app .sl-top-logo,#stockland-app .sl-top-brand,#stockland-app .sl-top-left .sl-mobile{display:none!important}
+  #stockland-app .sl-desktop-menu-btn{display:inline-flex!important;width:30px;height:32px;min-width:30px;align-items:center;justify-content:center;padding:0;border:0;border-radius:7px;background:transparent;color:#34516e;font-size:20px;line-height:1;cursor:pointer}
+  #stockland-app .sl-desktop-menu-btn:hover{background:#eef4fb;color:#174a7c}
+  #stockland-app .sl-global-search{grid-column:2;justify-self:start;width:min(100%,382px);max-width:none;min-width:0;z-index:65}
+  #stockland-app .sl-global-search-control{height:34px;padding:0 9px;gap:8px;border:1px solid #dbe4ee;border-radius:8px;background:#fff;box-shadow:none}
+  #stockland-app .sl-global-search-control:hover{border-color:#c6d5e5}
+  #stockland-app .sl-global-search-control:focus-within{border-color:#83b0ea;box-shadow:0 0 0 3px rgba(37,99,235,.09);background:#fff}
+  #stockland-app .sl-global-search-control input{font-size:11px;font-weight:500;line-height:1.2;color:#213f61;min-width:0}
+  #stockland-app .sl-global-search-control input::placeholder{color:#7f93aa;opacity:1;font-weight:500}
+  #stockland-app .sl-global-search-control kbd{padding:3px 5px;border:1px solid #e0e7f0;border-radius:4px;background:#fbfcfe;color:#7890a8;font-family:inherit;font-size:8px;font-weight:700;white-space:nowrap}
+  #stockland-app .sl-global-search-results{top:calc(100% + 7px);border-color:#d7e3ef;border-radius:10px;box-shadow:0 14px 32px rgba(13,39,68,.18)}
+  #stockland-app .sl-top-center{grid-column:3;display:flex!important;align-items:center;justify-content:flex-end;gap:0;min-width:0;white-space:nowrap}
+  #stockland-app .sl-top-center .sl-live-pill,#stockland-app .sl-top-center .sl-sync-indicator{display:none!important}
+  #stockland-app .sl-location-chip{display:inline-flex;align-items:center;gap:7px;max-width:174px;min-height:34px;padding:7px 10px;border:1px solid transparent;border-radius:8px;background:#f0f5fb;color:#476887;font-size:9px;font-weight:750;letter-spacing:0;line-height:1.2}
+  #stockland-app .sl-location-chip::before{content:"⌖";font-size:13px;color:#416d9a}
+  #stockland-app .sl-user{grid-column:4;display:flex;align-items:center;justify-content:flex-end;gap:8px;min-width:0;overflow:visible;flex-wrap:nowrap}
+  #stockland-app .sl-notification-trigger{display:inline-flex;align-items:center;justify-content:center;width:35px;height:34px;min-height:34px;padding:5px;border:0;border-radius:8px;background:transparent;color:#244763}
+  #stockland-app .sl-notification-trigger:hover{background:#eef4fb;border-color:transparent;transform:none}
+  #stockland-app .sl-notification-icon{width:19px;height:19px}
+  #stockland-app .sl-notification-label{display:none!important}
+  #stockland-app .sl-notification-badge{position:absolute;top:2px;right:1px;min-width:15px;height:15px;font-size:8px;border:2px solid #fff}
+  #stockland-app .sl-user-copy{display:block;min-width:70px;max-width:106px}
+  #stockland-app .sl-user-copy b{font-size:9px;font-weight:800;color:#183654}
+  #stockland-app .sl-user-copy small{margin-top:2px;font-size:8px;color:#7b8da1}
+  #stockland-app .sl-avatar{width:31px;height:31px;flex:0 0 31px;border:1px solid #d8e3ee;background:#edf4fb;color:#355a7e;font-size:12px;box-shadow:none}
+  #stockland-app .sl-profile-caret{font-size:8px}
+  #stockland-app .sl-exit{display:none!important}
+  #stockland-app .sl-top-action,#stockland-app .sl-wp-admin{display:none!important}
+  #stockland-app .sl-sidebar{display:flex;flex-direction:column;gap:0;overflow:hidden;padding:0 8px 9px;background:linear-gradient(180deg,#0d2d51 0%,#092442 48%,#071d37 100%);border-right:1px solid rgba(255,255,255,.06)}
+  #stockland-app .sl-brand{display:block;flex:0 0 56px;height:56px;width:calc(100% + 16px);margin:0 -8px 10px;padding:0;border:0;border-bottom:1px solid rgba(191,214,237,.14);border-radius:0;background:#092747 url("stockland-sidebar-brand.png") left top/228px 56px no-repeat;overflow:hidden}
+  #stockland-app .sl-brand img,#stockland-app .sl-brand>div{display:none!important}
+  #stockland-app .sl-side-caption,#stockland-app .sl-nav-section{display:none!important}
+  #stockland-app .sl-nav{display:grid;grid-auto-rows:max-content;align-content:start;gap:3px;flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;padding:4px 0 8px;scrollbar-width:thin;scrollbar-color:rgba(164,195,226,.25) transparent}
+  #stockland-app .sl-nav::-webkit-scrollbar{width:5px}
+  #stockland-app .sl-nav::-webkit-scrollbar-thumb{border-radius:99px;background:rgba(164,195,226,.22)}
+  #stockland-app .sl-nav button.sl-nav-item{position:relative;display:grid;grid-template-columns:24px minmax(0,1fr) 12px;align-items:center;gap:8px;width:100%;min-width:0;min-height:37px;height:auto;padding:7px 9px;border:1px solid transparent;border-radius:7px;background:transparent;color:#dce8f5;text-align:left;font-size:11px;font-weight:650;line-height:1.25;letter-spacing:0;box-shadow:none;transform:none}
+  #stockland-app .sl-nav button.sl-nav-item:hover{background:rgba(104,159,214,.14);border-color:rgba(170,208,244,.08);color:#fff;box-shadow:none;transform:none}
+  #stockland-app .sl-nav button.sl-nav-item.active,#stockland-app .sl-nav button.sl-nav-item.has-active-child{background:linear-gradient(100deg,rgba(39,91,146,.78),rgba(30,73,119,.5));border-color:rgba(143,190,235,.12);color:#fff;box-shadow:inset 2px 0 #3e91e3}
+  #stockland-app .sl-nav-icon{display:grid;place-items:center;width:24px;height:22px;border:0;border-radius:0;background:transparent;color:#e5eef8}
+  #stockland-app .sl-nav-icon svg{width:17px;height:17px;stroke-width:2}
+  #stockland-app .sl-nav button.active .sl-nav-icon,#stockland-app .sl-nav button.has-active-child .sl-nav-icon{background:transparent;color:#fff}
+  #stockland-app .sl-nav-text{min-width:0;max-width:100%;font-size:11px;font-weight:650;line-height:1.3;white-space:normal;overflow-wrap:anywhere}
+  #stockland-app .sl-nav-caret{display:block;justify-self:end;color:#a6bdd5;font-size:11px;transition:transform .16s ease}
+  #stockland-app .sl-nav-group-toggle[aria-expanded="true"] .sl-nav-caret{transform:rotate(180deg)}
+  #stockland-app .sl-nav-submenu{display:grid;grid-column:1/-1;gap:2px;min-width:0;padding:2px 0 4px 14px;margin:0 0 3px 10px;border-left:1px solid rgba(153,190,225,.25)}
+  #stockland-app .sl-nav-submenu[hidden]{display:none!important}
+  #stockland-app .sl-nav-submenu .sl-nav-item{grid-template-columns:19px minmax(0,1fr)!important;min-height:31px!important;padding:5px 7px!important;font-size:10px!important;color:#c2d4e7!important;border-radius:5px!important}
+  #stockland-app .sl-nav-submenu .sl-nav-icon{width:19px;height:18px;color:#a8c1da}
+  #stockland-app .sl-nav-submenu .sl-nav-icon svg{width:14px;height:14px}
+  #stockland-app .sl-nav-submenu .sl-nav-item .sl-nav-text{font-size:10px!important;font-weight:570!important}
+  #stockland-app .sl-side-footer{flex:0 0 auto;display:flex;gap:7px;margin:7px 0 0;padding:8px 7px;border:1px solid rgba(170,205,237,.18);border-radius:7px;background:rgba(255,255,255,.035)}
+  #stockland-app .sl-side-footer .sl-status-dot{width:7px;height:7px;box-shadow:none}
+  #stockland-app .sl-side-footer b{font-size:9px;font-weight:750}
+  #stockland-app .sl-side-footer small{font-size:8px;color:#a8bed4;line-height:1.35}
+  #stockland-app .sl-content{padding:20px 16px 24px;background:#f3f7fc;scroll-behavior:auto}
+  #stockland-app .sl-content-inner{width:100%;max-width:none;margin:0}
+  #stockland-app .sl-dashboard-page{gap:13px}
+  #stockland-app .sl-dashboard-welcome{align-items:center;min-height:54px;padding:3px 0 0;gap:12px}
+  #stockland-app .sl-dashboard-welcome-copy{grid-template-columns:4px minmax(0,1fr);gap:10px}
+  #stockland-app .sl-dashboard-welcome-mark{min-height:42px;width:4px;background:linear-gradient(180deg,#13b981,#07878d)}
+  #stockland-app .sl-dashboard-welcome .sl-eyebrow{display:none}
+  #stockland-app .sl-dashboard-welcome h2{font-size:20px;line-height:1.22;letter-spacing:-.02em;font-weight:850;color:#102d4f}
+  #stockland-app .sl-dashboard-welcome p{margin-top:4px;font-size:11px;color:#6c86a3}
+  #stockland-app .sl-dashboard-date{gap:8px;padding:0;align-self:center}
+  #stockland-app .sl-dashboard-date-icon{display:none}
+  #stockland-app .sl-dashboard-date b{font-size:10px;color:#486886}
+  #stockland-app .sl-dashboard-date small{font-size:9px;color:#7189a3}
+  #stockland-app .sl-dashboard-date .sl-btn{min-height:28px;width:29px;height:29px;margin-left:4px;padding:0;border:0;border-radius:7px;background:#fff;color:#587794;font-size:0;box-shadow:none}
+  #stockland-app .sl-dashboard-date .sl-btn::before{content:"↻";font-size:17px;line-height:1}
+  #stockland-app .sl-dashboard-page>.sl-dashboard-kpis{grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;margin-bottom:2px}
+  #stockland-app .sl-dashboard-page>.sl-dashboard-kpis>.sl-dashboard-kpi-card{display:flex;align-items:flex-start;gap:11px;min-height:105px;padding:13px 13px;border:1px solid #e8eef5;border-radius:10px;background:#fff;box-shadow:0 3px 9px rgba(18,47,78,.045)}
+  #stockland-app .sl-dashboard-page>.sl-dashboard-kpis>.sl-dashboard-kpi-card:hover{transform:none;box-shadow:0 4px 12px rgba(18,47,78,.07)}
+  #stockland-app .sl-dashboard-page .sl-dashboard-kpi-icon{display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;border-radius:50%}
+  #stockland-app .sl-dashboard-page .sl-dashboard-kpi-icon svg{width:17px;height:17px;stroke-width:2.3}
+  #stockland-app .sl-dashboard-page .sl-dashboard-kpi-blue .sl-dashboard-kpi-icon{background:#e1f0ff;color:#1781d7}
+  #stockland-app .sl-dashboard-page .sl-dashboard-kpi-green .sl-dashboard-kpi-icon{background:#d8f5eb;color:#069b73}
+  #stockland-app .sl-dashboard-page .sl-dashboard-kpi-orange .sl-dashboard-kpi-icon{background:#ffebcf;color:#cf6c0d}
+  #stockland-app .sl-dashboard-page .sl-dashboard-kpi-purple .sl-dashboard-kpi-icon{background:#e0edff;color:#2073c7}
+  #stockland-app .sl-dashboard-page .sl-dashboard-kpi-copy{min-width:0;align-self:center}
+  #stockland-app .sl-dashboard-page .sl-dashboard-kpi-copy .label{font-size:9px;color:#5c7795;font-weight:650;letter-spacing:0}
+  #stockland-app .sl-dashboard-page .sl-dashboard-kpi-copy .value{margin-top:5px;font-size:18px;color:#102e50;font-weight:850;line-height:1.15;letter-spacing:-.018em;white-space:nowrap}
+  #stockland-app .sl-dashboard-page .sl-dashboard-kpi-copy .meta{margin-top:5px;font-size:8px;color:#8195a9;white-space:normal}
+  #stockland-app .sl-dashboard-workspace-grid{grid-template-columns:minmax(0,1fr) minmax(256px,25%);gap:13px;align-items:start}
+  #stockland-app .sl-dashboard-main,#stockland-app .sl-dashboard-side{gap:13px}
+  #stockland-app .sl-dashboard-chart-grid{grid-template-columns:minmax(0,1.6fr) minmax(0,.95fr);gap:12px}
+  #stockland-app .sl-dashboard-card{border:1px solid #e4ebf3;border-radius:10px;box-shadow:0 3px 11px rgba(14,43,74,.035);background:#fff}
+  #stockland-app .sl-dashboard-card .sl-block-head{min-height:47px;padding:9px 12px;border-bottom:1px solid #f0f4f8}
+  #stockland-app .sl-dashboard-card .sl-block-head .sl-eyebrow{font-size:8px;margin-bottom:2px;letter-spacing:.085em;color:#7189a4}
+  #stockland-app .sl-dashboard-card .sl-block-head h3{font-size:12px;font-weight:850;color:#163656}
+  #stockland-app .sl-dashboard-card .sl-block-head small{font-size:9px;color:#7189a4}
+  #stockland-app .sl-dashboard-chart-grid>.sl-dashboard-card{min-height:244px}
+  #stockland-app .sl-dashboard-chart-body{padding:7px 10px 8px}
+  #stockland-app .sl-dashboard-linechart{display:block;width:100%;height:auto;max-height:168px;overflow:visible}
+  #stockland-app .sl-dashboard-donut-wrap{grid-template-columns:minmax(102px,.84fr) minmax(0,1fr);gap:8px;padding:8px 2px 7px}
+  #stockland-app .sl-dashboard-donut{width:min(138px,100%);max-width:100%}
+  #stockland-app .sl-dashboard-donut::before{inset:19%}
+  #stockland-app .sl-dashboard-donut b{max-width:100%;font-size:12px;line-height:1.1;letter-spacing:-.02em;overflow-wrap:anywhere}
+  #stockland-app .sl-dashboard-donut small{font-size:8px}
+  #stockland-app .sl-dashboard-category-legend{gap:7px}
+  #stockland-app .sl-dashboard-category-row{grid-template-columns:8px minmax(0,1fr) auto;gap:5px;font-size:9px}
+  #stockland-app .sl-dashboard-category-row small{display:none}
+  #stockland-app .sl-dashboard-category-row b{font-size:9px;font-weight:650;color:#68819a}
+  #stockland-app .sl-dashboard-quick-grid{grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;padding:10px 12px}
+  #stockland-app .sl-dashboard-action{grid-template-columns:25px minmax(0,1fr) 7px;gap:6px;align-items:center;min-height:52px;padding:7px;border:1px solid #e2eaf4;border-radius:6px;background:#fff;box-shadow:none}
+  #stockland-app .sl-dashboard-action:hover{background:#f8fbff;border-color:#c6d9ec;transform:translateY(-1px);box-shadow:none}
+  #stockland-app .sl-dashboard-action-icon{width:25px;height:25px;border-radius:6px}
+  #stockland-app .sl-dashboard-action-icon svg{width:14px;height:14px}
+  #stockland-app .sl-dashboard-action b{font-size:8px;font-weight:800;color:#234160;line-height:1.25}
+  #stockland-app .sl-dashboard-action small{font-size:7px;line-height:1.3;color:#7e92a8;margin-top:2px}
+  #stockland-app .sl-dashboard-action .sl-control-arrow{font-size:11px;color:#86a1bd}
+  #stockland-app .sl-dashboard-low-stock .sl-block-head h3{color:#a42b33}
+  #stockland-app .sl-dashboard-alert-banner{gap:7px;margin:8px 8px 1px;padding:7px 8px;border-radius:6px}
+  #stockland-app .sl-dashboard-alert-symbol{flex:0 0 20px;width:20px;height:20px;font-size:10px}
+  #stockland-app .sl-dashboard-alert-banner b{font-size:9px}
+  #stockland-app .sl-dashboard-alert-banner small{font-size:7px}
+  #stockland-app .sl-dashboard-alert-banner .sl-btn{min-height:23px;padding:4px 6px;font-size:7px}
+  #stockland-app .sl-dashboard-low-list{padding:1px 10px 5px}
+  #stockland-app .sl-dashboard-low-row{grid-template-columns:26px minmax(0,1fr) auto;gap:7px;padding:8px 0}
+  #stockland-app .sl-dashboard-low-icon{width:25px;height:25px}
+  #stockland-app .sl-dashboard-low-copy b{font-size:8px}
+  #stockland-app .sl-dashboard-low-copy small{font-size:7px}
+  #stockland-app .sl-dashboard-low-qty{padding:3px 5px;font-size:7px}
+  #stockland-app .sl-dashboard-branch-list{padding:0 12px 5px}
+  #stockland-app .sl-dashboard-branch-row{padding:9px 0;border-bottom:1px solid #edf2f7}
+  #stockland-app .sl-dashboard-branch-head{grid-template-columns:8px minmax(0,1fr) auto;gap:6px}
+  #stockland-app .sl-dashboard-branch-name{font-size:9px}
+  #stockland-app .sl-dashboard-branch-head b{font-size:10px;color:#244562;font-weight:700}
+  #stockland-app .sl-dashboard-branch-track,#stockland-app .sl-dashboard-branch-row small{display:none!important}
+  #stockland-app .sl-dashboard-activity #slActivityFeed{padding:3px 11px 7px}
+  #stockland-app .sl-dashboard-activity .sl-activity-row{padding:8px 0;grid-template-columns:26px minmax(0,1fr) auto;gap:7px}
+  #stockland-app .sl-dashboard-activity .sl-activity-main b{font-size:8px}
+  #stockland-app .sl-dashboard-activity .sl-activity-main span,#stockland-app .sl-dashboard-activity .sl-activity-main small{font-size:7px}
+  #stockland-app .sl-dashboard-activity .sl-activity-row time{font-size:7px;white-space:nowrap}
+  #stockland-app .sl-dashboard-transactions #slDashboardTransactions{padding:8px 10px 10px}
+  #stockland-app .sl-dashboard-transactions .sl-table-wrap{width:100%;overflow:auto;border:1px solid #e8edf4;border-radius:6px}
+  #stockland-app .sl-dashboard-transactions .sl-table{width:100%;min-width:680px;border-collapse:separate;border-spacing:0}
+  #stockland-app .sl-dashboard-transactions .sl-table th{padding:8px 8px;background:#f4f7fb;color:#55708d;font-size:8px;font-weight:800;border-bottom:1px solid #e4ebf3;white-space:nowrap}
+  #stockland-app .sl-dashboard-transactions .sl-table td{padding:7px 8px;font-size:8px;line-height:1.3;color:#35506d;border-bottom:1px solid #eef2f6;white-space:nowrap}
+  #stockland-app .sl-dashboard-transactions .sl-table tbody tr:last-child td{border-bottom:0}
+  #stockland-app .sl-dashboard-transactions .sl-table .sl-pill{padding:3px 7px;font-size:7px}
+  #stockland-app .sl-dashboard-transactions .sl-dashboard-transaction-type{font-size:8px;gap:4px;white-space:nowrap}
+  #stockland-app .sl-dashboard-head-actions{gap:6px}
+  #stockland-app .sl-dashboard-head-actions>small{font-size:7px}
+  #stockland-app .sl-dashboard-head-actions .sl-btn{min-height:28px;padding:5px 8px;font-size:8px}
+  #stockland-app .sl-dashboard-promo{grid-template-columns:205px minmax(0,1fr) auto;min-height:112px;border-radius:7px;border-color:#10385f;background:#0c2b4f}
+  #stockland-app .sl-dashboard-promo-image{min-height:112px;background-position:center;background-size:cover}
+  #stockland-app .sl-dashboard-promo-copy{padding:13px 15px;gap:5px}
+  #stockland-app .sl-dashboard-promo-copy .sl-dashboard-promo-kicker{display:inline-flex;width:max-content;max-width:100%;padding:4px 8px;border:1px solid rgba(146,199,241,.18);border-radius:999px;background:rgba(255,255,255,.07);font-size:7px;color:#d5edff}
+  #stockland-app .sl-dashboard-promo-copy b{font-size:14px;line-height:1.22;font-weight:850}
+  #stockland-app .sl-dashboard-promo-copy>span:last-child{font-size:9px;line-height:1.4;color:#cfdfef}
+  #stockland-app .sl-dashboard-promo-action{justify-self:end;align-self:center;margin:10px 14px;padding:10px 15px;min-height:36px;border:0;border-radius:999px;background:#08ae7b;color:#fff;font-size:8px;box-shadow:none}
+}
+
+/* Global-search isolation against WordPress theme / Elementor selector collisions. */
+#stockland-app .sl-top .sl-global-search{position:relative;display:block;visibility:visible;opacity:1;flex:none;min-width:0;isolation:isolate}
+#stockland-app .sl-top .sl-global-search-control{position:relative;display:flex!important;visibility:visible!important;opacity:1!important;width:100%;min-width:0;align-items:center;background:#fff!important;color:#173653;border-style:solid}
+#stockland-app .sl-top .sl-global-search-control input#slGlobalSearch{display:block!important;visibility:visible!important;opacity:1!important;flex:1 1 auto;min-width:0;width:100%;max-width:none;height:100%;margin:0;padding:0;border:0;box-shadow:none;outline:none;background:transparent!important;color:#173653!important;-webkit-appearance:none;appearance:none}
+#stockland-app .sl-top .sl-global-search-control input#slGlobalSearch::placeholder{color:#8395aa!important;opacity:1}
+#stockland-app .sl-top .sl-global-search-results[hidden]{display:none!important;visibility:hidden!important}
+#stockland-app .sl-top .sl-global-search-results:not([hidden]){display:block!important;visibility:visible!important;opacity:1!important}
+#stockland-app .sl-profile-menu[hidden]{display:none!important}
+
+/* Compact the 228px sidebar when the screenshot-style hamburger is activated. */
+@media(min-width:992px){
+  #stockland-app .sl-shell.sl-sidebar-collapsed{grid-template-columns:68px minmax(0,1fr)}
+  #stockland-app .sl-shell.sl-sidebar-collapsed .sl-sidebar{padding-inline:6px}
+  #stockland-app .sl-shell.sl-sidebar-collapsed .sl-brand{width:calc(100% + 12px);margin-left:-6px;margin-right:-6px;background-position:left top}
+  #stockland-app .sl-shell.sl-sidebar-collapsed .sl-nav-text,
+  #stockland-app .sl-shell.sl-sidebar-collapsed .sl-nav-caret,
+  #stockland-app .sl-shell.sl-sidebar-collapsed .sl-nav-submenu,
+  #stockland-app .sl-shell.sl-sidebar-collapsed .sl-side-footer>div{display:none!important}
+  #stockland-app .sl-shell.sl-sidebar-collapsed .sl-nav button.sl-nav-item{grid-template-columns:1fr;justify-items:center;padding:7px 4px}
+  #stockland-app .sl-shell.sl-sidebar-collapsed .sl-nav-icon{width:30px}
+  #stockland-app .sl-shell.sl-sidebar-collapsed .sl-side-footer{justify-content:center;padding:8px 5px}
+}
+@media(max-width:991.98px){
+  #stockland-app .sl-desktop-menu-btn{display:none!important}
+  #stockland-app[data-bs-theme="light"]{--bs-body-bg:var(--sl-canvas);--bs-body-color:var(--sl-text)}
+}
+@media(max-width:1250px) and (min-width:992px){
+  #stockland-app .sl-dashboard-workspace-grid{grid-template-columns:minmax(0,1fr)}
+  #stockland-app .sl-dashboard-side{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}
+  #stockland-app .sl-dashboard-low-stock,#stockland-app .sl-dashboard-branch-stock{grid-column:auto}
+  #stockland-app .sl-dashboard-activity{grid-column:span 2}
+  #stockland-app .sl-dashboard-chart-grid{grid-template-columns:minmax(0,1.6fr) minmax(0,.95fr)}
+  #stockland-app .sl-dashboard-quick-grid{grid-template-columns:repeat(5,minmax(0,1fr))}
+  #stockland-app .sl-dashboard-promo{grid-template-columns:180px minmax(0,1fr) auto}
+}
+@media(max-width:1100px) and (min-width:992px){
+  #stockland-app .sl-dashboard-page>.sl-dashboard-kpis{gap:8px}
+  #stockland-app .sl-dashboard-page>.sl-dashboard-kpis>.sl-dashboard-kpi-card{padding:10px 8px;gap:7px}
+  #stockland-app .sl-dashboard-page .sl-dashboard-kpi-copy .value{font-size:16px}
+  #stockland-app .sl-dashboard-date{gap:5px}
+}
+@media(max-width:700px){
+  #stockland-app .sl-dashboard-quick-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #stockland-app .sl-dashboard-promo{grid-template-columns:92px minmax(0,1fr)}
+}
+@media(max-width:390px){
+  #stockland-app .sl-dashboard-promo-image{min-height:118px}
+  #stockland-app .sl-dashboard-welcome h2{font-size:19px}
+}
+
+
+/* 16.1.86 exact reference final geometry and header order. */
+@media(min-width:992px){
+ #stockland-app .sl-top{grid-template-columns:32px minmax(220px,1fr) 35px auto auto 34px!important}
+ #stockland-app .sl-user{display:contents!important}
+ #stockland-app .sl-notification-trigger{grid-column:3;grid-row:1;justify-self:center}
+ #stockland-app .sl-top-center{grid-column:4;grid-row:1}
+ #stockland-app .sl-user-copy{grid-column:5;grid-row:1;align-self:center;min-width:74px;max-width:96px}
+ #stockland-app .sl-profile-wrap{grid-column:6;grid-row:1;justify-self:end}
+ #stockland-app .sl-brand{margin-bottom:14px}
+ #stockland-app .sl-nav{padding-top:6px}
+ #stockland-app .sl-dashboard-low-stock .sl-block-head{background:#fff0f0!important;border-bottom:1px solid #ffeded}
+ #stockland-app .sl-dashboard-low-stock .sl-block-head h3{color:#a52b33!important}
+ #stockland-app .sl-dashboard-low-stock .sl-block-head h3::before{content:"⚠";display:inline-grid;place-items:center;width:18px;height:18px;margin-right:7px;border-radius:50%;background:#ffe6e7;color:#d22f38;font-size:11px;vertical-align:middle}
+ #stockland-app .sl-dashboard-branch-table-head{display:flex;justify-content:space-between;align-items:center;padding:8px 0 7px;border-bottom:1px solid #edf2f7;color:#6d8298;font-size:9px;font-weight:750}
+ #stockland-app .sl-dashboard-branch-row{padding:8px 0}
+ #stockland-app .sl-dashboard-branch-head{grid-template-columns:8px minmax(0,1fr) auto}
+ #stockland-app .sl-dashboard-low-qty{background:#ffe2e3!important;color:#b3262e!important;border-radius:5px;font-size:8px;padding:4px 6px}
+ #stockland-app .sl-dashboard-low-qty.is-zero{background:#ffdadc!important;color:#a81921!important}
+ #stockland-app .sl-dashboard-page>.sl-dashboard-kpis>.sl-dashboard-kpi-card::before{display:none!important;content:none!important}
+ #stockland-app .sl-dashboard-page>.sl-dashboard-kpis>.sl-dashboard-kpi-card{border-left:1px solid #e8eef5!important}
+ #stockland-app .sl-dashboard-page>.sl-dashboard-kpis>.sl-dashboard-kpi-card{position:relative}
+ #stockland-app .sl-dashboard-card .sl-block-head .sl-eyebrow{display:none!important}
+ #stockland-app .sl-dashboard-activity .sl-activity-row{grid-template-columns:27px minmax(0,1fr) auto!important;align-items:center!important}
+ #stockland-app .sl-dashboard-activity-icon{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:#e2f7ed;color:#0b9870}
+ #stockland-app .sl-dashboard-activity-icon svg{width:14px;height:14px}
+ #stockland-app .sl-dashboard-activity .sl-activity-row:nth-child(4n+2) .sl-dashboard-activity-icon{background:#eee8ff;color:#7855d8}
+ #stockland-app .sl-dashboard-activity .sl-activity-row:nth-child(4n+3) .sl-dashboard-activity-icon{background:#ddf4ff;color:#1677c6}
+ #stockland-app .sl-dashboard-activity .sl-activity-row:nth-child(4n) .sl-dashboard-activity-icon{background:#fff0db;color:#c66f10}
+}
+@media(max-width:991.98px){
+ #stockland-app .sl-content{padding-top:15px!important}
+}
+
+/* 16.1.86 exact-sample polish: align the desktop command center to the supplied screenshot. */
+@media(min-width:992px){
+  /* Bootstrap .container-fluid defaults add 24px of extra left/right padding; the sample uses the content gutter only. */
+  #stockland-app .sl-content-inner.container-fluid{padding-left:0!important;padding-right:0!important}
+  /* The search bar follows the menu; notification, location chip, avatar, then account label follow it. */
+  #stockland-app .sl-top{grid-template-columns:32px minmax(220px,1fr) 35px auto 34px minmax(86px,auto)!important}
+  #stockland-app .sl-profile-wrap{grid-column:5!important;grid-row:1!important;justify-self:end!important}
+  #stockland-app .sl-user-copy{grid-column:6!important;grid-row:1!important;align-self:center;min-width:86px;max-width:104px;padding-right:11px;position:relative}
+  #stockland-app .sl-user-copy:after{content:'⌄';position:absolute;right:0;top:1px;color:#7188a0;font-size:10px;font-weight:800}
+  #stockland-app .sl-user-copy b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:9px!important}
+  #stockland-app .sl-user-copy small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:8px!important}
+  #stockland-app .sl-profile-caret{display:none!important}
+  #stockland-app .sl-dashboard-chart-grid{grid-template-columns:minmax(0,1.52fr) minmax(0,.95fr)!important;gap:12px}
+  #stockland-app .sl-dashboard-quick-grid{grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:7px;padding:10px 12px}
+  #stockland-app .sl-dashboard-action{min-height:50px!important;grid-template-columns:26px minmax(0,1fr) 7px;gap:7px;padding:7px 8px!important;border-radius:7px!important}
+  #stockland-app .sl-dashboard-action-icon{width:26px;height:26px;border-radius:6px}
+  #stockland-app .sl-dashboard-action b{font-size:8px!important;line-height:1.25}
+  #stockland-app .sl-dashboard-action small{font-size:7px!important;line-height:1.25;margin-top:2px}
+  #stockland-app .sl-dashboard-quick .sl-block-head{min-height:46px!important;padding:10px 13px!important}
+  #stockland-app .sl-dashboard-transactions .sl-table td{padding:5px 7px!important;line-height:1.2!important}
+  #stockland-app .sl-dashboard-transactions .sl-table td .sl-btn,
+  #stockland-app .sl-dashboard-transactions .sl-table td button{min-height:23px!important;height:23px!important;padding:3px 8px!important;font-size:8px!important;line-height:1.1!important;border-radius:5px!important;margin:0!important;white-space:nowrap}
+  #stockland-app .sl-dashboard-transactions .sl-table td .sl-btn-group button{min-height:23px!important;height:23px!important;padding:3px 7px!important}
+  #stockland-app .sl-dashboard-branch-row{padding:7px 0!important}
+  #stockland-app .sl-dashboard-branch-list{padding-bottom:7px!important}
+}
+
+/* Exact reference finishing touches: compact table header/rows, split actions, promo crop and toolbar spacing. */
+@media(min-width:992px){
+ #stockland-app .sl-content{padding-left:15px!important;padding-right:18px!important}
+ #stockland-app .sl-dashboard-chart-grid>.sl-dashboard-card{min-height:246px}
+ #stockland-app .sl-dashboard-main{gap:13px}
+ #stockland-app .sl-dashboard-quick-grid{row-gap:2px!important}
+ #stockland-app .sl-dashboard-action{min-height:47px!important}
+ #stockland-app .sl-dashboard-transactions{margin-top:-3px}
+ #stockland-app .sl-dashboard-transactions .sl-block-head{min-height:59px!important;padding:11px 14px!important}
+ #stockland-app .sl-dashboard-transactions .sl-table td{padding:4px 7px!important}
+ #stockland-app .sl-dashboard-date #refresh{display:none!important}
+ #stockland-app .sl-dashboard-promo-image{background-image:url("stockland-dashboard-apparel.jpg")!important;background-position:center!important;background-size:cover!important}
+ #stockland-app .sl-dashboard-transactions .sl-dashboard-sale-actions{display:inline-flex;align-items:stretch;position:relative;vertical-align:middle;border:1px solid #d9e5f1;border-radius:5px;overflow:visible;background:#fff}
+ #stockland-app .sl-dashboard-transactions .sl-dashboard-sale-actions>.sl-btn{min-height:23px!important;height:23px!important;padding:3px 8px!important;border:0!important;border-radius:0!important;background:#fff!important;color:#316bb0!important;box-shadow:none!important;font-size:8px!important}
+ #stockland-app .sl-dashboard-transactions .sl-dashboard-sale-actions>.sl-dashboard-sale-more{width:25px;min-width:25px!important;padding:2px 4px!important;border-left:1px solid #d9e5f1!important;font-size:12px!important;color:#316bb0!important}
+ #stockland-app .sl-dashboard-transactions .sl-dashboard-sale-actions>.sl-btn:hover{background:#f4f8fd!important}
+ #stockland-app .sl-dashboard-sale-menu[hidden]{display:none!important}
+ #stockland-app .sl-dashboard-sale-menu:not([hidden]){position:absolute;right:0;top:calc(100% + 4px);z-index:90;display:grid;min-width:145px;padding:4px;border:1px solid #dce6f0;border-radius:7px;background:#fff;box-shadow:0 8px 20px rgba(15,40,70,.15)}
+ #stockland-app .sl-dashboard-sale-menu button{display:block;width:100%;min-height:30px;height:auto;padding:7px 9px;border:0;border-radius:4px;background:#fff;color:#254665;text-align:left;font-size:9px;line-height:1.2;white-space:nowrap;cursor:pointer}
+ #stockland-app .sl-dashboard-sale-menu button:hover{background:#f0f6fc}
+}
+
+
+/* Exact screenshot canvas: content grid stays 1,019px wide on wide captures; the app toolbar remains full width. */
+@media(min-width:992px){
+ #stockland-app .sl-content-inner.container-fluid{width:100%!important;max-width:1019px!important;margin-left:0!important;margin-right:auto!important}
+ #stockland-app .sl-nav button.sl-nav-item.active{background:linear-gradient(100deg,#1b4168,#173a5f)!important;border-color:rgba(143,190,235,.14)!important;color:#fff!important;box-shadow:inset 2px 0 #63a7e8!important}
+}
+/* Screenshot-sized desktop toolbar (1200–1366px): explicit coordinates prevent the global-search grid from collapsing. */
+@media(min-width:1200px) and (max-width:1366px){
+ #stockland-app .sl-top{position:relative!important;display:block!important;padding:0!important;overflow:visible!important}
+ #stockland-app .sl-top-left{position:absolute!important;left:14px!important;top:11px!important;width:32px!important;height:34px!important}
+ #stockland-app .sl-global-search{position:absolute!important;left:63px!important;top:11px!important;width:382px!important;max-width:382px!important;height:34px!important;min-width:382px!important;margin:0!important}
+ #stockland-app .sl-global-search-control{width:382px!important;max-width:382px!important;height:34px!important}
+ #stockland-app .sl-notification-trigger{position:absolute!important;left:703px!important;top:11px!important;width:35px!important;height:34px!important}
+ #stockland-app .sl-top-center{position:absolute!important;left:744px!important;top:11px!important;width:132px!important;height:34px!important;display:flex!important;justify-content:flex-start!important}
+ #stockland-app .sl-location-chip{width:132px!important;min-width:132px!important;max-width:132px!important;justify-content:flex-start!important}
+ #stockland-app .sl-profile-wrap{position:absolute!important;left:892px!important;top:12px!important;width:31px!important;height:31px!important}
+ #stockland-app .sl-user-copy{position:absolute!important;left:930px!important;top:15px!important;width:95px!important;min-width:95px!important;max-width:95px!important;padding-right:11px!important}
+ #stockland-app .sl-user-copy b{font-size:9px!important}
+ #stockland-app .sl-user-copy small{font-size:8px!important}
+ #stockland-app .sl-profile-caret{display:none!important}
+ #stockland-app .sl-dashboard-transactions .sl-block-head{min-height:59px!important;padding:10px 14px!important}
+ #stockland-app .sl-dashboard-transactions #slDashboardTransactions{padding:0 12px 16px!important}
+ #stockland-app .sl-dashboard-transactions .sl-table td{padding:6px 7px!important}
+ #stockland-app .sl-dashboard-transactions .sl-table td button{min-height:23px!important;height:23px!important}
+}
+
+/* Vertical alignment refinements measured against the 1280px sample canvas. */
+@media(min-width:992px){
+ #stockland-app .sl-dashboard-workspace-grid{margin-top:1px!important}
+ #stockland-app .sl-dashboard-chart-grid>.sl-dashboard-card{min-height:245px!important}
+ #stockland-app .sl-dashboard-main{gap:17px!important}
+ #stockland-app .sl-dashboard-quick-grid{padding:10px 12px 9px!important;row-gap:2px!important}
+ #stockland-app .sl-dashboard-transactions #slDashboardTransactions>.sl-table-wrap{margin-top:-2px!important}
+ #stockland-app .sl-dashboard-transactions #slDashboardTransactions{padding-bottom:13px!important}
+ #stockland-app .sl-dashboard-promo{margin-top:2px!important;min-height:117px!important}
+ #stockland-app .sl-dashboard-promo-image{min-height:117px!important}
+ #stockland-app .sl-dashboard-low-row{padding:12.5px 0!important}
+}
+@media(min-width:992px){
+ #stockland-app .sl-dashboard-quick-grid{padding-bottom:7px!important}
+ #stockland-app .sl-dashboard-transactions #slDashboardTransactions{padding-bottom:15px!important}
+ #stockland-app .sl-dashboard-low-row{padding:10px 0!important}
+ #stockland-app .sl-dashboard-branch-row{padding:6.4px 0!important}
+}
+@media(min-width:992px){
+ #stockland-app .sl-side-footer{min-height:75px!important;margin:7px 9px 20px!important;padding:13px 11px!important;gap:8px!important;align-items:flex-start!important;border-radius:7px!important;background:rgba(255,255,255,.035)!important}
+ #stockland-app .sl-side-footer>div{min-width:0}
+ #stockland-app .sl-side-footer small{font-size:8px!important;line-height:1.35!important;margin-top:4px!important;white-space:nowrap}
+ #stockland-app .sl-side-footer b{font-size:9px!important;line-height:1.25!important}
+}

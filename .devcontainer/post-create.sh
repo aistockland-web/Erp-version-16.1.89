@@ -117,5 +117,6 @@ bash scripts/codespaces/bootstrap_wordpress_sites.sh
 
 echo "=== Codespaces environment ready ==="
 echo "Private preview ports: 8080 (16.2.13 baseline), 8081 (16.2.13 to 16.2.15 upgrade)."
+echo "16.2.18 master installer (MariaDB + MySQL 8): bash .devcontainer/verify-master-installer.sh all"
 echo "Optional MySQL 8.0.46 test: bash scripts/codespaces/run_mysql8_parity.sh"
 echo "Synthetic QA data only. Never connect this workspace to production."

@@ -1,0 +1,25 @@
+<?php
+require __DIR__ . '/lib.php';
+$u=get_option('e2e_users'); $today=current_time('Y-m-d');
+$sid=1; $poid=1;
+$inv=array('supplier_id'=>$sid,'po_id'=>$poid,'invoice_number'=>'SI-E2E-1','invoice_date'=>$today,'due_date'=>$today,'subtotal'=>'20000.00','tax_amount'=>'3000.00');
+show('supplier invoice (mgmt)',call('POST','/accounting/supplier-invoices',$inv,$u['mg']));
+echo json_encode(q("select id,status,total_amount from wp_stock_supplier_invoices"))."\n";
+$iid=(int)qv("select id from wp_stock_supplier_invoices limit 1");
+show('supplier invoice approve (owner2)',call('POST',"/accounting/supplier-invoices/$iid/status",array('action'=>'APPROVE'),$u['ow2']));
+echo json_encode(q("select id,status,total_amount from wp_stock_supplier_invoices"))."\n";
+$rk=strtolower(str_replace('-','',wp_generate_uuid4()));
+$pay=array('payment_type'=>'SUPPLIER','supplier_id'=>$sid,'amount'=>'10000.00','payment_date'=>$today,'method'=>'BANK','reference'=>'TT-1','request_key'=>$rk,'allocations'=>array(array('invoice_id'=>$iid,'amount'=>'10000.00')));
+show('supplier payment (mgmt)',call('POST','/accounting/payments',$pay,$u['mg']));
+show('supplier payment REPLAY',call('POST','/accounting/payments',$pay,$u['mg']));
+echo "payments: ".json_encode(q("select id,status,amount from wp_stock_payments"))."\n";
+$pid=(int)qv("select id from wp_stock_payments limit 1");
+show('payment approve (owner2)',call('POST',"/accounting/payments/$pid/status",array('action'=>'APPROVE'),$u['ow2']));
+echo "payments: ".json_encode(q("select id,status,amount from wp_stock_payments"))." inv: ".json_encode(q("select status from wp_stock_supplier_invoices"))."\n";
+show('customer create (mgmt)',call('POST','/accounting/customers',array('customer_code'=>'CUS1','customer_name'=>'E2E Customer'),$u['mg']));
+$cid=(int)qv("select id from wp_stock_customers where customer_code='CUS1'");
+show('customer invoice (owner)',call('POST','/accounting/customer-invoices',array('customer_id'=>$cid,'location_id'=>1,'invoice_date'=>$today,'due_date'=>$today,'lines'=>array(array('sku'=>'STK-TEE-001','quantity'=>5,'unit_price'=>'350.00','vat_mode'=>'VAT_INCLUDED'))),1));
+echo "cust inv: ".json_encode(q("select id,status,total_amount from wp_stock_customer_invoices"))." bal1=".qv("select physical_qty from wp_stock_balances where location_id=1")."\n";
+show('trial balance',call('GET','/accounting/trial-balance',array(),1));
+show('financials',call('GET','/accounting/financials',array(),1));
+echo "GL unbalanced journals: ".qv("select count(*) from (select journal_id from wp_stock_gl_lines group by journal_id having sum(debit)<>sum(credit)) x")." total D=".qv("select sum(debit) from wp_stock_gl_lines")." C=".qv("select sum(credit) from wp_stock_gl_lines")."\n";

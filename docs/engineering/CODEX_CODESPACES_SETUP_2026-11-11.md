@@ -85,3 +85,16 @@ The divergent schema-test scripts are prototypes; adapt them to the latest appro
 7. Build one final WordPress plugin ZIP from the final canonical commit, generate manifest/SBOM/build receipt and independent SHA-256, run exact-package install/update and business acceptance, then request the required Owner release decision.
 
 Free-tier limitation: GitHub Free includes a finite monthly quota and Codex Free usage is also limited. This configuration reduces cost and avoids paid dependencies, but it cannot guarantee unlimited compute or that the full ERP can be completed within one billing month's free allocation. Preserve every commit and stop before any paid overage.
+
+
+## 6. Single-command final-completion agent launch
+
+After the Dev Container has completed its post-create setup and the Owner has completed the optional ChatGPT device sign-in, start the existing Stockland Codex agent from the repository root:
+
+```bash
+bash scripts/codespaces/start-final-completion-agent.sh
+```
+
+This launcher preserves the current branch and working tree, uses the pinned local Codex CLI, and starts an interactive session with `workspace-write` plus `on-request` approvals. It refuses to run when `OPENAI_API_KEY` is present, so this workflow uses ChatGPT sign-in rather than API-key billing. It does not switch branches, reset files, enable unrestricted access, or deploy.
+
+The agent first reconciles the current delivery PR and the older resumable-schema QA branch. Its first target is module-scoped setup acceptance on disposable MariaDB/MySQL: Core and Finance may be verified, while the unapproved HR lifecycle extension must remain untouched and separately reported as approval-required. Continue through the remaining safe business, HR, security, UI/PWA and recovery work; produce one final installer only from the final accepted source commit. Production merge/tag/publication/deployment remains a separately authorized release action.

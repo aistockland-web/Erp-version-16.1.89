@@ -1,0 +1,23 @@
+<?php
+require __DIR__ . '/lib.php';
+$u=get_option('e2e_users'); $today=current_time('Y-m-d');
+$s=show('supplier create (mgmt)',call('POST','/accounting/suppliers',array('supplier_code'=>'SUP1','supplier_name'=>'E2E Supplier','opening_balance'=>'0'),$u['mg']));
+$sid=(int)qv("select id from wp_stock_suppliers limit 1");
+$k=strtolower(str_replace('-','',wp_generate_uuid4()));
+$body=array('supplier_id'=>$sid,'order_date'=>$today,'request_key'=>$k,'lines'=>array(array('sku'=>'STK-TEE-001','quantity'=>100,'unit_cost'=>'200.00','tax_rate'=>0.15)));
+$po=show('PO create (mgmt)',call('POST','/accounting/purchase-orders',$body,$u['mg']));
+$poid=(int)qv("select id from wp_stock_purchase_orders order by id desc limit 1");
+show('PO create REPLAY same key',call('POST','/accounting/purchase-orders',$body,$u['mg']));
+echo "PO count after replay: ".qv("select count(*) from wp_stock_purchase_orders")."\n";
+show('PO submit (mgmt)',call('POST',"/accounting/purchase-orders/$poid/status",array('status'=>'SUBMITTED'),$u['mg']));
+show('PO approve (owner2)',call('POST',"/accounting/purchase-orders/$poid/status",array('status'=>'OWNER_APPROVED'),$u['ow2']));
+echo json_encode(q("select id,status,location_id,total_amount from wp_stock_purchase_orders"))."\n";
+$item=(int)qv("select id from wp_stock_purchase_order_items where po_id=$poid limit 1");
+$rk=strtolower(str_replace('-','',wp_generate_uuid4()));
+$rb=array('receipt_date'=>$today,'request_key'=>$rk,'lines'=>array(array('po_item_id'=>$item,'quantity'=>100)));
+show('PO receive (whmgr)',call('POST',"/accounting/purchase-orders/$poid/receive",$rb,$u['wm']));
+show('PO receive REPLAY',call('POST',"/accounting/purchase-orders/$poid/receive",$rb,$u['wm']));
+echo "balances: ".json_encode(q("select * from wp_stock_balances"))."\n";
+echo "tx: ".json_encode(q("select id,sku,quantity_signed,location_id from wp_stock_transactions"))."\n";
+echo "PO: ".json_encode(q("select id,status from wp_stock_purchase_orders"))."\n";
+echo "GL: ".json_encode(q("select j.id,j.status,sum(l.debit) d,sum(l.credit) c from wp_stock_gl_journals j join wp_stock_gl_lines l on l.journal_id=j.id group by j.id"))."\n";
