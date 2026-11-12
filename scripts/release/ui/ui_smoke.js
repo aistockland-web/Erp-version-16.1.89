@@ -142,6 +142,14 @@ const isLocal = (url) => {
         { label: 'desktop-1366', width: 1366, height: 900 },
       ]) {
         await page.setViewportSize({ width: viewport.width, height: viewport.height });
+        // Do not count the splash/loading placeholder as a rendered responsive ERP view.
+        await page.waitForFunction(() => {
+          const root = document.querySelector('#stockland-app');
+          if (!root) return false;
+          const visibleText = root.innerText || '';
+          return /Welcome back,/i.test(visibleText) &&
+            !!visibleText.includes('Loading Stockland Ethiopia...');
+        }, { timeout: 30000 });
         await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
         const dimensions = await page.evaluate(() => ({
           viewport: window.innerWidth,
