@@ -14,6 +14,7 @@ on:
       - 'ci/codespaces/**'
       - '.devcontainer/**'
       - 'scripts/codespaces/**'
+      - 'src/.stockland-erp-app.source.json'
       - '.github/workflows/stockland-candidate-e2e.yml'
   pull_request:
     branches: [main, 'infra/**', 'fix/**']
@@ -25,6 +26,7 @@ on:
       - 'ci/codespaces/**'
       - '.devcontainer/**'
       - 'scripts/codespaces/**'
+      - 'src/.stockland-erp-app.source.json'
       - '.github/workflows/stockland-candidate-e2e.yml'
   workflow_dispatch:
 
