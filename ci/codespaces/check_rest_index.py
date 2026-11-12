@@ -8,21 +8,21 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-# This checker runs against the locked 16.2.13 and repaired 16.2.15 candidate
-# archives. Keep this legacy candidate contract distinct from the 16.2.18
-# master's separate pre-schema setup routes.
+# The smoke script installs the exact locked .13 baseline and repaired .15
+# candidate. The REST routes below were confirmed against those package
+# runtimes on disposable MariaDB/MySQL WordPress sites. Do not substitute
+# later source-tree or master-installer routes for this candidate contract.
 EXPECTED_ROUTES = {
-    "stockland/v1": {
-        "/stockland/v1/app/bootstrap": {"GET"},
-    },
     "stockland/v16": {
-        "/stockland/v16/system/ping": {"GET"},
+        "/stockland/v16/setup/status": {"GET"},
+        "/stockland/v16/setup/advance": {"POST"},
+        "/stockland/v16/app/access/bootstrap": {"GET"},
     },
 }
 
 
 def validate_index(document: Mapping[str, Any]) -> list[str]:
-    """Validate both Stockland namespaces, exact route keys and HTTP methods."""
+    """Validate the required candidate namespace, route keys and HTTP methods."""
     namespaces = document.get("namespaces")
     routes = document.get("routes")
     if not isinstance(namespaces, list):
@@ -106,7 +106,7 @@ def main() -> int:
         document = load_document()
         for message in validate_index(document):
             print(message)
-        print("PASS Stockland .13/.15 REST namespace and route contract")
+        print("PASS Stockland .13/.15 candidate REST route contract")
         return 0
     except (OSError, UnicodeDecodeError, ValueError, TypeError) as exc:
         print(f"FAIL Stockland REST contract: {exc}", file=sys.stderr)
