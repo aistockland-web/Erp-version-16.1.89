@@ -148,7 +148,7 @@ const isLocal = (url) => {
           if (!root) return false;
           const visibleText = root.innerText || '';
           return /Welcome back,/i.test(visibleText) &&
-            !/Loading Stockland Ethiopia\\.\\.\\./i.test(visibleText);
+            !!visibleText.includes('Loading Stockland Ethiopia...');
         }, { timeout: 30000 });
         await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
         const dimensions = await page.evaluate(() => ({
