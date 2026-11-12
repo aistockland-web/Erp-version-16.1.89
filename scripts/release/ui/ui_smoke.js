@@ -1,39 +1,166 @@
+#!/usr/bin/env node
 'use strict';
-// Headless-browser UI smoke test: logs in to a DISPOSABLE WordPress site, opens the ERP app and System Control,
-// fails on JavaScript errors, failed asset requests or a missing app shell. Usage:
-//   node ui_smoke.js <base-url> <user> <password> [screenshot-dir]
+
+// Headless browser acceptance for the Stockland ERP standalone shell and WordPress doorway.
+// Usage: node ui_smoke.js <base-url> <wp-user> <qa-password> [screenshot-dir]
+// Run only against a disposable WordPress database with synthetic data.
+const fs = require('node:fs');
+const path = require('node:path');
 const { chromium } = require('playwright');
-const [base, user, pass, shots = '.'] = process.argv.slice(2);
-if (!base || !user || !pass) { console.error('usage: ui_smoke.js <base-url> <user> <password> [shots]'); process.exit(2); }
+
+const [baseArg, user, password, screenshotDir = '.'] = process.argv.slice(2);
+if (!baseArg || !user || !password) {
+  console.error('usage: ui_smoke.js <base-url> <wp-user> <qa-password> [screenshot-dir]');
+  process.exit(2);
+}
+
+const base = new URL(baseArg);
+const origin = base.origin;
+const at = (pathname) => new URL(pathname, origin).toString();
+const issues = [];
+const screenshots = path.resolve(screenshotDir);
+fs.mkdirSync(screenshots, { recursive: true });
+
+const note = (message) => console.log('PASS ' + message);
+const fail = (message) => {
+  issues.push(message);
+  console.error('FAIL ' + message);
+};
+const isLocal = (url) => {
+  try { return new URL(url).origin === origin; } catch { return false; }
+};
+
 (async () => {
-  const browser = await chromium.launch();
-  const ctx = await browser.newContext({ viewport: { width: 1366, height: 850 } });
-  const page = await ctx.newPage();
-  const problems = [];
-  page.on('pageerror', (e) => problems.push('JS error: ' + e.message));
-  page.on('requestfailed', (r) => { if (r.url().startsWith(base)) problems.push('request failed: ' + r.url()); }); // third-party hosts are outside the plugin's control
-  page.on('response', (r) => { if (r.status() >= 500) problems.push('HTTP ' + r.status() + ' ' + r.url()); });
-  const ok = (m) => console.log('PASS ' + m);
-  await page.goto(base + '/wp-login.php');
-  await page.fill('#user_login', user); await page.fill('#user_pass', pass); await page.click('#wp-submit');
-  await page.waitForURL(/wp-admin/, { waitUntil: 'commit' }); ok('WordPress login');
-  for (const [name, path, needle] of [
-    ['ERP Dashboard (admin)', '/wp-admin/admin.php?page=stockland-erp', null],
-    ['System Control', '/wp-admin/admin.php?page=stockland-system-control', /LIVE_SCHEMA_READY|Install|Owner/i],
-  ]) {
-    const resp = await page.goto(base + path, { waitUntil: 'domcontentloaded' });
-    if (!resp || resp.status() >= 400) problems.push(name + ' HTTP ' + (resp && resp.status()));
-    const text = await page.locator('body').innerText();
-    if (/Fatal error|Parse error|Warning: |Notice: /.test(text)) problems.push(name + ' shows a PHP error');
-    if (needle && !needle.test(text)) problems.push(name + ' missing expected content');
-    await page.screenshot({ path: `${shots}/ui-${name.replace(/\W+/g, '-').toLowerCase()}.png` });
-    ok(name + ' rendered');
+  let browser;
+  try {
+    browser = await chromium.launch({ headless: true });
+    const context = await browser.newContext({
+      viewport: { width: 1366, height: 900 },
+      deviceScaleFactor: 1,
+      ignoreHTTPSErrors: false,
+    });
+    const page = await context.newPage();
+    page.setDefaultTimeout(15000);
+
+    page.on('pageerror', (error) => fail('uncaught page error: ' + error.message));
+    page.on('console', (message) => {
+      if (message.type() === 'error') fail('browser console error: ' + message.text());
+    });
+    page.on('requestfailed', (request) => {
+      if (isLocal(request.url())) {
+        fail('same-origin request failed: ' + request.url() + ' (' + (request.failure()?.errorText || 'unknown') + ')');
+      }
+    });
+    page.on('response', (response) => {
+      const url = response.url();
+      if (!isLocal(url)) return;
+      const pathname = new URL(url).pathname;
+      if (response.status() >= 500) {
+        fail('same-origin HTTP ' + response.status() + ': ' + url);
+      } else if (response.status() >= 400 && (
+        pathname.includes('/wp-content/plugins/stockland-erp-app/assets/') ||
+        pathname.includes('/wp-json/stockland/')
+      )) {
+        fail('ERP asset/API HTTP ' + response.status() + ': ' + url);
+      }
+    });
+
+    await page.goto(at('/wp-login.php'), { waitUntil: 'domcontentloaded' });
+    await page.locator('#user_login').fill(user);
+    await page.locator('#user_pass').fill(password);
+    await Promise.all([
+      page.waitForURL((url) => url.pathname.includes('/wp-admin/'), { waitUntil: 'domcontentloaded' }),
+      page.locator('#wp-submit').click(),
+    ]);
+    note('disposable WordPress administrator login');
+
+    // The wp-admin link is only a launcher; it must open the same frontend application.
+    await page.goto(at('/wp-admin/admin.php?page=stockland-erp'), { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('body.stockland-erp-standalone', { timeout: 15000 });
+    await page.waitForSelector('#stockland-app', { timeout: 15000 });
+    note('WordPress ERP launcher opens the standalone app');
+
+    await page.goto(at('/wp-admin/admin.php?page=stockland-system-control'), { waitUntil: 'domcontentloaded' });
+    const controlText = (await page.locator('body').innerText()).toLowerCase();
+    if (!/system control|system health|setup|schema/.test(controlText)) {
+      fail('System Control page did not render expected setup/health content');
+    } else {
+      note('Owner System Control page renders');
+    }
+    if (/fatal error|parse error|warning: |notice: /.test(controlText)) {
+      fail('System Control page contains a PHP runtime diagnostic');
+    }
+
+    for (const [name, pathname] of [
+      ['published-erp-page', '/stockland-erp-app/'],
+      ['direct-erp-route', '/stockland-erp/'],
+    ]) {
+      await page.goto(at(pathname), { waitUntil: 'domcontentloaded' });
+      const status = await page.evaluate(() => document.readyState);
+      if (status === 'loading') fail(name + ' document did not finish loading');
+      const shell = await page.locator('body.stockland-erp-standalone').count();
+      const root = await page.locator('#stockland-app.sl-root').count();
+      const config = await page.evaluate(() => ({
+        build: window.StocklandApp?.build || '',
+        loggedIn: window.StocklandApp?.user?.logged_in === true,
+        api: window.StocklandApp?.api || '',
+      }));
+      if (!shell || !root) fail(name + ' missing standalone document or #stockland-app root');
+      if (!config.loggedIn || !config.api) fail(name + ' missing authenticated ERP bootstrap configuration');
+      if (config.build && config.build !== '16.2.18') fail(name + ' unexpected ERP build version: ' + config.build);
+      if (shell && root && config.loggedIn && config.api) {
+        note(name + ' standalone shell and authenticated bootstrap');
+      }
+
+      const manifestUrl = await page.locator('link[rel="manifest"]').getAttribute('href');
+      if (!manifestUrl) {
+        fail(name + ' PWA manifest link is missing');
+      } else {
+        const manifest = await page.evaluate(async (url) => {
+          const response = await fetch(url, { credentials: 'same-origin' });
+          if (!response.ok) return { ok: false, status: response.status };
+          const data = await response.json();
+          return { ok: true, display: data.display, name: data.name, startUrl: data.start_url };
+        }, manifestUrl);
+        if (!manifest.ok || manifest.display !== 'standalone' || !manifest.name) {
+          fail(name + ' PWA manifest is invalid: ' + JSON.stringify(manifest));
+        } else {
+          note(name + ' PWA manifest responds with standalone metadata');
+        }
+      }
+
+      for (const viewport of [
+        { label: 'phone-390', width: 390, height: 844 },
+        { label: 'tablet-768', width: 768, height: 1024 },
+        { label: 'desktop-1366', width: 1366, height: 900 },
+      ]) {
+        await page.setViewportSize({ width: viewport.width, height: viewport.height });
+        await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+        const dimensions = await page.evaluate(() => ({
+          viewport: window.innerWidth,
+          document: document.documentElement.scrollWidth,
+          body: document.body.scrollWidth,
+        }));
+        const overflow = Math.max(dimensions.document, dimensions.body) - dimensions.viewport;
+        await page.screenshot({
+          path: path.join(screenshots, name + '-' + viewport.label + '.png'),
+          fullPage: true,
+        });
+        if (overflow > 4) {
+          fail(name + ' ' + viewport.label + ' horizontal overflow ' + overflow + 'px');
+        } else {
+          note(name + ' ' + viewport.label + ' layout (horizontal overflow ' + overflow + 'px)');
+        }
+      }
+    }
+
+    await context.close();
+  } catch (error) {
+    fail('UI smoke runner exception: ' + (error && error.stack ? error.stack : String(error)));
+  } finally {
+    if (browser) await browser.close();
   }
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(base + '/wp-admin/admin.php?page=stockland-erp', { waitUntil: 'domcontentloaded' });
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-  ok('mobile viewport rendered (horizontal overflow ' + overflow + 'px)');
-  await browser.close();
-  if (problems.length) { problems.forEach((p) => console.log('FAIL ' + p)); console.log('RESULT: FAIL'); process.exit(1); }
-  console.log('RESULT: PASS');
+
+  console.log(issues.length ? 'RESULT: FAIL (' + issues.length + ' issue(s))' : 'RESULT: PASS');
+  process.exit(issues.length ? 1 : 0);
 })();
