@@ -143,13 +143,18 @@ const isLocal = (url) => {
       ]) {
         await page.setViewportSize({ width: viewport.width, height: viewport.height });
         // Do not count the splash/loading placeholder as a rendered responsive ERP view.
-        await page.waitForFunction(() => {
-          const root = document.querySelector('#stockland-app');
-          if (!root) return false;
-          const visibleText = root.innerText || '';
-          return /Welcome back,/i.test(visibleText) &&
-            !!visibleText.includes('Loading Stockland Ethiopia...');
-        }, { timeout: 30000 });
+        try {
+          await page.waitForFunction(() => {
+            const root = document.querySelector('#stockland-app');
+            if (!root) return false;
+            const visibleText = root.innerText || '';
+            return /Welcome back,/i.test(visibleText) &&
+              !visibleText.includes('Loading Stockland Ethiopia...');
+          }, null, { timeout: 45000 });
+        } catch (error) {
+          const renderState = await page.locator('#stockland-app').innerText().catch(() => '(no app root text)');
+          throw new Error(viewport.label + ' ERP dashboard did not hydrate within 45 seconds. Render state: ' + renderState.slice(0, 1200) + '. ' + error.message);
+        }
         await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
         const dimensions = await page.evaluate(() => ({
           viewport: window.innerWidth,
