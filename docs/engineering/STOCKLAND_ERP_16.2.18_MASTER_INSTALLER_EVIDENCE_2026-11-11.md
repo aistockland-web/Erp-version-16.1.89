@@ -43,3 +43,14 @@ Approved effective-dated payroll/tax/pension rule register; real compensation re
 - Re-verified on WordPress + MariaDB 10.11: installer verification PASS (86 tables, deep scan 52/52), UI smoke PASS (login, ERP launcher, System Control, mobile 390 px with 0 px horizontal overflow), business-workflow scripts PASS with a balanced ledger.
 - Not re-run after this rebuild: MySQL 8.0.46 and the Docker dev container (no Docker in this session). The change is capability-only and database-neutral.
 - Runbook updated with host requirements (upload_max_filesize/post_max_size >= 8 MB); ZIP rebuilt, SHA-256 `be60d5645a3717494afeb198b65d89dfd33db192f5c0c0c36d10d04f1ede428a`; installer verification PASS on MariaDB.
+
+## Addendum: independent CI verification on GitHub (run 43176369919, workflow "Stockland 16.2.18 master installer WordPress verification")
+
+Ubuntu runner, PHP 8.3.36, upload_max_filesize 16M / post_max_size 20M, ZIP SHA-256 `be60d5645a3717494afeb198b65d89dfd33db192f5c0c0c36d10d04f1ede428a`, ZIP content equals the 123 source files.
+
+| Database | Result |
+|---|---|
+| MySQL 8.0.46 (strict sql_mode, ONLY_FULL_GROUP_BY) | PASS: 86 tables, LIVE_SCHEMA_READY, deep scan 52/52, live_ready after Owner authorization, workflow regression with 0 unbalanced journals |
+| MariaDB 10.11.19 | PASS: same checks |
+
+The Codespaces environment validation workflow (devcontainer JSON/shell validation, Compose config, PHP 8.3/Node 22 image build) also passed on this branch. A byte-for-byte ZIP rebuild is not reproducible across Python/zlib versions, so CI compares ZIP contents file by file against the source tree.
