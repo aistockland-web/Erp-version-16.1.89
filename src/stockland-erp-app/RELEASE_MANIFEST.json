@@ -54,8 +54,8 @@
       },
       {
         "path": "CHANGELOG.md",
-        "bytes": 3536,
-        "sha256": "96bfe7188ad1df2c97bfd44d7b40aac88c8703893a75ab41d7055c8811a298c8"
+        "bytes": 3822,
+        "sha256": "2579afd18a6f320775905ba44864e907c8745e8b4b7b34bd5e391546696d9cee"
       },
       {
         "path": "GO_LIVE_RUNBOOK.md",
@@ -329,8 +329,8 @@
       },
       {
         "path": "includes/class-stockland-notifications.php",
-        "bytes": 11543,
-        "sha256": "9baf19e146f26ddfee77704635326a0071b2a3108a7a52862017e5e1a1303bec"
+        "bytes": 14920,
+        "sha256": "24967eaaa7b498b4eea7e2abaa0b667834573f33e2c7c9660a7a769ef9b8da78"
       },
       {
         "path": "includes/class-stockland-payroll-statutory.php",
@@ -499,8 +499,8 @@
       },
       {
         "path": "includes/rest/class-rest-transfers.php",
-        "bytes": 26686,
-        "sha256": "97f22bba35c37ec8389bbdb0d71c218b95ece693c05ec3693e1b5719696b3661"
+        "bytes": 27435,
+        "sha256": "f03c5e2fb25f0da62d0808120261788ad059afa7850ae5406733e52c8d1e0732"
       },
       {
         "path": "includes/rest/class-rest-wholesale.php",

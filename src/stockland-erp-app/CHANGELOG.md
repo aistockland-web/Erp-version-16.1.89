@@ -2,6 +2,7 @@
 
 ## 16.2.18 — Master installer
 
+- Stock transfers between locations now notify the right audiences at every stage (requested, approved, reserved, picked, in transit, rejected, cancelled) in addition to the existing receipt notice. Notifications are sent after the stock transaction commits and can never roll it back.
 - Fixed missing `<?php` open tag in the schema-contract class (source leaked into output; activation and REST responses failed).
 - Added `Stockland_Installer`: one activation builds all 86 tables with physical verification; resumable one-click button in System Control.
 - Added Owner go-live authorization bound to version + schema fingerprint, recorded in the audit chain; health `live_ready` now reflects it.

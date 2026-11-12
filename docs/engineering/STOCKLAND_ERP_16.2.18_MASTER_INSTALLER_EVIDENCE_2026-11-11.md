@@ -54,3 +54,11 @@ Ubuntu runner, PHP 8.3.36, upload_max_filesize 16M / post_max_size 20M, ZIP SHA-
 | MariaDB 10.11.19 | PASS: same checks |
 
 The Codespaces environment validation workflow (devcontainer JSON/shell validation, Compose config, PHP 8.3/Node 22 image build) also passed on this branch. A byte-for-byte ZIP rebuild is not reproducible across Python/zlib versions, so CI compares ZIP contents file by file against the source tree.
+
+## Addendum 2026-11-12 (late): transfer notifications, interactive browser setup, backup/restore
+
+- Defect fixed: stock transfers between locations notified only on receipt. They now notify the right audiences when requested, approved, reserved, picked, in transit, rejected and cancelled (sent after the stock transaction commits; failures are logged and never roll back stock). Regression: `scripts/release/e2e/s8_transfer_notifications.php` (9 checks, PASS).
+- Installer ZIP rebuilt: SHA-256 `aee5c551bd3367717091de066bfd5f86d8298dda1f6361d7534813d8087cd54e`, 123 files (supersedes `be60d564…`).
+- Interactive browser acceptance (`scripts/release/ui/interactive_setup.js`) on a fresh disposable WordPress 6.8 + MariaDB 10.11.14 site: upload ZIP in wp-admin, activate, System Control shows all 29/16/41 tables present and "Installation complete", Owner authorization recorded through the form, ERP app shell renders: PASS (7/7).
+- Backup/restore drill (`scripts/release/backup_restore_check.sh`): logical dump, restore into a scratch database, CHECKSUM TABLE and row count per table, 98 tables compared (86 application tables), 0 mismatches: PASS.
+- Workflow regression `run_all.sh` (8 suites incl. payroll calculator vectors and transfer notifications): PASS locally on MariaDB. MySQL 8.0.46 result comes from the CI workflow run on the pull request.

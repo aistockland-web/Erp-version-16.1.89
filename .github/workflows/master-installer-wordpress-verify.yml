@@ -100,6 +100,13 @@ jobs:
           set -o pipefail
           bash scripts/release/e2e/run_all.sh /tmp/wp | tee /tmp/e2e.log
           grep -q "GL unbalanced journals: 0" /tmp/e2e.log
+          grep -q "RESULT PASS" /tmp/e2e.log
+
+      - name: Backup and restore drill (dump, restore to a scratch database, checksum every table)
+        env:
+          STOCKLAND_DISPOSABLE_SITE: "yes"
+          MYSQL_ADMIN_ARGS: "-h127.0.0.1 -uroot -proot"
+        run: bash scripts/release/backup_restore_check.sh /tmp/wp /tmp/backup-drill | tee /tmp/backup-drill.log
 
       - name: Set up Node.js for browser acceptance
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -154,6 +161,7 @@ jobs:
           name: master-installer-${{ matrix.db }}
           path: |
             /tmp/e2e.log
+            /tmp/backup-drill.log
             /tmp/ui-smoke.log
             /tmp/stockland-ui-smoke/*.png
             /tmp/stockland-php-server.log
