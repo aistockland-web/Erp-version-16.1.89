@@ -81,7 +81,7 @@ Use the repository workflows and commands under .devcontainer/, ci/codespaces/, 
 
 The GitHub repo is the PHP WordPress ERP. The referenced github/dotnet-codespaces repository is only a general configuration reference. Never copy its .NET sample app, C# packages, sample database, or unrelated demo content into Stockland.
 
-The Codespaces REST smoke test must assert the exact Stockland namespaces and routes declared in the committed packages: `stockland/v1` (`/stockland/v1/app/bootstrap`) and `stockland/v16` (`/stockland/v16/system/ping`). A WordPress HTTP 200 or a generic `namespaces` array is not proof of Stockland REST registration.
+The `.13/.15` Codespaces candidate smoke installs the exact locked 16.2.13 baseline and repaired 16.2.15 candidate. Its observed route contract is `stockland/v16` with `/stockland/v16/setup/status` (GET), `/stockland/v16/setup/advance` (POST), and `/stockland/v16/app/access/bootstrap` (GET). The 12 November 2026 disposable WordPress run confirmed these routes on the baseline and upgrade sites; do not substitute unverified `stockland/v1/app/bootstrap` or `stockland/v16/system/ping` expectations. A WordPress HTTP 200 or a generic `namespaces` array is not proof of Stockland REST registration.
 
 ## 5. Non-negotiable business, schema and security invariants
 
