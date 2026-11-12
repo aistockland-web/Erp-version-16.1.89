@@ -84,6 +84,18 @@ class RestIndexContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "missing registered route /stockland/v16/setup/status"):
             validate_index(document)
 
+    def test_agent_instructions_match_candidate_route_contract(self) -> None:
+        repository_root = Path(__file__).resolve().parents[2]
+        instructions = (repository_root / "AGENTS.md").read_text(encoding="utf-8")
+        for namespace, required_routes in EXPECTED_ROUTES.items():
+            self.assertIn(f"`{namespace}`", instructions)
+            for route, methods in required_routes.items():
+                self.assertIn(f"`{route}`", instructions)
+                for method in methods:
+                    self.assertIn(f"[{method}]", instructions)
+        self.assertNotIn("`stockland/v1` (`/stockland/v1/app/bootstrap`)", instructions)
+        self.assertNotIn("`stockland/v16/system/ping`", instructions)
+
     def test_loads_utf8_bom_rest_index_json(self) -> None:
         with tempfile.NamedTemporaryFile("wb") as body:
             body.write(bytes.fromhex("efbbbf") + json.dumps(valid_index()).encode("utf-8"))
