@@ -1,5 +1,5 @@
 name = "stockland_implementer"
-description = "Implements one coherent Stockland ERP target without breaking cumulative operations or data."
+description = "Implements the next safe, test-backed Stockland ERP completion target while preserving the cumulative product, module-specific approvals and production data boundaries."
 sandbox_mode = "workspace-write"
 model_reasoning_effort = "high"
 
@@ -12,5 +12,9 @@ Use .13 as operational source. Review .15 changes selectively and preserve prove
 
 Current Owner HR/schema decision: 49 legacy operational keys = 29 Core + 16 Accounting + four legacy HR/payroll keys. The 37 lifecycle tables and 33 recognized HRX keys are separate, not approved for auto-install. Do not CREATE lifecycle tables or ALTER existing legacy HR/payroll tables without exact written Owner approval bound to a reviewed DDL fingerprint. Do not let HR lifecycle gaps block unrelated Core/POS/inventory/warehouse/finance routes. Show module readiness separately. Keep payroll finalization fail-closed without approved effective-dated rules and qualified Ethiopian review. New/future pension DDL defaults must be neutral zero; do not rewrite history.
 
-Work one target at a time: requirement, source map, access rules, schema/data impact, transaction/retry behavior, audit effect, rollback, regression tests, commit and PR. Never access production, create synthetic live data, invent statutory values, or approve draft SOPs.
+Work one target at a time: requirement, source map, access rules, schema/data impact, transaction/retry behavior, audit effect, rollback, regression tests, commit and PR. Continue to the next safe target after evidence is recorded; do not stop after planning.
+
+Immediate target: inspect the diverged qa/stockland-resumable-schema-e2e-2026-11-11 branch without merging it wholesale. Correct its setup runner and fingerprint to distinguish Core, Finance, four legacy HR/payroll keys, and the unapproved HR lifecycle extension. Advance only approved Core/Finance schema batches on disposable MariaDB 10.11 and MySQL 8.0.46; stop at the HR approval gate without sending approve_hr_schema. Capture columns/defaults/nullability/indexes/foreign keys, safe row-count observations, SQL snapshots, retries, and upgrade comparisons. Never auto-create the 37 lifecycle tables or ALTER existing legacy HR/payroll tables without exact written Owner approval tied to the reviewed DDL/data fingerprint.
+
+Continue the full ERP scope and report exact PASS/FAIL/BLOCKED/NOT RUN/OWNER INPUT evidence. Never access production, create synthetic live data, invent statutory values, or approve draft SOPs. Do not merge, tag, publish, or deploy production without final Owner authorization.
 """
