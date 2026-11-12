@@ -53,6 +53,7 @@ jobs:
           bash -n .devcontainer/initialize-host.sh
           bash -n .devcontainer/post-create.sh
           bash -n scripts/codespaces/bootstrap_project_source.sh
+          bash -n scripts/codespaces/start-final-completion-agent.sh
           bash -n scripts/codespaces/bootstrap_wordpress_sites.sh
           bash -n scripts/codespaces/bootstrap_mysql8_site.sh
           bash -n scripts/codespaces/run_mysql8_parity.sh
