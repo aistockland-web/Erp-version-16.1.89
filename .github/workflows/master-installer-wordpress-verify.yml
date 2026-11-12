@@ -1,0 +1,101 @@
+name: Stockland 16.2.18 master installer WordPress verification
+
+on:
+  push:
+    branches: ['delivery/**']
+    paths:
+      - 'src/stockland-erp-app/**'
+      - 'scripts/release/**'
+      - 'STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTALLER.zip*'
+      - '.github/workflows/master-installer-wordpress-verify.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: master-installer-verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: WordPress + ${{ matrix.db }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        db: [mariadb, mysql8]
+    services:
+      mariadb:
+        image: ${{ matrix.db == 'mariadb' && 'mariadb:10.11' || 'mysql:8.0' }}
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MARIADB_ROOT_PASSWORD: root
+          MYSQL_DATABASE: wp
+          MARIADB_DATABASE: wp
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Set up PHP 8.3
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
+        with:
+          php-version: "8.3"
+          extensions: mysqli, mbstring, xml, zip, curl, gd
+          ini-values: upload_max_filesize=16M, post_max_size=20M, memory_limit=512M
+
+      - name: Report database server and PHP limits
+        run: |
+          mysql -h 127.0.0.1 -uroot -proot -e "SELECT VERSION() AS db_version, @@sql_mode AS sql_mode" wp
+          php -r 'echo "PHP ", PHP_VERSION, " upload=", ini_get("upload_max_filesize"), " post=", ini_get("post_max_size"), PHP_EOL;'
+
+      - name: Verify the committed ZIP checksum and rebuild deterministically
+        run: |
+          set -euo pipefail
+          sha256sum -c STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTALLER.zip.sha256
+          cp STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTALLER.zip /tmp/committed.zip
+          python3 scripts/release/build_master_installer.py
+          cmp /tmp/committed.zip STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTALLER.zip
+          echo "PASS rebuilt ZIP is byte-identical to the committed ZIP"
+
+      - name: Install WP-CLI and WordPress
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /usr/local/bin/wp https://github.com/wp-cli/wp-cli/releases/download/v2.12.0/wp-cli-2.12.0.phar
+          chmod +x /usr/local/bin/wp
+          mkdir -p /tmp/wp
+          wp --allow-root core download --path=/tmp/wp --force
+          wp --allow-root config create --path=/tmp/wp --dbname=wp --dbuser=root --dbpass=root --dbhost=127.0.0.1 --skip-check
+
+      - name: Install the master installer and verify (disposable site)
+        env:
+          STOCKLAND_DISPOSABLE_SITE: "yes"
+        run: bash scripts/release/verify_master_installer.sh /tmp/wp "$PWD/STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTALLER.zip"
+
+      - name: Business workflow regression (procurement to ledger)
+        env:
+          STOCKLAND_DISPOSABLE_SITE: "yes"
+        run: |
+          set -o pipefail
+          bash scripts/release/e2e/run_all.sh /tmp/wp | tee /tmp/e2e.log
+          grep -q "GL unbalanced journals: 0" /tmp/e2e.log
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: master-installer-${{ matrix.db }}
+          path: |
+            /tmp/e2e.log
+            STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTALLER.zip.sha256
+          if-no-files-found: warn
