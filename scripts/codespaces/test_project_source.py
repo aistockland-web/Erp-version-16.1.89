@@ -67,6 +67,29 @@ class SourceBootstrapTests(unittest.TestCase):
             materialize(self.stage, self.report, self.dest, self.marker)
         self.assertFalse(self.dest.exists())
 
+    def test_drift_is_reported_and_strict_mode_fails(self):
+        import contextlib, io, os
+        materialize(self.stage, self.report, self.dest, self.marker)
+        (self.dest / "includes" / "fixture-00.php").write_text("<?php\n// drifted\n", encoding="utf-8")
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertFalse(materialize(self.stage, self.report, self.dest, self.marker))
+        self.assertIn("WARNING: editable source differs", out.getvalue())
+        os.environ["STOCKLAND_SOURCE_STRICT"] = "1"
+        try:
+            with self.assertRaisesRegex(RuntimeError, "drifted"):
+                materialize(self.stage, self.report, self.dest, self.marker)
+        finally:
+            del os.environ["STOCKLAND_SOURCE_STRICT"]
+
+    def test_marker_is_not_left_behind_when_the_move_fails(self):
+        from unittest import mock
+        with mock.patch("os.rename", side_effect=OSError("simulated crash")):
+            with self.assertRaises(OSError):
+                materialize(self.stage, self.report, self.dest, self.marker)
+        self.assertFalse(self.marker.exists())
+        self.assertFalse(self.dest.exists())
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

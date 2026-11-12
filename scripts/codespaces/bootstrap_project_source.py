@@ -113,7 +113,22 @@ def materialize(stage_root: Path, report_path: Path, destination: Path, marker: 
             raise RuntimeError("Source provenance file count is invalid")
         if not (destination / "stockland-inventory.php").is_file():
             raise RuntimeError("Marked source folder is incomplete; refusing to overwrite")
-        print(f"PASS: preserving existing editable source without overwrite: {destination}")
+        drift = []
+        try:
+            expected = read_baseline_report(report_path)["files"]
+            for rel, digest in expected.items():
+                path = destination / rel
+                if not path.is_file() or sha256_file(path) != digest:
+                    drift.append(rel)
+        except (OSError, RuntimeError, KeyError, ValueError):
+            drift = ["<baseline report unavailable; drift not assessed>"]
+        if drift:
+            # Local edits are preserved by design (the importer never overwrites work), but they are never accepted silently.
+            print(f"WARNING: editable source differs from the pinned .13 baseline in {len(drift)} file(s) (first: {drift[0]}); preserving without overwrite: {destination}")
+            if os.environ.get("STOCKLAND_SOURCE_STRICT") == "1":
+                raise RuntimeError("STOCKLAND_SOURCE_STRICT=1: editable source drifted from the pinned .13 baseline")
+        else:
+            print(f"PASS: existing editable source matches the pinned .13 manifest: {destination}")
         return False
 
     report = read_baseline_report(report_path)
@@ -137,11 +152,12 @@ def materialize(stage_root: Path, report_path: Path, destination: Path, marker: 
             current = json.loads(marker.read_text(encoding="utf-8"))
             if current != provenance:
                 raise RuntimeError(f"Existing source marker conflicts with .13 manifest: {marker}")
-        else:
-            os.replace(marker_tmp, marker)
         if destination.exists():
             raise RuntimeError(f"Destination appeared during import; no files were replaced: {destination}")
         os.rename(staged_copy, destination)
+        # Marker last: a crash before this point leaves an unmarked folder, which the importer refuses to trust or overwrite.
+        if not marker.exists():
+            os.replace(marker_tmp, marker)
     print(f"PASS: Stockland ERP 16.2.13 source materialized at {destination}")
     print(f"PASS: {len(report['files'])} files match the exact per-file SHA-256 intake manifest")
     print("Original .13 and .15 installer archives remain unchanged.")
