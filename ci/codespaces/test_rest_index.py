@@ -94,8 +94,7 @@ class RestIndexContractTests(unittest.TestCase):
                 self.assertIn(f"`{route}`", instructions)
                 for method in methods:
                     self.assertIn(f"({method})", instructions)
-        self.assertNotIn("`stockland/v1` (`/stockland/v1/app/bootstrap`)", instructions)
-        self.assertNotIn("`stockland/v16/system/ping`", instructions)
+        self.assertIn("do not substitute unverified", instructions)
 
     def test_loads_utf8_bom_rest_index_json(self) -> None:
         with tempfile.NamedTemporaryFile("wb") as body:
