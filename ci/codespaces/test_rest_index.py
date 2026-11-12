@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from check_rest_index import EXPECTED_ROUTES, load_document, validate_index
