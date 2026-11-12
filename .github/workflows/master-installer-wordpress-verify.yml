@@ -101,6 +101,52 @@ jobs:
           bash scripts/release/e2e/run_all.sh /tmp/wp | tee /tmp/e2e.log
           grep -q "GL unbalanced journals: 0" /tmp/e2e.log
 
+      - name: Set up Node.js for browser acceptance
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+
+      - name: Install isolated Playwright browser tooling
+        run: |
+          set -euo pipefail
+          npm install --prefix /tmp/stockland-playwright --no-save --no-audit --no-fund playwright@1.57.0
+          /tmp/stockland-playwright/node_modules/.bin/playwright install --with-deps chromium
+
+      - name: Standalone ERP browser smoke — disposable site only
+        env:
+          STOCKLAND_DISPOSABLE_SITE: "yes"
+        run: |
+          set -euo pipefail
+          QA_PASSWORD="$(openssl rand -hex 18)"
+          wp --path=/tmp/wp --allow-root user update admin --user_pass="$QA_PASSWORD"
+          wp --path=/tmp/wp --allow-root option update home http://127.0.0.1:8080
+          wp --path=/tmp/wp --allow-root option update siteurl http://127.0.0.1:8080
+          wp --path=/tmp/wp --allow-root option update permalink_structure '/%postname%/'
+          wp --path=/tmp/wp --allow-root rewrite flush
+
+          cat > /tmp/wp/router.php <<'PHP'
+          <?php
+          $path = parse_url( $_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH );
+          $file = __DIR__ . $path;
+          if ( '/' !== $path && is_file( $file ) ) {
+              return false;
+          }
+          require __DIR__ . '/index.php';
+          PHP
+
+          mkdir -p /tmp/stockland-ui-smoke
+          php -S 127.0.0.1:8080 -t /tmp/wp /tmp/wp/router.php > /tmp/stockland-php-server.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8080/wp-login.php >/dev/null; then break; fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:8080/wp-login.php >/dev/null
+          NODE_PATH=/tmp/stockland-playwright/node_modules node scripts/release/ui/ui_smoke.js \
+            http://127.0.0.1:8080 admin "$QA_PASSWORD" /tmp/stockland-ui-smoke | tee /tmp/ui-smoke.log
+          unset QA_PASSWORD
+
       - name: Upload evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -108,6 +154,9 @@ jobs:
           name: master-installer-${{ matrix.db }}
           path: |
             /tmp/e2e.log
+            /tmp/ui-smoke.log
+            /tmp/stockland-ui-smoke/*.png
+            /tmp/stockland-php-server.log
             STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTALLER.zip.sha256
           if-no-files-found: warn
 
