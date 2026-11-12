@@ -93,7 +93,7 @@ class RestIndexContractTests(unittest.TestCase):
             for route, methods in required_routes.items():
                 self.assertIn(f"`{route}`", instructions)
                 for method in methods:
-                    self.assertIn(f"[{method}]", instructions)
+                    self.assertIn(f"({method})", instructions)
         self.assertNotIn("`stockland/v1` (`/stockland/v1/app/bootstrap`)", instructions)
         self.assertNotIn("`stockland/v16/system/ping`", instructions)
 
