@@ -29,6 +29,8 @@ $old_rollback_option = get_option( 'stockland_balance_rollback_snapshot', false 
 $old_user_id = get_current_user_id();
 $product_ids = array();
 $owned_tables = array();
+$saved_snapshot_ready = false;
+$preexisting_balance_backups = array();
 
 $run_migration = static function () use ( $wpdb ) {
 	$method = new ReflectionMethod( 'Stockland_Activator', 'apply_schema_1600_migrations' );
@@ -50,6 +52,12 @@ try {
 		throw new RuntimeException( 'The isolated save-table name already exists.' );
 	}
 
+	$preexisting_balance_backups = (array) $wpdb->get_col( $wpdb->prepare(
+		'SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=%s AND TABLE_NAME LIKE %s',
+		DB_NAME,
+		$wpdb->esc_like( $balance_table . '_v161_backup_' ) . '%'
+	) );
+
 	// Save the exact pre-test read model before replacing it with legacy fixtures.
 	$wpdb->last_error = '';
 	Stockland_DB::execute_query( $wpdb->prepare( 'CREATE TABLE %i LIKE %i', $saved_table, $balance_table ) );
@@ -60,6 +68,7 @@ try {
 	if ( $wpdb->last_error ) {
 		throw new RuntimeException( 'Could not copy original stock_balances rows: ' . $wpdb->last_error );
 	}
+	$saved_snapshot_ready = true;
 
 	$sku_a = 'STK-E2E-A-' . $suffix;
 	$sku_b = 'STK-E2E-B-' . $suffix;
@@ -220,7 +229,8 @@ try {
 	if ( $wpdb->last_error ) {
 		throw new RuntimeException( 'Could not seed the negative-case legacy rows: ' . $wpdb->last_error );
 	}
-	$negative_ddl_before = (string) $wpdb->get_var( $wpdb->prepare( 'SHOW CREATE TABLE %i', $balance_table ) );
+	$negative_ddl_before_row = $wpdb->get_row( $wpdb->prepare( 'SHOW CREATE TABLE %i', $balance_table ), ARRAY_N );
+	$negative_ddl_before = (string) ( $negative_ddl_before_row[1] ?? '' );
 	$negative_rows_before = $wpdb->get_results( $wpdb->prepare(
 		'SELECT location_id,sku,variant_id,physical_qty FROM %i ORDER BY location_id',
 		$balance_table
@@ -231,7 +241,8 @@ try {
 	} catch ( RuntimeException $e ) {
 		$negative_failed_closed = false !== strpos( $e->getMessage(), 'unresolved or orphan immutable Product Master variant identity' );
 	}
-	$negative_ddl_after = (string) $wpdb->get_var( $wpdb->prepare( 'SHOW CREATE TABLE %i', $balance_table ) );
+	$negative_ddl_after_row = $wpdb->get_row( $wpdb->prepare( 'SHOW CREATE TABLE %i', $balance_table ), ARRAY_N );
+	$negative_ddl_after = (string) ( $negative_ddl_after_row[1] ?? '' );
 	$negative_rows_after = $wpdb->get_results( $wpdb->prepare(
 		'SELECT location_id,sku,variant_id,physical_qty FROM %i ORDER BY location_id',
 		$balance_table
@@ -245,19 +256,25 @@ try {
 	$check( 'migration fixture execution completed without unexpected exception', false, $e->getMessage() );
 } finally {
 	// Restore the original installed read model and option exactly, even if an assertion failed.
-	$drop_table( $balance_table );
-	$drop_table( $good_table );
-	$drop_table( $stage_table );
-	$backup_names = $wpdb->get_col( $wpdb->prepare(
-		'SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=%s AND TABLE_NAME LIKE %s',
-		DB_NAME,
-		$wpdb->esc_like( $balance_table . '_v161_backup_' ) . '%'
-	) );
-	foreach ( (array) $backup_names as $name ) {
-		$drop_table( $name );
-	}
-	if ( Stockland_DB::table_exists( $saved_table ) ) {
-		Stockland_DB::execute_query( $wpdb->prepare( 'RENAME TABLE %i TO %i', $saved_table, $balance_table ) );
+	if ( $saved_snapshot_ready ) {
+		$drop_table( $balance_table );
+		$drop_table( $good_table );
+		$drop_table( $stage_table );
+		$backup_names = $wpdb->get_col( $wpdb->prepare(
+			'SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=%s AND TABLE_NAME LIKE %s',
+			DB_NAME,
+			$wpdb->esc_like( $balance_table . '_v161_backup_' ) . '%'
+		) );
+		foreach ( (array) $backup_names as $name ) {
+			if ( ! in_array( $name, $preexisting_balance_backups, true ) ) {
+				$drop_table( $name );
+			}
+		}
+		if ( Stockland_DB::table_exists( $saved_table ) ) {
+			Stockland_DB::execute_query( $wpdb->prepare( 'RENAME TABLE %i TO %i', $saved_table, $balance_table ) );
+		}
+	} else {
+		$drop_table( $saved_table );
 	}
 	foreach ( $product_ids as $variant_id ) {
 		$wpdb->delete( $product_table, array( 'variant_id' => (int) $variant_id ), array( '%d' ) );
