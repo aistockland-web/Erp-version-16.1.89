@@ -213,7 +213,7 @@ class Stockland_Notifications {
 		foreach ( $sends as $n ) {
 			$ok = self::push_role( $n[0], $n[1], 'transfer_' . strtolower( $event ), $n[2], $n[3], 'transfer', $id, $n[4] ) && $ok;
 		}
-		if ( ! empty( $t['requested_by'] ) && in_array( strtoupper( $event ), array( 'APPROVED', 'REJECTED', 'IN_TRANSIT', 'CANCELLED' ), true ) ) {
+		if ( ! empty( $t['requested_by'] ) && in_array( strtoupper( (string) $event ), array( 'REQUESTED', 'APPROVED', 'RESERVED', 'PICKED', 'IN_TRANSIT', 'REJECTED', 'CANCELLED' ), true ) ) {
 			$ok = self::push_user( (int) $t['requested_by'], 'transfer_' . strtolower( $event ), 'Your transfer ' . $id . ': ' . strtolower( str_replace( '_', ' ', $event ) ), $what . '.', 'transfer', $id, in_array( strtoupper( $event ), array( 'REJECTED', 'CANCELLED' ), true ) ? 'warning' : 'info' ) && $ok;
 		}
 		return $ok;
