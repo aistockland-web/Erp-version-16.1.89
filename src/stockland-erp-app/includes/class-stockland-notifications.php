@@ -200,6 +200,10 @@ class Stockland_Notifications {
 				$sends[] = array( 'sales_employee', $to, 'Stock on the way', $what . ' has been dispatched to your location.', 'info' );
 				$sends[] = array( 'management', null, 'Transfer dispatched', $what . ' is in transit.', 'info' );
 				break;
+			case 'RECEIVED':
+				$sends[] = array( 'management', null, 'Transfer received', $what . ' was received and recorded.', 'info' );
+				$sends[] = array( 'owner', null, 'Transfer received', $what . ' was received and recorded.', 'info' );
+				break;
 			case 'REJECTED':
 			case 'CANCELLED':
 				$sends[] = array( 'branch_manager', $to, 'Transfer ' . strtolower( $event ), $what . ' was ' . strtolower( $event ) . '. No stock will arrive.', 'warning' );
@@ -213,7 +217,7 @@ class Stockland_Notifications {
 		foreach ( $sends as $n ) {
 			$ok = self::push_role( $n[0], $n[1], 'transfer_' . strtolower( $event ), $n[2], $n[3], 'transfer', $id, $n[4] ) && $ok;
 		}
-		if ( ! empty( $t['requested_by'] ) && in_array( strtoupper( (string) $event ), array( 'REQUESTED', 'APPROVED', 'RESERVED', 'PICKED', 'IN_TRANSIT', 'REJECTED', 'CANCELLED' ), true ) ) {
+		if ( ! empty( $t['requested_by'] ) && in_array( strtoupper( (string) $event ), array( 'REQUESTED', 'APPROVED', 'RESERVED', 'PICKED', 'IN_TRANSIT', 'RECEIVED', 'REJECTED', 'CANCELLED' ), true ) ) {
 			$ok = self::push_user( (int) $t['requested_by'], 'transfer_' . strtolower( $event ), 'Your transfer ' . $id . ': ' . strtolower( str_replace( '_', ' ', $event ) ), $what . '.', 'transfer', $id, in_array( strtoupper( $event ), array( 'REJECTED', 'CANCELLED' ), true ) ? 'warning' : 'info' ) && $ok;
 		}
 		return $ok;
@@ -228,9 +232,9 @@ class Stockland_Notifications {
 	 * @return bool Whether notification dispatch was requested.
 	 */
 	public static function notify_exception_owners( $title, $message, $entity_type = null, $entity_id = null ) {
-		self::push_role( 'management', null, 'exception', $title, $message, $entity_type, $entity_id, 'danger' );
-		self::push_role( 'owner', null, 'exception', $title, $message, $entity_type, $entity_id, 'danger' );
-		return true;
+		$management_ok = self::push_role( 'management', null, 'exception', $title, $message, $entity_type, $entity_id, 'danger' );
+		$owner_ok      = self::push_role( 'owner', null, 'exception', $title, $message, $entity_type, $entity_id, 'danger' );
+		return $management_ok && $owner_ok;
 	}
 	/**
 	 * Notifies Management and Owner after a committed Product Master change.
