@@ -54,8 +54,8 @@
       },
       {
         "path": "CHANGELOG.md",
-        "bytes": 3822,
-        "sha256": "2579afd18a6f320775905ba44864e907c8745e8b4b7b34bd5e391546696d9cee"
+        "bytes": 4636,
+        "sha256": "e27c8d353f700cab1a2b04b464751c08c98fc818efb9bdc581faa31b7d52fc0b"
       },
       {
         "path": "GO_LIVE_RUNBOOK.md",
@@ -89,8 +89,8 @@
       },
       {
         "path": "assets/app.js",
-        "bytes": 536509,
-        "sha256": "f09212a8ce96689084db250c42d53932eeb99276e9b34928e925bc035547db24"
+        "bytes": 539857,
+        "sha256": "ccb4cb9f0e302981e58b40460723cb1a3219d679e2d823b1133c84507f249b5c"
       },
       {
         "path": "assets/app.min.css",
@@ -169,8 +169,8 @@
       },
       {
         "path": "assets/css/modules.json",
-        "bytes": 719,
-        "sha256": "0b6fee3c16ab6a2bb02c186d09cc2d9fd27332f98065915b7e1ae75232ffc162"
+        "bytes": 711,
+        "sha256": "7e0bf47a94a54fbb87850d31e2e00c23fa6ad4b0577067789177859f7ef7a682"
       },
       {
         "path": "assets/icon-180.png",
@@ -195,7 +195,7 @@
       {
         "path": "assets/manifest.json",
         "bytes": 995,
-        "sha256": "326fa02c408ef12e2f91a44ec2e3ce5b9e9f9f2a82d7c64ed39dd1fff8acaf0f"
+        "sha256": "db2296a83ef4d4747223de7e9793b8ec70144740e0270dc40b518ed61e926920"
       },
       {
         "path": "assets/pwa.js",
@@ -244,8 +244,8 @@
       },
       {
         "path": "includes/class-stockland-admin.php",
-        "bytes": 30364,
-        "sha256": "bf2f44c1d6baec2aee4b621135d2f75972988d3fb13e4affcb5f12a5606f0a62"
+        "bytes": 31434,
+        "sha256": "b8982cdab90dab61245a4795aba963551783227647705254655845cdfe185f94"
       },
       {
         "path": "includes/class-stockland-app.php",
@@ -284,8 +284,8 @@
       },
       {
         "path": "includes/class-stockland-frontend.php",
-        "bytes": 35263,
-        "sha256": "3a1642db946dec77dd436e6a890a21b5fa68da59e1c4dd6c749ec953aa387507"
+        "bytes": 35288,
+        "sha256": "f30b6965225122502752f1f6a30de4ce2b84110e252d26ebfe80f1daf755292a"
       },
       {
         "path": "includes/class-stockland-hr-lifecycle.php",
@@ -304,13 +304,13 @@
       },
       {
         "path": "includes/class-stockland-hr.php",
-        "bytes": 27206,
-        "sha256": "06166f8cfbfafc2b4a4c74bb2bdd9f76fd0c7a123386608501c6bbaa139b762f"
+        "bytes": 28667,
+        "sha256": "51f99ad5d0bc0b6397c9f1c17359f95eb3ead147fff98cba472fe4ffa6081fcd"
       },
       {
         "path": "includes/class-stockland-installer.php",
-        "bytes": 10023,
-        "sha256": "6cf9494f0cf50500b08008b990ea247dd058e456a2f9c03472aebf966f7282e5"
+        "bytes": 10209,
+        "sha256": "b1bbef5f8e8d2090a276bdfffd06fbc5765f2f91d31a4c577931c20a835d4a74"
       },
       {
         "path": "includes/class-stockland-integrity.php",
@@ -329,8 +329,8 @@
       },
       {
         "path": "includes/class-stockland-notifications.php",
-        "bytes": 14920,
-        "sha256": "24967eaaa7b498b4eea7e2abaa0b667834573f33e2c7c9660a7a769ef9b8da78"
+        "bytes": 14964,
+        "sha256": "ed89fc0e663dedd4cc36d9111223d6a644c1a4945d07906155547d78395ce35a"
       },
       {
         "path": "includes/class-stockland-payroll-statutory.php",
@@ -344,8 +344,8 @@
       },
       {
         "path": "includes/class-stockland-release-authorization.php",
-        "bytes": 5115,
-        "sha256": "fdf25c9cf4f1e0acf49f79488950cccc6f7e2085e3b5c6d95d4f262e776ec5e3"
+        "bytes": 5397,
+        "sha256": "c4843985c4dcd0f312f5a6e3ae5a46685131c9814c0a615e0782f708579284bf"
       },
       {
         "path": "includes/class-stockland-requisition-service.php",
@@ -419,18 +419,18 @@
       },
       {
         "path": "includes/rest/class-rest-hr-lifecycle.php",
-        "bytes": 71151,
-        "sha256": "dc0bc18542c8d7157b438401da4f6a6b5c77776092eb862db827695a65b35e1f"
+        "bytes": 71206,
+        "sha256": "f2f6342b8d2d21338aa07961af5a00ee98181b72e66b7d85df38350dafb4efe5"
       },
       {
         "path": "includes/rest/class-rest-hr-payroll-cycle.php",
-        "bytes": 111102,
-        "sha256": "c1a4b6ac429378d7f5ac0b4a1b1cd852789f12d8a9f4c295ecd24a43ce0cdecb"
+        "bytes": 111157,
+        "sha256": "50a12eaf96f4ae2498f3a0d82fc504fac7e8d96fdf730dbfa4590c38e37e0e88"
       },
       {
         "path": "includes/rest/class-rest-hr.php",
-        "bytes": 98471,
-        "sha256": "6e67a28e08eddb238fc5ea3128cf21f6c4636d626043245883ef0a76bd6d4630"
+        "bytes": 98964,
+        "sha256": "0683d6de27efa206dbb092fb7e07778bcff2858abeede93aae55282fe408a948"
       },
       {
         "path": "includes/rest/class-rest-import-v16.php",
@@ -484,8 +484,8 @@
       },
       {
         "path": "includes/rest/class-rest-setup.php",
-        "bytes": 27411,
-        "sha256": "97599a0a14c4093c615ff0c9bd5af5e8fac1993bcb02fba8eff5d44a5b0598c4"
+        "bytes": 29152,
+        "sha256": "287ff015d6cadb44b321613789eea71efc49910f0d7c54be146a2a8ef0ea4ba6"
       },
       {
         "path": "includes/rest/class-rest-sop-library.php",
@@ -634,8 +634,8 @@
       },
       {
         "path": "stockland-inventory.php",
-        "bytes": 13647,
-        "sha256": "f8d7ca485ea0a72e3f0ffe8208e1d04c9001a5c57d4d0917a1cda5d2fd0352df"
+        "bytes": 12935,
+        "sha256": "7846636b1f9c4a643611f9d80e21bc57ea7bffa66a597127e7955cda3661734f"
       },
       {
         "path": "templates/Stockland_Master_Import_Template.xlsx",
@@ -662,7 +662,7 @@
   "installation_repair": {
     "version": "16.2.16",
     "fixes": [
-      "One-click WordPress System Control runner for sequential Core → Finance → HR setup",
+      "One-click WordPress System Control runner for sequential Core \u2192 Finance \u2192 HR setup",
       "Protected HR/Payroll continuation in System Control",
       "Bounded 160-step setup browser runner",
       "HR structural-gap progress detection",

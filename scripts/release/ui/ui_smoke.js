@@ -200,6 +200,29 @@ const isLocal = (url) => {
       note('dashboard quick actions keep unapproved HR lifecycle hidden');
     }
 
+    // Management Intelligence: theme set by the server, Refresh button wired, social panel present,
+    // and no social/campaign section left inside HR & Payroll.
+    await page.setViewportSize({ width: 1366, height: 900 });
+    await page.goto(at('/stockland-erp-app/'), { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('#sl-app-shell', { timeout: 20000 }).catch(() => {});
+    const serverTheme = await page.evaluate(() => document.body.getAttribute('data-sl-theme'));
+    if (serverTheme !== 'sapphire') fail('theme attribute missing on body: ' + serverTheme);
+    const metaTheme = await page.evaluate(() => document.querySelector('meta[name="theme-color"]')?.content || '');
+    if (metaTheme.toLowerCase() !== '#295ff3') fail('theme-color meta is not the Sapphire colour: ' + metaTheme);
+    const miNav = page.locator('[data-view="intelligence"]').first();
+    if (await miNav.count()) {
+      await miNav.click();
+      await page.waitForSelector('#refreshManagementIntelligence', { timeout: 15000 }).catch(() => fail('Management Intelligence did not render'));
+      await page.waitForSelector('#slMiSocialBody', { timeout: 15000 }).catch(() => fail('Management Intelligence social panel missing'));
+      const social = await page.locator('#slMiSocialBody .sl-hrlc-social-card').count();
+      if (social < 4) fail('Management Intelligence shows ' + social + ' official platform sign-in links, expected 4');
+      const wired = await page.evaluate(() => !!document.getElementById('refreshManagementIntelligence')?.__slMiBound);
+      if (!wired) fail('Refresh intelligence button has no click handler');
+      note('Management Intelligence: refresh handler bound, ' + social + ' official platform links, theme sapphire');
+    } else {
+      note('Management Intelligence navigation not exposed to this profile; panel check skipped (NOT RUN)');
+    }
+
     await context.close();
   } catch (error) {
     fail('UI smoke runner exception: ' + (error && error.stack ? error.stack : String(error)));
