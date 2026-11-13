@@ -251,9 +251,13 @@ final class Stockland_REST_Management_Intelligence extends Stockland_REST_Base {
 		if ( ! in_array( $platform, self::PLATFORMS, true ) || $platform !== (string) $campaign['platform'] || $account !== (string) $campaign['account_label'] || false === $start || false === $end || $start > $end ) {
 			return $this->bad( 'management_social_snapshot_invalid', 'Platform/account must match the campaign and the report period must be valid.' );
 		}
-		$as_of_object = DateTime::createFromFormat( '!Y-m-d H:i:s', str_replace( 'T', ' ', $as_of ) );
-		if ( ! $as_of_object || $as_of_object->format( 'Y-m-d H:i:s' ) !== str_replace( 'T', ' ', $as_of ) ) {
-			return $this->bad( 'management_social_report_timestamp_required', 'Provide an explicit report-as-of timestamp in YYYY-MM-DD HH:MM:SS format.' );
+		$as_of_normalized = str_replace( 'T', ' ', $as_of );
+		if ( preg_match( '/^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}$/', $as_of_normalized ) ) {
+			$as_of_normalized .= ':00';
+		}
+		$as_of_object = DateTime::createFromFormat( '!Y-m-d H:i:s', $as_of_normalized );
+		if ( ! $as_of_object || $as_of_object->format( 'Y-m-d H:i:s' ) !== $as_of_normalized ) {
+			return $this->bad( 'management_social_report_timestamp_required', 'Provide an explicit report-as-of timestamp in YYYY-MM-DD HH:MM format.' );
 		}
 		$source_reference = sanitize_text_field( (string) ( $payload['source_reference'] ?? '' ) );
 		$source_sha256 = strtolower( sanitize_text_field( (string) ( $payload['source_sha256'] ?? '' ) ) );
@@ -285,11 +289,9 @@ final class Stockland_REST_Management_Intelligence extends Stockland_REST_Base {
 		if ( null !== $follower_delta && filter_var( $follower_delta, FILTER_VALIDATE_INT ) === false ) {
 			return $this->bad( 'management_social_delta_invalid', 'Follower delta must be a whole number.' );
 		}
-		try {
-			$snapshot_code = 'SOC-' . strtoupper( bin2hex( random_bytes( 6 ) ) );
-		} catch ( Throwable $error ) {
-			return $this->bad( 'management_social_id_failed', 'A unique snapshot reference could not be generated.', 500 );
-		}
+		// Deterministic identity prevents a retried request from appending the same export twice.
+		$snapshot_identity = hash( 'sha256', $campaign_code . '|' . $source_sha256 . '|' . $start . '|' . $end . '|' . $as_of_normalized );
+		$snapshot_code = 'SOC-' . strtoupper( substr( $snapshot_identity, 0, 24 ) );
 		$record = array_merge(
 			array(
 				'snapshot_code'      => $snapshot_code,
@@ -298,7 +300,7 @@ final class Stockland_REST_Management_Intelligence extends Stockland_REST_Base {
 				'account_label'      => $account,
 				'period_start'       => $start,
 				'period_end'         => $end,
-				'report_as_of'       => str_replace( 'T', ' ', $as_of ),
+				'report_as_of'       => $as_of_normalized,
 				'source_kind'        => 'MANUAL_EXPORT',
 				'source_reference'   => $source_reference,
 				'source_sha256'      => $source_sha256,
