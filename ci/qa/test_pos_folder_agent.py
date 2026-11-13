@@ -29,6 +29,7 @@ class FolderAgentConfigTests(unittest.TestCase):
             "STOCKLAND_ERP_APP_PASSWORD": "test-only-not-a-real-secret",
             "STOCKLAND_POS_BRANCH_ID": "3",
             "STOCKLAND_POS_INBOX": str(inbox),
+            "STOCKLAND_POS_PROCESSED": str(root / "processed"),
         }
 
     def test_rejects_plain_http_before_building_basic_auth_request(self):
