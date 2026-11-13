@@ -13,8 +13,24 @@ OUT="${2:-$(mktemp -d)}"
 mkdir -p "$OUT"
 
 read -r -a MYSQL_ADMIN_FLAGS <<< "${MYSQL_ADMIN_ARGS:--uroot}"
+ADMIN_USER=""
+for arg in "${MYSQL_ADMIN_FLAGS[@]}"; do
+  case "$arg" in
+    -u?*) ADMIN_USER="${arg#-u}" ;;
+    --user=*) ADMIN_USER="${arg#--user=}" ;;
+    -p?*|--password=*) ;; # Never print a password.
+    *)
+      echo "Refusing: unsupported MySQL admin option. Only explicit user/password options are allowed."
+      exit 2
+      ;;
+  esac
+done
+[[ -n "$ADMIN_USER" ]] || {
+  echo "Refusing: MYSQL_ADMIN_ARGS must specify an administrative user."
+  exit 2
+}
 mysql_admin() {
-  mysql "${MYSQL_ADMIN_FLAGS[@]}" "$@"
+  mysql --no-defaults --host=127.0.0.1 --protocol=TCP "${MYSQL_ADMIN_FLAGS[@]}" "$@"
 }
 wp_site() {
   wp --path="$WP_PATH" --allow-root "$@"
@@ -30,27 +46,6 @@ ACTUAL_HOST="$(wp_site config get DB_HOST 2>/dev/null | tail -n 1)"
 }
 [[ "$EXPECTED_HOST" == "127.0.0.1" && "$ACTUAL_HOST" == "$EXPECTED_HOST" ]] || {
   echo "Refusing: WordPress database host must match the explicitly approved loopback host."
-  exit 2
-}
-
-ADMIN_HOST=""
-for (( i = 0; i < ${#MYSQL_ADMIN_FLAGS[@]}; i++ )); do
-  arg="${MYSQL_ADMIN_FLAGS[$i]}"
-  case "$arg" in
-    -h)
-      i=$((i + 1))
-      ADMIN_HOST="${MYSQL_ADMIN_FLAGS[$i]:-}"
-      ;;
-    -h*)
-      ADMIN_HOST="${arg#-h}"
-      ;;
-    --host=*)
-      ADMIN_HOST="${arg#--host=}"
-      ;;
-  esac
-done
-[[ "$ADMIN_HOST" == "127.0.0.1" ]] || {
-  echo "Refusing: MySQL administrative connection must use 127.0.0.1."
   exit 2
 }
 
