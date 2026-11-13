@@ -1248,12 +1248,48 @@ class Stockland_REST_Import_V16 {
 			throw new Exception( 'Product Master purchase cost changed after preview for ' . esc_html( (string) $row['sku'] ) . '. Re-preview the file.' );
 		}
 
-		$calc = Stockland_Sale_Math::calculate( $q, $price, $mode, $current_rate );
+		$payload = json_decode( (string) ( $row['payload'] ?? '' ), true );
+		if ( 'THIRD_PARTY_POS_SUMMARY' === (string) ( $job['source_system'] ?? '' ) ) {
+			if ( ! is_array( $payload ) || 'SUMMARIZED_BY_ARTICLE' !== ( $payload['__stockland_source_format'] ?? '' ) || ! hash_equals( (string) $job['source_sha256'], (string) ( $payload['__stockland_source_sha256'] ?? '' ) ) ) {
+				throw new Exception( 'The staged article-summary evidence is incomplete or does not match the source file hash.' );
+			}
+			if ( 'WITHOUT_VAT' !== $mode ) {
+				throw new Exception( 'Article-summary rows must use the source report net-of-VAT basis.' );
+			}
+			$raw_mills = (int) ( $payload['__stockland_raw_total_mills'] ?? 0 );
+			$net_cents = (int) ( $payload['__stockland_net_cents'] ?? -1 );
+			$vat_cents = (int) ( $payload['__stockland_vat_cents'] ?? -1 );
+			$payload_rate = (float) ( $payload['__stockland_vat_rate'] ?? -1 );
+			if ( $raw_mills <= 0 || $net_cents <= 0 || $vat_cents < 0 || abs( $payload_rate - $current_rate ) > 0.000001 ) {
+				throw new Exception( 'The staged article-summary amounts or VAT rate are invalid. Re-preview the source report.' );
+			}
+			$expected_mills = (int) round( Stockland_Money::minor( $price ) * $q * 10, 0, PHP_ROUND_HALF_UP );
+			if ( abs( $expected_mills - $raw_mills ) > max( 5, (int) ceil( $q * 5 ) ) ) {
+				throw new Exception( 'The article-summary average price no longer reconciles to its source total.' );
+			}
+			$rate_units = (int) round( $current_rate * 1000000, 0, PHP_ROUND_HALF_UP );
+			$verified_vat_cents = (int) round( ( $raw_mills * $rate_units ) / 10000000, 0, PHP_ROUND_HALF_UP );
+			if ( $verified_vat_cents !== $vat_cents ) {
+				throw new Exception( 'The staged article-summary VAT no longer matches the configured tax rate.' );
+			}
+			$net_amount = number_format( $net_cents / 100, 2, '.', '' );
+			$vat_amount = number_format( $vat_cents / 100, 2, '.', '' );
+			$calc = array(
+				'vat_mode'            => 'WITHOUT_VAT',
+				'unit_price'          => $price,
+				'line_price_excl_vat' => $net_amount,
+				'net_sales'           => $net_amount,
+				'vat_amount'          => $vat_amount,
+				'sales_total'         => Stockland_Money::add( $net_amount, $vat_amount ),
+			);
+		} else {
+			$calc = Stockland_Sale_Math::calculate( $q, $price, $mode, $current_rate );
+		}
 		if ( ! Stockland_Sale_Math::same_money( $calc['sales_total'], $row['sales_total'] ) ) {
-			throw new Exception( 'Imported sales total does not match quantity × selling price × VAT rules on row #' . (int) $row['row_number'] . '. Re-preview the file.' );
+			throw new Exception( 'Imported sales total does not match its staged source/ERP amount on row #' . (int) $row['row_number'] . '. Re-preview the file.' );
 		}
 		if ( ! Stockland_Sale_Math::same_money( $calc['vat_amount'], $row['vat_amount'] ) ) {
-			throw new Exception( 'Imported VAT amount does not match the central VAT rule on row #' . (int) $row['row_number'] . '. Re-preview the file.' );
+			throw new Exception( 'Imported VAT amount does not match its staged source/ERP amount on row #' . (int) $row['row_number'] . '. Re-preview the file.' );
 		}
 
 		return array(
