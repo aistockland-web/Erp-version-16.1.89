@@ -80,7 +80,7 @@ $created = call(
 list( $create_status, $create_data ) = $created;
 $campaign = is_array( $create_data ) ? ( $create_data['campaign'] ?? array() ) : array();
 $campaign_code = (string) ( $campaign['campaign_code'] ?? '' );
-$check( 'real REST campaign POST succeeds for Management', 200 === $create_status && preg_match( '/^CMP-[A-F0-9]{12}$/', $campaign_code ) );
+$check( 'real REST campaign POST succeeds for Management', 200 === $create_status && preg_match( '/^CMP-[A-F0-9]{12}$/', $campaign_code ), 'HTTP ' . $create_status . ' :: ' . wp_json_encode( $create_data ) );
 $check(
 	'campaign is persisted as DRAFT planning-only data',
 	'DRAFT' === ( $campaign['status'] ?? '' )
@@ -149,7 +149,7 @@ if ( '' !== $campaign_code ) {
 	$snapshot_data = is_array( $snapshot[1] ) ? ( $snapshot[1]['snapshot'] ?? array() ) : array();
 	$snapshot_code = (string) ( $snapshot_data['snapshot_code'] ?? '' );
 }
-$check( 'real REST snapshot POST succeeds for Management', 200 === $snapshot_status && preg_match( '/^SOC-[A-F0-9]{24}$/', $snapshot_code ) );
+$check( 'real REST snapshot POST succeeds for Management', 200 === $snapshot_status && preg_match( '/^SOC-[A-F0-9]{24}$/', $snapshot_code ), 'HTTP ' . $snapshot_status . ' :: ' . wp_json_encode( $snapshot_data ) );
 $check(
 	'manual snapshot stores timestamp and typed metrics',
 	'2026-11-13 15:00:00' === ( $snapshot_data['report_as_of'] ?? '' )
