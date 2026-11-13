@@ -66,7 +66,7 @@ def compare(before, after):
                 allowed = (
                     (table, column) in APPROVED_HR_RATE_DEFAULTS
                     and current.get("is_nullable") == "YES"
-                    and current.get("column_default") is None
+                    and current.get("column_default") in (None, "NULL")
                 )
                 if allowed:
                     notices.append(f"approved HR neutral-default normalization: {table}.{column}")
