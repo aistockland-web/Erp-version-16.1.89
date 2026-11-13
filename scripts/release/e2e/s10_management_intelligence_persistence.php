@@ -73,7 +73,10 @@ $created = call(
 		'account_label'   => 'Stockland QA account',
 		'start_date'      => '2026-11-01',
 		'end_date'        => '2026-11-30',
-		'budget'          => '1250.00',
+		'budget'                => '1250.00',
+		'account_owner_user_id' => $management_id,
+		'operator_user_id'      => (int) ( $users['se'] ?? 0 ),
+		'influencer_label'      => 'Synthetic CI creator',
 	),
 	$management_id
 );
@@ -87,6 +90,151 @@ $check(
 		&& 'PLANNING_ESTIMATE_NOT_APPROVED_EXPENSE' === ( $campaign['budget_class'] ?? '' )
 		&& '1250.00' === (string) ( $campaign['budget'] ?? '' )
 );
+$operator_id = (int) ( $users['se'] ?? 0 );
+$check(
+	'campaign captures verified account owner, operator and optional influencer assignment',
+	$operator_id > 0
+		&& is_array( $campaign_row = json_decode( (string) Stockland_DB::get_setting( 'mi_social_campaign_' . $campaign_code ), true ) )
+		&& (int) ( $campaign_row['account_owner_user_id'] ?? 0 ) === $management_id
+		&& (int) ( $campaign_row['operator_user_id'] ?? 0 ) === $operator_id
+		&& 'Synthetic CI creator' === ( $campaign_row['influencer_label'] ?? '' )
+);
+$planned_campaign = call(
+	'POST',
+	'/management/social/campaigns/' . rawurlencode( $campaign_code ),
+	array( 'status' => 'PLANNED' ),
+	$management_id
+);
+$check( 'DRAFT campaign advances to PLANNED only with active owner/operator and valid dates', 200 === $planned_campaign[0] && 'PLANNED' === ( $planned_campaign[1]['campaign']['status'] ?? '' ), wp_json_encode( $planned_campaign[1] ) );
+
+$content_create = call(
+	'POST',
+	'/management/social/campaigns/' . rawurlencode( $campaign_code ) . '/content',
+	array(
+		'title' => 'Synthetic content calendar item',
+		'content_type' => 'REEL',
+		'planned_at' => '2026-11-15 13:30',
+		'operator_user_id' => $operator_id,
+		'influencer_label' => 'Synthetic CI creator',
+		'brief' => 'Synthetic content planning only; do not publish from CI.',
+	),
+	$management_id
+);
+$content_item = is_array( $content_create[1] ) ? ( $content_create[1]['content_item'] ?? array() ) : array();
+$content_code = (string) ( $content_item['content_code'] ?? '' );
+$check( 'PLANNED campaign accepts a content-calendar item', 200 === $content_create[0] && preg_match( '/^CNT-[A-F0-9]{24}$/', $content_code ) && 'PLANNED' === ( $content_item['status'] ?? '' ), wp_json_encode( $content_create[1] ) );
+$content_json = '' !== $content_code ? Stockland_DB::get_setting( 'mi_social_content_' . $content_code ) : null;
+$content_row = is_string( $content_json ) ? json_decode( $content_json, true ) : null;
+$check( 'content calendar persists in the existing Core settings store', is_array( $content_row ) && $content_code === ( $content_row['content_code'] ?? '' ) && (int) ( $content_row['operator_user_id'] ?? 0 ) === $operator_id );
+
+$bad_publish = call(
+	'POST',
+	'/management/social/content/' . rawurlencode( $content_code ),
+	array( 'status' => 'PUBLISHED', 'post_url' => 'http://example.invalid/post', 'published_at' => '2026-11-15 14:00' ),
+	$management_id
+);
+$check( 'content publication refuses a non-HTTPS URL', 400 === $bad_publish[0] );
+$publish_content = call(
+	'POST',
+	'/management/social/content/' . rawurlencode( $content_code ),
+	array( 'status' => 'PUBLISHED', 'post_url' => 'https://example.invalid/stockland-ci-post', 'published_at' => '2026-11-15 14:00' ),
+	$management_id
+);
+$check( 'PLANNED content can be marked PUBLISHED with HTTPS URL and timestamp', 200 === $publish_content[0] && 'PUBLISHED' === ( $publish_content[1]['content_item']['status'] ?? '' ) && 'https://example.invalid/stockland-ci-post' === ( $publish_content[1]['content_item']['post_url'] ?? '' ) );
+
+$content_cancel_create = call(
+	'POST',
+	'/management/social/campaigns/' . rawurlencode( $campaign_code ) . '/content',
+	array(
+		'title' => 'Synthetic cancelled calendar item',
+		'content_type' => 'STORY',
+		'planned_at' => '2026-11-16 10:00',
+		'operator_user_id' => $operator_id,
+	),
+	$management_id
+);
+$cancel_code = (string) ( $content_cancel_create[1]['content_item']['content_code'] ?? '' );
+$cancel_content = call(
+	'POST',
+	'/management/social/content/' . rawurlencode( $cancel_code ),
+	array( 'status' => 'CANCELLED', 'cancellation_reason' => 'Synthetic CI cancellation test.' ),
+	$management_id
+);
+$check( 'PLANNED content can be cancelled with a recorded reason', 200 === $cancel_content[0] && 'CANCELLED' === ( $cancel_content[1]['content_item']['status'] ?? '' ) );
+
+$publish_campaign = call(
+	'POST',
+	'/management/social/campaigns/' . rawurlencode( $campaign_code ),
+	array( 'status' => 'PUBLISHED', 'post_url' => 'https://example.invalid/stockland-ci-campaign', 'published_at' => '2026-11-15 14:10' ),
+	$management_id
+);
+$check( 'PLANNED campaign can be marked PUBLISHED with HTTPS URL and timestamp', 200 === $publish_campaign[0] && 'PUBLISHED' === ( $publish_campaign[1]['campaign']['status'] ?? '' ) );
+$terminal_campaign = call( 'POST', '/management/social/campaigns/' . rawurlencode( $campaign_code ), array( 'status' => 'CANCELLED', 'cancellation_reason' => 'Must not change a published campaign.' ), $management_id );
+$check( 'published campaign is terminal and cannot be silently cancelled', 409 === $terminal_campaign[0] );
+
+$cancel_campaign_create = call(
+	'POST',
+	'/management/social',
+	array(
+		'title' => 'Synthetic cancellation path',
+		'platform' => 'FACEBOOK',
+		'account_label' => 'Stockland test account',
+		'start_date' => '2026-11-20',
+		'end_date' => '2026-11-25',
+		'account_owner_user_id' => $management_id,
+		'operator_user_id' => $operator_id,
+	),
+	$management_id
+);
+$cancel_campaign_code = (string) ( $cancel_campaign_create[1]['campaign']['campaign_code'] ?? '' );
+$cancel_campaign = call(
+	'POST',
+	'/management/social/campaigns/' . rawurlencode( $cancel_campaign_code ),
+	array( 'status' => 'CANCELLED', 'cancellation_reason' => 'Synthetic CI cancellation test.' ),
+	$management_id
+);
+$check( 'DRAFT campaign can be cancelled with a required reason', 200 === $cancel_campaign[0] && 'CANCELLED' === ( $cancel_campaign[1]['campaign']['status'] ?? '' ) );
+
+$listed_lifecycle = call( 'GET', '/management/social', array(), $management_id );
+$list_content = is_array( $listed_lifecycle[1] ) ? ( $listed_lifecycle[1]['content_items'] ?? array() ) : array();
+$check(
+	'Management GET includes content calendar items and lifecycle states',
+	200 === $listed_lifecycle[0]
+		&& (bool) array_filter( $list_content, static function ( $row ) use ( $content_code ) {
+			return ( $row['content_code'] ?? '' ) === $content_code && 'PUBLISHED' === ( $row['status'] ?? '' );
+		} )
+);
+
+$campaign_update_audits = (int) Stockland_DB::read_var( $wpdb->prepare(
+	'SELECT COUNT(*) FROM %i WHERE reference=%s AND action=%s',
+	$audit_table,
+	$campaign_code,
+	'MI_SOCIAL_CAMPAIGN_PLANNED'
+) );
+$content_create_audits = (int) Stockland_DB::read_var( $wpdb->prepare(
+	'SELECT COUNT(*) FROM %i WHERE reference=%s AND action=%s',
+	$audit_table,
+	$content_code,
+	'MI_SOCIAL_CONTENT_CREATE'
+) );
+$content_publish_audits = (int) Stockland_DB::read_var( $wpdb->prepare(
+	'SELECT COUNT(*) FROM %i WHERE reference=%s AND action=%s',
+	$audit_table,
+	$content_code,
+	'MI_SOCIAL_CONTENT_PUBLISHED'
+) );
+$updated_campaign_json = Stockland_DB::get_setting( 'mi_social_campaign_' . $campaign_code );
+$campaign_update_audit = Stockland_DB::read_row( $wpdb->prepare(
+	'SELECT new_value FROM %i WHERE reference=%s AND action=%s ORDER BY id DESC LIMIT 1',
+	$audit_table,
+	$campaign_code,
+	'MI_SOCIAL_CAMPAIGN_PUBLISHED'
+), ARRAY_A );
+$expected_update_pointer = 'CORE_SETTINGS:mi_social_campaign_' . $campaign_code . ':sha256:' . hash( 'sha256', (string) $updated_campaign_json );
+$check( 'campaign lifecycle updates append immutable audit events', $campaign_update_audits >= 1 );
+$check( 'content creation and publication each append their own audit events', 1 === $content_create_audits && 1 === $content_publish_audits );
+$check( 'updated campaign audit pointer verifies the full Core record hash', is_array( $campaign_update_audit ) && hash_equals( $expected_update_pointer, (string) ( $campaign_update_audit['new_value'] ?? '' ) ) && strlen( $expected_update_pointer ) <= 255 );
+
 $campaign_json = '' !== $campaign_code ? Stockland_DB::get_setting( 'mi_social_campaign_' . $campaign_code ) : null;
 $campaign_row = is_string( $campaign_json ) ? json_decode( $campaign_json, true ) : null;
 $check( 'campaign can be read back from the real Core settings row', is_array( $campaign_row ) && $campaign_code === ( $campaign_row['campaign_code'] ?? '' ) );
