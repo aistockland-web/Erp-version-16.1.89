@@ -478,6 +478,7 @@ class Stockland_REST_Setup {
 			// as soon as the separately approved Core/Finance 49-key operational baseline is ready.
 			'ready'              => $ready,
 			'operational_ready'  => $operational_ready,
+			'hr_pending'          => $hr_pending,
 			'hr_pending_approval' => $hr_pending && ! Stockland_HR::schema_migration_approved(),
 			'operational_state'  => $ready ? 'LIVE' : ( $operational_ready ? 'CORE_FINANCE_READY_HR_PENDING' : $state ),
 			'state'              => $state,
