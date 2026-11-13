@@ -147,6 +147,14 @@ jobs:
             http://127.0.0.1:8080 admin "$QA_PASSWORD" /tmp/stockland-ui-smoke | tee /tmp/ui-smoke.log
           unset QA_PASSWORD
 
+      - name: Upgrade-path acceptance (16.2.13 baseline, wizard batches, in-place upgrade, gated HR migration, snapshot comparison, resilience drills)
+        env:
+          STOCKLAND_DISPOSABLE_SITE: "yes"
+        run: |
+          set -o pipefail
+          bash scripts/release/upgrade_e2e.sh /tmp/wp "$PWD/STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER (1).zip" "$PWD/STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTALLER.zip" /tmp/upgrade-e2e | tee /tmp/upgrade-e2e.log
+          grep -q "UPGRADE E2E RESULT: PASS" /tmp/upgrade-e2e.log
+
       - name: Upload evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -154,6 +162,9 @@ jobs:
           name: master-installer-${{ matrix.db }}
           path: |
             /tmp/e2e.log
+            /tmp/upgrade-e2e.log
+            /tmp/upgrade-e2e/before.json
+            /tmp/upgrade-e2e/after.json
             /tmp/ui-smoke.log
             /tmp/stockland-ui-smoke/*.png
             /tmp/stockland-php-server.log
