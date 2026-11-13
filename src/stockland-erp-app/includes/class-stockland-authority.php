@@ -466,6 +466,34 @@ class Stockland_Authority {
 		return self::is_owner( $user_id ) || self::is_management( $user_id );
 	}
 
+	/**
+	 * Checks independent Owner/Management access to Management Intelligence.
+	 *
+	 * This permission deliberately does not depend on HR lifecycle readiness or
+	 * HR-specific capabilities. The reporting workspace reads existing ERP
+	 * records and owns only its own planning/export-snapshot records.
+	 *
+	 * @param int|string|null $user_id WordPress user ID; defaults to the current user.
+	 * @return bool Whether the user has an active Owner/Management profile.
+	 */
+	public static function can_view_management_intelligence( $user_id = null ) {
+		$uid = $user_id ? $user_id : get_current_user_id();
+		return (bool) self::profile( $uid ) && self::is_management( $uid ) && user_can( $uid, 'stockland_view_cost_and_profit' );
+	}
+
+	/**
+	 * Checks permission to create campaign plans and append export snapshots.
+	 *
+	 * This is a management-workspace permission, not an HR or finance posting
+	 * permission. It cannot create sales, expenses, stock movements or journals.
+	 *
+	 * @param int|string|null $user_id WordPress user ID; defaults to the current user.
+	 * @return bool Whether the user may manage Management Intelligence planning.
+	 */
+	public static function can_manage_management_intelligence( $user_id = null ) {
+		return self::can_view_management_intelligence( $user_id );
+	}
+
 	/** HR review and compensation classification is available to Owner and Management.
 	 * Employee master entry itself is Management-only via can_prepare_hr().
 	 *

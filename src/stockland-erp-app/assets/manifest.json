@@ -10,7 +10,7 @@
     "standalone"
   ],
   "background_color": "#101e37",
-  "theme_color": "#285bd6",
+  "theme_color": "#295ff3",
   "description": "Stockland Ethiopia live ERP for Product Master, daily POS import, inventory, warehouse, procurement, finance, HR, payroll and reporting.",
   "lang": "en",
   "categories": [
