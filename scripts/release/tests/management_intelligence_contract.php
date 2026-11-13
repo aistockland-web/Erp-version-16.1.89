@@ -236,7 +236,7 @@ $snapshot_payload = array(
 	'click_count' => '',
 	'lead_count' => '',
 	'follower_delta' => '',
-	'watch_time_minutes' => '',
+	'watch_time_minutes' => '12.5',
 	'spend_amount' => '',
 	'attributed_sales' => '',
 );
@@ -246,6 +246,7 @@ $snapshot = $controller->create_snapshot(
 check_result( 'manual export snapshot accepts empty optional metrics', is_array( $snapshot ) && isset( $snapshot['snapshot'] ) );
 $snapshot_record = $snapshot['snapshot'];
 check_result( 'snapshot stores normalized explicit report timestamp', '2026-11-14 18:30:00' === $snapshot_record['report_as_of'] );
+check_result( 'watch time is stored as decimal minutes, not ETB money', '12.5' === $snapshot_record['watch_time_minutes'] );
 check_result( 'empty optional metrics stay NULL and numeric metrics remain whole numbers', null === $snapshot_record['reach_count'] && 42 === $snapshot_record['engagement_count'] && null === $snapshot_record['follower_delta'] );
 check_result( 'snapshot is manual-export evidence with source hash', 'MANUAL_EXPORT' === $snapshot_record['source_kind'] && str_repeat( 'a', 64 ) === $snapshot_record['source_sha256'] );
 check_result( 'snapshot append is audited and does not touch ledger', 2 === count( Stockland_Audit::$events ) && 'MI_SOCIAL_SNAPSHOT_APPEND' === Stockland_Audit::$events[1][2] && 0 === Stockland_DB::$ledger_calls );
@@ -254,6 +255,13 @@ $duplicate = $controller->create_snapshot(
 	new WP_REST_Request( $snapshot_payload, array( 'campaign_code' => $campaign_record['campaign_code'] ) )
 );
 check_result( 'retry of identical export is rejected without duplicate append', is_wp_error( $duplicate ) && 409 === $duplicate->get_error_data()['status'] && 2 === count( Stockland_Audit::$events ) );
+
+$invalid_watch_payload = $snapshot_payload;
+$invalid_watch_payload['watch_time_minutes'] = '-1';
+$invalid_watch = $controller->create_snapshot(
+	new WP_REST_Request( $invalid_watch_payload, array( 'campaign_code' => $campaign_record['campaign_code'] ) )
+);
+check_result( 'negative watch time is rejected as a duration, not interpreted as money', is_wp_error( $invalid_watch ) && 'management_social_watch_time_invalid' === $invalid_watch->get_error_code() );
 
 $invalid_hash_payload = $snapshot_payload;
 $invalid_hash_payload['source_sha256'] = 'not-a-hash';
