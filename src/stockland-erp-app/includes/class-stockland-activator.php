@@ -1691,12 +1691,61 @@ class Stockland_Activator {
 					throw new RuntimeException( 'Could not add updated_at to stock_balances.' );
 				}
 			}
-			$unresolved = (int) Stockland_DB::read_var( $wpdb->prepare( 'SELECT COUNT(*) FROM %i b LEFT JOIN %i p ON p.sku=b.sku WHERE b.variant_id IS NULL AND p.variant_id IS NULL', $bal, $p . 'stock_products' ) );
-			if ( $unresolved > 0 ) {
-				throw new RuntimeException( 'Cannot migrate stock_balances: ' . esc_html( (string) $unresolved ) . ' derived balance row(s) have no matching Product Master variant.' );
+			// Immutable variant identity always takes precedence over mutable SKU.
+			// SKU is only a fallback for genuinely legacy rows that have no variant_id.
+			// In particular, never remap a non-NULL variant_id by a recycled SKU.
+			$products = $p . 'stock_products';
+			$wpdb->last_error = '';
+			$unresolved = (int) Stockland_DB::read_var(
+				$wpdb->prepare(
+					'SELECT COUNT(*) FROM %i b
+					 LEFT JOIN %i by_variant ON b.variant_id IS NOT NULL AND by_variant.variant_id=b.variant_id
+					 LEFT JOIN %i by_sku ON b.variant_id IS NULL AND by_sku.sku=b.sku
+					 WHERE (b.variant_id IS NOT NULL AND by_variant.variant_id IS NULL)
+					    OR (b.variant_id IS NULL AND by_sku.variant_id IS NULL)',
+					$bal,
+					$products,
+					$products
+				)
+			);
+			if ( '' !== (string) $wpdb->last_error ) {
+				throw new RuntimeException( 'Could not validate stock balance variant identities: ' . $wpdb->last_error );
 			}
-			Stockland_DB::execute_query( $wpdb->prepare( 'UPDATE %i b INNER JOIN %i p ON p.sku=b.sku SET b.variant_id=p.variant_id WHERE b.variant_id IS NULL', $bal, $p . 'stock_products' ) );
-			$pk_cols        = Stockland_DB::read_results( $wpdb->prepare( "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA=%s AND TABLE_NAME=%s AND INDEX_NAME='PRIMARY' ORDER BY SEQ_IN_INDEX", DB_NAME, $bal ), ARRAY_A );
+			if ( $unresolved > 0 ) {
+				throw new RuntimeException( 'Cannot migrate stock_balances: ' . esc_html( (string) $unresolved ) . ' row(s) have an unresolved or orphan immutable Product Master variant identity.' );
+			}
+
+			// Normally Product Master enforces unique SKU. Explicitly reject an
+			// ambiguous SKU fallback as well, rather than allowing a join to fan out.
+			$wpdb->last_error = '';
+			$ambiguous = (int) Stockland_DB::read_var(
+				$wpdb->prepare(
+					'SELECT COUNT(*) FROM (
+						SELECT b.location_id,b.sku
+						FROM %i b
+						INNER JOIN %i by_sku ON b.variant_id IS NULL AND by_sku.sku=b.sku
+						GROUP BY b.location_id,b.sku
+						HAVING COUNT(DISTINCT by_sku.variant_id)>1
+					) ambiguous_skus',
+					$bal,
+					$products
+				)
+			);
+			if ( '' !== (string) $wpdb->last_error ) {
+				throw new RuntimeException( 'Could not validate legacy SKU-to-variant uniqueness: ' . $wpdb->last_error );
+			}
+			if ( $ambiguous > 0 ) {
+				throw new RuntimeException( 'Cannot migrate stock_balances: ' . esc_html( (string) $ambiguous ) . ' SKU-only row group(s) resolve to multiple Product Master variants.' );
+			}
+
+			$pk_cols = Stockland_DB::read_results(
+				$wpdb->prepare(
+					"SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA=%s AND TABLE_NAME=%s AND INDEX_NAME='PRIMARY' ORDER BY SEQ_IN_INDEX",
+					DB_NAME,
+					$bal
+				),
+				ARRAY_A
+			);
 			$has_variant_pk = ( is_array( $pk_cols ) && count( $pk_cols ) === 2 && ( ( $pk_cols[0]['COLUMN_NAME'] ?? '' ) === 'location_id' ) && ( ( $pk_cols[1]['COLUMN_NAME'] ?? '' ) === 'variant_id' ) );
 			if ( ! $has_variant_pk ) {
 				$suffix = gmdate( 'YmdHis' );
@@ -1723,29 +1772,173 @@ class Stockland_Activator {
 					$stage
 				);
 				$stage_ddl .= ' ' . $wpdb->get_charset_collate();
-				// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- DDL structure is a fixed schema template, the table identifier is bound, and the only appended value is WordPress's trusted charset/collation clause.
+				// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- DDL structure is fixed, the table identifier is bound, and the charset/collation clause is supplied by WordPress.
 				Stockland_DB::execute_query( $stage_ddl );
 				if ( $wpdb->last_error ) {
-					throw new RuntimeException( 'Could not create staged balance read model.' );
+					throw new RuntimeException( 'Could not create staged balance read model: ' . $wpdb->last_error );
 				}
+
+				// Resolve each legacy row exactly once. Existing variant IDs join only
+				// by immutable ID; SKU lookup is restricted to rows with NULL variant_id.
+				$wpdb->last_error = '';
 				Stockland_DB::execute_query(
-					$wpdb->prepare( 'INSERT INTO %i(location_id,sku,variant_id,physical_qty,updated_at) SELECT b.location_id,MAX(p.sku),p.variant_id,SUM(b.physical_qty),MAX(b.updated_at) FROM %i b JOIN %i p ON p.variant_id=b.variant_id OR p.sku=b.sku GROUP BY b.location_id,p.variant_id', $stage, $bal, $p . 'stock_products' )
+					$wpdb->prepare(
+						'INSERT INTO %i(location_id,sku,variant_id,physical_qty,updated_at)
+						 SELECT b.location_id,
+						        COALESCE(MAX(by_variant.sku),MAX(by_sku.sku)),
+						        COALESCE(by_variant.variant_id,by_sku.variant_id),
+						        SUM(COALESCE(b.physical_qty,0)),
+						        COALESCE(MAX(b.updated_at),CURRENT_TIMESTAMP)
+						 FROM %i b
+						 LEFT JOIN %i by_variant ON b.variant_id IS NOT NULL AND by_variant.variant_id=b.variant_id
+						 LEFT JOIN %i by_sku ON b.variant_id IS NULL AND by_sku.sku=b.sku
+						 GROUP BY b.location_id,COALESCE(by_variant.variant_id,by_sku.variant_id)',
+						$stage,
+					$bal,
+					$products,
+					$products
+					)
 				);
 				if ( $wpdb->last_error ) {
-					throw new RuntimeException( 'Could not populate staged balance read model.' );
+					throw new RuntimeException( 'Could not populate staged balance read model: ' . $wpdb->last_error );
+				}
+
+				// Verify the expected distinct location/variant set, global quantity,
+				// and every location's quantity before the atomic metadata cutover.
+				$wpdb->last_error = '';
+				$expected_groups = (int) Stockland_DB::read_var(
+					$wpdb->prepare(
+						'SELECT COUNT(*) FROM (
+							SELECT b.location_id,COALESCE(by_variant.variant_id,by_sku.variant_id) AS resolved_variant_id
+							FROM %i b
+							LEFT JOIN %i by_variant ON b.variant_id IS NOT NULL AND by_variant.variant_id=b.variant_id
+							LEFT JOIN %i by_sku ON b.variant_id IS NULL AND by_sku.sku=b.sku
+							GROUP BY b.location_id,COALESCE(by_variant.variant_id,by_sku.variant_id)
+						) expected_balances',
+						$bal,
+						$products,
+						$products
+					)
+				);
+				$stage_rows = (int) Stockland_DB::read_var( $wpdb->prepare( 'SELECT COUNT(*) FROM %i', $stage ) );
+				if ( '' !== (string) $wpdb->last_error ) {
+					throw new RuntimeException( 'Could not count staged balance rows: ' . $wpdb->last_error );
 				}
 				$source_total = (float) Stockland_DB::read_var( $wpdb->prepare( 'SELECT COALESCE(SUM(physical_qty),0) FROM %i', $bal ) );
-				$stage_total  = (float) Stockland_DB::read_var( $wpdb->prepare( 'SELECT COALESCE(SUM(physical_qty),0) FROM %i', $stage ) );
-				if ( abs( $source_total - $stage_total ) > 0.00001 ) {
-					throw new RuntimeException( 'Derived balance reconciliation failed before cutover. Live read model was preserved.' );
+				if ( '' !== (string) $wpdb->last_error ) {
+					throw new RuntimeException( 'Could not total source stock balances: ' . $wpdb->last_error );
 				}
-				// Atomic metadata cutover; the old read model remains as a rollback snapshot.
-				Stockland_DB::execute_query( $wpdb->prepare( 'RENAME TABLE %i TO %i, %i TO %i', $bal, $backup, $stage, $bal ) );
-				if ( $wpdb->last_error ) {
-					throw new RuntimeException( 'Could not cut over staged balance read model.' );
+				$stage_total = (float) Stockland_DB::read_var( $wpdb->prepare( 'SELECT COALESCE(SUM(physical_qty),0) FROM %i', $stage ) );
+				if ( '' !== (string) $wpdb->last_error ) {
+					throw new RuntimeException( 'Could not total staged stock balances: ' . $wpdb->last_error );
+				}
+
+				// Compare every resolved location/variant quantity, not just a global
+				// grand total. This detects quantity shifted between variants even when
+				// the overall sum happens to remain unchanged.
+				$wpdb->last_error = '';
+				$source_variant_totals = Stockland_DB::read_results(
+					$wpdb->prepare(
+						'SELECT b.location_id,COALESCE(by_variant.variant_id,by_sku.variant_id) AS variant_id,
+						        SUM(COALESCE(b.physical_qty,0)) AS total_qty
+						 FROM %i b
+						 LEFT JOIN %i by_variant ON b.variant_id IS NOT NULL AND by_variant.variant_id=b.variant_id
+						 LEFT JOIN %i by_sku ON b.variant_id IS NULL AND by_sku.sku=b.sku
+						 GROUP BY b.location_id,COALESCE(by_variant.variant_id,by_sku.variant_id)
+						 ORDER BY b.location_id,COALESCE(by_variant.variant_id,by_sku.variant_id)',
+						$bal,
+						$products,
+						$products
+					),
+					ARRAY_A
+				);
+				if ( '' !== (string) $wpdb->last_error || ! is_array( $source_variant_totals ) ) {
+					throw new RuntimeException( 'Could not read source location/variant quantity totals: ' . $wpdb->last_error );
+				}
+				$stage_variant_totals = Stockland_DB::read_results(
+					$wpdb->prepare(
+						'SELECT location_id,variant_id,SUM(physical_qty) AS total_qty
+						 FROM %i GROUP BY location_id,variant_id ORDER BY location_id,variant_id',
+						$stage
+					),
+					ARRAY_A
+				);
+				if ( '' !== (string) $wpdb->last_error || ! is_array( $stage_variant_totals ) ) {
+					throw new RuntimeException( 'Could not read staged location/variant quantity totals: ' . $wpdb->last_error );
+				}
+				$source_variant_map = array();
+				foreach ( $source_variant_totals as $row ) {
+					$key = (int) $row['location_id'] . ':' . (int) $row['variant_id'];
+					$source_variant_map[ $key ] = (float) $row['total_qty'];
+				}
+				$stage_variant_map = array();
+				foreach ( $stage_variant_totals as $row ) {
+					$key = (int) $row['location_id'] . ':' . (int) $row['variant_id'];
+					$stage_variant_map[ $key ] = (float) $row['total_qty'];
+				}
+				ksort( $source_variant_map );
+				ksort( $stage_variant_map );
+				if ( array_keys( $source_variant_map ) !== array_keys( $stage_variant_map ) ) {
+					throw new RuntimeException( 'Derived balance location/variant identity set changed before cutover. Live read model was preserved.' );
+				}
+				foreach ( $source_variant_map as $key => $source_variant_total ) {
+					if ( abs( $source_variant_total - $stage_variant_map[ $key ] ) > 0.00001 ) {
+						throw new RuntimeException( 'Derived balance quantity changed for location/variant ' . $key . ' before cutover. Live read model was preserved.' );
+					}
+				}
+				if ( $expected_groups !== $stage_rows ) {
+					throw new RuntimeException( 'Derived balance identity reconciliation failed before cutover: expected location/variant groups do not match staged rows. Live read model was preserved.' );
+				}
+				if ( abs( $source_total - $stage_total ) > 0.00001 ) {
+					throw new RuntimeException( 'Derived balance total reconciliation failed before cutover. Live read model was preserved.' );
+				}
+
+				$wpdb->last_error = '';
+				$source_by_location = Stockland_DB::read_results(
+					$wpdb->prepare(
+						'SELECT location_id,COALESCE(SUM(physical_qty),0) AS total_qty FROM %i GROUP BY location_id',
+						$bal
+					),
+					ARRAY_A
+				);
+				$stage_by_location = Stockland_DB::read_results(
+					$wpdb->prepare(
+						'SELECT location_id,COALESCE(SUM(physical_qty),0) AS total_qty FROM %i GROUP BY location_id',
+						$stage
+					),
+					ARRAY_A
+				);
+				if ( '' !== (string) $wpdb->last_error || ! is_array( $source_by_location ) || ! is_array( $stage_by_location ) ) {
+					throw new RuntimeException( 'Could not verify per-location balance reconciliation: ' . $wpdb->last_error );
+				}
+				$source_location_totals = array();
+				foreach ( $source_by_location as $row ) {
+					$source_location_totals[ (int) $row['location_id'] ] = (float) $row['total_qty'];
+				}
+				$stage_location_totals = array();
+				foreach ( $stage_by_location as $row ) {
+					$stage_location_totals[ (int) $row['location_id'] ] = (float) $row['total_qty'];
+				}
+				ksort( $source_location_totals );
+				ksort( $stage_location_totals );
+				if ( array_keys( $source_location_totals ) !== array_keys( $stage_location_totals ) ) {
+					throw new RuntimeException( 'Derived balance per-location reconciliation failed before cutover. Live read model was preserved.' );
+				}
+				foreach ( $source_location_totals as $location_id => $source_location_total ) {
+					if ( abs( $source_location_total - $stage_location_totals[ $location_id ] ) > 0.00001 ) {
+						throw new RuntimeException( 'Derived balance per-location quantity reconciliation failed before cutover. Live read model was preserved.' );
+					}
+				}
+
+				// Atomic metadata cutover; the original balance table remains as a
+				// timestamped rollback snapshot containing its source row identities.
+				$cutover_result = Stockland_DB::execute_query( $wpdb->prepare( 'RENAME TABLE %i TO %i, %i TO %i', $bal, $backup, $stage, $bal ) );
+				if ( false === $cutover_result || $wpdb->last_error ) {
+					throw new RuntimeException( 'Could not cut over staged balance read model: ' . ( $wpdb->last_error ? $wpdb->last_error : 'DDL policy rejected the atomic rename.' ) );
 				}
 				update_option( 'stockland_balance_rollback_snapshot', $backup, false );
 			}
+
 			if ( ! $has_index( $bal, 'location_sku' ) ) {
 				Stockland_DB::execute_query( $wpdb->prepare( 'ALTER TABLE %i ADD KEY %i (%i,%i)', $bal, 'location_sku', 'location_id', 'sku' ) );
 			}
