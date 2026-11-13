@@ -24,7 +24,7 @@ fs.mkdirSync(screenshots, { recursive: true });
 const note = (message) => console.log('PASS ' + message);
 const fail = (message) => {
   issues.push(message);
-  console.error('FAIL ' + message);
+  console.log('FAIL ' + message);
 };
 const isLocal = (url) => {
   try { return new URL(url).origin === origin; } catch { return false; }
