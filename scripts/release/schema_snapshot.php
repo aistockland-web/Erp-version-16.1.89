@@ -12,6 +12,7 @@ $snap = array(
 	'tables'  => array(),
 );
 $fingerprint_limit = 5000;
+$identifier_quote = chr( 96 );
 foreach ( $tables as $table ) {
 	$columns = $wpdb->get_results(
 		$wpdb->prepare(
@@ -37,7 +38,8 @@ foreach ( $tables as $table ) {
 		),
 		ARRAY_A
 	);
-	$row_count = (int) $wpdb->get_var( 'SELECT COUNT(*) FROM \`' . esc_sql( $table ) . '\`' );
+	$table_identifier = $identifier_quote . str_replace( $identifier_quote, $identifier_quote . $identifier_quote, (string) $table ) . $identifier_quote;
+	$row_count = (int) $wpdb->get_var( 'SELECT COUNT(*) FROM ' . $table_identifier );
 	$pk_columns = $wpdb->get_col(
 		$wpdb->prepare(
 			'SELECT column_name FROM information_schema.statistics WHERE table_schema=%s AND table_name=%s AND index_name=%s ORDER BY seq_in_index',
@@ -49,10 +51,10 @@ foreach ( $tables as $table ) {
 	$row_fingerprints = array();
 	$fingerprints_complete = 0 === $row_count;
 	if ( $row_count > 0 && $row_count <= $fingerprint_limit && $pk_columns ) {
-		$order_by = implode( ', ', array_map( static function ( $column ) {
-			return '\`' . str_replace( '\`', '\`\`', (string) $column ) . '\`';
+		$order_by = implode( ', ', array_map( static function ( $column ) use ( $identifier_quote ) {
+			return $identifier_quote . str_replace( $identifier_quote, $identifier_quote . $identifier_quote, (string) $column ) . $identifier_quote;
 		}, $pk_columns ) );
-		$sample = $wpdb->get_results( 'SELECT * FROM \`' . esc_sql( $table ) . '\` ORDER BY ' . $order_by, ARRAY_A );
+		$sample = $wpdb->get_results( 'SELECT * FROM ' . $table_identifier . ' ORDER BY ' . $order_by, ARRAY_A );
 		if ( is_array( $sample ) && count( $sample ) === $row_count ) {
 			foreach ( $sample as $row ) {
 				$key_parts = array();
