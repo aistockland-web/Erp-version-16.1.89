@@ -25,6 +25,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 import ssl
+from urllib.parse import urlsplit
 
 
 ALLOWED_SUFFIXES = {".xlsx", ".csv"}
@@ -79,7 +80,27 @@ def is_stable_file(path: Path, stable_seconds: int, now: float | None = None) ->
 
 
 def load_config() -> dict[str, Any]:
-    base_url = required_env("STOCKLAND_ERP_URL").rstrip("/")
+    base_url_raw = required_env("STOCKLAND_ERP_URL")
+    try:
+        parsed_base_url = urlsplit(base_url_raw)
+        hostname = parsed_base_url.hostname
+        # Force port parsing too; urlsplit otherwise leaves malformed ports unchecked.
+        _port = parsed_base_url.port
+    except ValueError as exc:
+        raise AgentError("STOCKLAND_ERP_URL is not a valid HTTPS base URL.") from exc
+    if (
+        base_url_raw != base_url_raw.strip()
+        or parsed_base_url.scheme.lower() != "https"
+        or not hostname
+        or parsed_base_url.username is not None
+        or parsed_base_url.password is not None
+        or parsed_base_url.query
+        or parsed_base_url.fragment
+    ):
+        raise AgentError(
+            "STOCKLAND_ERP_URL must be an HTTPS base URL without embedded credentials, query or fragment."
+        )
+    base_url = base_url_raw.rstrip("/")
     username = required_env("STOCKLAND_ERP_USERNAME")
     password = required_env("STOCKLAND_ERP_APP_PASSWORD")
     branch_id = required_env("STOCKLAND_POS_BRANCH_ID")
