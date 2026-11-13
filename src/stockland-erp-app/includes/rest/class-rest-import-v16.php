@@ -391,7 +391,7 @@ class Stockland_REST_Import_V16 {
 						foreach ( $buffer as $prior ) {
 							if ( (int) $prior['row_number'] <= $header ) continue;
 							$prior_values = (array) $prior['values'];
-							if ( 'DAILY_SALES' === $type && 'CNET_SUMMARIZED_BY_ARTICLE' === $source_meta['format'] && isset( $headers[0], $headers[1] ) && 'article_code' === $this->norm( $headers[0] ) && '' === trim( (string) $headers[1] ) && empty( $prior_values[0] ) && ! empty( $prior_values[1] ) && ! empty( $prior_values[2] ) && isset( $prior_values[4] ) && is_numeric( $prior_values[4] ) ) $prior_values[0] = $prior_values[1];
+							$prior_values = $this->align_article_summary_values( $prior_values, $headers, $type, $source_meta['format'] );
 							$r = $this->stream_assoc_row( $prior_values, $headers );
 							if ( null !== $r ) { $r['__excel_row'] = (int) $prior['row_number']; $out[] = $r; ++$data_rows; }
 						}
@@ -401,7 +401,7 @@ class Stockland_REST_Import_V16 {
 				}
 				if ( null !== $header ) {
 					$source_values = $values;
-					if ( 'DAILY_SALES' === $type && 'CNET_SUMMARIZED_BY_ARTICLE' === $source_meta['format'] && isset( $headers[0], $headers[1] ) && 'article_code' === $this->norm( $headers[0] ) && '' === trim( (string) $headers[1] ) && empty( $source_values[0] ) && ! empty( $source_values[1] ) && ! empty( $source_values[2] ) && isset( $source_values[4] ) && is_numeric( $source_values[4] ) ) $source_values[0] = $source_values[1];
+					$source_values = $this->align_article_summary_values( $source_values, $headers, $type, $source_meta['format'] );
 					$r = $this->stream_assoc_row( $source_values, $headers );
 					if ( null !== $r ) {
 						$r['__excel_row'] = $row_number; $out[] = $r; ++$data_rows;
@@ -415,6 +415,98 @@ class Stockland_REST_Import_V16 {
 			}
 		}
 		throw new Exception( 'PRODUCT_MASTER' === $type ? 'No Product Master worksheet could be mapped automatically. Required columns include Code/SKU and Name/Product Name.' : 'No daily POS worksheet could be mapped automatically. Required columns include SKU/product code and selling price or line total.' );
+	}
+
+	/**
+	 * Aligns the actual Article Code value from column B beneath the merged A8:B8 label.
+	 *
+	 * This one helper is used for buffered and streaming rows so both parser paths
+	 * apply exactly the same source-layout rule.
+	 *
+	 * @param array  $values Original worksheet row values, zero-indexed by column.
+	 * @param array  $headers Detected source headers, zero-indexed by column.
+	 * @param string $type Import job type.
+	 * @param string $format Detected report format.
+	 * @return array Row values with the Article Code value aligned to its label.
+	 */
+	private function align_article_summary_values( $values, $headers, $type, $format ) {
+		$values = (array) $values;
+		if (
+			'DAILY_SALES' === $type
+			&& 'CNET_SUMMARIZED_BY_ARTICLE' === $format
+			&& isset( $headers[0], $headers[1] )
+			&& 'article_code' === $this->norm( $headers[0] )
+			&& '' === trim( (string) $headers[1] )
+			&& empty( $values[0] )
+			&& ! empty( $values[1] )
+			&& ! empty( $values[2] )
+			&& isset( $values[4] )
+			&& is_numeric( $values[4] )
+		) {
+			$values[0] = $values[1];
+		}
+		return $values;
+	}
+
+	/**
+	 * Runs a deterministic, side-effect-free check of the supported third-party article-summary layout.
+	 *
+	 * Deep System Health calls this check so route/table-only checks cannot pass
+	 * while the exact supplier column mapping has regressed.
+	 *
+	 * @return array<string,mixed> Layout contract result.
+	 */
+	public static function article_summary_layout_self_test() {
+		try {
+			$controller = ( new ReflectionClass( __CLASS__ ) )->newInstanceWithoutConstructor();
+			$headers    = array(
+				0  => 'Article Code',
+				1  => '',
+				2  => 'Article Name',
+				3  => '',
+				4  => 'Quantity',
+				5  => '',
+				6  => '',
+				7  => '',
+				8  => 'Avg. Amount',
+				9  => '',
+				10 => '',
+				11 => 'Total Amount',
+			);
+			$source_values = array(
+				1  => 'STK-TEST-001',
+				2  => 'TEST ITEM',
+				4  => '2',
+				8  => '12.50',
+				11 => '25.00',
+			);
+			$aligned = $controller->align_article_summary_values( $source_values, $headers, 'DAILY_SALES', 'CNET_SUMMARIZED_BY_ARTICLE' );
+			$row     = $controller->stream_assoc_row( $aligned, $headers );
+			$auto    = $controller->auto_map_headers( $headers, 'DAILY_SALES' );
+			$mapping = (array) ( $auto['mapping'] ?? array() );
+			$checks  = array(
+				'article_code_header_to_column_b' => ( $aligned[0] ?? null ) === 'STK-TEST-001' && ( $headers[0] ?? null ) === 'Article Code',
+				'article_name_remains_column_c'   => ( $row['Article Name'] ?? null ) === 'TEST ITEM',
+				'quantity_remains_column_e'       => ( $row['Quantity'] ?? null ) === '2',
+				'average_amount_remains_column_i' => ( $row['Avg. Amount'] ?? null ) === '12.50',
+				'total_amount_remains_column_l'   => ( $row['Total Amount'] ?? null ) === '25.00',
+				'sku_uses_article_code'            => ( $mapping['sku'] ?? null ) === 'Article Code' && ( $row['Article Code'] ?? null ) === 'STK-TEST-001',
+				'quantity_uses_column_e'           => ( $mapping['qty'] ?? null ) === 'Quantity',
+				'average_uses_column_i'             => ( $mapping['selling_price'] ?? null ) === 'Avg. Amount',
+				'total_uses_column_l'               => ( $mapping['line_total'] ?? null ) === 'Total Amount',
+			);
+			return array(
+				'ok'              => ! in_array( false, $checks, true ),
+				'format'          => 'CNET_SUMMARIZED_BY_ARTICLE',
+				'checks'          => $checks,
+				'checked_columns' => array( 'Article Code: A label to B value', 'Article Name: C', 'Quantity: E', 'Avg. Amount: I', 'Total Amount: L' ),
+			);
+		} catch ( Throwable $error ) {
+			return array(
+				'ok'    => false,
+				'error' => substr( str_replace( array( "\r", "\n" ), ' ', $error->getMessage() ), 0, 240 ),
+			);
+		}
 	}
 
 	/**
