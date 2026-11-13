@@ -8,6 +8,13 @@ on:
       - 'scripts/release/**'
       - 'STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTALLER.zip*'
       - '.github/workflows/master-installer-wordpress-verify.yml'
+  pull_request:
+    branches: ['delivery/stockland-full-erp-completion-2026-11-11']
+    paths:
+      - 'src/stockland-erp-app/**'
+      - 'scripts/release/**'
+      - 'STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTALLER.zip*'
+      - '.github/workflows/master-installer-wordpress-verify.yml'
   workflow_dispatch:
 
 permissions:
