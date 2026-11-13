@@ -31,6 +31,12 @@ function Get-StocklandHttpStatusCode {
     $exception = $ErrorRecord.Exception
     for ($depth = 0; $null -ne $exception -and $depth -lt 6; $depth++) {
         try {
+            if ($null -ne $exception.StatusCode) {
+                return [int]$exception.StatusCode
+            }
+        }
+        catch { }
+        try {
             if ($exception.Data -is [System.Collections.IDictionary] -and $exception.Data.Contains('HttpStatusCode')) {
                 return [int]$exception.Data['HttpStatusCode']
             }

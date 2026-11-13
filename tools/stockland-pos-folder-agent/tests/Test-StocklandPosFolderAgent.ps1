@@ -15,8 +15,7 @@ function Invoke-RestMethod {
     $script:LastForm = $Form
     $script:LastAuthorization = [string]$Headers.Authorization
     if ($script:MockHttpStatus -gt 0) {
-        $failure = [System.Exception]::new('Synthetic HTTP failure for test')
-        $failure.Data['HttpStatusCode'] = $script:MockHttpStatus
+        $failure = [System.Net.Http.HttpRequestException]::new('Synthetic HTTP failure for test', $null, [System.Net.HttpStatusCode]$script:MockHttpStatus)
         throw $failure
     }
     return $script:MockResult
