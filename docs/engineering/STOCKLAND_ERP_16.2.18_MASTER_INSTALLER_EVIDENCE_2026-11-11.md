@@ -1,75 +1,147 @@
-# Stockland ERP 16.2.18 master installer: evidence record (11 Nov 2026)
+# Stockland ERP 16.2.18 master installer — current exact-head evidence
 
-Artifact: `STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTALLER.zip`
-SHA-256: `be60d5645a3717494afeb198b65d89dfd33db192f5c0c0c36d10d04f1ede428a` (2,244,730 bytes, 123 files, single root `stockland-erp-app/`).
-Reproduce: `python3 scripts/release/build_master_installer.py` (deterministic; identical bytes on repeat builds).
-Source lineage: exact 16.2.13 intake commit (113/113 files vs intake manifest), then this change.
-Notion execution record: https://app.notion.com/p/4159f20c06128155865bc34a206cac3d
+**Evidence updated:** 13 November 2026  
+**Current source commit:** 0bb053f89dccb756068d0a763c3c6dad1692009c  
+**Canonical branch:** delivery/stockland-full-erp-completion-2026-11-11  
+**Status:** Exact post-merge GitHub Actions acceptance succeeded on MariaDB 10.11 and MySQL 8.0; one historical MySQL 8 upgrade sub-gate remains explicitly BLOCKED. This is not production deployment or a formal GitHub Release.
 
-## Environment (disposable, synthetic data only)
-WordPress 6.8, PHP 8.3, WP-CLI 2.11. Databases run separately: MariaDB 10.11.14 and MySQL 8.0.46 (strict mode). No production database or live site was accessed.
+## 1. Exact source and artifact identity
 
-## Defects fixed
-1. `includes/class-stockland-schema-contract.php` lacked `<?php` (present in 16.2.14, 16.2.15 recovery, 16.2.17): source printed as output, activation and REST JSON corrupted.
-2. `live_ready` was hard-coded false. Replaced by Owner go-live authorization bound to version + schema fingerprint, written to the audit chain.
-3. Health check required `XMLReader::fromStream` (PHP 8.4 only) although a fallback exists.
-4. MySQL 8: `SELECT @@session.in_transaction` is MariaDB-only; every ledger/GL posting failed (HTTP 500). Added `Stockland_DB::in_transaction()`.
-5. MySQL 8 strict mode: sales and expenses list used `''` for DATE comparisons (HTTP 503 without date filters).
-6. `code_map_list` queried unprefixed tables; duplicate customer code returned HTTP 500 (now 409); undefined variable in System Control.
+- Repository: aistockland-web/Erp-version-16.1.89
+- Canonical delivery branch: delivery/stockland-full-erp-completion-2026-11-11
+- Current commit is the merge commit for PR #108: 0bb053f89dccb756068d0a763c3c6dad1692009c
+- PR #108: fix(inventory): preserve immutable variant identity in stock-balance migration.
+- PR-head acceptance: [run 43430029439 — SUCCESS](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/43430029439).
+- Post-merge exact-head acceptance: [run 43432115923 — SUCCESS](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/43432115923).
 
-## Results (scripts/release/verify_master_installer.sh, scripts/release/e2e/run_all.sh)
-| Check | MariaDB 10.11.14 | MySQL 8.0.46 |
-|---|---|---|
-| Single-activation install, 86 tables (29/16/41) | PASS | PASS |
-| LIVE_SCHEMA_READY, Owner profile, locations, HR approval audit row | PASS | PASS |
-| Owner authorization -> live_ready true | PASS | PASS |
-| 66 GET routes, no 5xx | PASS | PASS |
-| Deep integrity scan 52/52 (also after workflow data) | PASS | PASS |
-| Partial DB upgrade (20 -> 45 -> 86 tables, HR approval gate) | PASS | NOT RUN |
-| PO -> receipt -> transfer -> POS sale/cart (idempotent replay) -> return -> daily close -> AP invoice/payment -> customer invoice | PASS | PASS |
-| Stock balance = transaction sum; GL journals balanced | PASS | PASS |
-| PHP debug.log empty | PASS | PASS |
+Post-merge jobs:
+- WordPress + MySQL 8: job 131907912257 — SUCCESS.
+- WordPress + MariaDB: job 131907912824 — SUCCESS.
+- Publish downloadable one-pack installer: job 131909019302 — SUCCESS.
 
-## NOT RUN (no execution evidence)
-Two payroll periods with approved Ethiopian statutory rules; role-by-role allow/deny and branch-scope matrix; maker-checker self-approval denial beyond the cases above; private-document encryption and key rotation; concurrency/load; browser, mobile, PWA, print; PHPCS/WPCS, Semgrep, CodeQL; PHP 8.4 matrix; MariaDB 11.4.13 (Owner host); backup/restore/rollback rehearsal on the Owner host.
+Post-merge one-pack Actions artifact:
+- Artifact ID: 14039973805.
+- Outer archive SHA-256: 8e9eab68668b0be8c4953c26f44594adcba1016af747c98c1217864d0dede8ab.
+- Inner installer: STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTALLER.zip.
+- Inner ZIP SHA-256: 85a8221295718d0b4ffa02c153d63b57c09aeba12af199fbebf300ddd0dbda9d.
+- Inner ZIP size: 2,239,282 bytes.
+- ZIP entries: 124; single Stockland plugin root; ZIP CRC and embedded checksum sidecar PASS.
 
-## Owner input required
-Approved effective-dated payroll/tax/pension rule register; real compensation records; process-owner approval of the 24 SOPs (stay DRAFT_NOT_APPROVED); users, roles, branches; opening stock and ledger balances; release authorization. A hash proves bytes, not approval. No tag, release, merge or deployment was performed.
+The Actions artifact is not a formal GitHub Release, signed release certificate, tag or production deployment.
 
-## Addendum (UI verification and Administrator `read` capability fix)
+## 2. Current schema-governance acceptance
 
-- Defect found by the browser UI smoke (`scripts/release/ui/ui_smoke.js`): `Stockland_Roles::sync_roles()` treated WordPress core capability `read` as part of the Stockland namespace and stripped it from the Administrator role, so the wp-admin "ERP Dashboard" launcher returned HTTP 403. `read` is now excluded from the namespace cleanup.
-- Rebuilt ZIP SHA-256: `be60d5645a3717494afeb198b65d89dfd33db192f5c0c0c36d10d04f1ede428a` (123 files, manifest regenerated).
-- Re-verified on WordPress + MariaDB 10.11: installer verification PASS (86 tables, deep scan 52/52), UI smoke PASS (login, ERP launcher, System Control, mobile 390 px with 0 px horizontal overflow), business-workflow scripts PASS with a balanced ledger.
-- Not re-run after this rebuild: MySQL 8.0.46 and the Docker dev container (no Docker in this session). The change is capability-only and database-neutral.
-- Runbook updated with host requirements (upload_max_filesize/post_max_size >= 8 MB); ZIP rebuilt, SHA-256 `be60d5645a3717494afeb198b65d89dfd33db192f5c0c0c36d10d04f1ede428a`; installer verification PASS on MariaDB.
+The current fresh-install business E2E suite includes s9_schema_governance. On both database engines it verifies:
 
-## Addendum: independent CI verification on GitHub (run 43176369919, workflow "Stockland 16.2.18 master installer WordPress verification")
+- Exactly the 49-table operational baseline is present: 29 Core/Operations, 16 Accounting/Procurement and four legacy HR/payroll tables.
+- Core tables physically complete.
+- Finance tables physically complete.
+- Four legacy HR tables present.
+- The 37 HR lifecycle tables are not created by default.
+- No implicit HR approval record is created.
+- HR-module readiness remains false while the lifecycle extension is pending.
+- Core/Finance operational gate remains true.
+- Global application schema gate remains true for the operational baseline.
+- Setup status exposes the operational baseline; setup does not auto-advance into unapproved HR lifecycle DDL.
+- ERP bootstrap responds while HR lifecycle is pending.
 
-Ubuntu runner, PHP 8.3.36, upload_max_filesize 16M / post_max_size 20M, ZIP SHA-256 `be60d5645a3717494afeb198b65d89dfd33db192f5c0c0c36d10d04f1ede428a`, ZIP content equals the 123 source files.
+This is fresh-install evidence for the current governed candidate. It does not authorize alteration of existing legacy HR/payroll rows. The 33 recognized HRX keys remain a separate governance inventory under the controlling Notion Target 6 decision.
 
-| Database | Result |
-|---|---|
-| MySQL 8.0.46 (strict sql_mode, ONLY_FULL_GROUP_BY) | PASS: 86 tables, LIVE_SCHEMA_READY, deep scan 52/52, live_ready after Owner authorization, workflow regression with 0 unbalanced journals |
-| MariaDB 10.11.19 | PASS: same checks |
+## 3. Business and module acceptance on both engines
 
-The Codespaces environment validation workflow (devcontainer JSON/shell validation, Compose config, PHP 8.3/Node 22 image build) also passed on this branch. A byte-for-byte ZIP rebuild is not reproducible across Python/zlib versions, so CI compares ZIP contents file by file against the source tree.
+All test databases use disposable WordPress environments and synthetic fixtures only.
 
-## Addendum 2026-11-13: upgrade path, resumable setup and resilience (runbook section 4)
+### s10 — Management Intelligence persistence
 
-`scripts/release/upgrade_e2e.sh` (disposable site; also run in CI on MariaDB 10.11 and MySQL 8.0.46):
-1. Installs the pinned 16.2.13 operational baseline (SHA-256 `74e3205d0b42151997dc356c29b09204688accee817c17a013a70cf90be04c13`) and completes its setup wizard in bounded batches (86 batches, one table per batch, state and physical table count recorded after every batch, failure on a stalled batch): PASS, 86 tables, `LIVE_SCHEMA_READY`.
-2. Runs the synthetic business workflows on the baseline (products, procurement, transfer, sales/return/close, AP, invoicing).
-3. Snapshots every application table (columns, indexes, keys, row counts, per-column value digests), upgrades in place to the master installer, and verifies the HR default migration is blocked until the Owner gives a written reason, then completes after it (three payroll-line rate defaults become neutral NULL; existing rows untouched).
-4. Compares the snapshots: no table, column or index lost, no type change, no row lost or changed, no table added: PASS.
-5. Resilience drills: repeat setup is a no-op, a lost table is recreated alone on retry, an interrupted run is reported incomplete and resumes, a concurrent installer is refused while locked, deep integrity scan 52/52 before and after: PASS.
-Baseline defect confirmed and fixed in 16.2.18: duplicate customer code returned HTTP 500 on 16.2.13 and returns HTTP 409 on 16.2.18.
+The real REST/database test passes on both engines:
+- Management profile/capability permits campaign planning.
+- Branch Manager and Auditor are denied.
+- Campaign is persisted as DRAFT / planning-only.
+- Manual snapshot has timestamp and typed metrics and can be read back.
+- Duplicate/retry snapshot is rejected with HTTP conflict.
+- Each campaign/snapshot has exactly one immutable audit event.
+- Compact audit pointer verifies the SHA-256 of the full Core settings record.
+- No sales, stock, expense or GL rows are mutated.
 
-Upgrade path on MySQL 8.0.46 (CI run 43387907392): BLOCKED by a baseline defect, not by 16.2.18. The 16.2.13 baseline's `wp_stock_balances` DDL has `PRIMARY KEY (location_id,variant_id)` with nullable `variant_id`; MySQL 8 rejects it ("All parts of a PRIMARY KEY must be NOT NULL", wizard batch 25 HTTP 500). No 16.2.13 site can be completed on MySQL 8, so there is nothing to upgrade there (issue #76). Fresh 16.2.18 install on MySQL 8 is PASS. Upgrade path on MariaDB 10.11 (CI) is PASS. CI asserts the exact blocked signature on MySQL 8 so any change is noticed.
-## Addendum 2026-11-12 (late): transfer notifications, interactive browser setup, backup/restore
+This passes the first persistence/planning slice. It does not claim a verified live provider analytics API, social account OAuth integration or automatic posting.
 
-- Defect fixed: stock transfers between locations notified only on receipt. They now notify the right audiences when requested, approved, reserved, picked, in transit, rejected and cancelled (sent after the stock transaction commits; failures are logged and never roll back stock). Regression: `scripts/release/e2e/s8_transfer_notifications.php` (9 checks, PASS).
-- Installer ZIP rebuilt: SHA-256 `aee5c551bd3367717091de066bfd5f86d8298dda1f6361d7534813d8087cd54e`, 123 files (supersedes `be60d564…`).
-- Interactive browser acceptance (`scripts/release/ui/interactive_setup.js`) on a fresh disposable WordPress 6.8 + MariaDB 10.11.14 site: upload ZIP in wp-admin, activate, System Control shows all 29/16/41 tables present and "Installation complete", Owner authorization recorded through the form, ERP app shell renders: PASS (7/7).
-- Backup/restore drill (`scripts/release/backup_restore_check.sh`): logical dump, restore into a scratch database, CHECKSUM TABLE and row count per table, 98 tables compared (86 application tables), 0 mismatches: PASS.
-- Workflow regression `run_all.sh` (8 suites incl. payroll calculator vectors and transfer notifications): PASS locally on MariaDB. MySQL 8.0.46 result comes from the CI workflow run on the pull request.
+### s11 — stock-balance immutable variant identity migration
+
+The migration regression passes 16 assertions on each engine:
+- A non-NULL variant_id is resolved only by immutable Product Master ID, never by a recycled SKU.
+- SKU fallback is allowed only for genuine legacy rows with NULL variant_id.
+- New primary key is location_id + variant_id and variant_id is NOT NULL.
+- Source rollback snapshot preserves original NULL IDs and source quantities.
+- Per-location physical quantities reconcile.
+- Migration replay is idempotent and creates no duplicate rollback snapshot.
+- Cross-namespace DDL rename is rejected.
+- Unknown/orphan identities fail closed before cutover.
+- Failed migration preserves original source rows and DDL and does not leave a staging table.
+
+The original balance source remains available as the rollback snapshot. See PR #108 and Issue #76 for the remaining distinction about the old 16.2.13 bootstrap.
+
+### Backup/restore
+
+Both engines:
+- Logical dump and restore to isolated scratch database: PASS.
+- 61 tables compared, zero checksum or row-count mismatches.
+- MariaDB backup SQL SHA-256: ea958728fe03cf3d136b39f4d4ce78e49948dc5013d9fe8409dd366338a6f932.
+- MySQL 8 backup SQL SHA-256: e55ed0c8259c4be4f8604724a103d602c37933d60357647ee6c2311c25f4559b.
+
+### Browser and administrator UI
+
+Both engines pass:
+- Disposable administrator login.
+- WordPress native Dashboard remains reachable.
+- Stockland ERP launcher menu entry and Owner System Control page.
+- Published standalone route and direct ERP route.
+- Authenticated application bootstrap and PWA manifest.
+- 390 px phone, 768 px tablet and 1366 px desktop layouts.
+- Zero horizontal overflow on each checked route/viewport.
+- Command palette and dashboard quick actions keep unapproved HR lifecycle hidden.
+- Management Intelligence links to official platforms but makes no unverified provider/API claim.
+
+Admin launcher smoke confirms redirect happens before admin output and the native WordPress Dashboard is not redirected.
+
+## 4. Historical upgrade path — results must be distinguished
+
+### MariaDB 10.11: 16.2.13 → 16.2.18 — PASS
+
+- The pinned .13 baseline completed setup in 86 bounded batches.
+- Pre-upgrade snapshot: 86 tables / 160 rows.
+- Post-upgrade snapshot: 86 tables / 161 rows.
+- No tables added by the upgrade; no existing table/column/index dropped.
+- Only an allowed append to the audit log and approved neutral-default normalization of selected payroll-line rates occurred.
+- HR default migration remained blocked until a written Owner reason was supplied and recorded against the exact DDL signature; non-Owner/short-reason requests were rejected.
+- Repeated setup preserved approval without duplicate records.
+- Deep integrity 52/52 before and after resilience drills.
+- Repeat setup no-op, lost-table detection/retry, interrupted-run resume and concurrent-installer lock behavior passed.
+- Final MariaDB upgrade E2E result: PASS.
+
+### MySQL 8: original 16.2.13 baseline setup / upgrade — BLOCKED
+
+The original 16.2.13 archive remains unchanged. Its fresh setup fails at wizard batch 25 because the historical DDL declares wp_stock_balances.variant_id as nullable while including it in PRIMARY KEY(location_id, variant_id). MySQL 8 returns “All parts of a PRIMARY KEY must be NOT NULL”.
+
+The workflow recognizes only that exact failure signature and reports the historical .13→.18 MySQL 8 path as BLOCKED, not PASS. It does not generate a completed .13 baseline snapshot for that lane. This is not a failure of the fresh 16.2.18 MySQL 8 install or of the candidate s11 migration fixture, both of which pass. Do not edit or relabel the pinned original .13 ZIP to hide the distinction. Issue #76 remains OPEN.
+
+## 5. Source corrections in PR #108
+
+PR #108 changed:
+- scripts/release/e2e/run_all.sh
+- scripts/release/e2e/s11_stock_balance_variant_identity_migration.php
+- src/stockland-erp-app/includes/class-stockland-activator.php
+- src/stockland-erp-app/includes/class-stockland-db.php
+
+The migration no longer maps any non-NULL variant_id by SKU. It uses SKU only for NULL-ID legacy rows; unknown/orphan and ambiguous rows fail closed. It checks location/variant group count, global quantities, per-location totals and per-location/variant totals before atomic cutover. The DB schema-query gateway validates both source and destination identifiers in multi-pair RENAME TABLE statements.
+
+## 6. Remaining open work and production boundary
+
+- Issue #76: provide a safe supported MySQL 8 historical .13 restore/upgrade path or document the exact compatibility boundary with a tested alternative. Original .13 package remains unchanged.
+- PR #84 remains open, stacked and unmerged. It has not been merged to main.
+- PR #103 is a stale evidence-refresh branch based on an older delivery head; do not merge it wholesale. Its useful docs-trigger idea is ported in this focused follow-up.
+- Issue #17: complete POS import routing and broader Management Intelligence scope.
+- Issues #15/#23: complete HR lifecycle/payroll, statutory and process-owner approvals.
+- Issue #47: schema-contract / complete supplemental integrity / PWA registration source.
+- Full code/security review, dependency/license/SBOM, exact release source parity, final host acceptance, Owner/Operations/Finance/HR/legal sign-off and explicit production release/deployment authorization remain required.
+
+No production WordPress, business database, posted payroll, stock ledger, employee/customer data or live transaction was changed. No formal GitHub Release, tag, main merge or production deployment is authorized by this evidence record.
