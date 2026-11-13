@@ -1,30 +1,140 @@
 #!/usr/bin/env python3
-"""Compare two schema snapshots: the upgrade must be add-only and must preserve existing data.
-Usage: compare_snapshots.py before.json after.json [--append-only table1,table2]
-Rules: no table, column or index disappears; existing column definitions stay compatible; row counts never shrink;
-for non-append-only tables the first rows' per-column digests are identical. Append-only tables (audit, notifications) may grow."""
-import json, sys
-a, b = (json.load(open(p)) for p in sys.argv[1:3])
-append_only = set(sys.argv[4].split(",")) if len(sys.argv) > 4 and sys.argv[3] == "--append-only" else {"audit_log", "notifications", "audit_chain"}
-fail = []; changed = []; added = sorted(set(b["tables"]) - set(a["tables"])); lost = sorted(set(a["tables"]) - set(b["tables"]))
-fail += [f"table removed: {t}" for t in lost]
-for t, x in a["tables"].items():
-    y = b["tables"].get(t)
-    if not y: continue
-    cx = {c["column_name"]: c for c in x["columns"]}; cy = {c["column_name"]: c for c in y["columns"]}
-    for c in cx:
-        if c not in cy: fail.append(f"{t}: column removed {c}")
-        elif cx[c]["column_default"] != cy[c]["column_default"]: changed.append(f"{t}.{c}: default {cx[c]['column_default']} -> {cy[c]['column_default']}")
-        if c in cy and cx[c]["column_type"] != cy[c]["column_type"]: fail.append(f"{t}.{c}: type changed {cx[c]['column_type']} -> {cy[c]['column_type']}")
-    ix = {i["index_name"]: i["cols"] for i in x["indexes"]}; iy = {i["index_name"]: i["cols"] for i in y["indexes"]}
-    for i in ix:
-        if i not in iy: fail.append(f"{t}: index removed {i}")
-    if y["rows"] < x["rows"]: fail.append(f"{t}: rows shrank {x['rows']} -> {y['rows']}")
-    if t not in append_only and y["rows"] == x["rows"]:
-        for c, d in (x["digest"] or {}).items():
-            if c in (y["digest"] or {}) and y["digest"][c] != d: fail.append(f"{t}.{c}: values changed")
-print(f"before: {len(a['tables'])} tables / {sum(v['rows'] for v in a['tables'].values())} rows ({a['version']}); after: {len(b['tables'])} tables / {sum(v['rows'] for v in b['tables'].values())} rows ({b['version']})")
-print("tables added by the upgrade:", ", ".join(added) or "none")
-for c in changed: print("DEFAULT CHANGED (approved HR migration)", c)
-for f in fail: print("FAIL", f)
-print("RESULT", "FAIL" if fail else "PASS"); sys.exit(1 if fail else 0)
+"""Strictly compare physical schema and pre-existing row identity/value fingerprints."""
+import json
+import sys
+
+APPEND_ONLY_TABLES = {"stock_audit_logs", "stock_audit_chain", "stock_workflow_events"}
+APPROVED_HR_RATE_DEFAULTS = {
+    ("stock_payroll_lines", "income_tax_rate"),
+    ("stock_payroll_lines", "employee_pension_rate"),
+    ("stock_payroll_lines", "employer_pension_rate"),
+}
+
+
+def compare(before, after):
+    failures = []
+    notices = []
+    old_tables = before["tables"]
+    new_tables = after["tables"]
+    added_tables = sorted(set(new_tables) - set(old_tables))
+    removed_tables = sorted(set(old_tables) - set(new_tables))
+    failures.extend(f"unapproved table added: {name}" for name in added_tables)
+    failures.extend(f"table removed: {name}" for name in removed_tables)
+
+    for table, old in old_tables.items():
+        new = new_tables.get(table)
+        if new is None:
+            continue
+        old_rows = int(old["rows"])
+        new_rows = int(new["rows"])
+        append_only = table in APPEND_ONLY_TABLES
+        if new_rows < old_rows:
+            failures.append(f"{table}: rows shrank {old_rows} -> {new_rows}")
+        elif not append_only and new_rows != old_rows:
+            failures.append(f"{table}: unexpected row-count change {old_rows} -> {new_rows}")
+        elif append_only and new_rows > old_rows:
+            notices.append(f"{table}: append-only rows increased {old_rows} -> {new_rows}")
+
+        if not old.get("row_fingerprints_complete") or not new.get("row_fingerprints_complete"):
+            failures.append(f"{table}: complete row fingerprints unavailable (limit={old.get('row_fingerprints_limit')})")
+        else:
+            old_fp = old.get("row_fingerprints") or {}
+            new_fp = new.get("row_fingerprints") or {}
+            for key, value_hash in old_fp.items():
+                if key not in new_fp:
+                    failures.append(f"{table}: pre-upgrade row identity missing ({key[:12]})")
+                elif new_fp[key] != value_hash:
+                    failures.append(f"{table}: pre-upgrade row changed ({key[:12]})")
+
+        old_columns = {column["column_name"]: column for column in old["columns"]}
+        new_columns = {column["column_name"]: column for column in new["columns"]}
+        for column in sorted(set(old_columns) - set(new_columns)):
+            failures.append(f"{table}: column removed {column}")
+        for column in sorted(set(new_columns) - set(old_columns)):
+            failures.append(f"{table}: unapproved column added {column}")
+        for column in sorted(set(old_columns) & set(new_columns)):
+            prior = old_columns[column]
+            current = new_columns[column]
+            if prior.get("column_type") != current.get("column_type"):
+                failures.append(f"{table}.{column}: type changed {prior.get('column_type')} -> {current.get('column_type')}")
+            for attribute in ("extra", "character_set_name", "collation_name"):
+                if prior.get(attribute) != current.get(attribute):
+                    failures.append(f"{table}.{column}: {attribute} changed {prior.get(attribute)} -> {current.get(attribute)}")
+            nullable_changed = prior.get("is_nullable") != current.get("is_nullable")
+            default_changed = prior.get("column_default") != current.get("column_default")
+            if nullable_changed or default_changed:
+                allowed = (
+                    (table, column) in APPROVED_HR_RATE_DEFAULTS
+                    and current.get("is_nullable") == "YES"
+                    and current.get("column_default") is None
+                )
+                if allowed:
+                    notices.append(f"approved HR neutral-default normalization: {table}.{column}")
+                else:
+                    failures.append(
+                        f"{table}.{column}: unapproved null/default change "
+                        f"({prior.get('is_nullable')}, {prior.get('column_default')}) -> "
+                        f"({current.get('is_nullable')}, {current.get('column_default')})"
+                    )
+
+        def index_map(items):
+            return {
+                item["index_name"]: (item.get("non_unique"), item.get("index_type"), item.get("cols"))
+                for item in items
+            }
+
+        old_indexes = index_map(old.get("indexes") or [])
+        new_indexes = index_map(new.get("indexes") or [])
+        if old_indexes != new_indexes:
+            for name in sorted(set(old_indexes) - set(new_indexes)):
+                failures.append(f"{table}: index removed {name}")
+            for name in sorted(set(new_indexes) - set(old_indexes)):
+                failures.append(f"{table}: unapproved index added {name}")
+            for name in sorted(set(old_indexes) & set(new_indexes)):
+                if old_indexes[name] != new_indexes[name]:
+                    failures.append(f"{table}: index definition changed {name}")
+
+        def foreign_key_set(items):
+            return {
+                (
+                    item.get("constraint_name"),
+                    item.get("column_name"),
+                    item.get("referenced_table_name"),
+                    item.get("referenced_column_name"),
+                    int(item.get("ordinal_position") or 0),
+                )
+                for item in items
+            }
+
+        if foreign_key_set(old.get("foreign_keys") or []) != foreign_key_set(new.get("foreign_keys") or []):
+            failures.append(f"{table}: foreign-key contract changed")
+
+    return failures, notices, added_tables
+
+
+def main():
+    if len(sys.argv) != 3:
+        print("Usage: compare_snapshots.py before.json after.json", file=sys.stderr)
+        return 2
+    with open(sys.argv[1], encoding="utf-8") as handle:
+        before = json.load(handle)
+    with open(sys.argv[2], encoding="utf-8") as handle:
+        after = json.load(handle)
+    failures, notices, added = compare(before, after)
+    print(
+        f"before: {len(before['tables'])} tables / "
+        f"{sum(int(item['rows']) for item in before['tables'].values())} rows ({before.get('version', '')}); "
+        f"after: {len(after['tables'])} tables / "
+        f"{sum(int(item['rows']) for item in after['tables'].values())} rows ({after.get('version', '')})"
+    )
+    print("tables added by the upgrade:", ", ".join(added) or "none")
+    for notice in notices:
+        print("ALLOWED:", notice)
+    for failure in failures:
+        print("FAIL:", failure)
+    print("RESULT", "FAIL" if failures else "PASS")
+    return 1 if failures else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
