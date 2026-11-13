@@ -145,3 +145,22 @@ The migration no longer maps any non-NULL variant_id by SKU. It uses SKU only fo
 - Full code/security review, dependency/license/SBOM, exact release source parity, final host acceptance, Owner/Operations/Finance/HR/legal sign-off and explicit production release/deployment authorization remain required.
 
 No production WordPress, business database, posted payroll, stock ledger, employee/customer data or live transaction was changed. No formal GitHub Release, tag, main merge or production deployment is authorized by this evidence record.
+
+## Addendum 2026-11-14: dev-container verification run (Codespace scripts, local container)
+
+Environment: Ubuntu 24.04 container without Docker; PHP 8.3.6, Node 22.23.4, MariaDB 10.11.14, PHP limits 16M/20M. The dev container's own scripts were run unmodified against a disposable WordPress site (database `wp`, loopback host). MySQL 8.0.46 is covered by the CI service container matrix (green on PHP 8.3 and 8.4).
+
+Installer built from this branch: `STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTALLER.zip`, 124 files, SHA-256 `9c10601564af18d1cb8b71840e8b3e1c144ee0f2f39ea0757cdfcb29ea7057f8`. The committed manifest and ZIP on the base branch were stale against merged source (the manifest check named `includes/rest/class-rest-management-intelligence.php`); both were regenerated with `build_master_installer.py --update-manifest`.
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Install, schema gate, setup states, workflow regression | `bash .devcontainer/verify-master-installer.sh mariadb` | PASS: 122 PASS, 0 FAIL, GL unbalanced journals 0 (D=C=58,600.00), 37 HR lifecycle tables kept pending until approval |
+| Management Intelligence REST, audit and permissions | inside the verify run | PASS |
+| Stock-balance identity migration and rollback | inside the verify run | PASS |
+| Browser smoke at 390, 768, 1366 px, PWA manifest, Management Intelligence | `ui_smoke.js` | All ERP page checks PASS. 4 console errors are WordPress core Gravatar requests on wp-admin; this container has no internet. Network-enabled CI passes. |
+| Admin launcher | `admin_launcher_smoke.js` | PASS |
+| Upgrade 16.2.13 to 16.2.18 | `upgrade_e2e.sh` | PASS: 86 batches, 86 tables, no table added, resilience drills pass |
+| Backup, restore, per-table checksum | `backup_restore_check.sh` | PASS: 98 tables compared, 0 mismatches |
+| Security gates | `scripts/release/security/run_gates.py` | PASS (reviewed allowlist) |
+
+Setup table split used by the installer: 49 operational baseline tables plus 37 separately approved HR lifecycle tables = 86.

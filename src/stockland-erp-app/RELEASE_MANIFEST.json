@@ -44,7 +44,7 @@
     "approval_status": "DRAFT_NOT_APPROVED"
   },
   "file_inventory": {
-    "count": 122,
+    "count": 123,
     "manifest_excludes_itself": true,
     "files": [
       {
@@ -54,8 +54,8 @@
       },
       {
         "path": "CHANGELOG.md",
-        "bytes": 4636,
-        "sha256": "e27c8d353f700cab1a2b04b464751c08c98fc818efb9bdc581faa31b7d52fc0b"
+        "bytes": 4816,
+        "sha256": "37b7dd5130cf894403e11f5219c601e0626c2ae7ef78dda28c10542f86e8e287"
       },
       {
         "path": "GO_LIVE_RUNBOOK.md",
@@ -89,8 +89,8 @@
       },
       {
         "path": "assets/app.js",
-        "bytes": 540082,
-        "sha256": "3395e13da8c9dab1d09f26131199ddd9204ca6ffb31ce68d93312a61aaaff0ed"
+        "bytes": 545971,
+        "sha256": "00f5518043f686122540c237b58f8922eb9d12d5414f1bf817e7bcb9170e5e44"
       },
       {
         "path": "assets/app.min.css",
@@ -239,8 +239,8 @@
       },
       {
         "path": "includes/class-stockland-activator.php",
-        "bytes": 87777,
-        "sha256": "9a30b91baa2c3e9ae157e758286b433fc7fbf64cf0bb064e6487a55030417dd0"
+        "bytes": 95881,
+        "sha256": "7e80fb78e0619d9f8e0a9cd38145675d0e993af214de46d94b1db168c1bee4de"
       },
       {
         "path": "includes/class-stockland-admin.php",
@@ -259,8 +259,8 @@
       },
       {
         "path": "includes/class-stockland-authority.php",
-        "bytes": 24859,
-        "sha256": "ab05e9d3585850599d2c5920ae64e9210312d2d39f976c4cb24f269fe6bcb7dd"
+        "bytes": 26148,
+        "sha256": "dde16c2009f9f6508dc881d6b4f4aaa42269acb4da2280407f3caab0a984c5e9"
       },
       {
         "path": "includes/class-stockland-business-calendar.php",
@@ -274,8 +274,8 @@
       },
       {
         "path": "includes/class-stockland-db.php",
-        "bytes": 25204,
-        "sha256": "9ece980ecc287743d2162b6ebb1bc02cfc664485f98584988428a4c31a6a3ef6"
+        "bytes": 26098,
+        "sha256": "9221dda5fddf4d98b723d6525601316be555b8b4b232c4dd22b0245357eef564"
       },
       {
         "path": "includes/class-stockland-deactivator.php",
@@ -309,8 +309,8 @@
       },
       {
         "path": "includes/class-stockland-installer.php",
-        "bytes": 10209,
-        "sha256": "b1bbef5f8e8d2090a276bdfffd06fbc5765f2f91d31a4c577931c20a835d4a74"
+        "bytes": 11162,
+        "sha256": "6cc5f693a971fba8143184c515ba951ed3498d69c98236533f38f5766ced8dc1"
       },
       {
         "path": "includes/class-stockland-integrity.php",
@@ -446,6 +446,11 @@
         "path": "includes/rest/class-rest-locations.php",
         "bytes": 9468,
         "sha256": "7c3c123231a4d6da9a2c4dece318233ef394f96813f6f958cab69c97e9c46fca"
+      },
+      {
+        "path": "includes/rest/class-rest-management-intelligence.php",
+        "bytes": 15937,
+        "sha256": "dd424f385f605dd561f6146173b2ee7570b72b54ad92cd7e98f7ac1078f0289a"
       },
       {
         "path": "includes/rest/class-rest-pos-cart.php",
@@ -634,8 +639,8 @@
       },
       {
         "path": "stockland-inventory.php",
-        "bytes": 12935,
-        "sha256": "7846636b1f9c4a643611f9d80e21bc57ea7bffa66a597127e7955cda3661734f"
+        "bytes": 13075,
+        "sha256": "8295a72c6fc994499204c2f754b22940e7bc019217e566e795de9cf05798cbb7"
       },
       {
         "path": "templates/Stockland_Master_Import_Template.xlsx",
