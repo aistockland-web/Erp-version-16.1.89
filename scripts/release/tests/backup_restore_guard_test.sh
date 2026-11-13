@@ -51,4 +51,8 @@ run_guard "remote administrative MySQL host" \
   FAKE_DB_NAME=wp FAKE_DB_HOST=127.0.0.1 \
   STOCKLAND_DISPOSABLE_DB_NAME=wp STOCKLAND_DISPOSABLE_DB_HOST=127.0.0.1 \
   MYSQL_ADMIN_ARGS="-hdb.example.com -uroot"
+run_guard "untrusted MySQL option file" \
+  FAKE_DB_NAME=wp FAKE_DB_HOST=127.0.0.1 \
+  STOCKLAND_DISPOSABLE_DB_NAME=wp STOCKLAND_DISPOSABLE_DB_HOST=127.0.0.1 \
+  MYSQL_ADMIN_ARGS="--defaults-file=/tmp/untrusted.cnf -uroot"
 echo "RESULT: PASS"
