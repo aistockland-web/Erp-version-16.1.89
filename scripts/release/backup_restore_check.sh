@@ -71,7 +71,7 @@ RST="${DB_PREFIX}_restore_${SUFFIX}"
 RESTORE_DB_CREATED=0
 cleanup() {
   if [[ "$RESTORE_DB_CREATED" == "1" ]]; then
-    mysql_admin -e "DROP DATABASE IF EXISTS `$RST`;" >/dev/null 2>&1 || true
+    mysql_admin -e "DROP DATABASE IF EXISTS $RST;" >/dev/null 2>&1 || true
   fi
 }
 trap cleanup EXIT
@@ -83,7 +83,7 @@ wp_site db export "$OUT/backup.sql" --single-transaction >/dev/null
 test -s "$OUT/backup.sql"
 sha256sum "$OUT/backup.sql" | tee "$OUT/backup.sql.sha256"
 
-mysql_admin -e "CREATE DATABASE `$RST`;"
+mysql_admin -e "CREATE DATABASE $RST;"
 RESTORE_DB_CREATED=1
 mysql_admin "$RST" < "$OUT/backup.sql"
 
@@ -100,10 +100,10 @@ for table in "${TABLES[@]}"; do
     echo "FAIL: unsupported table identifier encountered."
     exit 1
   }
-  source_checksum="$(mysql_admin -N -e "CHECKSUM TABLE `$DB`.`$table`" | awk 'NR == 1 { print $2 }')"
-  restore_checksum="$(mysql_admin -N -e "CHECKSUM TABLE `$RST`.`$table`" | awk 'NR == 1 { print $2 }')"
-  source_rows="$(mysql_admin -N -e "SELECT COUNT(*) FROM `$DB`.`$table`")"
-  restore_rows="$(mysql_admin -N -e "SELECT COUNT(*) FROM `$RST`.`$table`")"
+  source_checksum="$(mysql_admin -N -e "CHECKSUM TABLE $DB.$table" | awk 'NR == 1 { print $2 }')"
+  restore_checksum="$(mysql_admin -N -e "CHECKSUM TABLE $RST.$table" | awk 'NR == 1 { print $2 }')"
+  source_rows="$(mysql_admin -N -e "SELECT COUNT(*) FROM $DB.$table")"
+  restore_rows="$(mysql_admin -N -e "SELECT COUNT(*) FROM $RST.$table")"
   n=$((n + 1))
   if [[ "$source_checksum" != "$restore_checksum" || "$source_rows" != "$restore_rows" ]]; then
     echo "FAIL $table source=$source_checksum/$source_rows restored=$restore_checksum/$restore_rows"

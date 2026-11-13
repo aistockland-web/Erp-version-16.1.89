@@ -155,6 +155,8 @@ const isLocal = (url) => {
           const renderState = await page.locator('#stockland-app').innerText().catch(() => '(no app root text)');
           throw new Error(viewport.label + ' ERP dashboard did not hydrate within 45 seconds. Render state: ' + renderState.slice(0, 1200) + '. ' + error.message);
         }
+        const hrNavigationCount = await page.locator('.sl-nav-hr').count();
+        if (hrNavigationCount !== 0) fail(name + ' ' + viewport.label + ' exposed HR navigation before active-Owner schema approval');
         await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
         const pendingNotice = await page.locator('.sl-operational-schema-banner').textContent().catch(() => '');
         if (!pendingNotice || !pendingNotice.includes('verified 49-key operational baseline')) {
@@ -178,6 +180,27 @@ const isLocal = (url) => {
           note(name + ' ' + viewport.label + ' layout (horizontal overflow ' + overflow + 'px)');
         }
       }
+    }
+
+    // Verify both indirect dashboard access and the command palette respect the HR gate.
+    await page.keyboard.press('Control+k');
+    const paletteCount = await page.locator('#slCommandPalette').count();
+    if (paletteCount !== 1) {
+      fail('command palette did not open for HR visibility check');
+    } else {
+      const hrCommandCount = await page.locator('#slCommandPalette [data-command-view="hr"]').count();
+      if (hrCommandCount !== 0) fail('command palette exposed HR before active-Owner schema approval');
+      else note('command palette keeps unapproved HR lifecycle hidden');
+      await page.evaluate(() => document.getElementById('slCommandPalette')?.remove());
+    }
+    const dashboardHrAction = page.locator('#sl-content [data-view="hr"]').first();
+    if (await dashboardHrAction.count()) {
+      await dashboardHrAction.click();
+      const pendingPage = await page.locator('[data-hr-schema-pending-page="1"]').count();
+      if (pendingPage !== 1) fail('dashboard HR action did not open the explicit approval-pending page');
+      else note('dashboard HR action opens approval-pending page without loading lifecycle APIs');
+    } else {
+      fail('dashboard HR status action is missing');
     }
 
     await context.close();

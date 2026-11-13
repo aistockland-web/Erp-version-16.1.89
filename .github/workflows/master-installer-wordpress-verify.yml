@@ -2,7 +2,7 @@ name: Stockland 16.2.18 master installer WordPress verification
 
 on:
   push:
-    branches: ['delivery/**']
+    branches: ['delivery/stockland-full-erp-completion-2026-11-11']
     paths:
       - 'src/stockland-erp-app/**'
       - 'scripts/release/**'
@@ -129,7 +129,10 @@ jobs:
           STOCKLAND_DISPOSABLE_DB_NAME: "wp"
           STOCKLAND_DISPOSABLE_DB_HOST: "127.0.0.1"
           MYSQL_ADMIN_ARGS: "-h127.0.0.1 -uroot -proot"
-        run: bash scripts/release/backup_restore_check.sh /tmp/wp /tmp/backup-drill | tee /tmp/backup-drill.log
+        run: |
+          set -euo pipefail
+          bash scripts/release/backup_restore_check.sh /tmp/wp /tmp/backup-drill | tee /tmp/backup-drill.log
+          grep -q "RESULT: PASS" /tmp/backup-drill.log
 
       - name: Set up Node.js for browser acceptance
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
