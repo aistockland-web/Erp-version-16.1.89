@@ -182,6 +182,24 @@ const isLocal = (url) => {
       }
     }
 
+    // Verify both indirect dashboard access and the command palette respect the HR gate.
+    await page.keyboard.press('Control+k');
+    const paletteCount = await page.locator('#slCommandPalette').count();
+    if (paletteCount !== 1) {
+      fail('command palette did not open for HR visibility check');
+    } else {
+      const hrCommandCount = await page.locator('#slCommandPalette [data-command-view="hr"]').count();
+      if (hrCommandCount !== 0) fail('command palette exposed HR before active-Owner schema approval');
+      else note('command palette keeps unapproved HR lifecycle hidden');
+      await page.evaluate(() => document.getElementById('slCommandPalette')?.remove());
+    }
+    const dashboardHrActionCount = await page.locator('#sl-content [data-view="hr"]').count();
+    if (dashboardHrActionCount !== 0) {
+      fail('dashboard exposed an HR action before active-Owner schema approval');
+    } else {
+      note('dashboard quick actions keep unapproved HR lifecycle hidden');
+    }
+
     // Management Intelligence is a Core-owned workspace, independent of HR lifecycle.
     // Verify the browser calls its own route and never falls back to the former HR endpoint.
     const miNav = page.locator('[data-view="intelligence"]').first();
@@ -219,23 +237,6 @@ const isLocal = (url) => {
       page.off('request', captureManagementRequest);
     }
 
-    // Verify both indirect dashboard access and the command palette respect the HR gate.
-    await page.keyboard.press('Control+k');
-    const paletteCount = await page.locator('#slCommandPalette').count();
-    if (paletteCount !== 1) {
-      fail('command palette did not open for HR visibility check');
-    } else {
-      const hrCommandCount = await page.locator('#slCommandPalette [data-command-view="hr"]').count();
-      if (hrCommandCount !== 0) fail('command palette exposed HR before active-Owner schema approval');
-      else note('command palette keeps unapproved HR lifecycle hidden');
-      await page.evaluate(() => document.getElementById('slCommandPalette')?.remove());
-    }
-    const dashboardHrActionCount = await page.locator('#sl-content [data-view="hr"]').count();
-    if (dashboardHrActionCount !== 0) {
-      fail('dashboard exposed an HR action before active-Owner schema approval');
-    } else {
-      note('dashboard quick actions keep unapproved HR lifecycle hidden');
-    }
 
     await context.close();
   } catch (error) {
