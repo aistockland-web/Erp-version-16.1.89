@@ -25,6 +25,7 @@ $suffix = strtoupper( substr( hash( 'sha256', wp_generate_uuid4() ), 0, 8 ) );
 $saved_table = $balance_table . '_s11_saved_' . strtolower( $suffix );
 $good_table = $balance_table . '_s11_good_' . strtolower( $suffix );
 $stage_table = $balance_table . '_v161_stage';
+$outside_table = $wpdb->prefix . 's11_outside_' . strtolower( $suffix );
 $old_rollback_option = get_option( 'stockland_balance_rollback_snapshot', false );
 $old_user_id = get_current_user_id();
 $product_ids = array();
@@ -136,14 +137,14 @@ try {
 			&& (int) ( $current_rows[0]['variant_id'] ?? 0 ) === $variant_a
 			&& (string) ( $current_rows[0]['sku'] ?? '' ) === $sku_a
 			&& abs( (float) ( $current_rows[0]['physical_qty'] ?? 0 ) - 10.0 ) < 0.00001
-	);
+	), wp_json_encode( $current_rows );
 	$check(
 		'NULL variant ID resolves only through its exact current SKU',
 		(int) ( $current_rows[1]['location_id'] ?? 0 ) === 900002
 			&& (int) ( $current_rows[1]['variant_id'] ?? 0 ) === $variant_b
 			&& (string) ( $current_rows[1]['sku'] ?? '' ) === $sku_b
 			&& abs( (float) ( $current_rows[1]['physical_qty'] ?? 0 ) - 5.0 ) < 0.00001
-	);
+	), wp_json_encode( $current_rows );
 
 	$primary = $wpdb->get_col( $wpdb->prepare(
 		"SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA=%s AND TABLE_NAME=%s AND INDEX_NAME='PRIMARY' ORDER BY SEQ_IN_INDEX",
@@ -156,8 +157,8 @@ try {
 		$balance_table,
 		'variant_id'
 	) );
-	$check( 'new primary key is location_id + variant_id', array( 'location_id', 'variant_id' ) === $primary );
-	$check( 'new variant_id primary-key column is NOT NULL', 'NO' === $variant_nullable );
+	$check( 'new primary key is location_id + variant_id', array( 'location_id', 'variant_id' ) === $primary, wp_json_encode( $primary ) );
+	$check( 'new variant_id primary-key column is NOT NULL', 'NO' === $variant_nullable, (string) $variant_nullable );
 
 	$rollback_table = (string) get_option( 'stockland_balance_rollback_snapshot', '' );
 	$backup_rows = array();
@@ -174,7 +175,7 @@ try {
 			&& null === $backup_rows[1]['variant_id']
 			&& abs( (float) $backup_rows[0]['physical_qty'] - 10.0 ) < 0.00001
 			&& abs( (float) $backup_rows[1]['physical_qty'] - 5.0 ) < 0.00001
-	);
+	), 'table=' . $rollback_table . ' rows=' . wp_json_encode( $backup_rows );
 
 	$location_totals = $wpdb->get_results( $wpdb->prepare(
 		'SELECT location_id,SUM(physical_qty) AS qty FROM %i GROUP BY location_id ORDER BY location_id',
@@ -207,6 +208,15 @@ try {
 		$wpdb->esc_like( $balance_table . '_v161_backup_' ) . '%'
 	) );
 	$check( 'migration replay is idempotent with no extra rollback snapshot', $after_replay === $current_rows && $backup_count_before === $backup_count_after );
+
+	// The DDL gateway must reject renames that escape the Stockland-owned namespace.
+	$wpdb->last_error = '';
+	$outside_create = $wpdb->query( $wpdb->prepare( 'CREATE TABLE %i (id BIGINT UNSIGNED NOT NULL PRIMARY KEY) ENGINE=InnoDB', $outside_table ) );
+	if ( false === $outside_create || $wpdb->last_error ) {
+		throw new RuntimeException( 'Could not create the non-Stockland DDL boundary fixture: ' . $wpdb->last_error );
+	}
+	$outside_rename = Stockland_DB::execute_query( $wpdb->prepare( 'RENAME TABLE %i TO %i', $balance_table, $outside_table ) );
+	$check( 'DDL gateway rejects a rename into a non-Stockland namespace', false === $outside_rename && Stockland_DB::table_exists( $balance_table ) && Stockland_DB::table_exists( $outside_table ), 'result=' . var_export( $outside_rename, true ) . ' error=' . $wpdb->last_error );
 
 	// Negative case: unknown SKU with no ID and orphan non-NULL ID with a known/reused SKU.
 	// Neither row may be remapped or cut over by SKU fallback.
@@ -260,6 +270,7 @@ try {
 		$drop_table( $balance_table );
 		$drop_table( $good_table );
 		$drop_table( $stage_table );
+		$wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %i', $outside_table ) );
 		$backup_names = $wpdb->get_col( $wpdb->prepare(
 			'SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=%s AND TABLE_NAME LIKE %s',
 			DB_NAME,
