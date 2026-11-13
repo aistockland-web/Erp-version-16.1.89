@@ -74,6 +74,7 @@ jobs:
           bash -n scripts/release/verify_master_installer.sh scripts/release/backup_restore_check.sh scripts/release/e2e/run_all.sh scripts/release/tests/backup_restore_guard_test.sh
           bash scripts/release/tests/backup_restore_guard_test.sh
           python3 -m py_compile scripts/release/build_master_installer.py
+          python3 scripts/release/tests/compare_snapshots_test.py
           node --check scripts/release/ui/ui_smoke.js
           node --check scripts/release/ui/admin_launcher_smoke.js
 
@@ -190,6 +191,29 @@ jobs:
             exit 1
           fi
 
+      - name: Upgrade-path acceptance (16.2.13 baseline, wizard batches, in-place upgrade, gated HR migration, snapshot comparison, resilience drills)
+        env:
+          STOCKLAND_DISPOSABLE_SITE: "yes"
+        run: |
+          set -o pipefail
+          rc=0
+          bash scripts/release/upgrade_e2e.sh /tmp/wp "$PWD/STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER (1).zip" "$PWD/STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTALLER.zip" /tmp/upgrade-e2e 2>&1 | tee /tmp/upgrade-e2e.log || rc=$?
+          if [ "${{ matrix.db }}" = "mysql8" ]; then
+            # The 16.2.13 baseline cannot finish setup on MySQL 8: its stock_balances DDL puts a
+            # nullable column in the PRIMARY KEY (issue #76; fixed in 16.2.18). No 16.2.13 site can
+            # exist on MySQL 8, so there is nothing to upgrade. Result: BLOCKED by baseline defect.
+            # Accept ONLY that exact signature; any other failure, or an unexpected pass, fails CI.
+            if grep -q "UPGRADE E2E RESULT: PASS" /tmp/upgrade-e2e.log; then
+              echo "Baseline unexpectedly completed on MySQL 8; update this expectation."; exit 1
+            fi
+            grep -q "All parts of a PRIMARY KEY must be NOT NULL" /tmp/upgrade-e2e.log \
+              && grep -q "FAIL batch 25 HTTP 500" /tmp/upgrade-e2e.log \
+              && echo "UPGRADE PATH ON MYSQL 8: BLOCKED (16.2.13 baseline defect, issue #76); fresh 16.2.18 install on MySQL 8 is PASS above"
+          else
+            [ "$rc" -eq 0 ]
+            grep -q "UPGRADE E2E RESULT: PASS" /tmp/upgrade-e2e.log
+          fi
+
       - name: Upload evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -197,6 +221,9 @@ jobs:
           name: master-installer-${{ matrix.db }}
           path: |
             /tmp/e2e.log
+            /tmp/upgrade-e2e.log
+            /tmp/upgrade-e2e/before.json
+            /tmp/upgrade-e2e/after.json
             /tmp/backup-drill.log
             /tmp/ui-smoke.log
             /tmp/admin-launcher-smoke.log

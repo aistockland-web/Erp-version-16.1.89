@@ -55,6 +55,17 @@ Ubuntu runner, PHP 8.3.36, upload_max_filesize 16M / post_max_size 20M, ZIP SHA-
 
 The Codespaces environment validation workflow (devcontainer JSON/shell validation, Compose config, PHP 8.3/Node 22 image build) also passed on this branch. A byte-for-byte ZIP rebuild is not reproducible across Python/zlib versions, so CI compares ZIP contents file by file against the source tree.
 
+## Addendum 2026-11-13: upgrade path, resumable setup and resilience (runbook section 4)
+
+`scripts/release/upgrade_e2e.sh` (disposable site; also run in CI on MariaDB 10.11 and MySQL 8.0.46):
+1. Installs the pinned 16.2.13 operational baseline (SHA-256 `74e3205d0b42151997dc356c29b09204688accee817c17a013a70cf90be04c13`) and completes its setup wizard in bounded batches (86 batches, one table per batch, state and physical table count recorded after every batch, failure on a stalled batch): PASS, 86 tables, `LIVE_SCHEMA_READY`.
+2. Runs the synthetic business workflows on the baseline (products, procurement, transfer, sales/return/close, AP, invoicing).
+3. Snapshots every application table (columns, indexes, keys, row counts, per-column value digests), upgrades in place to the master installer, and verifies the HR default migration is blocked until the Owner gives a written reason, then completes after it (three payroll-line rate defaults become neutral NULL; existing rows untouched).
+4. Compares the snapshots: no table, column or index lost, no type change, no row lost or changed, no table added: PASS.
+5. Resilience drills: repeat setup is a no-op, a lost table is recreated alone on retry, an interrupted run is reported incomplete and resumes, a concurrent installer is refused while locked, deep integrity scan 52/52 before and after: PASS.
+Baseline defect confirmed and fixed in 16.2.18: duplicate customer code returned HTTP 500 on 16.2.13 and returns HTTP 409 on 16.2.18.
+
+Upgrade path on MySQL 8.0.46 (CI run 43387907392): BLOCKED by a baseline defect, not by 16.2.18. The 16.2.13 baseline's `wp_stock_balances` DDL has `PRIMARY KEY (location_id,variant_id)` with nullable `variant_id`; MySQL 8 rejects it ("All parts of a PRIMARY KEY must be NOT NULL", wizard batch 25 HTTP 500). No 16.2.13 site can be completed on MySQL 8, so there is nothing to upgrade there (issue #76). Fresh 16.2.18 install on MySQL 8 is PASS. Upgrade path on MariaDB 10.11 (CI) is PASS. CI asserts the exact blocked signature on MySQL 8 so any change is noticed.
 ## Addendum 2026-11-12 (late): transfer notifications, interactive browser setup, backup/restore
 
 - Defect fixed: stock transfers between locations notified only on receipt. They now notify the right audiences when requested, approved, reserved, picked, in transit, rejected and cancelled (sent after the stock transaction commits; failures are logged and never roll back stock). Regression: `scripts/release/e2e/s8_transfer_notifications.php` (9 checks, PASS).
