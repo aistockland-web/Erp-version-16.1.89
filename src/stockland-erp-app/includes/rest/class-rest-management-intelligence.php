@@ -280,8 +280,18 @@ final class Stockland_REST_Management_Intelligence extends Stockland_REST_Base {
 			}
 			$metrics[ $field ] = (int) $value;
 		}
+		$watch_time_minutes = $payload['watch_time_minutes'] ?? null;
+		if ( null === $watch_time_minutes || '' === $watch_time_minutes ) {
+			$watch_time_minutes = null;
+		} else {
+			$watch_time_minutes = sanitize_text_field( (string) $watch_time_minutes );
+			if ( ! preg_match( '/^(?:0|[1-9][0-9]*)(?:[.][0-9]{1,2})?$/D', $watch_time_minutes ) ) {
+				return $this->bad( 'management_social_watch_time_invalid', 'Watch time must be a non-negative decimal number of minutes.' );
+			}
+		}
+
 		$amounts = array();
-		foreach ( array( 'watch_time_minutes', 'spend_amount', 'attributed_sales' ) as $field ) {
+		foreach ( array( 'spend_amount', 'attributed_sales' ) as $field ) {
 			$value = $payload[ $field ] ?? null;
 			if ( null === $value || '' === $value ) {
 				$amounts[ $field ] = null;
@@ -315,6 +325,7 @@ final class Stockland_REST_Management_Intelligence extends Stockland_REST_Base {
 				'source_kind'        => 'MANUAL_EXPORT',
 				'source_reference'   => $source_reference,
 				'source_sha256'      => $source_sha256,
+				'watch_time_minutes' => $watch_time_minutes,
 				'follower_delta'     => null === $follower_delta ? null : (int) $follower_delta,
 				'attribution_method' => sanitize_text_field( (string) ( $payload['attribution_method'] ?? '' ) ),
 				'notes'              => sanitize_textarea_field( (string) ( $payload['notes'] ?? '' ) ),
