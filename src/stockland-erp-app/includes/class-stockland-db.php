@@ -233,22 +233,48 @@ class Stockland_DB {
 	 */
 	private static function schema_query( $query ) {
 		global $wpdb;
-		$sql      = ltrim( (string) $query );
-		$target   = '';
-		$patterns = array(
-			'/^ALTER\s+TABLE\s+`?([A-Za-z0-9_]+)`?/i',
-			'/^CREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+`?([A-Za-z0-9_]+)`?/i',
-			'/^DROP\s+TABLE(?:\s+IF\s+EXISTS)?\s+`?([A-Za-z0-9_]+)`?/i',
-		);
-		foreach ( $patterns as $pattern ) {
-			if ( preg_match( $pattern, $sql, $matches ) ) {
-				$target = $matches[1];
-				break;
+		$sql     = ltrim( (string) $query );
+		$targets = array();
+		if ( preg_match( '/^RENAME\\s+TABLE\\s+(.+)$/i', $sql, $rename_match ) ) {
+			// RENAME TABLE can contain multiple atomic source/destination pairs.
+			// Parse every identifier and apply the Stockland-only namespace boundary
+			// to both sides of every pair before executing the statement.
+			$pairs = preg_split( '/\\s*,\\s*/', trim( $rename_match[1] ) );
+			if ( empty( $pairs ) ) {
+				return false;
+			}
+			foreach ( $pairs as $pair ) {
+				if ( ! preg_match( '/^\\s*\\x60?([A-Za-z0-9_]+)\\x60?\\s+TO\\s+\\x60?([A-Za-z0-9_]+)\\x60?\\s*$/i', $pair, $rename_parts ) ) {
+					return false;
+				}
+				if ( $rename_parts[1] === $rename_parts[2] ) {
+					return false;
+				}
+				$targets[] = $rename_parts[1];
+				$targets[] = $rename_parts[2];
+			}
+		} else {
+			$patterns = array(
+				'/^ALTER\\s+TABLE\\s+\\x60?([A-Za-z0-9_]+)\\x60?/i',
+				'/^CREATE\\s+TABLE(?:\\s+IF\\s+NOT\\s+EXISTS)?\\s+\\x60?([A-Za-z0-9_]+)\\x60?/i',
+				'/^DROP\\s+TABLE(?:\\s+IF\\s+EXISTS)?\\s+\\x60?([A-Za-z0-9_]+)\\x60?/i',
+			);
+			foreach ( $patterns as $pattern ) {
+				if ( preg_match( $pattern, $sql, $matches ) ) {
+					$targets[] = $matches[1];
+					break;
+				}
 			}
 		}
-		if ( '' === $target || 0 !== strpos( $target, $wpdb->prefix . 'stock_' ) ) {
+		if ( empty( $targets ) ) {
 			return false;
 		}
+		foreach ( $targets as $target ) {
+			if ( 0 !== strpos( $target, $wpdb->prefix . 'stock_' ) ) {
+				return false;
+			}
+		}
+
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.NotPrepared -- Central fail-closed DDL gateway for caller-prepared fixed migrations; SQL structure cannot be value-bound, and only the prefixed Stockland namespace is allowed.
 		return $wpdb->query( $query );
 	}
