@@ -160,6 +160,20 @@ final class Stockland_Installer {
 				self::ensure_owner_profile( (int) $actor );
 				Stockland_Roles::register_roles();
 				Stockland_Roles::sync_roles();
+
+				// A caller may explicitly request the existing Owner approval transition.
+				// Record it only after Core + Finance + the four-table legacy HR baseline
+				// are ready. Never persist an approval outside the existing actor, Owner,
+				// DDL-fingerprint and immutable-audit checks in record_hr_approval().
+				if ( ! Stockland_HR::schema_migration_approved() && array_key_exists( 'reason', $approval ) ) {
+					$approval_reason = $approval['reason'];
+					if ( ! is_string( $approval_reason ) || strlen( trim( $approval_reason ) ) < 12 ) {
+						$errors[] = 'The requested HR schema approval needs a written reason of at least 12 characters. No HR schema change was attempted.';
+					} elseif ( ! self::record_hr_approval( (int) $actor, $approval_reason, 'bounded_installer_run' ) ) {
+						$errors[] = 'The HR schema approval was rejected or could not be recorded in the immutable audit chain. No HR schema change was attempted.';
+					}
+				}
+
 				if ( ! Stockland_HR::is_schema_ready() && ! Stockland_HR::schema_migration_approved() ) {
 					$result['needs_hr_approval'] = true;
 					update_option( 'stockland_setup_state', 'CORE_FINANCE_READY_HR_PENDING', false );
