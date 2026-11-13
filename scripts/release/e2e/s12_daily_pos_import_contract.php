@@ -128,6 +128,9 @@ try {
 			throw new RuntimeException( 'Daily POS contract failed: ' . $message );
 		}
 	};
+	$layout_health = Stockland_REST_Import_V16::article_summary_layout_self_test();
+	$assert( ! empty( $layout_health['ok'] ), 'Deep System Health self-test must exercise the exact supplier column alignment and field mapping.' );
+	$assert( 9 === count( array_filter( (array) ( $layout_health['checks'] ?? array() ) ) ), 'All nine Daily POS layout health assertions must pass.' );
 	$assert( 'CNET_SUMMARIZED_BY_ARTICLE' === ( $found['source_meta']['format'] ?? '' ), 'CNET Cash Sales Voucher summarized-by-article layout must be detected.' );
 	$assert( '2026-11-07' === ( $found['source_meta']['source_date'] ?? '' ), 'The embedded business date must be read from J3.' );
 	$assert( 'Article Code' === ( $found['mapping']['sku'] ?? '' ), 'Article Code must map to the external POS product code.' );
@@ -168,7 +171,7 @@ try {
 	$assert( true === $money_match->invoke( $controller, '869.565', '869.57', 1 ), 'Three-decimal POS article totals must allow the valid one-cent line rounding.' );
 	$assert( false === $money_match->invoke( $controller, '869.545', '869.57', 1 ), 'Rounding tolerance must not hide a difference above one cent.' );
 
-	echo "RESULT PASS: actual streaming XLSX parser detects CNET report, embedded date, merged Article Code data, quantity, Avg Amount, Total Amount, source totals and reconciliation gates.\n";
+	echo "RESULT PASS: actual streaming XLSX parser, nine exact-column health assertions detect CNET report, embedded date, merged Article Code data, quantity, Avg Amount, Total Amount, source totals and reconciliation gates.\n";
 } finally {
 	if ( $zip instanceof ZipArchive ) {
 		$zip->close();
