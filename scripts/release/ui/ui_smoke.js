@@ -156,6 +156,12 @@ const isLocal = (url) => {
           throw new Error(viewport.label + ' ERP dashboard did not hydrate within 45 seconds. Render state: ' + renderState.slice(0, 1200) + '. ' + error.message);
         }
         await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+        const pendingNotice = await page.locator('.sl-operational-schema-banner').textContent().catch(() => '');
+        if (!pendingNotice || !pendingNotice.includes('verified 49-key operational baseline')) {
+          fail(name + ' ' + viewport.label + ' does not expose the HR-pending / Core-Finance-operational boundary');
+        } else {
+          note(name + ' ' + viewport.label + ' explains HR-pending operational readiness');
+        }
         const dimensions = await page.evaluate(() => ({
           viewport: window.innerWidth,
           document: document.documentElement.scrollWidth,
