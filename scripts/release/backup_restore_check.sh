@@ -3,9 +3,17 @@
 # Usage: STOCKLAND_DISPOSABLE_SITE=yes backup_restore_check.sh <wp-path> [out-dir]
 set -euo pipefail
 [[ "${STOCKLAND_DISPOSABLE_SITE:-}" == "yes" ]] || { echo "Refusing: disposable site only"; exit 2; }
+EXPECTED_DB="${STOCKLAND_DISPOSABLE_DB_NAME:-}"
+EXPECTED_HOST="${STOCKLAND_DISPOSABLE_DB_HOST:-}"
+WP="wp --path=${1:?wp path} --allow-root"
+DB="$($WP config get DB_NAME 2>/dev/null | tail -1)"
+DB_HOST="$($WP config get DB_HOST 2>/dev/null | tail -1)"
+[[ -n "$EXPECTED_DB" && "$DB" == "$EXPECTED_DB" ]] || { echo "Refusing: source database name is not the explicitly named disposable database"; exit 2; }
+[[ "$EXPECTED_HOST" == "127.0.0.1" && "$DB_HOST" == "127.0.0.1" ]] || { echo "Refusing: WordPress database host must be explicitly loopback (127.0.0.1)"; exit 2; }
+[[ "${MYSQL_ADMIN_ARGS:-}" == *"-h127.0.0.1"* || "${MYSQL_ADMIN_ARGS:-}" == *"--host=127.0.0.1"* ]] || { echo "Refusing: administrative MySQL host must be explicitly loopback"; exit 2; }
 ADM="mysql ${MYSQL_ADMIN_ARGS:--uroot}"  # administrative account able to CREATE/DROP the scratch database (CI: MYSQL_ADMIN_ARGS="-h127.0.0.1 -uroot -proot")
-WP="wp --path=${1:?wp path} --allow-root"; OUT="${2:-$(mktemp -d)}"; mkdir -p "$OUT"
-DB="$($WP config get DB_NAME 2>/dev/null | tail -1)"; RST="${DB}_restore_drill"
+OUT="${2:-$(mktemp -d)}"; mkdir -p "$OUT"
+RST="${DB}_restore_drill"
 echo "Source database: $DB  scratch restore database: $RST"
 $WP db export "$OUT/backup.sql" --single-transaction >/dev/null 2>&1
 sha256sum "$OUT/backup.sql" | tee "$OUT/backup.sql.sha256"

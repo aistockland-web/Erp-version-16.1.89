@@ -471,7 +471,7 @@ class Stockland_Admin {
 			$auth = Stockland_Release_Authorization::status();
 			if ( ! empty( $auth['authorized'] ) ) {
 				echo '<p style="color:#00a32a;font-weight:600">&#10003; Version ' . esc_html( STOCKLAND_VERSION ) . ' is authorized for live operation by the Owner (' . esc_html( $auth['record']['authorized_at'] ) . ').</p>';
-			} elseif ( empty( $full_missing ) && empty( $finance_upgrade_gaps ) && empty( $hr_upgrade_gaps ) ) {
+			} elseif ( Stockland_HR::is_schema_ready() && empty( $full_missing ) && empty( $finance_upgrade_gaps ) && empty( $hr_upgrade_gaps ) ) {
 				if ( Stockland_Authority::is_owner() ) {
 					echo '<form method="post" style="max-width:760px">';
 					wp_nonce_field( 'stockland_authorize_release' );
