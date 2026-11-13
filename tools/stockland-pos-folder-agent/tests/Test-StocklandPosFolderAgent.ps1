@@ -65,28 +65,28 @@ try {
     Assert-True (-not $script:LastForm.ContainsKey('branch_location_id')) 'Agent must not override the authenticated branch assignment.'
     Assert-True (-not $script:LastForm.ContainsKey('business_date')) 'Agent must let the ERP detect the report date.'
     Assert-True ($script:LastAuthorization.StartsWith('Basic ')) 'Application Password must be sent over HTTPS Basic authentication.'
-    Assert-True ((Get-ChildItem -LiteralPath $folders.Submitted -File).Count -eq 1) 'Submitted report must be retained in its evidence folder.'
+    Assert-True (@(Get-ChildItem -LiteralPath $folders.Submitted -File).Count -eq 1) 'Submitted report must be retained in its evidence folder.'
 
     $script:MockResult = @{ job_id = 502; status = 'REVIEW'; existing_job = $false }
     Set-Content -LiteralPath (Join-Path $folders.Incoming 'review.xlsx') -Value 'fixture' -Encoding UTF8
     [System.IO.File]::SetLastWriteTimeUtc((Join-Path $folders.Incoming 'review.xlsx'), [DateTime]::UtcNow.AddSeconds(-10))
     $review = Invoke-StocklandFolderAgent -Config $config
     Assert-True ($review.Review -eq 1) 'REVIEW response must be separated for Branch Manager review.'
-    Assert-True ((Get-ChildItem -LiteralPath $folders.NeedsReview -File).Count -eq 1) 'Review file must move to NeedsReview.'
+    Assert-True (@(Get-ChildItem -LiteralPath $folders.NeedsReview -File).Count -eq 1) 'Review file must move to NeedsReview.'
 
     $script:MockHttpStatus = 503
     Set-Content -LiteralPath (Join-Path $folders.Incoming 'retry.xlsx') -Value 'fixture' -Encoding UTF8
     [System.IO.File]::SetLastWriteTimeUtc((Join-Path $folders.Incoming 'retry.xlsx'), [DateTime]::UtcNow.AddSeconds(-10))
     $retry = Invoke-StocklandFolderAgent -Config $config
     Assert-True ($retry.RetainedForRetry -eq 1) 'Transient HTTP 503 must keep the original file in Incoming.'
-    Assert-True ((Get-ChildItem -LiteralPath $folders.Incoming -File).Count -eq 1) 'Transient file must remain available for retry.'
+    Assert-True (@(Get-ChildItem -LiteralPath $folders.Incoming -File).Count -eq 1) 'Transient file must remain available for retry.'
 
     $script:MockHttpStatus = 403
     Set-Content -LiteralPath (Join-Path $folders.Incoming 'forbidden.xlsx') -Value 'fixture' -Encoding UTF8
     [System.IO.File]::SetLastWriteTimeUtc((Join-Path $folders.Incoming 'forbidden.xlsx'), [DateTime]::UtcNow.AddSeconds(-10))
     $attention = Invoke-StocklandFolderAgent -Config $config
     Assert-True ($attention.Attention -eq 1) 'Permanent HTTP 403 must be escalated, not retried forever.'
-    Assert-True ((Get-ChildItem -LiteralPath $folders.NeedsAttention -File).Count -eq 1) 'Forbidden file must move to NeedsAttention.'
+    Assert-True (@(Get-ChildItem -LiteralPath $folders.NeedsAttention -File).Count -eq 1) 'Forbidden file must move to NeedsAttention.'
 
     Write-Output 'RESULT PASS: READY staging, REVIEW routing, HTTPS endpoint, no branch/date override, retry retention and permanent-error handling.'
 }
