@@ -214,6 +214,7 @@ const isLocal = (url) => {
       await miNav.click();
       await page.waitForSelector('#refreshManagementIntelligence', { timeout: 15000 }).catch(() => fail('Management Intelligence did not render'));
       await page.waitForSelector('#slMiSocialBody', { timeout: 15000 }).catch(() => fail('Management Intelligence social panel missing'));
+      await page.waitForSelector('#slMiSocialBody .sl-hrlc-social-card', { timeout: 15000 }).catch(() => fail('Management Intelligence social links did not load'));
       const social = await page.locator('#slMiSocialBody .sl-hrlc-social-card').count();
       if (social < 4) fail('Management Intelligence shows ' + social + ' official platform sign-in links, expected 4');
       const wired = await page.evaluate(() => !!document.getElementById('refreshManagementIntelligence')?.__slMiBound);
