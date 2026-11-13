@@ -44,9 +44,10 @@ check("XLSX reader has bounded ZIP/XML streaming and row/file safety limits",
       and "MAX_PHYSICAL_ROW_NODES" in xlsx)
 check("runtime diagnostics reports memory and XLSX runtime capabilities",
       "memory_limit" in runtime and "ZipArchive" in runtime and "XMLReader" in runtime)
-check("setup-mode health reports deep checks as deferred, not passed",
+check("setup-mode health reports deferred deep checks and explicitly denies live readiness",
       "'deep_integrity_status' => 'DEFERRED_NOT_RUN'" in setup
-      and re.search(r"'live_ready'\s*=>\s*false", setup) is not None)
+      and "'full_import_and_workflow_contract_gates'" in setup
+      and "$checks['live_ready'] = false;" in setup)
 check("daily POS release retains sale-ledger, audit and accounting services",
       "Stockland_Ledger::post_sale_closed" in imp
       and "Stockland_Audit::log" in imp
