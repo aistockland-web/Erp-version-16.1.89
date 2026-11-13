@@ -173,11 +173,19 @@ jobs:
             sleep 1
           done
           curl --fail --silent http://127.0.0.1:8080/wp-login.php >/dev/null
+          set +e
           NODE_PATH=/tmp/stockland-playwright/node_modules node scripts/release/ui/ui_smoke.js \
-            http://127.0.0.1:8080 admin "$QA_PASSWORD" /tmp/stockland-ui-smoke | tee /tmp/ui-smoke.log
+            http://127.0.0.1:8080 admin "$QA_PASSWORD" /tmp/stockland-ui-smoke 2>&1 | tee /tmp/ui-smoke.log
+          UI_SMOKE_STATUS=${PIPESTATUS[0]}
           NODE_PATH=/tmp/stockland-playwright/node_modules node scripts/release/ui/admin_launcher_smoke.js \
-            http://127.0.0.1:8080 admin "$QA_PASSWORD" | tee /tmp/admin-launcher-smoke.log
+            http://127.0.0.1:8080 admin "$QA_PASSWORD" 2>&1 | tee /tmp/admin-launcher-smoke.log
+          ADMIN_LAUNCHER_STATUS=${PIPESTATUS[0]}
           unset QA_PASSWORD
+          set -e
+          if [[ "$UI_SMOKE_STATUS" -ne 0 || "$ADMIN_LAUNCHER_STATUS" -ne 0 ]]; then
+            echo "Browser acceptance failed: ui_smoke=$UI_SMOKE_STATUS admin_launcher=$ADMIN_LAUNCHER_STATUS"
+            exit 1
+          fi
 
       - name: Upload evidence
         if: always()
