@@ -82,15 +82,13 @@ function Invoke-StocklandFolderAgent {
     catch {
         throw 'The ERP endpoint must be a valid HTTPS base URL.'
     }
-    if (
-        $base -ne $base.Trim()
-        -or -not $site.IsAbsoluteUri
-        -or $site.Scheme -ne 'https'
-        -or [string]::IsNullOrWhiteSpace($site.Host)
-        -or -not [string]::IsNullOrEmpty($site.UserInfo)
-        -or -not [string]::IsNullOrEmpty($site.Query)
-        -or -not [string]::IsNullOrEmpty($site.Fragment)
-    ) {
+    if ($base -ne $base.Trim() -or
+        -not $site.IsAbsoluteUri -or
+        $site.Scheme -ne 'https' -or
+        [string]::IsNullOrWhiteSpace($site.Host) -or
+        -not [string]::IsNullOrEmpty($site.UserInfo) -or
+        -not [string]::IsNullOrEmpty($site.Query) -or
+        -not [string]::IsNullOrEmpty($site.Fragment)) {
         throw 'The ERP endpoint must use HTTPS and cannot contain embedded credentials, query strings or fragments.'
     }
     # Rebuild from the validated URI, preserving a hosting subdirectory such as /stockland.
