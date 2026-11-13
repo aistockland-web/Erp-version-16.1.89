@@ -1932,9 +1932,9 @@ class Stockland_Activator {
 
 				// Atomic metadata cutover; the original balance table remains as a
 				// timestamped rollback snapshot containing its source row identities.
-				Stockland_DB::execute_query( $wpdb->prepare( 'RENAME TABLE %i TO %i, %i TO %i', $bal, $backup, $stage, $bal ) );
-				if ( $wpdb->last_error ) {
-					throw new RuntimeException( 'Could not cut over staged balance read model: ' . $wpdb->last_error );
+				$cutover_result = Stockland_DB::execute_query( $wpdb->prepare( 'RENAME TABLE %i TO %i, %i TO %i', $bal, $backup, $stage, $bal ) );
+				if ( false === $cutover_result || $wpdb->last_error ) {
+					throw new RuntimeException( 'Could not cut over staged balance read model: ' . ( $wpdb->last_error ? $wpdb->last_error : 'DDL policy rejected the atomic rename.' ) );
 				}
 				update_option( 'stockland_balance_rollback_snapshot', $backup, false );
 			}
