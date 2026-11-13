@@ -75,10 +75,27 @@ function Invoke-StocklandFolderAgent {
     }
     $logPath = Join-Path (Split-Path -Parent $ConfigPath) 'agent.log'
     $base = [string]$Config.SiteUrl
-    $endpoint = $base.TrimEnd('/') + '/wp-json/stockland/v16/import/daily-sales/preview'
-    if ($base -notmatch '^https://') {
-        throw 'The ERP endpoint must use HTTPS.'
+    try {
+        $site = [Uri]::new($base, [UriKind]::Absolute)
+        $null = $site.Port # Force validation of malformed ports before sending credentials.
     }
+    catch {
+        throw 'The ERP endpoint must be a valid HTTPS base URL.'
+    }
+    if (
+        $base -ne $base.Trim()
+        -or -not $site.IsAbsoluteUri
+        -or $site.Scheme -ne 'https'
+        -or [string]::IsNullOrWhiteSpace($site.Host)
+        -or -not [string]::IsNullOrEmpty($site.UserInfo)
+        -or -not [string]::IsNullOrEmpty($site.Query)
+        -or -not [string]::IsNullOrEmpty($site.Fragment)
+    ) {
+        throw 'The ERP endpoint must use HTTPS and cannot contain embedded credentials, query strings or fragments.'
+    }
+    # Rebuild from the validated URI, preserving a hosting subdirectory such as /stockland.
+    $base = $site.AbsoluteUri.TrimEnd('/')
+    $endpoint = $base + '/wp-json/stockland/v16/import/daily-sales/preview'
 
     $password = Get-StocklandAgentPassword -EncryptedPassword ([string]$Config.PasswordBlob)
     $rawAuth = [byte[]]@()
@@ -109,7 +126,7 @@ function Invoke-StocklandFolderAgent {
             # The server derives the branch from this dedicated user's assigned branch
             # and detects the business date from supported POS reports. This agent never
             # sends a branch override and never calls the commit/release endpoint.
-            $response = Invoke-RestMethod -Uri $endpoint -Method Post -Headers $headers -Form @{ file = $file } -TimeoutSec 120
+            $response = Invoke-RestMethod -Uri $endpoint -Method Post -Headers $headers -Form @{ file = $file } -TimeoutSec 120 -MaximumRedirection 0
             $status = [string]$response.status
             $isExistingJob = $false
             if ($response -is [System.Collections.IDictionary]) {
