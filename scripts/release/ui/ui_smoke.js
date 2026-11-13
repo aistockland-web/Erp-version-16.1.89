@@ -193,14 +193,11 @@ const isLocal = (url) => {
       else note('command palette keeps unapproved HR lifecycle hidden');
       await page.evaluate(() => document.getElementById('slCommandPalette')?.remove());
     }
-    const dashboardHrAction = page.locator('#sl-content [data-view="hr"]').first();
-    if (await dashboardHrAction.count()) {
-      await dashboardHrAction.click();
-      const pendingPage = await page.locator('[data-hr-schema-pending-page="1"]').count();
-      if (pendingPage !== 1) fail('dashboard HR action did not open the explicit approval-pending page');
-      else note('dashboard HR action opens approval-pending page without loading lifecycle APIs');
+    const dashboardHrActionCount = await page.locator('#sl-content [data-view="hr"]').count();
+    if (dashboardHrActionCount !== 0) {
+      fail('dashboard exposed an HR action before active-Owner schema approval');
     } else {
-      note('dashboard does not expose an HR lifecycle action while Owner approval is pending');
+      note('dashboard quick actions keep unapproved HR lifecycle hidden');
     }
 
     await context.close();
