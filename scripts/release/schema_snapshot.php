@@ -65,27 +65,15 @@ foreach ( $tables as $table ) {
 			$fingerprints_complete = count( $row_fingerprints ) === $row_count;
 		}
 	}
-	// Retain the earlier per-column diagnostic digest for readable reports.
-	$digest = array();
-	if ( $row_count > 0 && $row_count <= 200000 && $pk_columns ) {
-		$pk_order = implode( ', ', array_map( static function ( $column ) {
-			return '\`' . str_replace( '\`', '\`\`', (string) $column ) . '\`';
-		}, $pk_columns ) );
-		foreach ( (array) $columns as $column ) {
-			$name = (string) $column['column_name'];
-			$digest[ $name ] = md5( (string) $wpdb->get_var( 'SELECT GROUP_CONCAT(COALESCE(CAST(\`' . esc_sql( $name ) . '\` AS CHAR),\\'<NULL>\\') ORDER BY ' . $pk_order . ' SEPARATOR \\'|\\') FROM (SELECT * FROM \`' . esc_sql( $table ) . '\` ORDER BY ' . $pk_order . ' LIMIT 5000) x' ) );
-		}
-	}
 	$snap['tables'][ substr( $table, strlen( $wpdb->prefix ) ) ] = array(
-		'rows'                     => $row_count,
-		'columns'                  => $columns,
-		'indexes'                  => $indexes,
-		'foreign_keys'             => $foreign_keys,
-		'primary_key_columns'      => $pk_columns,
-		'row_fingerprints'         => $row_fingerprints,
-		'row_fingerprints_complete'=> $fingerprints_complete,
-		'row_fingerprints_limit'   => $fingerprint_limit,
-		'digest'                   => $digest,
+		'rows'                      => $row_count,
+		'columns'                   => $columns,
+		'indexes'                   => $indexes,
+		'foreign_keys'              => $foreign_keys,
+		'primary_key_columns'       => $pk_columns,
+		'row_fingerprints'          => $row_fingerprints,
+		'row_fingerprints_complete' => $fingerprints_complete,
+		'row_fingerprints_limit'    => $fingerprint_limit,
 	);
 }
 file_put_contents( $out, wp_json_encode( $snap, JSON_PRETTY_PRINT ) );
