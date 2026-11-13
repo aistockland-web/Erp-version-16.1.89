@@ -136,15 +136,17 @@ try {
 		(int) ( $current_rows[0]['location_id'] ?? 0 ) === 900001
 			&& (int) ( $current_rows[0]['variant_id'] ?? 0 ) === $variant_a
 			&& (string) ( $current_rows[0]['sku'] ?? '' ) === $sku_a
-			&& abs( (float) ( $current_rows[0]['physical_qty'] ?? 0 ) - 10.0 ) < 0.00001
-	), wp_json_encode( $current_rows );
+			&& abs( (float) ( $current_rows[0]['physical_qty'] ?? 0 ) - 10.0 ) < 0.00001,
+		wp_json_encode( $current_rows )
+	);
 	$check(
 		'NULL variant ID resolves only through its exact current SKU',
 		(int) ( $current_rows[1]['location_id'] ?? 0 ) === 900002
 			&& (int) ( $current_rows[1]['variant_id'] ?? 0 ) === $variant_b
 			&& (string) ( $current_rows[1]['sku'] ?? '' ) === $sku_b
-			&& abs( (float) ( $current_rows[1]['physical_qty'] ?? 0 ) - 5.0 ) < 0.00001
-	), wp_json_encode( $current_rows );
+			&& abs( (float) ( $current_rows[1]['physical_qty'] ?? 0 ) - 5.0 ) < 0.00001,
+		wp_json_encode( $current_rows )
+	);
 
 	$primary = $wpdb->get_col( $wpdb->prepare(
 		"SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA=%s AND TABLE_NAME=%s AND INDEX_NAME='PRIMARY' ORDER BY SEQ_IN_INDEX",
@@ -174,8 +176,9 @@ try {
 			&& 2 === count( $backup_rows )
 			&& null === $backup_rows[1]['variant_id']
 			&& abs( (float) $backup_rows[0]['physical_qty'] - 10.0 ) < 0.00001
-			&& abs( (float) $backup_rows[1]['physical_qty'] - 5.0 ) < 0.00001
-	), 'table=' . $rollback_table . ' rows=' . wp_json_encode( $backup_rows );
+			&& abs( (float) $backup_rows[1]['physical_qty'] - 5.0 ) < 0.00001,
+		'table=' . $rollback_table . ' rows=' . wp_json_encode( $backup_rows )
+	);
 
 	$location_totals = $wpdb->get_results( $wpdb->prepare(
 		'SELECT location_id,SUM(physical_qty) AS qty FROM %i GROUP BY location_id ORDER BY location_id',
