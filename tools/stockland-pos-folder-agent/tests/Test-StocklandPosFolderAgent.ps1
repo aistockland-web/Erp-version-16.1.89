@@ -10,7 +10,7 @@ $script:LastForm = $null
 $script:LastAuthorization = $null
 
 function Invoke-RestMethod {
-    param($Uri, $Method, $Headers, $Form, $TimeoutSec)
+    param($Uri, $Method, $Headers, $Form, $TimeoutSec, $MaximumRedirection)
     $script:LastUri = [string]$Uri
     $script:LastForm = $Form
     $script:LastAuthorization = [string]$Headers.Authorization
@@ -44,6 +44,15 @@ $config = @{
 }
 $script:ConfigPath = Join-Path $temp 'config.json'
 try {
+    foreach ($invalidUrl in @('http://erp.example.test', 'https://user:secret@erp.example.test', 'https://erp.example.test:not-a-port', 'https://erp.example.test/path?x=1', 'https://erp.example.test/path#fragment')) {
+        $badConfig = $config.Clone()
+        $badConfig.SiteUrl = $invalidUrl
+        $rejected = $false
+        try { $null = Invoke-StocklandFolderAgent -Config $badConfig }
+        catch { $rejected = $_.Exception.Message -match 'HTTPS|credentials|valid HTTPS' }
+        Assert-True $rejected "Unsafe ERP URL must be rejected before credentials are sent: $invalidUrl"
+    }
+
     $writingPath = Join-Path $folders.Incoming 'still-writing.xlsx'
     Set-Content -LiteralPath $writingPath -Value 'fixture' -Encoding UTF8
     $waiting = Invoke-StocklandFolderAgent -Config $config
@@ -64,6 +73,7 @@ try {
     Assert-True (-not $script:LastForm.ContainsKey('branch_location_id')) 'Agent must not override the authenticated branch assignment.'
     Assert-True (-not $script:LastForm.ContainsKey('business_date')) 'Agent must let the ERP detect the report date.'
     Assert-True ($script:LastAuthorization.StartsWith('Basic ')) 'Application Password must be sent over HTTPS Basic authentication.'
+    Assert-True ($script:LastUri -eq 'https://erp.example.test/wp-json/stockland/v16/import/daily-sales/preview') 'Validated base URL must be used for the fixed ERP staging endpoint.'
     Assert-True (@(Get-ChildItem -LiteralPath $folders.Submitted -File).Count -eq 1) 'Submitted report must be retained in its evidence folder.'
 
     $script:MockResult = @{ job_id = 502; status = 'REVIEW'; existing_job = $false }
