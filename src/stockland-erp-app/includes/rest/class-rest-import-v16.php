@@ -1859,9 +1859,13 @@ class Stockland_REST_Import_V16 {
 
 				$cogs             = Stockland_Money::multiply( $q, $cost_basis );
 				$profit           = Stockland_Money::subtract( $calc['net_sales'], $cogs );
-				$external_receipt = (string) ( $row['external_receipt_no'] ?? '' );
-				$receipt          = '' !== $external_receipt ? $external_receipt : 'ROW-' . $row['row_number'];
-				$receipt_key      = hash( 'sha256', 'THIRD_PARTY_POS|' . $job['branch_location_id'] . '|' . $job['business_date'] . '|' . $receipt );
+				$external_receipt = trim( (string) ( $row['external_receipt_no'] ?? '' ) );
+				$is_summary_batch = 'THIRD_PARTY_POS_SUMMARY' === (string) ( $job['source_system'] ?? '' );
+				$batch_source_system = $is_summary_batch ? 'THIRD_PARTY_POS_SUMMARY' : 'THIRD_PARTY_POS';
+				$receipt = '' !== $external_receipt ? $external_receipt : ( $is_summary_batch ? 'SOURCE-SUMMARY-JOB-' . $id : 'ROW-' . $row['row_number'] );
+				$receipt_key = $is_summary_batch
+					? hash( 'sha256', 'THIRD_PARTY_POS_SUMMARY|' . $job['branch_location_id'] . '|' . $job['business_date'] . '|JOB|' . $id )
+					: hash( 'sha256', 'THIRD_PARTY_POS|' . $job['branch_location_id'] . '|' . $job['business_date'] . '|' . $receipt );
 				if ( '' !== $external_receipt ) {
 					$cross_job_batch = Stockland_DB::read_row(
 						$wpdb->prepare(
@@ -1869,7 +1873,7 @@ class Stockland_REST_Import_V16 {
 							$batches,
 							(int) $job['branch_location_id'],
 							$job['business_date'],
-							'THIRD_PARTY_POS',
+							$batch_source_system,
 							$external_receipt
 						),
 						ARRAY_A
@@ -1887,9 +1891,9 @@ class Stockland_REST_Import_V16 {
 							'branch_location_id'  => $job['branch_location_id'],
 							'business_date'       => $job['business_date'],
 							'source_filename'     => $job['source_filename'],
-							'external_receipt_no' => $row['external_receipt_no'] ? $row['external_receipt_no'] : null,
+							'external_receipt_no' => '' !== $external_receipt ? $external_receipt : null,
 							'receipt_key'         => $receipt_key,
-							'source_system'       => 'THIRD_PARTY_POS',
+							'source_system'       => $batch_source_system,
 							'status'              => 'POSTING',
 							'posted_by'           => get_current_user_id(),
 						)
@@ -1927,7 +1931,7 @@ class Stockland_REST_Import_V16 {
 						'staff_user_id'        => get_current_user_id(),
 						'closed_at'            => current_time( 'mysql' ),
 						'closed_by'            => get_current_user_id(),
-						'external_receipt_no'  => $row['external_receipt_no'],
+						'external_receipt_no'  => '' !== $external_receipt ? $external_receipt : null,
 						'source_job_id'        => $id,
 						'source_row_number'    => (int) $row['row_number'],
 						'source_sale_group'    => (string) $batch_id,
@@ -2092,6 +2096,9 @@ class Stockland_REST_Import_V16 {
 			}
 			if ( 'DAILY_SALES' !== $job['import_type'] ) {
 				throw new Exception( 'This is not a Daily POS job.' );
+			}
+			if ( 'THIRD_PARTY_POS_SUMMARY' === (string) ( $job['source_system'] ?? '' ) ) {
+				throw new Exception( 'Article-summary imports are source-locked. Correct the source POS report and upload it again; do not edit or invent receipt-level values.' );
 			}
 			Stockland_Business_Calendar::assert_business_day( $job['business_date'] );
 			if ( ! Stockland_Authority::company_scope() && ! in_array( (int) $job['branch_location_id'], array_map( 'intval', Stockland_Authority::location_ids() ), true ) ) {
