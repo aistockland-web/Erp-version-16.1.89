@@ -116,7 +116,8 @@ class Stockland_REST_Setup {
 	}
 
 	/**
-	 * Determines whether the complete core, accounting and HR schema is ready.
+	 * Determines whether the approved 49-key Core/Finance operational baseline is ready.
+	 * HR lifecycle and HR/payroll column migrations remain module-scoped and Owner-gated.
 	 *
 	 * @return bool Whether operational ERP routes may be enabled.
 	 */
@@ -125,8 +126,7 @@ class Stockland_REST_Setup {
 			return empty( Stockland_Activator::missing_core_tables() )
 				&& empty( Stockland_Accounting::missing_tables() )
 				&& empty( Stockland_Accounting::upgrade_gaps() )
-				&& empty( Stockland_HR::missing_tables() )
-				&& empty( Stockland_HR::upgrade_gaps() );
+				&& empty( Stockland_HR::missing_legacy_tables() );
 		} catch ( Throwable $e ) {
 			// If any schema check is unknown, keep operational controllers closed but
 			// leave the protected setup and diagnostic routes available.
