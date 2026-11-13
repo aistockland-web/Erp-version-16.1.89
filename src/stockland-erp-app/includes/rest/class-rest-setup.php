@@ -445,7 +445,7 @@ class Stockland_REST_Setup {
 		$total_expected = $core_total + $fin_total + $hr_total;
 		$missing        = array_values( array_unique( array_merge( $core, $fin, $hr ) ) );
 		$present        = $total_expected - count( $missing );
-		$ready          = empty( $missing ) && empty( $finance_gaps ) && empty( $hr_gaps );
+		$ready          = empty( $core ) && empty( $fin ) && empty( $finance_gaps ) && Stockland_HR::is_schema_ready();
 		$state          = 'LIVE';
 		if ( $missing ) {
 			if ( $core ) {
@@ -494,9 +494,11 @@ class Stockland_REST_Setup {
 				'total'        => $hr_total,
 				'missing'      => $hr,
 				'upgrade_gaps' => $hr_gaps,
-				'ready'        => empty( $hr ) && empty( $hr_gaps ),
+				'ready'        => Stockland_HR::is_schema_ready(),
 				'schema_version' => Stockland_HR::DB_VERSION,
-				'schema_approval_required' => ( ! empty( $hr ) || ! empty( $hr_gaps ) ) && ! $this->hr_schema_approval_is_current(),
+				'schema_approval_required' => ! Stockland_HR::schema_migration_approved(),
+				'legacy_missing' => Stockland_HR::missing_legacy_tables(),
+				'lifecycle_missing' => Stockland_HR::missing_lifecycle_tables(),
 			),
 			'total'              => array(
 				'present' => $present,
@@ -557,6 +559,8 @@ class Stockland_REST_Setup {
 				if ( null === $progress ) {
 					$progress = array( 'complete' => empty( Stockland_Accounting::missing_tables() ) && empty( Stockland_Accounting::upgrade_gaps() ) );
 				}
+			} elseif ( Stockland_HR::missing_legacy_tables() ) {
+				$progress = Stockland_HR::install_legacy_baseline( 1 );
 			} else {
 				if ( ! $this->hr_schema_approval_is_current() ) {
 					$approved = rest_sanitize_boolean( $request->get_param( 'approve_hr_schema' ) );
@@ -569,6 +573,9 @@ class Stockland_REST_Setup {
 						);
 					}
 					$actor = get_current_user_id();
+					if ( ! Stockland_Authority::is_owner( $actor ) ) {
+						return new WP_Error( 'hr_owner_required', 'Only the active Stockland Owner may approve the HR/Payroll DDL fingerprint.', array( 'status' => 403 ) );
+					}
 					$stamp = current_time( 'mysql' );
 					if ( ! Stockland_Audit::log( $actor, null, 'HR_SCHEMA_MIGRATION_APPROVED', null, null, null, Stockland_HR::DB_VERSION . ':' . Stockland_HR::schema_signature(), $reason, 'HR_SCHEMA_' . Stockland_HR::DB_VERSION, $actor ) ) {
 						return new WP_Error( 'hr_schema_approval_audit_failed', 'The Owner approval could not be written to the immutable audit chain. No HR schema change was attempted.', array( 'status' => 500 ) );

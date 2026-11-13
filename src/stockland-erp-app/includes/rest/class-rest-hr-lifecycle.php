@@ -27,6 +27,7 @@ final class Stockland_REST_HR_Lifecycle extends Stockland_REST_Base {
 	);
 	public function __construct(){add_action('stockland_register_rest_routes',array($this,'register_routes'));}
 	public function register_routes(){
+		if ( ! Stockland_HR::is_schema_ready() ) { return; }
 		$ns=self::NAMESPACE_V1;
 		register_rest_route($ns,'/hr/lifecycle/bootstrap',array('methods'=>'GET','callback'=>array($this,'bootstrap'),'permission_callback'=>function(){return Stockland_Authority::can_view_hr();}));
 		register_rest_route($ns,'/hr/lifecycle/(?P<entity>workforce-plans|positions|requisitions|candidates|applications|interviews|documents|contracts|onboarding|shifts|attendance|leave-policies|leave-balances|leave-requests|training|performance|adjustments)',array('methods'=>'POST','callback'=>array($this,'create'),'permission_callback'=>function(){return Stockland_Authority::can_manage_hr();}));
