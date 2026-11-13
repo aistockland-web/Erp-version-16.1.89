@@ -212,7 +212,7 @@ class Stockland_Admin {
 			if ( ! empty( $result['complete'] ) ) {
 				echo '<div class="notice notice-success is-dismissible"><p><strong>Installation complete.</strong> All Core, Accounting/Procurement and HR/Payroll tables are physically verified.</p></div>';
 			} elseif ( ! empty( $result['needs_hr_approval'] ) ) {
-				echo '<div class="notice notice-warning is-dismissible"><p>Core and Accounting are complete. HR/Payroll needs your written approval reason and backup confirmation (form below) because this site already had ERP tables.</p></div>';
+				echo '<div class="notice notice-warning is-dismissible"><p>Core/Finance and the four-table legacy HR baseline are complete. The 37-table HR lifecycle extension and any legacy HR column migrations remain pending until an active Owner approves the exact DDL fingerprint and a restorable backup is confirmed. Operational ERP modules remain available.</p></div>';
 			} elseif ( ! empty( $result['errors'] ) ) {
 				echo '<div class="notice notice-error is-dismissible"><p><strong>Installer stopped:</strong> ' . esc_html( implode( ' | ', (array) $result['errors'] ) ) . '</p></div>';
 			} else {
@@ -460,11 +460,11 @@ class Stockland_Admin {
 				echo '<form method="post" style="max-width:760px">';
 				wp_nonce_field( 'stockland_one_click_install' );
 				if ( ! Stockland_Installer::hr_approval_is_current() && Stockland_Authority::is_owner() ) {
-					echo '<p><label for="stockland_hr_schema_reason"><strong>Owner approval reason (needed once, because ERP tables already exist)</strong></label><br><input id="stockland_hr_schema_reason" name="stockland_hr_schema_reason" type="text" class="regular-text" minlength="12" placeholder="Reviewed additive HR schema and verified backup"></p>';
+					echo '<p><label for="stockland_hr_schema_reason"><strong>Owner approval reason (required before additive HR lifecycle tables and legacy HR column migrations)</strong></label><br><input id="stockland_hr_schema_reason" name="stockland_hr_schema_reason" type="text" class="regular-text" minlength="12" placeholder="Reviewed additive HR schema and verified backup"></p>';
 					echo '<p><label><input type="checkbox" name="stockland_confirm_hr_schema" value="1"> I approve additive HR/Payroll schema version ' . esc_html( Stockland_HR::DB_VERSION ) . ' and confirm a restorable backup exists.</label></p>';
 				}
 				echo '<button type="submit" name="stockland_one_click_install" value="1" class="button button-primary button-hero">Install / complete everything now</button></form>';
-				echo '<p class="description">Creates every missing table in order (Core, Accounting/Procurement, HR/Payroll), verifying the physical database after each step. Add-only: no table is dropped, truncated, renamed or reseeded.</p>';
+				echo '<p class="description">Creates only the approved add-only schema steps in order, verifying the physical database after each step. The operational Core/Finance and four-table legacy HR baseline can run while the 37-table HR lifecycle extension and HR column migrations remain gated by active-Owner approval. No table is dropped, truncated, renamed or reseeded.</p>';
 			}
 
 			echo '<h2 style="margin-top:24px">Go-live authorization</h2>';
