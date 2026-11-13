@@ -4,7 +4,7 @@
 
 - Stock transfers between locations now notify the right audiences at every stage (requested, approved, reserved, picked, in transit, rejected, cancelled) in addition to the existing receipt notice. Notifications are sent after the stock transaction commits and can never roll it back.
 - Fixed missing `<?php` open tag in the schema-contract class (source leaked into output; activation and REST responses failed).
-- Added `Stockland_Installer`: one activation builds all 86 tables with physical verification; resumable one-click button in System Control.
+- Added `Stockland_Installer`: one activation builds the 49-key operational baseline (29 Core + 16 Finance/Procurement + 4 legacy HR tables) with physical verification; the 37-table HR lifecycle extension and legacy HR column migrations remain gated behind active-Owner fingerprint approval.
 - Added Owner go-live authorization bound to version + schema fingerprint, recorded in the audit chain; health `live_ready` now reflects it.
 - Health: XMLReader check accepts the supported PHP 8.3 streaming fallback.
 - MySQL 8: stock-ledger and GL posting used MariaDB-only `@@session.in_transaction` (every inventory posting failed with HTTP 500 on MySQL 8). Added portable `Stockland_DB::in_transaction()` (MariaDB variable, or tracked state on MySQL).
