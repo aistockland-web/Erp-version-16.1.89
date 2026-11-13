@@ -6,6 +6,7 @@ const root = path.resolve(__dirname, '../../..');
 const app = fs.readFileSync(path.join(root, 'src/stockland-erp-app/assets/app.js'), 'utf8');
 const agent = fs.readFileSync(path.join(root, 'tools/stockland-pos-folder-agent/Run-StocklandPosFolderAgent.ps1'), 'utf8');
 const importer = fs.readFileSync(path.join(root, 'src/stockland-erp-app/includes/rest/class-rest-import-v16.php'), 'utf8');
+const health = fs.readFileSync(path.join(root, 'src/stockland-erp-app/includes/rest/class-rest-app.php'), 'utf8');
 const css = fs.readFileSync(path.join(root, 'src/stockland-erp-app/assets/app.css'), 'utf8');
 
 function assert(ok, message) {
@@ -40,6 +41,10 @@ assert(editor.includes("['READY','PARTIAL'].includes(job.status)"), 'Only READY/
 
 assert(agent.includes('/wp-json/stockland/v16/import/daily-sales/preview'), 'Folder agent must use the established preview/stage endpoint.');
 assert(importer.includes('CNET_SUMMARIZED_BY_ARTICLE'), 'Importer must detect the exact summarized POS source format.');
+assert(importer.includes('function article_summary_layout_self_test()'), 'Importer must expose a real deterministic source-layout health test.');
+assert(health.includes("$checks['daily_pos_article_summary_layout']") && health.includes("Stockland_REST_Import_V16::article_summary_layout_self_test()"), 'Deep System Health must execute the exact Article Code alignment/mapping self-test.');
+assert(health.includes("$checks['daily_pos_contract'] && $checks['daily_pos_article_summary_layout']"), 'Exact source mapping health must be mandatory for live_ready.');
+assert(health.includes("'daily_pos_article_summary_layout',") && health.includes("'DEFERRED_NOT_RUN'"), 'Quick Health must disclose that deep POS layout verification was deferred.');
 assert(importer.includes('DAILY-UNREFERENCED'), 'Summary rows must not be represented as invented receipt numbers.');
 assert(importer.includes('receipt_count') && importer.includes("'' !== $external_receipt ? 1 : 0"), 'Receipt-free report summaries must not be counted as a known customer receipt.');
 assert(importer.includes('already has a released or partially released Daily POS job'), 'A second changed export for the same branch/date must be blocked after posting starts.');
