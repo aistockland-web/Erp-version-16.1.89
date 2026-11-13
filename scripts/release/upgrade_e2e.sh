@@ -6,8 +6,23 @@ set -euo pipefail
 [[ "${STOCKLAND_DISPOSABLE_SITE:-}" == "yes" ]] || { echo "Refusing: disposable site only"; exit 2; }
 WPPATH="${1:?wp path}"; BASE="${2:?baseline zip}"; MASTER="${3:?master zip}"; WORK="${4:-$(mktemp -d)}"; mkdir -p "$WORK"
 HERE="$(cd "$(dirname "$0")" && pwd)"; WP="wp --path=$WPPATH --allow-root"
-echo "== baseline $(sha256sum "$BASE" | cut -c1-16)... -> master $(sha256sum "$MASTER" | cut -c1-16)..."
-$WP db reset --yes >/dev/null; $WP core install --url="${WP_URL:-http://localhost}" --title=Upgrade-QA --admin_user=admin --admin_password="${WP_PASS:-QaPass-2026-ui}" --admin_email=qa@example.com --skip-email >/dev/null
+EXPECTED_BASELINE_SHA="74e3205d0b42151997dc356c29b09204688accee817c17a013a70cf90be04c13"
+ACTUAL_BASELINE_SHA="$(sha256sum "$BASE" | awk '{print $1}')"
+if [[ "$ACTUAL_BASELINE_SHA" != "$EXPECTED_BASELINE_SHA" ]]; then
+  echo "Refusing unexpected 16.2.13 baseline bytes: $ACTUAL_BASELINE_SHA"
+  exit 1
+fi
+MASTER_DIR="$(cd "$(dirname "$MASTER")" && pwd)"
+MASTER_FILE="$(basename "$MASTER")"
+(
+  cd "$MASTER_DIR"
+  sha256sum -c "$MASTER_FILE.sha256"
+)
+echo "== pinned baseline $ACTUAL_BASELINE_SHA -> verified master $(sha256sum "$MASTER" | awk '{print $1}')"
+QA_PASS="${WP_PASS:-$(openssl rand -hex 18)}"
+$WP db reset --yes >/dev/null
+$WP core install --url="${WP_URL:-http://localhost}" --title=Upgrade-QA --admin_user=admin --admin_password="$QA_PASS" --admin_email=qa@example.com --skip-email >/dev/null
+unset QA_PASS
 rm -rf "$WPPATH/wp-content/plugins/stockland-erp-app"
 $WP --user=admin plugin install "$BASE" --activate >/dev/null
 echo "== 1 wizard (baseline)"; $WP eval-file "$HERE/setup_wizard_drive.php"
