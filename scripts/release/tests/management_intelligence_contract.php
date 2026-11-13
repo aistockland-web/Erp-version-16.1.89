@@ -217,6 +217,9 @@ check_result( 'campaign draft saved in Core settings store', is_array( $campaign
 $campaign_record = $campaign['campaign'];
 check_result( 'campaign remains DRAFT and budget is planning-only', 'DRAFT' === $campaign_record['status'] && 'PLANNING_ESTIMATE_NOT_APPROVED_EXPENSE' === $campaign_record['budget_class'] && '1250.50' === $campaign_record['budget'] );
 check_result( 'campaign write has immutable audit event', 1 === count( Stockland_Audit::$events ) && 'MI_SOCIAL_CAMPAIGN_CREATE' === Stockland_Audit::$events[0][2] );
+$campaign_setting_json = Stockland_DB::$settings[ 'mi_social_campaign_' . $campaign_record['campaign_code'] ]['setting_value'] ?? '';
+$campaign_audit_pointer = 'CORE_SETTINGS:mi_social_campaign_' . $campaign_record['campaign_code'] . ':sha256:' . hash( 'sha256', $campaign_setting_json );
+check_result( 'campaign audit stores a compact hash pointer to the full Core record', $campaign_audit_pointer === ( Stockland_Audit::$events[0][6] ?? '' ) && strlen( $campaign_audit_pointer ) <= 255 );
 check_result( 'campaign write does not call financial/stock ledger services', 0 === Stockland_DB::$ledger_calls );
 
 $listed = $controller->list_social( new WP_REST_Request() );
@@ -250,6 +253,9 @@ check_result( 'watch time is stored as decimal minutes, not ETB money', '12.5' =
 check_result( 'empty optional metrics stay NULL and numeric metrics remain whole numbers', null === $snapshot_record['reach_count'] && 42 === $snapshot_record['engagement_count'] && null === $snapshot_record['follower_delta'] );
 check_result( 'snapshot is manual-export evidence with source hash', 'MANUAL_EXPORT' === $snapshot_record['source_kind'] && str_repeat( 'a', 64 ) === $snapshot_record['source_sha256'] );
 check_result( 'snapshot append is audited and does not touch ledger', 2 === count( Stockland_Audit::$events ) && 'MI_SOCIAL_SNAPSHOT_APPEND' === Stockland_Audit::$events[1][2] && 0 === Stockland_DB::$ledger_calls );
+$snapshot_setting_json = Stockland_DB::$settings[ 'mi_social_snapshot_' . $snapshot_record['snapshot_code'] ]['setting_value'] ?? '';
+$snapshot_audit_pointer = 'CORE_SETTINGS:mi_social_snapshot_' . $snapshot_record['snapshot_code'] . ':sha256:' . hash( 'sha256', $snapshot_setting_json );
+check_result( 'snapshot audit stores a compact hash pointer to the full Core record', $snapshot_audit_pointer === ( Stockland_Audit::$events[1][6] ?? '' ) && strlen( $snapshot_audit_pointer ) <= 255 );
 
 $duplicate = $controller->create_snapshot(
 	new WP_REST_Request( $snapshot_payload, array( 'campaign_code' => $campaign_record['campaign_code'] ) )
