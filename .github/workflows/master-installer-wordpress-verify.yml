@@ -128,7 +128,7 @@ jobs:
           STOCKLAND_DISPOSABLE_SITE: "yes"
           STOCKLAND_DISPOSABLE_DB_NAME: "wp"
           STOCKLAND_DISPOSABLE_DB_HOST: "127.0.0.1"
-          MYSQL_ADMIN_ARGS: "-h127.0.0.1 -uroot -proot"
+          MYSQL_ADMIN_ARGS: "-uroot -proot"
         run: |
           set -euo pipefail
           bash scripts/release/backup_restore_check.sh /tmp/wp /tmp/backup-drill | tee /tmp/backup-drill.log
