@@ -1,4 +1,5 @@
 <?php
+global $wpdb;
 // Read-only assertion suite for the schema-governance boundary.
 $prefix = $wpdb->prefix . 'stock_';
 $tables = $wpdb->get_col( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $prefix ) . '%' ) );

@@ -63,6 +63,7 @@ jobs:
         run: |
           set -euo pipefail
           find src/stockland-erp-app -name '*.php' -print0 | xargs -0 -n1 php -l
+          find scripts/release -name '*.php' -print0 | xargs -0 -n1 php -l
           bash -n scripts/release/verify_master_installer.sh scripts/release/backup_restore_check.sh scripts/release/e2e/run_all.sh scripts/release/tests/backup_restore_guard_test.sh
           bash scripts/release/tests/backup_restore_guard_test.sh
           python3 -m py_compile scripts/release/build_master_installer.py
