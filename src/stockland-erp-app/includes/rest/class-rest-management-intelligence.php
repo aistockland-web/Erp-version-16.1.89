@@ -19,7 +19,9 @@ final class Stockland_REST_Management_Intelligence extends Stockland_REST_Base {
 
 	const CAMPAIGN_PREFIX = 'mi_social_campaign_';
 	const SNAPSHOT_PREFIX = 'mi_social_snapshot_';
+	const CONTENT_PREFIX  = 'mi_social_content_';
 	const PLATFORMS       = array( 'FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'OTHER' );
+	const CONTENT_TYPES   = array( 'POST', 'REEL', 'STORY', 'SHORT', 'VIDEO', 'OTHER' );
 
 	public function __construct() {
 		add_action( 'stockland_register_rest_routes', array( $this, 'register_routes' ) );
@@ -45,6 +47,39 @@ final class Stockland_REST_Management_Intelligence extends Stockland_REST_Base {
 						return Stockland_Authority::can_manage_management_intelligence();
 					},
 				),
+			)
+		);
+		register_rest_route(
+			$namespace,
+			'/management/social/campaigns/(?P<campaign_code>[A-Z0-9-]+)',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( $this, 'update_campaign' ),
+				'permission_callback' => function () {
+					return Stockland_Authority::can_manage_management_intelligence();
+				},
+			)
+		);
+		register_rest_route(
+			$namespace,
+			'/management/social/campaigns/(?P<campaign_code>[A-Z0-9-]+)/content',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( $this, 'create_content_item' ),
+				'permission_callback' => function () {
+					return Stockland_Authority::can_manage_management_intelligence();
+				},
+			)
+		);
+		register_rest_route(
+			$namespace,
+			'/management/social/content/(?P<content_code>[A-Z0-9-]+)',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( $this, 'update_content_item' ),
+				'permission_callback' => function () {
+					return Stockland_Authority::can_manage_management_intelligence();
+				},
 			)
 		);
 		register_rest_route(
@@ -83,6 +118,86 @@ final class Stockland_REST_Management_Intelligence extends Stockland_REST_Base {
 			return false;
 		}
 		return $value;
+	}
+
+	/** Parse a site-local date/time entered by an authorized operator. */
+	private function timestamp_value( $value ) {
+		$value = sanitize_text_field( (string) $value );
+		$value = str_replace( 'T', ' ', $value );
+		if ( preg_match( '/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/', $value ) ) {
+			$value .= ':00';
+		}
+		$date = DateTime::createFromFormat( '!Y-m-d H:i:s', $value );
+		$errors = DateTime::getLastErrors();
+		if ( ! $date || ( is_array( $errors ) && ( $errors['warning_count'] || $errors['error_count'] ) ) || $date->format( 'Y-m-d H:i:s' ) !== $value ) {
+			return false;
+		}
+		return $value;
+	}
+
+	/** Only HTTPS post links are accepted as publication evidence. */
+	private function https_post_url( $value ) {
+		$value = esc_url_raw( trim( (string) $value ), array( 'https' ) );
+		$parts = wp_parse_url( $value );
+		if ( ! is_array( $parts ) || 'https' !== strtolower( (string) ( $parts['scheme'] ?? '' ) ) || empty( $parts['host'] ) || isset( $parts['user'] ) || isset( $parts['pass'] ) || strlen( $value ) > 1000 ) {
+			return false;
+		}
+		return $value;
+	}
+
+	/** Validate an active Stockland user profile before assigning campaign work. */
+	private function active_profile_id( $value, $field, $required = true ) {
+		$id = absint( $value );
+		if ( 0 === $id && ! $required ) {
+			return null;
+		}
+		if ( $id <= 0 || ! Stockland_Roles::get_profile( $id ) ) {
+			return $this->bad( 'management_social_assignment_invalid', $field . ' must reference an active Stockland ERP user profile.' );
+		}
+		return $id;
+	}
+
+	/** Update one Core settings record with a compact immutable audit pointer. */
+	private function update_record( $key, $record, $action, $reference, $reason ) {
+		global $wpdb;
+		$table = $this->settings_table();
+		if ( is_wp_error( $table ) ) {
+			return $table;
+		}
+		$json = wp_json_encode( $record );
+		if ( ! is_string( $json ) ) {
+			return $this->bad( 'management_social_encode_failed', 'The Management Intelligence record could not be encoded.', 500 );
+		}
+		if ( false === Stockland_DB::execute_query( 'START TRANSACTION' ) ) {
+			return $this->bad( 'management_social_transaction_failed', 'The record update could not start safely.', 409 );
+		}
+		try {
+			$existing = Stockland_DB::read_var( $wpdb->prepare( 'SELECT setting_key FROM %i WHERE setting_key=%s FOR UPDATE', $table, $key ) );
+			if ( (string) $existing !== (string) $key ) {
+				throw new RuntimeException( 'The Management Intelligence record no longer exists.' );
+			}
+			$updated = Stockland_DB::update_record(
+				$table,
+				array( 'setting_value' => $json, 'updated_by' => get_current_user_id() ),
+				array( 'setting_key' => $key ),
+				array( '%s', '%d' ),
+				array( '%s' )
+			);
+			if ( false === $updated ) {
+				throw new RuntimeException( $wpdb->last_error ? $wpdb->last_error : 'The Core settings record could not be updated.' );
+			}
+			$audit_pointer = 'CORE_SETTINGS:' . $key . ':sha256:' . hash( 'sha256', $json );
+			if ( strlen( $audit_pointer ) > 255 || ! Stockland_Audit::log( get_current_user_id(), null, $action, null, null, null, $audit_pointer, $reason, $reference ) ) {
+				throw new RuntimeException( 'The immutable audit event could not be recorded; the update was rolled back.' );
+			}
+			if ( false === Stockland_DB::execute_query( 'COMMIT' ) ) {
+				throw new RuntimeException( 'The Management Intelligence update could not be committed.' );
+			}
+			return true;
+		} catch ( Throwable $error ) {
+			Stockland_DB::execute_query( 'ROLLBACK' );
+			return $this->bad( 'management_social_update_failed', $error->getMessage(), 409 );
+		}
 	}
 
 	private function money_value( $value, $field ) {
@@ -178,9 +293,14 @@ final class Stockland_REST_Management_Intelligence extends Stockland_REST_Base {
 		if ( is_wp_error( $snapshots ) ) {
 			return $snapshots;
 		}
+		$content_items = $this->read_records( self::CONTENT_PREFIX, 300 );
+		if ( is_wp_error( $content_items ) ) {
+			return $content_items;
+		}
 		return rest_ensure_response(
 			array(
 				'campaigns'      => $campaigns,
+				'content_items'  => $content_items,
 				'snapshots'      => $snapshots,
 				'storage'        => 'CORE_SETTINGS',
 				'module'         => 'MANAGEMENT_INTELLIGENCE',
@@ -207,9 +327,19 @@ final class Stockland_REST_Management_Intelligence extends Stockland_REST_Base {
 		if ( is_wp_error( $budget ) ) {
 			return $budget;
 		}
-		$manager_id = isset( $payload['manager_user_id'] ) && '' !== $payload['manager_user_id'] ? absint( $payload['manager_user_id'] ) : null;
-		if ( $manager_id && ! Stockland_Roles::get_profile( $manager_id ) ) {
-			return $this->bad( 'management_social_manager_invalid', 'The assigned manager must have an active Stockland ERP profile.' );
+		$legacy_manager_id = isset( $payload['manager_user_id'] ) && '' !== $payload['manager_user_id'] ? absint( $payload['manager_user_id'] ) : null;
+		$account_owner_id = $this->active_profile_id( $payload['account_owner_user_id'] ?? null, 'Account owner', false );
+		if ( is_wp_error( $account_owner_id ) ) {
+			return $account_owner_id;
+		}
+		$operator_source = $payload['operator_user_id'] ?? $legacy_manager_id;
+		$operator_id = $this->active_profile_id( $operator_source, 'Internal operator', false );
+		if ( is_wp_error( $operator_id ) ) {
+			return $operator_id;
+		}
+		$influencer = sanitize_text_field( (string) ( $payload['influencer_label'] ?? '' ) );
+		if ( strlen( $influencer ) > 120 ) {
+			return $this->bad( 'management_social_influencer_invalid', 'Influencer label must be 120 characters or fewer.' );
 		}
 		try {
 			$code = 'CMP-' . strtoupper( bin2hex( random_bytes( 6 ) ) );
@@ -221,7 +351,10 @@ final class Stockland_REST_Management_Intelligence extends Stockland_REST_Base {
 			'title'              => $title,
 			'platform'           => $platform,
 			'account_label'      => $account,
-			'manager_user_id'    => $manager_id,
+			'account_owner_user_id' => $account_owner_id,
+			'operator_user_id'   => $operator_id,
+			'manager_user_id'    => $operator_id,
+			'influencer_label'   => $influencer,
 			'start_date'         => $start,
 			'end_date'           => $end,
 			'budget'             => $budget,
@@ -242,6 +375,188 @@ final class Stockland_REST_Management_Intelligence extends Stockland_REST_Base {
 			return $saved;
 		}
 		return rest_ensure_response( array( 'campaign' => $record, 'reporting_mode' => 'MANUAL_OR_EXPORT_SNAPSHOT' ) );
+	}
+
+	/** Read and validate a campaign record by its immutable code. */
+	private function campaign_record( $campaign_code ) {
+		$campaign_code = strtoupper( sanitize_text_field( (string) $campaign_code ) );
+		if ( ! preg_match( '/^CMP-[A-F0-9]{12}$/', $campaign_code ) ) {
+			return $this->bad( 'management_social_campaign_invalid', 'The campaign reference is invalid.' );
+		}
+		$json = Stockland_DB::get_setting( self::CAMPAIGN_PREFIX . $campaign_code );
+		$record = is_string( $json ) ? json_decode( $json, true ) : null;
+		if ( ! is_array( $record ) || ( $record['campaign_code'] ?? '' ) !== $campaign_code ) {
+			return $this->bad( 'management_social_campaign_missing', 'The campaign was not found.', 404 );
+		}
+		return $record;
+	}
+
+	/** Update campaign state without posting to financial, inventory or sales ledgers. */
+	public function update_campaign( WP_REST_Request $request ) {
+		$campaign_code = strtoupper( sanitize_text_field( (string) $request['campaign_code'] ) );
+		$campaign = $this->campaign_record( $campaign_code );
+		if ( is_wp_error( $campaign ) ) {
+			return $campaign;
+		}
+		$payload = $request->get_json_params();
+		$from = (string) ( $campaign['status'] ?? 'DRAFT' );
+		$to = strtoupper( sanitize_key( (string) ( $payload['status'] ?? '' ) ) );
+		$allowed = array( 'DRAFT' => array( 'PLANNED', 'CANCELLED' ), 'PLANNED' => array( 'PUBLISHED', 'CANCELLED' ) );
+		if ( ! in_array( $to, $allowed[ $from ] ?? array(), true ) ) {
+			return $this->bad( 'management_social_campaign_transition_invalid', 'Campaign state transition ' . $from . ' → ' . $to . ' is not allowed.', 409 );
+		}
+		if ( 'PLANNED' === $to ) {
+			$owner_id = $this->active_profile_id( $campaign['account_owner_user_id'] ?? null, 'Account owner' );
+			$operator_id = $this->active_profile_id( $campaign['operator_user_id'] ?? $campaign['manager_user_id'] ?? null, 'Internal operator' );
+			if ( is_wp_error( $owner_id ) ) {
+				return $owner_id;
+			}
+			if ( is_wp_error( $operator_id ) ) {
+				return $operator_id;
+			}
+			$start = $this->date_value( $campaign['start_date'] ?? '' );
+			$end = $this->date_value( $campaign['end_date'] ?? '' );
+			if ( false === $start || false === $end || $end < $start ) {
+				return $this->bad( 'management_social_campaign_dates_required', 'Set a valid start and end date before planning the campaign.' );
+			}
+			$campaign['account_owner_user_id'] = $owner_id;
+			$campaign['operator_user_id'] = $operator_id;
+		} elseif ( 'PUBLISHED' === $to ) {
+			$post_url = $this->https_post_url( $payload['post_url'] ?? '' );
+			$published_at = $this->timestamp_value( $payload['published_at'] ?? '' );
+			if ( ! $post_url || false === $published_at ) {
+				return $this->bad( 'management_social_campaign_publication_evidence_required', 'Provide a valid HTTPS post URL and the platform publication timestamp.' );
+			}
+			$campaign['post_url'] = $post_url;
+			$campaign['published_at'] = $published_at;
+		} else {
+			$reason = sanitize_textarea_field( (string) ( $payload['cancellation_reason'] ?? '' ) );
+			if ( '' === $reason || strlen( $reason ) > 1000 ) {
+				return $this->bad( 'management_social_campaign_cancel_reason_required', 'Provide a cancellation reason (maximum 1,000 characters).' );
+			}
+			$campaign['cancellation_reason'] = $reason;
+		}
+		$campaign['status'] = $to;
+		$campaign['updated_by'] = get_current_user_id();
+		$campaign['updated_at'] = current_time( 'mysql' );
+		$saved = $this->update_record(
+			self::CAMPAIGN_PREFIX . $campaign_code,
+			$campaign,
+			'MI_SOCIAL_CAMPAIGN_' . $to,
+			$campaign_code,
+			'Owner/Management changed campaign lifecycle state to ' . $to . '; no provider posting or ERP ledger mutation.'
+		);
+		if ( is_wp_error( $saved ) ) {
+			return $saved;
+		}
+		return rest_ensure_response( array( 'campaign' => $campaign, 'reporting_mode' => 'MANUAL_OR_EXPORT_SNAPSHOT' ) );
+	}
+
+	/** Create a content-calendar entry against a planned campaign. */
+	public function create_content_item( WP_REST_Request $request ) {
+		$campaign_code = strtoupper( sanitize_text_field( (string) $request['campaign_code'] ) );
+		$campaign = $this->campaign_record( $campaign_code );
+		if ( is_wp_error( $campaign ) ) {
+			return $campaign;
+		}
+		if ( 'PLANNED' !== (string) ( $campaign['status'] ?? '' ) ) {
+			return $this->bad( 'management_social_campaign_not_planned', 'A campaign must be in PLANNED state before calendar content can be added.', 409 );
+		}
+		$payload = $request->get_json_params();
+		$title = sanitize_text_field( (string) ( $payload['title'] ?? '' ) );
+		$type = strtoupper( sanitize_key( (string) ( $payload['content_type'] ?? '' ) ) );
+		$planned_at = $this->timestamp_value( $payload['planned_at'] ?? '' );
+		$brief = sanitize_textarea_field( (string) ( $payload['brief'] ?? '' ) );
+		$operator_source = $payload['operator_user_id'] ?? ( $campaign['operator_user_id'] ?? null );
+		$operator_id = $this->active_profile_id( $operator_source, 'Content operator' );
+		if ( is_wp_error( $operator_id ) ) {
+			return $operator_id;
+		}
+		$influencer = sanitize_text_field( (string) ( $payload['influencer_label'] ?? ( $campaign['influencer_label'] ?? '' ) ) );
+		if ( '' === $title || strlen( $title ) > 190 || ! in_array( $type, self::CONTENT_TYPES, true ) || false === $planned_at || strlen( $brief ) > 4000 || strlen( $influencer ) > 120 ) {
+			return $this->bad( 'management_social_content_invalid', 'Provide a title, supported content type, valid planned timestamp, and brief/influencer text within their limits.' );
+		}
+		try {
+			$code = 'CNT-' . strtoupper( bin2hex( random_bytes( 12 ) ) );
+		} catch ( Throwable $error ) {
+			return $this->bad( 'management_social_content_id_failed', 'A unique content reference could not be generated.', 500 );
+		}
+		$record = array(
+			'content_code' => $code,
+			'campaign_code' => $campaign_code,
+			'title' => $title,
+			'content_type' => $type,
+			'platform' => (string) $campaign['platform'],
+			'account_label' => (string) $campaign['account_label'],
+			'planned_at' => $planned_at,
+			'brief' => $brief,
+			'operator_user_id' => $operator_id,
+			'influencer_label' => $influencer,
+			'status' => 'PLANNED',
+			'created_by' => get_current_user_id(),
+			'created_at' => current_time( 'mysql' ),
+		);
+		$saved = $this->store_record(
+			self::CONTENT_PREFIX . $code,
+			$record,
+			'MI_SOCIAL_CONTENT_CREATE',
+			$code,
+			'Owner/Management scheduled a content-calendar item; no content was posted or scheduled with an external provider.'
+		);
+		if ( is_wp_error( $saved ) ) {
+			return $saved;
+		}
+		return rest_ensure_response( array( 'content_item' => $record ) );
+	}
+
+	/** Publish a content item with HTTPS evidence, or cancel it with a reason. */
+	public function update_content_item( WP_REST_Request $request ) {
+		$content_code = strtoupper( sanitize_text_field( (string) $request['content_code'] ) );
+		if ( ! preg_match( '/^CNT-[A-F0-9]{24}$/', $content_code ) ) {
+			return $this->bad( 'management_social_content_invalid', 'The content reference is invalid.' );
+		}
+		$key = self::CONTENT_PREFIX . $content_code;
+		$json = Stockland_DB::get_setting( $key );
+		$content = is_string( $json ) ? json_decode( $json, true ) : null;
+		if ( ! is_array( $content ) || ( $content['content_code'] ?? '' ) !== $content_code ) {
+			return $this->bad( 'management_social_content_missing', 'The content-calendar item was not found.', 404 );
+		}
+		if ( 'PLANNED' !== (string) ( $content['status'] ?? '' ) ) {
+			return $this->bad( 'management_social_content_transition_invalid', 'Only PLANNED content can be published or cancelled.', 409 );
+		}
+		$payload = $request->get_json_params();
+		$to = strtoupper( sanitize_key( (string) ( $payload['status'] ?? '' ) ) );
+		if ( 'PUBLISHED' === $to ) {
+			$url = $this->https_post_url( $payload['post_url'] ?? '' );
+			$published_at = $this->timestamp_value( $payload['published_at'] ?? '' );
+			if ( ! $url || false === $published_at ) {
+				return $this->bad( 'management_social_content_publication_evidence_required', 'Provide a valid HTTPS post URL and publication timestamp.' );
+			}
+			$content['post_url'] = $url;
+			$content['published_at'] = $published_at;
+		} elseif ( 'CANCELLED' === $to ) {
+			$reason = sanitize_textarea_field( (string) ( $payload['cancellation_reason'] ?? '' ) );
+			if ( '' === $reason || strlen( $reason ) > 1000 ) {
+				return $this->bad( 'management_social_content_cancel_reason_required', 'Provide a cancellation reason (maximum 1,000 characters).' );
+			}
+			$content['cancellation_reason'] = $reason;
+		} else {
+			return $this->bad( 'management_social_content_transition_invalid', 'Content status must be PUBLISHED or CANCELLED.', 409 );
+		}
+		$content['status'] = $to;
+		$content['updated_by'] = get_current_user_id();
+		$content['updated_at'] = current_time( 'mysql' );
+		$saved = $this->update_record(
+			$key,
+			$content,
+			'MI_SOCIAL_CONTENT_' . $to,
+			$content_code,
+			'Owner/Management changed content-calendar state to ' . $to . '; no automated publishing was performed.'
+		);
+		if ( is_wp_error( $saved ) ) {
+			return $saved;
+		}
+		return rest_ensure_response( array( 'content_item' => $content ) );
 	}
 
 	public function create_snapshot( WP_REST_Request $request ) {
