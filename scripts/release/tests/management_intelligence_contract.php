@@ -18,7 +18,7 @@ $GLOBALS['mi_profiles'] = array(
 	20 => array( 'role' => 'management' ),
 );
 $GLOBALS['wpdb'] = new class() {
-	public function prepare( $query, ...$args ) { return $query; }
+	public function prepare( $query, ...$args ) { $GLOBALS['mi_query_args'] = $args; return $query; }
 	public function esc_like( $value ) { return addcslashes( $value, '_%\\' ); }
 };
 
@@ -104,7 +104,21 @@ class Stockland_DB {
 	public static function table( $key ) { return 'wp_stock_' . $key; }
 	public static function table_exists( $table ) { return 'wp_stock_settings' === $table; }
 	public static function read_results( $query, $output = ARRAY_A ) {
-		return array_values( self::$settings );
+		$args   = $GLOBALS['mi_query_args'] ?? array();
+		$prefix = isset( $args[1] ) ? (string) $args[1] : '';
+		$prefix = str_replace( array( '\\_', '\\%', '\\\\' ), array( '_', '%', '\\' ), $prefix );
+		$prefix = rtrim( $prefix, '%' );
+		$limit  = isset( $args[2] ) ? max( 0, (int) $args[2] ) : count( self::$settings );
+		$rows   = array_values(
+			array_filter(
+				self::$settings,
+				static function ( $row ) use ( $prefix ) {
+					$key = (string) ( $row['setting_key'] ?? '' );
+					return '' === $prefix || 0 === strpos( $key, $prefix );
+				}
+			)
+		);
+		return array_slice( $rows, 0, $limit );
 	}
 	public static function insert_record( $table, $data, $format = null ) {
 		$key = $data['setting_key'];
