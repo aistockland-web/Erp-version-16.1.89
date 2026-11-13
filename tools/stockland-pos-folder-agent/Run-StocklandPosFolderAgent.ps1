@@ -25,6 +25,28 @@ function Get-StocklandAgentPassword {
     }
 }
 
+function Get-StocklandHttpStatusCode {
+    param([System.Management.Automation.ErrorRecord]$ErrorRecord)
+
+    $exception = $ErrorRecord.Exception
+    for ($depth = 0; $null -ne $exception -and $depth -lt 6; $depth++) {
+        try {
+            if ($exception.Data -is [System.Collections.IDictionary] -and $exception.Data.Contains('HttpStatusCode')) {
+                return [int]$exception.Data['HttpStatusCode']
+            }
+        }
+        catch { }
+        try {
+            if ($null -ne $exception.Response -and $null -ne $exception.Response.StatusCode) {
+                return [int]$exception.Response.StatusCode
+            }
+        }
+        catch { }
+        $exception = $exception.InnerException
+    }
+    return 0
+}
+
 function Move-StocklandAgentFile {
     param([System.IO.FileInfo]$File, [string]$DestinationFolder)
     if (-not (Test-Path -LiteralPath $DestinationFolder)) {
@@ -107,11 +129,7 @@ function Invoke-StocklandFolderAgent {
             }
         }
         catch {
-            $httpCode = 0
-            try { $httpCode = [int]$_.Exception.Response.StatusCode } catch { }
-            if (-not $httpCode -and $_.Exception.Data.Contains('HttpStatusCode')) {
-                $httpCode = [int]$_.Exception.Data['HttpStatusCode']
-            }
+            $httpCode = Get-StocklandHttpStatusCode -ErrorRecord $_
             if ($httpCode -ge 400 -and $httpCode -lt 500) {
                 Write-StocklandAgentLog -Path $logPath -Message "NeedsAttention: $($file.Name); ERP HTTP $httpCode. Check user role, branch assignment, file format or closed business day."
                 Move-StocklandAgentFile -File $file -DestinationFolder $folders.NeedsAttention
