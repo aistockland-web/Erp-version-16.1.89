@@ -428,18 +428,26 @@ class Stockland_REST_Setup {
 	private function snapshot( $read_only = false, $include_schema_details = false ) {
 		$core           = Stockland_Activator::missing_core_tables();
 		$fin            = Stockland_Accounting::missing_tables();
-		$hr             = Stockland_HR::missing_tables();
-		$finance_gaps   = Stockland_Accounting::upgrade_gaps();
-		$hr_gaps        = Stockland_HR::upgrade_gaps();
-		$core_total     = count( Stockland_Activator::core_table_keys() );
-		$fin_total      = count( Stockland_Accounting::table_keys() );
-		$hr_total       = count( Stockland_HR::table_keys() );
-		$total_expected = $core_total + $fin_total + $hr_total;
-		$missing        = array_values( array_unique( array_merge( $core, $fin, $hr ) ) );
-		$present        = $total_expected - count( $missing );
-		$ready          = empty( $core ) && empty( $fin ) && empty( $finance_gaps ) && Stockland_HR::is_schema_ready();
-		$state          = 'LIVE';
-		if ( $missing ) {
+		$hr                 = Stockland_HR::missing_tables();
+		$hr_legacy_missing  = Stockland_HR::missing_legacy_tables();
+		$hr_lifecycle_missing = Stockland_HR::missing_lifecycle_tables();
+		$finance_gaps       = Stockland_Accounting::upgrade_gaps();
+		$hr_gaps            = Stockland_HR::upgrade_gaps();
+		$core_total         = count( Stockland_Activator::core_table_keys() );
+		$fin_total          = count( Stockland_Accounting::table_keys() );
+		$hr_total           = count( Stockland_HR::table_keys() );
+		$total_expected     = $core_total + $fin_total + $hr_total;
+		$missing            = array_values( array_unique( array_merge( $core, $fin, $hr ) ) );
+		$present            = $total_expected - count( $missing );
+
+		// Operational readiness is the frozen 49-key baseline: Core, Finance/Procurement
+		// and the four legacy HR tables. The lifecycle extension and legacy HR column
+		// migrations remain independently approval-gated and must not block POS/inventory.
+		$operational_ready = empty( $core ) && empty( $fin ) && empty( $finance_gaps ) && empty( $hr_legacy_missing );
+		$ready             = $operational_ready && Stockland_HR::is_schema_ready();
+		$hr_pending        = $operational_ready && ! $ready;
+		$state             = 'LIVE';
+		if ( ! $operational_ready ) {
 			if ( $core ) {
 				$state = 'CORE';
 			} elseif ( $fin || $finance_gaps ) {
@@ -447,9 +455,8 @@ class Stockland_REST_Setup {
 			} else {
 				$state = 'HR';
 			}
-		} elseif ( $finance_gaps ) {
-			$state = 'FINANCE';
-		} elseif ( $hr_gaps ) {
+		} elseif ( $hr_pending || $hr_gaps || $hr_lifecycle_missing ) {
+			// Preserve the HR stage token for the separate Owner-only System Control flow.
 			$state = 'HR';
 		}
 		$err = get_option( 'stockland_setup_error' );
@@ -467,7 +474,12 @@ class Stockland_REST_Setup {
 			}
 		}
 		$details = array(
+			// "ready" remains full HR/Payroll completion. The normal ERP shell may start
+			// as soon as the separately approved Core/Finance 49-key operational baseline is ready.
 			'ready'              => $ready,
+			'operational_ready'  => $operational_ready,
+			'hr_pending_approval' => $hr_pending && ! Stockland_HR::schema_migration_approved(),
+			'operational_state'  => $ready ? 'LIVE' : ( $operational_ready ? 'CORE_FINANCE_READY_HR_PENDING' : $state ),
 			'state'              => $state,
 			'core'               => array(
 				'present' => $core_total - count( $core ),
@@ -489,8 +501,9 @@ class Stockland_REST_Setup {
 				'ready'        => Stockland_HR::is_schema_ready(),
 				'schema_version' => Stockland_HR::DB_VERSION,
 				'schema_approval_required' => ! Stockland_HR::schema_migration_approved(),
-				'legacy_missing' => Stockland_HR::missing_legacy_tables(),
-				'lifecycle_missing' => Stockland_HR::missing_lifecycle_tables(),
+				'legacy_missing' => $hr_legacy_missing,
+				'lifecycle_missing' => $hr_lifecycle_missing,
+				'pending_approval' => $hr_pending && ! Stockland_HR::schema_migration_approved(),
 			),
 			'total'              => array(
 				'present' => $present,
@@ -498,7 +511,9 @@ class Stockland_REST_Setup {
 				'missing' => $missing,
 			),
 			'error'              => $this->can_setup() && is_array( $err ) ? $err : null,
-			'can_advance'        => $this->can_setup() && ( ! $ready ),
+			// Browser auto-setup may advance Core/Finance/legacy baseline only.
+			// The separate System Control runner retains the explicit Owner HR approval path.
+			'can_advance'        => $this->can_setup() && ! $operational_ready,
 			'execution_model'    => 'SERVER_VERIFIED_BROWSER_BATCHES',
 			'server_observed_at' => current_time( 'mysql', true ),
 			'pwa'                => array(
@@ -615,14 +630,22 @@ class Stockland_REST_Setup {
 				throw new RuntimeException( $detail );
 			}
 
-			if ( $after['ready'] ) {
-				update_option( 'stockland_setup_state', 'INVARIANTS_PENDING', false );
+			if ( $after['operational_ready'] ) {
+				// Keep the app bootstrap available on the frozen operational baseline.
+				// HR lifecycle DDL and existing HR column changes are never implicit here.
+				update_option( 'stockland_core_finance_schema_ready', 1, false );
 				update_option( 'stockland_application_schema_ready', 1, false );
-				update_option( 'stockland_db_version', STOCKLAND_DB_VERSION, false );
 				Stockland_Roles::register_roles();
 				Stockland_Roles::sync_roles();
-				update_option( 'stockland_setup_state', 'LIVE_SCHEMA_READY', false );
-				delete_option( 'stockland_setup_error' );
+
+				if ( $after['ready'] ) {
+					update_option( 'stockland_setup_state', 'INVARIANTS_PENDING', false );
+					update_option( 'stockland_db_version', STOCKLAND_DB_VERSION, false );
+					update_option( 'stockland_setup_state', 'LIVE_SCHEMA_READY', false );
+					delete_option( 'stockland_setup_error' );
+				} else {
+					update_option( 'stockland_setup_state', 'CORE_FINANCE_READY_HR_PENDING', false );
+				}
 			}
 
 			$payload = array_merge(
