@@ -553,21 +553,21 @@ function miSocialSnapshotForm(campaign){
  const scope='snapshot-'+code;
  const today=localDate();
  return '<details class="sl-hrlc-form sl-mi-snapshot-form"><summary><b>Record manual export snapshot</b><span class="sl-pill info">Append-only evidence</span></summary><form class="sl-form sl-hrlc-grid" data-mi-social-snapshot-form="'+hrlcEsc(code)+'"><input type="hidden" name="platform" value="'+hrlcEsc(platform)+'"><input type="hidden" name="account_label" value="'+hrlcEsc(account)+'">'+
-  miSocialField('period_start','Report period start','date',today,true,scope)+
-  miSocialField('period_end','Report period end','date',today,true,scope)+
-  miSocialField('report_as_of','Report timestamp (local,scope)','datetime-local',today+'T12:00',true,'Enter the timestamp shown by the platform export or Insights report.')+
+  miSocialField('period_start','Report period start','date',today,true,'',scope)+
+  miSocialField('period_end','Report period end','date',today,true,'',scope)+
+  miSocialField('report_as_of','Report timestamp (local)','datetime-local',today+'T12:00',true,'Enter the timestamp shown by the platform export or Insights report.',scope)+
   miSocialField('source_reference','Export file/reference','text','',true,'Use a file name or secure internal reference; do not paste credentials or private sign-in links.',scope)+
   miSocialField('source_sha256','Export source SHA-256','text','',true,'64 hexadecimal characters; compute from the captured source file.',scope)+
-  miSocialField('reach_count','Reach','number','',false,scope)+
-  miSocialField('view_count','Views','number','',false,scope)+
-  miSocialField('engagement_count','Engagement','number','',false,scope)+
-  miSocialField('follower_delta','Follower change (+/-,scope)','number','',false)+
-  miSocialField('click_count','Clicks','number','',false,scope)+
-  miSocialField('lead_count','Leads','number','',false,scope)+
-  miSocialField('watch_time_minutes','Watch time (minutes,scope)','number','',false)+
-  miSocialField('spend_amount','Spend (ETB,scope)','number','',false)+
-  miSocialField('attributed_sales','Attributed sales (ETB,scope)','number','',false)+
-  miSocialField('attribution_method','Attribution method','text','',false,scope)+
+  miSocialField('reach_count','Reach','number','',false,'',scope)+
+  miSocialField('view_count','Views','number','',false,'',scope)+
+  miSocialField('engagement_count','Engagement','number','',false,'',scope)+
+  miSocialField('follower_delta','Follower change plus/minus','number','',false,'',scope)+
+  miSocialField('click_count','Clicks','number','',false,'',scope)+
+  miSocialField('lead_count','Leads','number','',false,'',scope)+
+  miSocialField('watch_time_minutes','Watch time (minutes)','number','',false,'',scope)+
+  miSocialField('spend_amount','Spend (ETB)','number','',false,'',scope)+
+  miSocialField('attributed_sales','Attributed sales (ETB)','number','',false,'',scope)+
+  miSocialField('attribution_method','Attribution method','text','',false,'',scope)+
   '<div class="sl-field full"><label for="mi-'+hrlcEsc(scope)+'-notes">Notes</label><textarea id="mi-'+hrlcEsc(scope)+'-notes" name="notes" rows="2"></textarea></div>'+
   '<div class="sl-field full"><button type="submit" class="sl-btn primary">Save timestamped snapshot</button></div><p class="sl-sub full">Snapshots are append-only and audited. They do not update ERP sales, expenses or ledger balances.</p></form></details>';
 }
