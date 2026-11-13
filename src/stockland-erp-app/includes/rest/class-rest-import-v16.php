@@ -143,7 +143,7 @@ class Stockland_REST_Import_V16 {
 			'sku'           => array( 'sku', 'product_code', 'item_code', 'article_code', 'code', 'item', 'item_id', 'product_sku' ),
 			'receipt'       => array( 'receipt_no', 'receipt', 'invoice_no', 'invoice', 'transaction_no', 'transaction_id', 'reference', 'ref_no', 'order_no', 'bill_no' ),
 			'qty'           => array( 'qty', 'quantity', 'units', 'units_sold', 'qty_sold', 'sold_qty', 'sold_units' ),
-			'selling_price' => array( 'selling_price', 'sale_price', 'unit_price', 'actual_price', 'price', 'rate' ),
+			'selling_price' => array( 'selling_price', 'sale_price', 'unit_price', 'actual_price', 'avg_amount', 'average_amount', 'price', 'rate' ),
 			'line_total'    => array( 'sales_total', 'line_total', 'total', 'gross_sales', 'amount', 'revenue', 'net_total', 'total_amount' ),
 			'vat_amount'    => array( 'vat_amount', 'vat', 'tax_amount', 'tax' ),
 			'vat_mode'      => array( 'vat_mode', 'tax_mode', 'vat_basis' ),
@@ -361,6 +361,8 @@ class Stockland_REST_Import_V16 {
 			$buffer    = array();
 			$out       = array();
 			$data_rows = 0;
+			$source_format = 'TRANSACTION_LEVEL';
+			$source_business_date = null;
 			foreach ( $xlsx->stream_rows( $sheet, Stockland_XLSX::MAX_PHYSICAL_ROW_NODES ) as $record ) {
 				$row_number = (int) $record['row_number'];
 				$values     = (array) $record['values'];
@@ -373,6 +375,15 @@ class Stockland_REST_Import_V16 {
 						$candidate[ $i ] = isset( $values[ $i ] ) ? trim( (string) $values[ $i ] ) : '';
 					}
 					$candidate_headers = $candidate;
+					if ( 'DAILY_SALES' === $type && $this->is_article_summary_marker( $buffer ) && $this->has_article_summary_headers( $candidate_headers ) ) {
+						$shifted_headers = array();
+						foreach ( $candidate_headers as $column_index => $column_header ) {
+							$shifted_headers[ (int) $column_index + 1 ] = $column_header;
+						}
+						$candidate_headers    = $shifted_headers;
+						$source_format        = 'SUMMARIZED_BY_ARTICLE';
+						$source_business_date = $this->article_summary_business_date( $buffer );
+					}
 					if ( ! array_filter(
 						$candidate,
 						function ( $v ) {
@@ -407,6 +418,9 @@ class Stockland_REST_Import_V16 {
 							$r = $this->stream_assoc_row( $prior['values'], $headers );
 							if ( null !== $r ) {
 								$r['__excel_row'] = (int) $prior['row_number'];
+								if ( 'SUMMARIZED_BY_ARTICLE' === $source_format ) {
+									$r['__raw_values'] = (array) $prior['values'];
+								}
 								$out[]            = $r;
 								++$data_rows;}
 						}
@@ -418,6 +432,9 @@ class Stockland_REST_Import_V16 {
 					$r = $this->stream_assoc_row( $values, $headers );
 					if ( null !== $r ) {
 						$r['__excel_row'] = $row_number;
+						if ( 'SUMMARIZED_BY_ARTICLE' === $source_format ) {
+							$r['__raw_values'] = $values;
+						}
 						$out[]            = $r;
 						++$data_rows;
 						if ( $data_rows > self::MAX_IMPORT_ROWS ) {
@@ -441,8 +458,10 @@ class Stockland_REST_Import_V16 {
 					'mapping'    => $mapping,
 					'auto'       => $auto,
 					'conflicts'  => $auto['conflicts'] ?? array(),
-					'profile_id' => $profile['id'] ?? null,
-					'signature'  => $auto['signature'],
+					'profile_id'           => $profile['id'] ?? null,
+					'signature'            => $auto['signature'],
+					'source_format'        => $source_format,
+					'source_business_date' => $source_business_date,
 				);
 			}
 		}
@@ -531,6 +550,237 @@ class Stockland_REST_Import_V16 {
 			return gmdate( 'Y-m-d H:i:s', strtotime( '1899-12-30 + ' . ( (int) $v ) . ' days' ) );
 		}$ts = strtotime( (string) $v );
 		return false === $ts ? null : gmdate( 'Y-m-d H:i:s', $ts );}
+	/**
+	 * Detects the supplier's article-summary report marker in the pre-header rows.
+	 *
+	 * @param array $records Buffered worksheet records.
+	 * @return bool Whether the exact report marker is present.
+	 */
+	private function is_article_summary_marker( $records ) {
+		foreach ( (array) $records as $record ) {
+			foreach ( (array) ( $record['values'] ?? array() ) as $value ) {
+				if ( 'summarized_by_article' === $this->norm( $value ) ) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Confirms the known third-party summary header signature before shifting its data columns.
+	 *
+	 * @param array $headers Candidate worksheet headers.
+	 * @return bool Whether all expected summary fields are present.
+	 */
+	private function has_article_summary_headers( $headers ) {
+		$normalized = array_map( array( $this, 'norm' ), array_values( (array) $headers ) );
+		foreach ( array( 'article_code', 'article_name', 'quantity', 'avg_amount', 'total_amount' ) as $required ) {
+			if ( ! in_array( $required, $normalized, true ) ) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Reads the business date printed in the supplier's article-summary report header.
+	 *
+	 * @param array $records Buffered worksheet records.
+	 * @return string|null ISO business date, or null when not found.
+	 */
+	private function article_summary_business_date( $records ) {
+		foreach ( (array) $records as $record ) {
+			foreach ( (array) ( $record['values'] ?? array() ) as $value ) {
+				$text = trim( (string) $value );
+				if ( '' === $text || ! preg_match( '/^(?:(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\\s+)?[A-Za-z]+\\s+\\d{1,2},\\s+\\d{4}$/i', $text ) ) {
+					continue;
+				}
+				$timestamp = strtotime( $text );
+				if ( false !== $timestamp ) {
+					return gmdate( 'Y-m-d', $timestamp );
+				}
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Parses a source amount into integer thousandths without first rounding to cents.
+	 *
+	 * @param mixed $value Source amount.
+	 * @return int|null Exact amount in thousandths, or null when invalid.
+	 */
+	private function article_summary_amount_mills( $value ) {
+		if ( null === $value || '' === $value ) {
+			return null;
+		}
+		$raw = str_replace( array( ',', 'ETB', 'Birr' ), '', trim( (string) $value ) );
+		if ( ! is_numeric( $raw ) ) {
+			return null;
+		}
+		$scaled = (float) $raw * 1000;
+		$rounded = (int) round( $scaled, 0, PHP_ROUND_HALF_UP );
+		if ( abs( $scaled - $rounded ) > 0.0001 ) {
+			return null;
+		}
+		return $rounded;
+	}
+
+	/**
+	 * Identifies footer/summary rows in the article-summary report by their literal labels.
+	 *
+	 * @param array $row Normalized row with original cell values.
+	 * @return bool Whether the row is a report footer rather than a sale line.
+	 */
+	private function is_article_summary_footer_row( $row ) {
+		foreach ( (array) ( $row['__raw_values'] ?? array() ) as $value ) {
+			if ( in_array( $this->norm( $value ), array( 'sub_total', 'subtotal', 'total_tax', 'grand_total', 'add_charge', 'discount' ), true ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Extracts subtotal, tax and grand total from the exact supplier report footer.
+	 *
+	 * @param array $rows All normalized rows, including report footer rows.
+	 * @return array<string,int> Footer totals expressed in source thousandths.
+	 * @throws Exception When a required total is missing or malformed.
+	 */
+	private function article_summary_report_totals( $rows ) {
+		$found = array(
+			'subtotal_mills'   => null,
+			'tax_mills'        => null,
+			'grand_total_mills' => null,
+		);
+		$labels = array(
+			'sub_total'   => 'subtotal_mills',
+			'subtotal'    => 'subtotal_mills',
+			'total_tax'   => 'tax_mills',
+			'grand_total' => 'grand_total_mills',
+		);
+		foreach ( (array) $rows as $row ) {
+			$cells = (array) ( $row['__raw_values'] ?? array() );
+			foreach ( $cells as $index => $cell ) {
+				$label = $this->norm( $cell );
+				if ( empty( $labels[ $label ] ) ) {
+					continue;
+				}
+				$key = $labels[ $label ];
+				if ( null !== $found[ $key ] ) {
+					throw new Exception( 'The POS article-summary workbook contains more than one ' . str_replace( '_', ' ', $label ) . ' footer.' );
+				}
+				$indexes = array_keys( $cells );
+				sort( $indexes, SORT_NUMERIC );
+				$after = false;
+				foreach ( $indexes as $cell_index ) {
+					if ( (int) $cell_index <= (int) $index ) {
+						continue;
+					}
+					$amount = $this->article_summary_amount_mills( $cells[ $cell_index ] );
+					if ( null !== $amount ) {
+						$found[ $key ] = $amount;
+						$after = true;
+						break;
+					}
+				}
+				if ( ! $after ) {
+					throw new Exception( 'The POS article-summary footer value for ' . str_replace( '_', ' ', $label ) . ' is missing.' );
+				}
+			}
+		}
+		foreach ( $found as $key => $value ) {
+			if ( null === $value ) {
+				throw new Exception( 'The POS article-summary workbook is missing a required subtotal, tax or grand-total footer.' );
+			}
+		}
+		return $found;
+	}
+
+	/**
+	 * Allocates source thousandths to ERP cents and validates the report's tax and grand totals.
+	 *
+	 * The supplier's item totals are authoritative. Largest-remainder allocation is used so
+	 * the sum of posted net lines equals the rounded report subtotal; per-line VAT is calculated
+	 * from each unrounded source line and compared with the report's explicit tax total.
+	 *
+	 * @param array $rows Valid candidate sale rows.
+	 * @param array $mapping Source column mapping.
+	 * @param array $totals Footer amounts in thousandths.
+	 * @param float $vat_rate Centrally configured ERP VAT rate.
+	 * @return array<int,array<string,int>> Amount details keyed by physical Excel row number.
+	 * @throws Exception When source rows cannot be reconciled exactly.
+	 */
+	private function article_summary_amounts( $rows, $mapping, $totals, $vat_rate ) {
+		$lines = array();
+		$raw_sum = 0;
+		$floor_sum = 0;
+		$tax_sum = 0;
+		$rate_units = (int) round( (float) $vat_rate * 1000000, 0, PHP_ROUND_HALF_UP );
+		if ( $rate_units < 0 || $rate_units > 1000000 ) {
+			throw new Exception( 'The configured VAT rate is invalid for the POS article-summary import.' );
+		}
+		foreach ( (array) $rows as $index => $source ) {
+			$row_number = (int) ( $source['__excel_row'] ?? ( $index + 1 ) );
+			$quantity = $this->qty( $this->mapped_value( $source, $mapping, 'qty' ) );
+			$average = $this->money( $this->mapped_value( $source, $mapping, 'selling_price' ) );
+			$raw_mills = $this->article_summary_amount_mills( $this->mapped_value( $source, $mapping, 'line_total' ) );
+			if ( null === $quantity || $quantity <= 0 || null === $average || $average <= 0 || null === $raw_mills || $raw_mills <= 0 ) {
+				throw new Exception( 'POS article-summary row ' . $row_number . ' is missing a valid article code, quantity, average amount or total amount.' );
+			}
+			$average_cents = Stockland_Money::minor( $average );
+			$expected_mills = (int) round( $average_cents * $quantity * 10, 0, PHP_ROUND_HALF_UP );
+			if ( abs( $expected_mills - $raw_mills ) > max( 5, (int) ceil( $quantity * 5 ) ) ) {
+				throw new Exception( 'POS article-summary row ' . $row_number . ' has an average amount that does not reconcile to its quantity and source total.' );
+			}
+			$floor_cents = (int) floor( $raw_mills / 10 );
+			$remainder = $raw_mills - ( $floor_cents * 10 );
+			$tax_cents = (int) round( ( $raw_mills * $rate_units ) / 10000000, 0, PHP_ROUND_HALF_UP );
+			$lines[ $row_number ] = array(
+				'raw_total_mills' => $raw_mills,
+				'net_cents'       => $floor_cents,
+				'vat_cents'       => $tax_cents,
+				'remainder'       => $remainder,
+				'rounding_adjustment_cents' => 0,
+			);
+			$raw_sum += $raw_mills;
+			$floor_sum += $floor_cents;
+			$tax_sum += $tax_cents;
+		}
+		if ( ! $lines || $raw_sum !== (int) $totals['subtotal_mills'] ) {
+			throw new Exception( 'POS article-summary item totals do not equal the source subtotal. No rows were staged.' );
+		}
+		$target_net_cents = (int) round( $totals['subtotal_mills'] / 10, 0, PHP_ROUND_HALF_UP );
+		$cents_to_allocate = $target_net_cents - $floor_sum;
+		$ordered_rows = array_keys( $lines );
+		usort(
+			$ordered_rows,
+			function ( $left, $right ) use ( $lines ) {
+				$remainder_order = $lines[ $right ]['remainder'] <=> $lines[ $left ]['remainder'];
+				return 0 !== $remainder_order ? $remainder_order : ( (int) $left <=> (int) $right );
+			}
+		);
+		if ( $cents_to_allocate < 0 || $cents_to_allocate > count( $ordered_rows ) ) {
+			throw new Exception( 'POS article-summary subtotal rounding could not be allocated safely.' );
+		}
+		for ( $i = 0; $i < $cents_to_allocate; ++$i ) {
+			$key = $ordered_rows[ $i ];
+			$lines[ $key ]['net_cents']++;
+			$lines[ $key ]['rounding_adjustment_cents'] = $lines[ $key ]['net_cents'] - (int) round( $lines[ $key ]['raw_total_mills'] / 10, 0, PHP_ROUND_HALF_UP );
+		}
+		$source_tax_cents = (int) round( $totals['tax_mills'] / 10, 0, PHP_ROUND_HALF_UP );
+		$source_gross_cents = (int) round( $totals['grand_total_mills'] / 10, 0, PHP_ROUND_HALF_UP );
+		if ( $tax_sum !== $source_tax_cents ) {
+			throw new Exception( 'POS article-summary VAT does not reconcile to the supplier tax footer. Check the central VAT rate before importing.' );
+		}
+		if ( $target_net_cents + $tax_sum !== $source_gross_cents ) {
+			throw new Exception( 'POS article-summary net plus tax does not reconcile to the supplier grand total.' );
+		}
+		return $lines;
+	}
+
 	/**
 	 * Determines whether a worksheet row is blank or should be ignored.
 	 *
