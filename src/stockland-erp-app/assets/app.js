@@ -601,7 +601,7 @@ async function loadManagementSocial(){
   if(canManage)h+=miSocialCampaignForm();
   h+=miSocialTable(social.campaigns||[],[['campaign_code','Code'],['title','Campaign'],['platform','Platform'],['account_label','Account'],['budget','Planned ETB','money'],['status','State','status']],r=>canManage?miSocialSnapshotForm(r):hrlcStatus(r.status||'DRAFT'));
   h+='<h4 class="sl-sub" style="margin-top:18px"><b>Timestamped export snapshots</b></h4>';
-  h+=miSocialTable(social.snapshots||[],[['snapshot_code','Snapshot'],['campaign_code','Campaign'],['platform','Platform'],['account_label','Account'],['period_start','From'],['period_end','To'],['report_as_of','As of'],['reach_count','Reach'],['engagement_count','Engagement'],['spend_amount','Spend ETB','money'],['attributed_sales','Attributed ETB','money']],()=>'<span class="sl-pill info">Append-only</span>');
+  h+=miSocialTable(social.snapshots||[],[['snapshot_code','Snapshot'],['campaign_code','Campaign'],['platform','Platform'],['account_label','Account'],['period_start','From'],['period_end','To'],['report_as_of','As of'],['watch_time_minutes','Watch minutes'],['reach_count','Reach'],['engagement_count','Engagement'],['spend_amount','Spend ETB','money'],['attributed_sales','Attributed ETB','money']],()=>'<span class="sl-pill info">Append-only</span>');
  }
  body.innerHTML=h;
  bindManagementSocialWorkspace();
