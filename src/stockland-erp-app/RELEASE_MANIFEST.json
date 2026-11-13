@@ -89,8 +89,8 @@
       },
       {
         "path": "assets/app.js",
-        "bytes": 539857,
-        "sha256": "ccb4cb9f0e302981e58b40460723cb1a3219d679e2d823b1133c84507f249b5c"
+        "bytes": 540082,
+        "sha256": "3395e13da8c9dab1d09f26131199ddd9204ca6ffb31ce68d93312a61aaaff0ed"
       },
       {
         "path": "assets/app.min.css",

@@ -530,7 +530,7 @@ return '<div class="sl-dashboard-page sl-management-intelligence">'+
 async function loadManagementSocial(){
  const body=document.getElementById('slMiSocialBody');if(!body)return;
  let social={campaigns:[],snapshots:[]},warning='';
- try{social=await api16('/hr/management-social')}catch(e){warning='Campaign records are not available to this role: '+String(e.message||e)}
+ if(state.setupStatus?.hr?.ready!==true){warning='Campaign records and export snapshots become available after the HR/Payroll schema is approved and verified in System Control. Official platform sign-in links work now.'}else{try{social=await api16('/hr/management-social')}catch(e){warning='Campaign records are not available to this role: '+String(e.message||e)}}
  if(!document.getElementById('slMiSocialBody'))return;
  const canManage=!!(state.boot?.user?.capabilities?.hr_manage||['owner'].includes(String(state.boot?.user?.role||'')));
  let h='<h4 class="sl-sub"><b>Sign in on the official platform</b></h4>'+hrlcSocialLinks();
