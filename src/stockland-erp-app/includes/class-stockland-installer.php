@@ -5,10 +5,9 @@
  * Runs the existing, bounded, add-only schema steps (Core -> Accounting/Procurement
  * -> HR/Payroll) to completion inside a time budget, verifying the physical
  * database after every step. It never drops, truncates, renames or reseeds a
- * table. On a brand-new installation (no ERP tables at all) the additive HR
- * schema approval is recorded automatically in the immutable audit chain because
- * there is no existing data at risk. On an installation that already has ERP
- * tables, the Owner's written reason is still required before HR DDL runs.
+ * table. Fresh installation creates only the four-table legacy HR baseline. The 37-table lifecycle
+ * extension and all legacy HR column migrations require active-Owner approval bound to
+ * the exact source DDL fingerprint.
  *
  * @package Stockland_ERP
  */
@@ -33,6 +32,7 @@ final class Stockland_Installer {
 			&& Stockland_HR::DB_VERSION === (string) ( $a['schema_version'] ?? '' )
 			&& hash_equals( $sig, (string) ( $a['schema_signature'] ?? '' ) )
 			&& (int) ( $a['approved_by'] ?? 0 ) > 0
+			&& Stockland_Authority::is_owner( (int) ( $a['approved_by'] ?? 0 ) )
 			&& ! empty( $a['approved_at'] )
 			&& strlen( trim( (string) ( $a['reason'] ?? '' ) ) ) >= 12;
 	}
@@ -47,7 +47,7 @@ final class Stockland_Installer {
 	 */
 	public static function record_hr_approval( $actor, $reason, $source ) {
 		$reason = sanitize_text_field( (string) $reason );
-		if ( strlen( trim( $reason ) ) < 12 || (int) $actor < 1 ) {
+		if ( strlen( trim( $reason ) ) < 12 || (int) $actor < 1 || (int) get_current_user_id() !== (int) $actor || ! Stockland_Authority::is_owner( (int) $actor ) ) {
 			return false;
 		}
 		$sig = (string) Stockland_HR::schema_signature();
@@ -148,31 +148,29 @@ final class Stockland_Installer {
 				}
 			}
 			$core_acc_done = empty( Stockland_Activator::missing_core_tables() ) && empty( Stockland_Accounting::missing_tables() ) && empty( Stockland_Accounting::upgrade_gaps() );
-			if ( empty( $errors ) && $core_acc_done && ( Stockland_HR::missing_tables() || Stockland_HR::upgrade_gaps() ) ) {
-				if ( ! self::hr_approval_is_current() ) {
-					$actor_id = (int) $actor;
-					if ( $fresh && $actor_id > 0 ) {
-						self::record_hr_approval( $actor_id, 'Automatic additive HR/Payroll schema creation during fresh master installation; no prior ERP tables or records existed.', 'FRESH_INSTALL_AUTOMATIC' );
-					} elseif ( $actor_id > 0 && ! empty( $approval['reason'] ) ) {
-						self::record_hr_approval( $actor_id, (string) $approval['reason'], 'ONE_CLICK_INSTALLER' );
-					}
+			if ( empty( $errors ) && $core_acc_done && Stockland_HR::missing_legacy_tables() ) {
+				while ( $time() && Stockland_HR::missing_legacy_tables() ) {
+					if ( ! $step( static function () { Stockland_HR::install_legacy_baseline( 1 ); } ) ) { break; }
 				}
-				if ( ! self::hr_approval_is_current() ) {
+			}
+			$baseline_ready = $core_acc_done && empty( Stockland_HR::missing_legacy_tables() );
+			if ( $baseline_ready ) {
+				update_option( 'stockland_core_finance_schema_ready', 1, false );
+				update_option( 'stockland_application_schema_ready', 1, false );
+				self::ensure_owner_profile( (int) $actor );
+				Stockland_Roles::register_roles();
+				Stockland_Roles::sync_roles();
+				if ( ! Stockland_HR::is_schema_ready() && ! Stockland_HR::schema_migration_approved() ) {
 					$result['needs_hr_approval'] = true;
-				} else {
+					update_option( 'stockland_setup_state', 'CORE_FINANCE_READY_HR_PENDING', false );
+				} elseif ( Stockland_HR::schema_migration_approved() ) {
 					while ( $time() && ( Stockland_HR::missing_tables() || Stockland_HR::upgrade_gaps() ) ) {
-						if ( ! $step( static function () {
-							Stockland_HR::install( 1 );
-						} ) ) {
-							break;
-						}
+						if ( ! $step( static function () { Stockland_HR::install( 1, 'approved_full' ); } ) ) { break; }
 					}
 				}
 			}
 
-			$complete = empty( Stockland_Activator::application_missing_tables() )
-				&& empty( Stockland_Accounting::upgrade_gaps() )
-				&& empty( Stockland_HR::upgrade_gaps() );
+			$complete = $baseline_ready && Stockland_HR::is_schema_ready();
 			if ( $complete ) {
 				self::finalize( (int) $actor );
 				delete_option( 'stockland_setup_error' );

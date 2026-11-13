@@ -186,8 +186,7 @@ function stockland_init_plugin() {
 
 		$application_missing = array_merge(
 			Stockland_Activator::missing_core_tables(),
-			class_exists( 'Stockland_Accounting' ) ? Stockland_Accounting::missing_tables() : array(),
-			class_exists( 'Stockland_HR' ) ? Stockland_HR::missing_tables() : array()
+			class_exists( 'Stockland_Accounting' ) ? Stockland_Accounting::missing_tables() : array()
 		);
 
 		// Table presence alone is not sufficient for accounting runtime safety.
@@ -213,26 +212,6 @@ function stockland_init_plugin() {
 				Stockland_Runtime_Diagnostics::log_error( 'Stockland ERP accounting schema gate error: ' . $e->getMessage() );
 			}
 		}
-		if ( class_exists( 'Stockland_HR' ) ) {
-			try {
-				$hr_upgrade_gaps = Stockland_HR::upgrade_gaps();
-				if ( ! empty( $hr_upgrade_gaps ) ) {
-					$application_missing = array_merge( $application_missing, $hr_upgrade_gaps );
-				}
-			} catch ( Throwable $e ) {
-				$application_missing[] = 'hr_upgrade_check_failed';
-				update_option(
-					'stockland_boot_error',
-					array(
-						'message' => 'HR schema upgrade check: ' . $e->getMessage(),
-						'time'    => current_time( 'mysql' ),
-					),
-					false
-				);
-				Stockland_Runtime_Diagnostics::log_error( 'Stockland ERP HR schema gate error: ' . $e->getMessage() );
-			}
-		}
-
 		if ( ! empty( $application_missing ) ) {
 			update_option( 'stockland_application_schema_ready', 0, false );
 			return;

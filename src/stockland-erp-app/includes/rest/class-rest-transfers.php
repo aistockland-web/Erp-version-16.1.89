@@ -218,7 +218,13 @@ class Stockland_REST_Transfers extends Stockland_REST_Base {
 			if ( false === Stockland_DB::execute_query( 'COMMIT' ) ) {
 				throw new Exception( 'Transfer creation commit failed.' );
 			}
-			return rest_ensure_response( $this->row( $id ) );
+			$created = $this->row( $id );
+			try {
+				Stockland_Notifications::notify_transfer( 'REQUESTED', (array) $created );
+			} catch ( Throwable $ignore ) {
+				Stockland_Runtime_Diagnostics::log_error( 'Transfer notification failed: ' . $ignore->getMessage() );
+			}
+			return rest_ensure_response( $created );
 		} catch ( Throwable $e ) {
 			Stockland_DB::execute_query( 'ROLLBACK' );
 			return new WP_Error( 'insert_failed', $e->getMessage(), array( 'status' => 500 ) );}
@@ -524,7 +530,16 @@ class Stockland_REST_Transfers extends Stockland_REST_Base {
 					Stockland_Notifications::push_role( 'owner', null, 'transfer_received', 'Transfer received', 'Transfer ' . $id . ' for SKU ' . $sku . ' was received and recorded.', 'transfer', $id, 'info' );
 				}
 			}
-			return rest_ensure_response( $this->row( $id ) );
+			$after = $this->row( $id );
+			try {
+				$event_map = array( 'Approved' => 'APPROVED', 'Rejected' => 'REJECTED', 'Reserved' => 'RESERVED', 'Picked' => 'PICKED', 'In Transit' => 'IN_TRANSIT', 'Cancelled' => 'CANCELLED' );
+				if ( isset( $event_map[ $new ] ) ) {
+					Stockland_Notifications::notify_transfer( $event_map[ $new ], (array) $after );
+				}
+			} catch ( Throwable $ignore ) {
+				Stockland_Runtime_Diagnostics::log_error( 'Transfer notification failed: ' . $ignore->getMessage() );
+			}
+			return rest_ensure_response( $after );
 		} catch ( Throwable $e ) {
 			Stockland_DB::execute_query( 'ROLLBACK' );
 			Stockland_DB::release_day_locks( $location_locks['locks'] );

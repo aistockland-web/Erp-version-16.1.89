@@ -26,6 +26,7 @@ class Stockland_Admin {
 	 * @return void
 	 */
 	public function __construct() {
+		add_action( 'admin_init', array( $this, 'redirect_erp_launcher' ), 1 );
 		add_action( 'admin_menu', array( $this, 'admin_menu' ) );
 		add_action( 'admin_bar_menu', array( $this, 'admin_bar' ), 90 );
 		add_action( 'admin_enqueue_scripts', array( $this, 'admin_assets' ) );
@@ -62,6 +63,23 @@ class Stockland_Admin {
 				'statusTarget' => 'stockland-admin-setup-status',
 			)
 		);
+	}
+
+	/**
+	 * Redirect only the explicit ERP launcher before wp-admin emits output.
+	 * Native WordPress Dashboard and administration remain available.
+	 *
+	 * @return void
+	 */
+	public function redirect_erp_launcher() {
+		if ( ! is_admin() || ! isset( $_GET['page'] ) || 'stockland-erp' !== sanitize_key( wp_unslash( $_GET['page'] ) ) ) {
+			return;
+		}
+		if ( ! current_user_can( 'read' ) ) {
+			wp_die( esc_html__( 'You do not have permission to access Stockland ERP.', 'stockland-inventory' ) );
+		}
+		wp_safe_redirect( self::erp_url() );
+		exit;
 	}
 
 	/**
@@ -140,6 +158,7 @@ class Stockland_Admin {
 			&& Stockland_HR::DB_VERSION === (string) ( $approval['schema_version'] ?? '' )
 			&& hash_equals( $signature, (string) ( $approval['schema_signature'] ?? '' ) )
 			&& (int) ( $approval['approved_by'] ?? 0 ) > 0
+			&& Stockland_Authority::is_owner( (int) ( $approval['approved_by'] ?? 0 ) )
 			&& ! empty( $approval['approved_at'] )
 			&& strlen( trim( (string) ( $approval['reason'] ?? '' ) ) ) >= 12;
 	}
@@ -152,7 +171,7 @@ class Stockland_Admin {
 	 */
 	private function record_hr_schema_approval( $reason ) {
 		$reason = sanitize_text_field( (string) $reason );
-		if ( strlen( trim( $reason ) ) < 12 || ! current_user_can( 'stockland_install_schema' ) ) {
+		if ( strlen( trim( $reason ) ) < 12 || ! current_user_can( 'stockland_install_schema' ) || ! Stockland_Authority::is_owner() ) {
 			return false;
 		}
 		$actor = get_current_user_id();
@@ -193,7 +212,7 @@ class Stockland_Admin {
 			if ( ! empty( $result['complete'] ) ) {
 				echo '<div class="notice notice-success is-dismissible"><p><strong>Installation complete.</strong> All Core, Accounting/Procurement and HR/Payroll tables are physically verified.</p></div>';
 			} elseif ( ! empty( $result['needs_hr_approval'] ) ) {
-				echo '<div class="notice notice-warning is-dismissible"><p>Core and Accounting are complete. HR/Payroll needs your written approval reason and backup confirmation (form below) because this site already had ERP tables.</p></div>';
+				echo '<div class="notice notice-warning is-dismissible"><p>Core/Finance and the four-table legacy HR baseline are complete. The 37-table HR lifecycle extension and any legacy HR column migrations remain pending until an active Owner approves the exact DDL fingerprint and a restorable backup is confirmed. Operational ERP modules remain available.</p></div>';
 			} elseif ( ! empty( $result['errors'] ) ) {
 				echo '<div class="notice notice-error is-dismissible"><p><strong>Installer stopped:</strong> ' . esc_html( implode( ' | ', (array) $result['errors'] ) ) . '</p></div>';
 			} else {
@@ -435,24 +454,24 @@ class Stockland_Admin {
 
 		if ( current_user_can( 'stockland_install_schema' ) ) {
 			echo '<h2 style="margin-top:24px">One-click installation</h2>';
-			if ( empty( $full_missing ) && empty( $finance_upgrade_gaps ) && empty( $hr_upgrade_gaps ) ) {
+			if ( Stockland_HR::is_schema_ready() && empty( $full_missing ) && empty( $finance_upgrade_gaps ) && empty( $hr_upgrade_gaps ) ) {
 				echo '<p style="color:#00a32a;font-weight:600">&#10003; Installation complete &mdash; every Core, Accounting/Procurement and HR/Payroll table is present.</p>';
 			} else {
 				echo '<form method="post" style="max-width:760px">';
 				wp_nonce_field( 'stockland_one_click_install' );
-				if ( ! empty( $full_missing ) && count( $full_missing ) < count( $full_expected ) && ! Stockland_Installer::hr_approval_is_current() ) {
-					echo '<p><label for="stockland_hr_schema_reason"><strong>Owner approval reason (needed once, because ERP tables already exist)</strong></label><br><input id="stockland_hr_schema_reason" name="stockland_hr_schema_reason" type="text" class="regular-text" minlength="12" placeholder="Reviewed additive HR schema and verified backup"></p>';
+				if ( ! Stockland_Installer::hr_approval_is_current() && Stockland_Authority::is_owner() ) {
+					echo '<p><label for="stockland_hr_schema_reason"><strong>Owner approval reason (required before additive HR lifecycle tables and legacy HR column migrations)</strong></label><br><input id="stockland_hr_schema_reason" name="stockland_hr_schema_reason" type="text" class="regular-text" minlength="12" placeholder="Reviewed additive HR schema and verified backup"></p>';
 					echo '<p><label><input type="checkbox" name="stockland_confirm_hr_schema" value="1"> I approve additive HR/Payroll schema version ' . esc_html( Stockland_HR::DB_VERSION ) . ' and confirm a restorable backup exists.</label></p>';
 				}
 				echo '<button type="submit" name="stockland_one_click_install" value="1" class="button button-primary button-hero">Install / complete everything now</button></form>';
-				echo '<p class="description">Creates every missing table in order (Core, Accounting/Procurement, HR/Payroll), verifying the physical database after each step. Add-only: no table is dropped, truncated, renamed or reseeded.</p>';
+				echo '<p class="description">Creates only the approved add-only schema steps in order, verifying the physical database after each step. The operational Core/Finance and four-table legacy HR baseline can run while the 37-table HR lifecycle extension and HR column migrations remain gated by active-Owner approval. No table is dropped, truncated, renamed or reseeded.</p>';
 			}
 
 			echo '<h2 style="margin-top:24px">Go-live authorization</h2>';
 			$auth = Stockland_Release_Authorization::status();
 			if ( ! empty( $auth['authorized'] ) ) {
 				echo '<p style="color:#00a32a;font-weight:600">&#10003; Version ' . esc_html( STOCKLAND_VERSION ) . ' is authorized for live operation by the Owner (' . esc_html( $auth['record']['authorized_at'] ) . ').</p>';
-			} elseif ( empty( $full_missing ) && empty( $finance_upgrade_gaps ) && empty( $hr_upgrade_gaps ) ) {
+			} elseif ( Stockland_HR::is_schema_ready() && empty( $full_missing ) && empty( $finance_upgrade_gaps ) && empty( $hr_upgrade_gaps ) ) {
 				if ( Stockland_Authority::is_owner() ) {
 					echo '<form method="post" style="max-width:760px">';
 					wp_nonce_field( 'stockland_authorize_release' );

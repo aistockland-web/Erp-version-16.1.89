@@ -4,6 +4,6 @@
 set -euo pipefail
 [[ "${STOCKLAND_DISPOSABLE_SITE:-}" == "yes" ]] || { echo "Refusing: disposable site only"; exit 2; }
 H="$(cd "$(dirname "$0")" && pwd)"; WP="wp --path=${1:?wp path} --allow-root"
-for s in s1_users_product s1b_sync_roles s2_procurement_receipt s3_transfer s4_sales_return_close s5_accounting_ap s6_customer_invoice s7_payroll_calculator_vectors; do
+for s in s1_users_product s1b_sync_roles s2_procurement_receipt s3_transfer s4_sales_return_close s5_accounting_ap s6_customer_invoice s7_payroll_calculator_vectors s8_transfer_notifications s9_schema_governance; do
   echo "######## $s"; $WP eval-file "$H/$s.php"
 done

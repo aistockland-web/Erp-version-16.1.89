@@ -24,7 +24,7 @@ fs.mkdirSync(screenshots, { recursive: true });
 const note = (message) => console.log('PASS ' + message);
 const fail = (message) => {
   issues.push(message);
-  console.error('FAIL ' + message);
+  console.log('FAIL ' + message);
 };
 const isLocal = (url) => {
   try { return new URL(url).origin === origin; } catch { return false; }
@@ -155,7 +155,15 @@ const isLocal = (url) => {
           const renderState = await page.locator('#stockland-app').innerText().catch(() => '(no app root text)');
           throw new Error(viewport.label + ' ERP dashboard did not hydrate within 45 seconds. Render state: ' + renderState.slice(0, 1200) + '. ' + error.message);
         }
+        const hrNavigationCount = await page.locator('.sl-nav-hr').count();
+        if (hrNavigationCount !== 0) fail(name + ' ' + viewport.label + ' exposed HR navigation before active-Owner schema approval');
         await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+        const pendingNotice = await page.locator('.sl-operational-schema-banner').textContent().catch(() => '');
+        if (!pendingNotice || !pendingNotice.includes('verified 49-key operational baseline')) {
+          fail(name + ' ' + viewport.label + ' does not expose the HR-pending / Core-Finance-operational boundary');
+        } else {
+          note(name + ' ' + viewport.label + ' explains HR-pending operational readiness');
+        }
         const dimensions = await page.evaluate(() => ({
           viewport: window.innerWidth,
           document: document.documentElement.scrollWidth,
@@ -172,6 +180,24 @@ const isLocal = (url) => {
           note(name + ' ' + viewport.label + ' layout (horizontal overflow ' + overflow + 'px)');
         }
       }
+    }
+
+    // Verify both indirect dashboard access and the command palette respect the HR gate.
+    await page.keyboard.press('Control+k');
+    const paletteCount = await page.locator('#slCommandPalette').count();
+    if (paletteCount !== 1) {
+      fail('command palette did not open for HR visibility check');
+    } else {
+      const hrCommandCount = await page.locator('#slCommandPalette [data-command-view="hr"]').count();
+      if (hrCommandCount !== 0) fail('command palette exposed HR before active-Owner schema approval');
+      else note('command palette keeps unapproved HR lifecycle hidden');
+      await page.evaluate(() => document.getElementById('slCommandPalette')?.remove());
+    }
+    const dashboardHrActionCount = await page.locator('#sl-content [data-view="hr"]').count();
+    if (dashboardHrActionCount !== 0) {
+      fail('dashboard exposed an HR action before active-Owner schema approval');
+    } else {
+      note('dashboard quick actions keep unapproved HR lifecycle hidden');
     }
 
     await context.close();

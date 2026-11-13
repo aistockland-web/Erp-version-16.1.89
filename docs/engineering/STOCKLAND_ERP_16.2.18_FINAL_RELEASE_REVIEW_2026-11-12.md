@@ -1,6 +1,6 @@
 # Stockland ERP 16.2.18: final release review (2026-11-12)
 
-Installer: `STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTALLER.zip`, SHA-256 `be60d5645a3717494afeb198b65d89dfd33db192f5c0c0c36d10d04f1ede428a`, 123 files, 86 tables (29 core, 16 accounting/procurement, 41 HR/payroll).
+Installer: `STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTALLER.zip`, SHA-256 `aee5c551bd3367717091de066bfd5f86d8298dda1f6361d7534813d8087cd54e`, 123 files, 86 tables (29 core, 16 accounting/procurement, 41 HR/payroll).
 Branch `delivery/stockland-erp-16.2.18-master-installer-2026-11-11`, PR #89. GitHub has no releases or tags; none were created.
 
 ## What is in the one pack

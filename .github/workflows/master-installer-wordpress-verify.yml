@@ -2,7 +2,14 @@ name: Stockland 16.2.18 master installer WordPress verification
 
 on:
   push:
-    branches: ['delivery/**']
+    branches: ['delivery/stockland-full-erp-completion-2026-11-11']
+    paths:
+      - 'src/stockland-erp-app/**'
+      - 'scripts/release/**'
+      - 'STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTALLER.zip*'
+      - '.github/workflows/master-installer-wordpress-verify.yml'
+  pull_request:
+    branches: ['delivery/stockland-full-erp-completion-2026-11-11']
     paths:
       - 'src/stockland-erp-app/**'
       - 'scripts/release/**'
@@ -59,9 +66,21 @@ jobs:
           mysql -h 127.0.0.1 -uroot -proot -e "SELECT VERSION() AS db_version, @@sql_mode AS sql_mode" wp
           php -r 'echo "PHP ", PHP_VERSION, " upload=", ini_get("upload_max_filesize"), " post=", ini_get("post_max_size"), PHP_EOL;'
 
-      - name: Verify the committed ZIP checksum and that it contains exactly the source tree
+      - name: Static syntax and disposable-database safety checks
         run: |
           set -euo pipefail
+          find src/stockland-erp-app -name '*.php' -print0 | xargs -0 -n1 php -l
+          find scripts/release -name '*.php' -print0 | xargs -0 -n1 php -l
+          bash -n scripts/release/verify_master_installer.sh scripts/release/backup_restore_check.sh scripts/release/e2e/run_all.sh scripts/release/tests/backup_restore_guard_test.sh
+          bash scripts/release/tests/backup_restore_guard_test.sh
+          python3 -m py_compile scripts/release/build_master_installer.py
+          node --check scripts/release/ui/ui_smoke.js
+          node --check scripts/release/ui/admin_launcher_smoke.js
+
+      - name: Build installer from the exact source tree under test
+        run: |
+          set -euo pipefail
+          python3 scripts/release/build_master_installer.py --update-manifest --out-dir "$PWD"
           sha256sum -c STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTALLER.zip.sha256
           python3 - <<'PY'
           import hashlib, os, zipfile
@@ -91,6 +110,8 @@ jobs:
       - name: Install the master installer and verify (disposable site)
         env:
           STOCKLAND_DISPOSABLE_SITE: "yes"
+          STOCKLAND_DISPOSABLE_DB_NAME: "wp"
+          STOCKLAND_DISPOSABLE_DB_HOST: "127.0.0.1"
         run: bash scripts/release/verify_master_installer.sh /tmp/wp "$PWD/STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTALLER.zip"
 
       - name: Business workflow regression (procurement to ledger)
@@ -100,6 +121,18 @@ jobs:
           set -o pipefail
           bash scripts/release/e2e/run_all.sh /tmp/wp | tee /tmp/e2e.log
           grep -q "GL unbalanced journals: 0" /tmp/e2e.log
+          grep -q "RESULT PASS" /tmp/e2e.log
+
+      - name: Backup and restore drill (dump, restore to a scratch database, checksum every table)
+        env:
+          STOCKLAND_DISPOSABLE_SITE: "yes"
+          STOCKLAND_DISPOSABLE_DB_NAME: "wp"
+          STOCKLAND_DISPOSABLE_DB_HOST: "127.0.0.1"
+          MYSQL_ADMIN_ARGS: "-uroot -proot"
+        run: |
+          set -euo pipefail
+          bash scripts/release/backup_restore_check.sh /tmp/wp /tmp/backup-drill | tee /tmp/backup-drill.log
+          grep -q "RESULT: PASS" /tmp/backup-drill.log
 
       - name: Set up Node.js for browser acceptance
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -143,9 +176,19 @@ jobs:
             sleep 1
           done
           curl --fail --silent http://127.0.0.1:8080/wp-login.php >/dev/null
+          set +e
           NODE_PATH=/tmp/stockland-playwright/node_modules node scripts/release/ui/ui_smoke.js \
-            http://127.0.0.1:8080 admin "$QA_PASSWORD" /tmp/stockland-ui-smoke | tee /tmp/ui-smoke.log
+            http://127.0.0.1:8080 admin "$QA_PASSWORD" /tmp/stockland-ui-smoke 2>&1 | tee /tmp/ui-smoke.log
+          UI_SMOKE_STATUS=${PIPESTATUS[0]}
+          NODE_PATH=/tmp/stockland-playwright/node_modules node scripts/release/ui/admin_launcher_smoke.js \
+            http://127.0.0.1:8080 admin "$QA_PASSWORD" 2>&1 | tee /tmp/admin-launcher-smoke.log
+          ADMIN_LAUNCHER_STATUS=${PIPESTATUS[0]}
           unset QA_PASSWORD
+          set -e
+          if [[ "$UI_SMOKE_STATUS" -ne 0 || "$ADMIN_LAUNCHER_STATUS" -ne 0 ]]; then
+            echo "Browser acceptance failed: ui_smoke=$UI_SMOKE_STATUS admin_launcher=$ADMIN_LAUNCHER_STATUS"
+            exit 1
+          fi
 
       - name: Upload evidence
         if: always()
@@ -154,7 +197,9 @@ jobs:
           name: master-installer-${{ matrix.db }}
           path: |
             /tmp/e2e.log
+            /tmp/backup-drill.log
             /tmp/ui-smoke.log
+            /tmp/admin-launcher-smoke.log
             /tmp/stockland-ui-smoke/*.png
             /tmp/stockland-php-server.log
             STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTALLER.zip.sha256
@@ -168,10 +213,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Check out the exact source and package
+      - name: Check out the exact source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Rebuild the installer from the exact verified source
+        run: |
+          set -euo pipefail
+          python3 scripts/release/build_master_installer.py --update-manifest --out-dir "$PWD"
 
       - name: Re-verify the exact installer checksum
         run: |

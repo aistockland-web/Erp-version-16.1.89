@@ -24,8 +24,41 @@ class Stockland_HR {
 	 *
 	 * @return array<string> HR/payroll table keys.
 	 */
+	public static function legacy_table_keys() {
+		return array( 'employees', 'employee_compensation', 'payroll_periods', 'payroll_lines' );
+	}
+
 	public static function table_keys() {
-		return array_merge( array( 'employees', 'employee_compensation', 'payroll_periods', 'payroll_lines' ), Stockland_HR_Lifecycle::table_keys() );
+		return array_merge( self::legacy_table_keys(), Stockland_HR_Lifecycle::table_keys() );
+	}
+
+	public static function missing_legacy_tables() {
+		return array_values( array_intersect( self::legacy_table_keys(), self::missing_tables() ) );
+	}
+
+	public static function missing_lifecycle_tables() {
+		return array_values( array_intersect( Stockland_HR_Lifecycle::table_keys(), self::missing_tables() ) );
+	}
+
+	public static function schema_migration_approved() {
+		$approval = get_option( 'stockland_hr_schema_migration_approval', array() );
+		$signature = self::schema_signature();
+		return is_array( $approval )
+			&& '' !== $signature
+			&& self::DB_VERSION === (string) ( $approval['schema_version'] ?? '' )
+			&& hash_equals( $signature, (string) ( $approval['schema_signature'] ?? '' ) )
+			&& (int) ( $approval['approved_by'] ?? 0 ) > 0
+			&& Stockland_Authority::is_owner( (int) ( $approval['approved_by'] ?? 0 ) )
+			&& ! empty( $approval['approved_at'] )
+			&& strlen( trim( (string) ( $approval['reason'] ?? '' ) ) ) >= 12;
+	}
+
+	public static function is_schema_ready() {
+		return self::schema_migration_approved() && empty( self::missing_tables() ) && empty( self::upgrade_gaps() );
+	}
+
+	public static function install_legacy_baseline( $batch_size = 1 ) {
+		return self::install( $batch_size, 'legacy_baseline' );
 	}
 
 	/**
@@ -280,23 +313,6 @@ class Stockland_HR {
 	}
 
 	/**
-	 * Checks the explicit, version-bound Owner approval for additive HR schema changes.
-	 *
-	 * @return bool Whether the current HR schema version has a recorded approval.
-	 */
-	private static function schema_migration_approved() {
-		$approval = get_option( 'stockland_hr_schema_migration_approval', array() );
-		$signature = self::schema_signature();
-		return is_array( $approval )
-			&& '' !== $signature
-			&& self::DB_VERSION === (string) ( $approval['schema_version'] ?? '' )
-			&& hash_equals( $signature, (string) ( $approval['schema_signature'] ?? '' ) )
-			&& (int) ( $approval['approved_by'] ?? 0 ) > 0
-			&& ! empty( $approval['approved_at'] )
-			&& strlen( trim( (string) ( $approval['reason'] ?? '' ) ) ) >= 12;
-	}
-
-	/**
 	 * Runs a protected, bounded HR schema install/repair when authorized.
 	 *
 	 * @return void
@@ -345,10 +361,11 @@ class Stockland_HR {
 	 * @return array Installation status and remaining schema gaps.
 	 * @throws RuntimeException When required HR tables or columns cannot be verified.
 	 */
-	public static function install( $batch_size = 0 ) {
+	public static function install( $batch_size = 0, $scope = 'approved_full' ) {
 		$batch_size = max( 0, (int) $batch_size );
-		if ( ! is_user_logged_in() || ! current_user_can( 'stockland_install_schema' ) || ! self::schema_migration_approved() ) {
-			throw new RuntimeException( 'Owner approval for this exact additive HR schema version is required before HR tables or columns can be changed.' );
+		$legacy_baseline = 'legacy_baseline' === $scope;
+		if ( ! is_user_logged_in() || ! current_user_can( 'stockland_install_schema' ) || ( ! $legacy_baseline && ! self::schema_migration_approved() ) ) {
+			throw new RuntimeException( 'An active Owner approval for the exact HR DDL fingerprint is required before lifecycle or legacy-column migrations.' );
 		}
 		global $wpdb;
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
@@ -475,8 +492,17 @@ class Stockland_HR {
 			$tables[] = $lifecycle_ddl;
 		}
 
+		if ( $legacy_baseline ) {
+			$allowed = array_fill_keys( self::legacy_table_keys(), true );
+			$tables = array_values( array_filter( $tables, static function ( $sql ) use ( $p, $allowed ) {
+				if ( ! preg_match( '/^\s*CREATE TABLE\s+([^\s(]+)/i', $sql, $m ) ) { return false; }
+				$key = preg_replace( '/^' . preg_quote( $p . 'stock_', '/' ) . '/', '', trim( $m[1], '`' ) );
+				return isset( $allowed[ $key ] );
+			} ) );
+		}
+
 if ( $batch_size > 0 ) {
-			$missing_now = self::missing_tables();
+			$missing_now = $legacy_baseline ? self::missing_legacy_tables() : self::missing_tables();
 			$wanted      = array_slice( $missing_now, 0, $batch_size );
 			$tables      = array_values(
 				array_filter(
@@ -509,7 +535,7 @@ if ( $batch_size > 0 ) {
 				throw new RuntimeException( 'HR table ' . esc_html( $table_key ? $table_key : 'unknown' ) . ' was not physically verified after CREATE TABLE.' );
 			}
 		}
-		$required   = self::table_keys();
+		$required   = $legacy_baseline ? self::legacy_table_keys() : self::table_keys();
 		$prefix     = $p . 'stock_';
 		$found      = Stockland_DB::read_col( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $prefix ) . '%' ) );
 		$found_keys = array();
@@ -553,6 +579,9 @@ if ( $batch_size > 0 ) {
 				);
 			}
 			throw new RuntimeException( 'HR schema is incomplete: ' . esc_html( implode( ', ', $missing ) ) . '.' );
+		}
+		if ( $legacy_baseline ) {
+			return array( 'complete' => true, 'installed_batch' => 1, 'missing_tables' => array(), 'upgrade_gaps' => array(), 'scope' => 'legacy_baseline', 'lifecycle_pending' => self::missing_lifecycle_tables() );
 		}
 		$migration = self::upgrade_columns( $batch_size > 0 ? 1 : 0 );
 		$gaps      = self::upgrade_gaps();
