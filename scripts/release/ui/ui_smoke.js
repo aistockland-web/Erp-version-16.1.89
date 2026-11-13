@@ -300,13 +300,13 @@ const isLocal = (url) => {
     } else note('table holder: search, dropdowns, suggestions, append and row replacement PASS (' + holder.updatedCount + ')');
 
     const jsText = await page.evaluate(async () => {
-      const l = [...document.querySelectorAll('script[src]')].map(x => x.src).find(h => /app\\.js/.test(h));
+      const l = [...document.querySelectorAll('script[src]')].map(x => x.src).find(h => /app\.js/.test(h));
       return l ? (await (await fetch(l)).text()) : '';
     });
     if (!jsText || jsText.includes('Owner-approved additive HR/Payroll schema migration after backup and source review')) fail('HR schema approval prompt contains a prefilled approval statement');
     else note('HR schema approval prompt requires an unprefilled Owner decision');
 
-    const cssText = await page.evaluate(async () => { const l = [...document.querySelectorAll('link[rel=stylesheet]')].map(x => x.href).find(h => /app(\\.min)?\\.css/.test(h)); return l ? (await (await fetch(l)).text()) : ''; });
+    const cssText = await page.evaluate(async () => { const l = [...document.querySelectorAll('link[rel=stylesheet]')].map(x => x.href).find(h => /app(\.min)?\.css/.test(h)); return l ? (await (await fetch(l)).text()) : ''; });
     if (!cssText.includes('@supports not (--a:0)')) fail('legacy-browser colour fallbacks missing from the CSS bundle');
     else note('legacy-browser colour fallbacks present in the CSS bundle');
 
