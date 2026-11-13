@@ -20,7 +20,40 @@ wp_site() {
   wp --path="$WP_PATH" --allow-root "$@"
 }
 
+EXPECTED_DB="${STOCKLAND_DISPOSABLE_DB_NAME:-}"
+EXPECTED_HOST="${STOCKLAND_DISPOSABLE_DB_HOST:-}"
 DB="$(wp_site config get DB_NAME 2>/dev/null | tail -n 1)"
+ACTUAL_HOST="$(wp_site config get DB_HOST 2>/dev/null | tail -n 1)"
+[[ -n "$EXPECTED_DB" && "$DB" == "$EXPECTED_DB" ]] || {
+  echo "Refusing: WordPress database name does not match STOCKLAND_DISPOSABLE_DB_NAME."
+  exit 2
+}
+[[ "$EXPECTED_HOST" == "127.0.0.1" && "$ACTUAL_HOST" == "$EXPECTED_HOST" ]] || {
+  echo "Refusing: WordPress database host must match the explicitly approved loopback host."
+  exit 2
+}
+
+ADMIN_HOST=""
+for (( i = 0; i < ${#MYSQL_ADMIN_FLAGS[@]}; i++ )); do
+  arg="${MYSQL_ADMIN_FLAGS[$i]}"
+  case "$arg" in
+    -h)
+      i=$((i + 1))
+      ADMIN_HOST="${MYSQL_ADMIN_FLAGS[$i]:-}"
+      ;;
+    -h*)
+      ADMIN_HOST="${arg#-h}"
+      ;;
+    --host=*)
+      ADMIN_HOST="${arg#--host=}"
+      ;;
+  esac
+done
+[[ "$ADMIN_HOST" == "127.0.0.1" ]] || {
+  echo "Refusing: MySQL administrative connection must use 127.0.0.1."
+  exit 2
+}
+
 [[ "$DB" =~ ^[A-Za-z0-9_]+$ ]] || {
   echo "Refusing: the configured database name is not a safe SQL identifier."
   exit 2
