@@ -527,22 +527,119 @@ return '<div class="sl-dashboard-page sl-management-intelligence">'+
  '<section class="sl-block sl-dashboard-card" id="slMiSocial" aria-labelledby="slMiSocialTitle"><div class="sl-block-head"><div><h3 id="slMiSocialTitle">Social media analysis</h3><small>Official platform sign-in, campaign planning and timestamped export snapshots</small></div></div><div id="slMiSocialBody"><div class="sl-empty">Loading social workspace…</div></section></div>';
 }
 
+function miSocialField(name,label,type,value,required,help){
+ const req=required?' required aria-required="true"':'';
+ const step=type==='number'?' step="any"':'';
+ return '<div class="sl-field"><label for="mi-'+hrlcEsc(name)+'">'+hrlcEsc(label)+(required?' *':'')+'</label><input id="mi-'+hrlcEsc(name)+'" name="'+hrlcEsc(name)+'" type="'+hrlcEsc(type||'text')+'" value="'+hrlcEsc(value||'')+'"'+req+step+'>'+(help?'<small class="sl-sub">'+hrlcEsc(help)+'</small>':'')+'</div>';
+}
+function miSocialSelect(name,label,options,value){
+ return '<div class="sl-field"><label for="mi-'+hrlcEsc(name)+'">'+hrlcEsc(label)+' *</label><select id="mi-'+hrlcEsc(name)+'" name="'+hrlcEsc(name)+'" required>'+options.map(o=>'<option value="'+hrlcEsc(o[0])+'"'+(o[0]===value?' selected':'')+'>'+hrlcEsc(o[1])+'</option>').join('')+'</select></div>';
+}
+function miSocialLinks(){
+ const platforms=[
+  {name:'Facebook / Meta Business Suite',desc:'Manage business pages, campaigns and manually captured Insights',url:'https://business.facebook.com/'},
+  {name:'Instagram',desc:'Review product content, Reels and account insights',url:'https://www.instagram.com/'},
+  {name:'TikTok Business Center',desc:'Plan short-video campaigns and review exportable analytics',url:'https://business.tiktok.com/'},
+  {name:'YouTube Studio',desc:'Manage product videos, Shorts and channel analytics',url:'https://studio.youtube.com/'}
+ ];
+ return '<div class="sl-hrlc-social-grid">'+platforms.map(x=>'<a class="sl-hrlc-social-card" href="'+x.url+'" target="_blank" rel="noopener noreferrer"><span class="sl-hrlc-social-copy"><strong>'+hrlcEsc(x.name)+'</strong><small>'+hrlcEsc(x.desc)+'</small><span class="sl-hrlc-social-open">Open official platform <span aria-hidden="true">↗</span></span></span></a>').join('')+'</div><p class="sl-sub sl-hrlc-social-note"><strong>Manual reporting only.</strong> These links open official platforms. The ERP does not store platform passwords, connect live analytics, publish, schedule or auto-post content. Capture metrics from authorized platform exports with their report timestamp and source-file SHA-256.</p>';
+}
+function miSocialSnapshotForm(campaign){
+ const code=String(campaign.campaign_code||'');
+ const platform=String(campaign.platform||'');
+ const account=String(campaign.account_label||'');
+ const today=localDate();
+ return '<details class="sl-hrlc-form sl-mi-snapshot-form"><summary><b>Record manual export snapshot</b><span class="sl-pill info">Append-only evidence</span></summary><form class="sl-form sl-hrlc-grid" data-mi-social-snapshot-form="'+hrlcEsc(code)+'"><input type="hidden" name="platform" value="'+hrlcEsc(platform)+'"><input type="hidden" name="account_label" value="'+hrlcEsc(account)+'">'+
+  miSocialField('period_start','Report period start','date',today,true)+
+  miSocialField('period_end','Report period end','date',today,true)+
+  miSocialField('report_as_of','Report timestamp (local)','datetime-local',today+'T12:00',true,'Enter the timestamp shown by the platform export or Insights report.')+
+  miSocialField('source_reference','Export file/reference','text','',true,'Use a file name or secure internal reference; do not paste credentials or private sign-in links.')+
+  miSocialField('source_sha256','Export source SHA-256','text','',true,'64 hexadecimal characters; compute from the captured source file.')+
+  miSocialField('reach_count','Reach','number','',false)+
+  miSocialField('view_count','Views','number','',false)+
+  miSocialField('engagement_count','Engagement','number','',false)+
+  miSocialField('follower_delta','Follower change (+/-)','number','',false)+
+  miSocialField('click_count','Clicks','number','',false)+
+  miSocialField('lead_count','Leads','number','',false)+
+  miSocialField('watch_time_minutes','Watch time (minutes)','number','',false)+
+  miSocialField('spend_amount','Spend (ETB)','number','',false)+
+  miSocialField('attributed_sales','Attributed sales (ETB)','number','',false)+
+  miSocialField('attribution_method','Attribution method','text','',false)+
+  '<div class="sl-field full"><label for="mi-snapshot-notes-'+hrlcEsc(code)+'">Notes</label><textarea id="mi-snapshot-notes-'+hrlcEsc(code)+'" name="notes" rows="2"></textarea></div>'+
+  '<div class="sl-field full"><button type="submit" class="sl-btn primary">Save timestamped snapshot</button></div><p class="sl-sub full">Snapshots are append-only and audited. They do not update ERP sales, expenses or ledger balances.</p></form></details>';
+}
+function miSocialCampaignForm(){
+ return '<details class="sl-hrlc-form sl-mi-campaign-form" open><summary><b>Create campaign plan</b><span class="sl-pill info">Draft only</span></summary><form class="sl-form sl-hrlc-grid" data-mi-social-form="create-campaign">'+
+  miSocialField('title','Campaign title','text','',true)+
+  miSocialSelect('platform','Platform',[['INSTAGRAM','Instagram'],['FACEBOOK','Facebook'],['TIKTOK','TikTok'],['YOUTUBE','YouTube'],['OTHER','Other']],'INSTAGRAM')+
+  miSocialField('account_label','Account label (not credentials)','text','',true)+
+  miSocialField('start_date','Planned start date','date',localDate(),false)+
+  miSocialField('end_date','Planned end date','date','',false)+
+  miSocialField('budget','Planned budget estimate (ETB)','number','0.00',true,'Planning estimate only—not an approved expense, purchase order or GL posting.')+
+  miSocialField('manager_user_id','Assigned Stockland operator user ID','number','',false,'Optional existing Stockland user profile.')+
+  '<div class="sl-field full"><button type="submit" class="sl-btn primary">Save campaign draft</button></div><p class="sl-sub full">Campaigns remain DRAFT planning records. No social account credentials are stored and no financial posting occurs here.</p></form></details>';
+}
+function miSocialTable(rows,columns,actions){
+ if(!Array.isArray(rows)||!rows.length)return '<div class="sl-empty">No records yet.</div>';
+ return '<div class="sl-table-wrap"><table class="sl-table sl-responsive-cards"><thead><tr>'+columns.map(c=>'<th>'+hrlcEsc(c[1])+'</th>').join('')+'<th>Actions / State</th></tr></thead><tbody>'+rows.map(r=>'<tr>'+columns.map(c=>'<td>'+(c[2]==='money'?money(r[c[0]]||0):c[2]==='status'?hrlcStatus(r[c[0]]):hrlcEsc(r[c[0]]??''))+'</td>').join('')+'<td>'+(actions?actions(r):hrlcStatus(r.status||'RECORDED'))+'</td></tr>').join('')+'</tbody></table></div>';
+}
 async function loadManagementSocial(){
  const body=document.getElementById('slMiSocialBody');if(!body)return;
  let social={campaigns:[],snapshots:[]},warning='';
- if(state.setupStatus?.hr?.ready!==true){warning='Campaign records and export snapshots become available after the HR/Payroll schema is approved and verified in System Control. Official platform sign-in links work now.'}else{try{social=await api16('/hr/management-social')}catch(e){warning='Campaign records are not available to this role: '+String(e.message||e)}}
+ try{social=await api16('/management/social')}catch(e){warning='Management social planning is unavailable: '+String(e.message||e)}
  if(!document.getElementById('slMiSocialBody'))return;
- const canManage=!!(state.boot?.user?.capabilities?.hr_manage||['owner'].includes(String(state.boot?.user?.role||'')));
- let h='<h4 class="sl-sub"><b>Sign in on the official platform</b></h4>'+hrlcSocialLinks();
- if(warning)h+='<div class="sl-notice sl-notice-warn" style="margin-top:12px">'+esc(warning)+'</div>';
+ const role=String(state.boot?.user?.role||'').toLowerCase();
+ const canManage=['owner','management'].includes(role);
+ let h='<h4 class="sl-sub"><b>Official platform access</b></h4>'+miSocialLinks();
+ h+='<div class="sl-notice" style="margin-top:12px">Management Intelligence uses the Core settings store and is available independently of HR lifecycle setup. The workspace is read-only to sales, stock, expenses and accounting ledgers.</div>';
+ if(warning)h+='<div class="sl-notice sl-notice-warn" style="margin-top:12px">'+hrlcEsc(warning)+'</div>';
  else{
-  h+='<h4 class="sl-sub" style="margin-top:16px"><b>Campaigns and export snapshots</b></h4>';
-  if(canManage)h+=hrlcCycleForm('create-campaign','Create campaign',[['title','Campaign title','text','',true],['platform','Platform','select','INSTAGRAM',true,[['INSTAGRAM','Instagram'],['FACEBOOK','Facebook'],['TIKTOK','TikTok'],['YOUTUBE','YouTube'],['OTHER','Other']]],['account_label','Account label (not credentials)','text','',true],['start_date','Start date','date',localDate(),true],['end_date','End date','date','',false],['budget','Approved campaign budget ETB','number','0',true],['manager_user_id','Assigned influencer manager user ID','number','',false]],'Create campaign');
-  h+=hrlcCycleTable(social.campaigns||[],[['campaign_code','Code'],['title','Campaign'],['platform','Platform'],['account_label','Account'],['budget','Budget','money'],['status','State','status']],r=>canManage?'<button class="sl-btn sl-btn-sm" type="button" data-hrcycle-action="capture-social" data-id="'+Number(r.id)+'" data-platform="'+hrlcEsc(r.platform)+'" data-account="'+hrlcEsc(r.account_label)+'">Record export snapshot</button>':'');
-  h+=hrlcCycleTable(social.snapshots||[],[['snapshot_code','Snapshot'],['platform','Platform'],['account_label','Account'],['period_start','From'],['period_end','To'],['report_as_of','As of'],['reach_count','Reach'],['engagement_count','Engagement'],['spend_amount','Spend','money'],['attributed_sales','Attributed sales','money']],()=>'');
+  h+='<h4 class="sl-sub" style="margin-top:16px"><b>Campaign planning</b></h4>';
+  if(canManage)h+=miSocialCampaignForm();
+  h+=miSocialTable(social.campaigns||[],[['campaign_code','Code'],['title','Campaign'],['platform','Platform'],['account_label','Account'],['budget','Planned ETB','money'],['status','State','status']],r=>canManage?miSocialSnapshotForm(r):hrlcStatus(r.status||'DRAFT'));
+  h+='<h4 class="sl-sub" style="margin-top:18px"><b>Timestamped export snapshots</b></h4>';
+  h+=miSocialTable(social.snapshots||[],[['snapshot_code','Snapshot'],['campaign_code','Campaign'],['platform','Platform'],['account_label','Account'],['period_start','From'],['period_end','To'],['report_as_of','As of'],['reach_count','Reach'],['engagement_count','Engagement'],['spend_amount','Spend ETB','money'],['attributed_sales','Attributed ETB','money']],()=>'<span class="sl-pill info">Append-only</span>');
  }
  body.innerHTML=h;
- bindHRPayrollCycleForms();
+ bindManagementSocialWorkspace();
+}
+function bindManagementSocialWorkspace(){
+ document.querySelectorAll('[data-mi-social-form]').forEach(form=>{
+  if(form.__miSocialBound)return;
+  form.__miSocialBound=true;
+  form.addEventListener('submit',async event=>{
+   event.preventDefault();
+   if(!form.reportValidity())return;
+   const button=form.querySelector('[type="submit"]');
+   if(button)button.disabled=true;
+   try{
+    const data=Object.fromEntries(new FormData(form).entries());
+    if(data.manager_user_id)data.manager_user_id=Number(data.manager_user_id);else delete data.manager_user_id;
+    await api16('/management/social',{method:'POST',body:JSON.stringify(data)});
+    toast('Campaign draft saved. No financial posting was created.');
+    await loadManagementSocial();
+   }catch(error){toast(error.message||'Campaign save failed',true)}
+   finally{if(button)button.disabled=false}
+  });
+ });
+ document.querySelectorAll('[data-mi-social-snapshot-form]').forEach(form=>{
+  if(form.__miSocialBound)return;
+  form.__miSocialBound=true;
+  form.addEventListener('submit',async event=>{
+   event.preventDefault();
+   if(!form.reportValidity())return;
+   const button=form.querySelector('[type="submit"]');
+   if(button)button.disabled=true;
+   try{
+    const data=Object.fromEntries(new FormData(form).entries());
+    const code=String(form.dataset.miSocialSnapshotForm||'');
+    await api16('/management/social/campaigns/'+encodeURIComponent(code)+'/snapshots',{method:'POST',body:JSON.stringify(data)});
+    toast('Export snapshot recorded and audited.');
+    await loadManagementSocial();
+   }catch(error){toast(error.message||'Snapshot save failed',true)}
+   finally{if(button)button.disabled=false}
+  });
+ });
 }
 function bindManagementIntelligence(){
  const btn=document.getElementById('refreshManagementIntelligence');
