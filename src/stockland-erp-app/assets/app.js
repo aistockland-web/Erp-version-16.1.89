@@ -1,4 +1,4 @@
-(function(){'use strict';const A=window.StocklandApp;const root=document.getElementById('stockland-app');let state={boot:null,view:'dashboard',q:'',inventoryQuery:'',productQuery:'',catalog:null,catalogQuery:null,catalogSearchPending:false,catalogLoading:false,catalogRequestId:0,reqDetails:{},users:[],report:null,finance:null,financeLoaded:false,unreadNotifications:0,setupAdvancing:false,skuPickerSeq:0,calendarMonth:null,calendarData:null,posSales:[],dashboardInsights:null,dashboardInsightsLoading:false,dashboardInsightsRequestId:0,wholesaleAdvice:null,wholesaleAdviceLoading:false,wholesaleAdviceError:'',wholesaleAdviceRequestId:0,wholesalePrefill:null};
+(function(){'use strict';const A=window.StocklandApp;const root=document.getElementById('stockland-app');let state={boot:null,setupStatus:null,view:'dashboard',q:'',inventoryQuery:'',productQuery:'',catalog:null,catalogQuery:null,catalogSearchPending:false,catalogLoading:false,catalogRequestId:0,reqDetails:{},users:[],report:null,finance:null,financeLoaded:false,unreadNotifications:0,setupAdvancing:false,skuPickerSeq:0,calendarMonth:null,calendarData:null,posSales:[],dashboardInsights:null,dashboardInsightsLoading:false,dashboardInsightsRequestId:0,wholesaleAdvice:null,wholesaleAdviceLoading:false,wholesaleAdviceError:'',wholesaleAdviceRequestId:0,wholesalePrefill:null};
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 const uiIcon=name=>{const p={home:'M3 10.5 12 3l9 7.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 19.5v-9Z',cash:'M4 7h16v10H4zM8 12h8M9 9h.01M15 15h.01',cart:'M3 4h2l2.1 10.1a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 1.9-1.4L21 8H7M10 20a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm8 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z',chart:'M5 19V10m7 9V5m7 14v-7',box:'M4 7.5 12 3l8 4.5v9L12 21l-8-4.5zM4 7.5l8 4.5 8-4.5M12 12v9',arrow:'M4 12h16m-7-7 7 7-7 7',list:'M6 6h13M6 12h13M6 18h13M3 6h.01M3 12h.01M3 18h.01',warehouse:'M3 21V8l9-5 9 5v16M6 21v-9h12v9M9 21v-5h6v5',transfer:'M4 7h16M16 3l4 4-4 4M20 17H4m4-4-4 4 4 4',return:'M9 6 4 11l5 5M4 11h10a5 5 0 0 1 5 5v1',close:'M4 12a8 8 0 1 0 16 0 8 8 0 1 0-16 0Zm8-4v5l3 2',report:'M5 4h14v16H5zM8 8h8M8 12h8M8 16h5',product:'M4 6h16M7 4v4m10-4v4M6 10h12v10H6z',upload:'M12 16V4m0 0-4 4m4-4 4 4M5 20h14',users:'M16 19v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1M10 10a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm5 1a3 3 0 1 0 0-6',settings:'M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm8-3.5-2 1.2.2 2.3-2.1 2.1-2.3-.2-1.2 2H9.4l-1.2-2-2.3.2-2.1-2.1.2-2.3-2-1.2v-3l2-1.2-.2-2.3L7 3.4l2.3.2 1.2-2h3l1.2 2 2.3-.2 2.1 2.1-.2 2.3 2 1.2v3Z',audit:'M7 3h10v4H7zM6 7h12a2 2 0 0 1 2 2v9H4V9a2 2 0 0 1 2-2Zm3 5h6M9 16h6',calendar:'M5 4h14v16H5zM8 2v4m8-4v4M5 9h14M8 13h3m2 0h3m-8 4h3m2 0h3',health:'M12 20s-7-4.2-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.8-7 10-7 10',bell:'M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4',profile:'M20 21a8 8 0 0 0-16 0M12 13a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z',search:'M21 21l-4.3-4.3M10.8 18a7.2 7.2 0 1 1 0-14.4 7.2 7.2 0 0 1 0 14.4Z'};return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'+(p[name]||p.list)+'"/></svg>'};
 const money=n=>new Intl.NumberFormat('en-ET',{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(n||0))+' ETB';
@@ -99,7 +99,14 @@ try{
    await api16('/setup/advance',{method:'POST',body:JSON.stringify(requestBody)});
    // Server status is the sole progress authority. Re-read the physical table state.
    const fresh=await api16('/setup/status');
+   state.setupStatus=fresh;
    renderSetup(fresh);
+   // Stop browser auto-setup at the verified 49-key baseline. The remaining HR
+   // work can be initiated only from the separate Owner-controlled System Control page.
+   if(fresh.operational_ready===true){
+     await load();
+     return;
+   }
    const currentPresent=Number(fresh.total?.present||0);
    const currentFinanceGaps=Array.isArray(fresh.finance?.upgrade_gaps)?fresh.finance.upgrade_gaps.length:0;
    const currentHRGaps=Array.isArray(fresh.hr?.upgrade_gaps)?fresh.hr.upgrade_gaps.length:0;
@@ -144,10 +151,13 @@ function renderAccessGate(access,reason){
 }
 async function load(){try{
   const setup=await api16('/setup/status');
-  const setupReady=setup.ready===true&&setup.state==='LIVE'&&
+  state.setupStatus=setup;
+  // POS, inventory and Finance/Procurement operate on the approved 49-key baseline.
+  // HR lifecycle remains a distinct, visibly pending module until an active Owner approves it.
+  const setupReady=setup.operational_ready===true&&
     !(setup.core?.missing||[]).length&&!(setup.finance?.missing||[]).length&&
-    !(setup.hr?.missing||[]).length&&!(setup.finance?.upgrade_gaps||[]).length&&
-    !(setup.hr?.upgrade_gaps||[]).length;
+    !(setup.finance?.upgrade_gaps||[]).length&&
+    !(setup.hr?.legacy_missing||[]).length;
   if(!setupReady){
     renderSetup(setup);
     try{const access=await api('/app/access/bootstrap');state.access=access;mountSetupAccess(access);}catch(_){/* ordinary users simply remain on setup/pending screen */}
@@ -459,7 +469,16 @@ case'settings':b=settings();break;case'control':b=systemControlPage();break;case
 default:b=dashboard()
 }
 const content=document.querySelector('#sl-content .sl-content-inner');
-if(content)content.innerHTML=b;
+if(content){
+ content.innerHTML=b;
+ if(state.setupStatus?.hr_pending_approval){
+  const pending=document.createElement('div');
+  pending.className='sl-notice sl-notice-warn sl-operational-schema-banner';
+  pending.setAttribute('role','status');
+  pending.textContent='HR lifecycle and Payroll extension are pending explicit active-Owner approval and qualified statutory review. Core, Inventory, POS and Finance/Procurement remain available on the verified 49-key operational baseline. No unapproved HR schema changes were made.';
+  content.prepend(pending);
+ }
+}
 applyFinanceTableLabels();
 bind();
 if(state.view==='dashboard'&&state.boot.user?.role==='owner'&&state.boot.user?.capabilities?.wholesale)loadWholesaleSurplusAdvice(false);
