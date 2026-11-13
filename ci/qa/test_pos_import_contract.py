@@ -16,6 +16,7 @@ app = read("src/stockland-erp-app/assets/app.js")
 xlsx = read("src/stockland-erp-app/includes/class-stockland-xlsx.php")
 runtime = read("src/stockland-erp-app/includes/class-stockland-runtime-diagnostics.php")
 setup = read("src/stockland-erp-app/includes/rest/class-rest-setup.php")
+rest_app = read("src/stockland-erp-app/includes/rest/class-rest-app.php")
 agent = read("tools/pos-folder-agent/stockland_pos_folder_agent.py")
 
 checks = []
@@ -48,6 +49,10 @@ check("setup-mode health reports deferred deep checks and explicitly denies live
       "'deep_integrity_status' => 'DEFERRED_NOT_RUN'" in setup
       and "'full_import_and_workflow_contract_gates'" in setup
       and "$checks['live_ready'] = false;" in setup)
+check("Deep System Health executes and requires the exact article-summary mapping self-test",
+      "Stockland_REST_Import_V16::article_summary_layout_self_test()" in rest_app
+      and "$checks['daily_pos_article_summary_layout']" in rest_app
+      and "$checks['daily_pos_article_summary_layout'] &&" in rest_app)
 check("daily POS release retains sale-ledger, audit and accounting services",
       "Stockland_Ledger::post_sale_closed" in imp
       and "Stockland_Audit::log" in imp

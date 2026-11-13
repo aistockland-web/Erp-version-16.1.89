@@ -590,6 +590,70 @@ class Stockland_REST_Import_V16 {
 	}
 
 	/**
+	 * Runs a deterministic, side-effect-free check of the supported third-party article-summary layout.
+	 *
+	 * Deep System Health invokes this check so a route/table-only test cannot
+	 * pass while the exact supplier column mapping is broken.
+	 *
+	 * @return array<string,mixed> Safe layout contract result.
+	 */
+	public static function article_summary_layout_self_test() {
+		try {
+			$controller = ( new ReflectionClass( __CLASS__ ) )->newInstanceWithoutConstructor();
+			$headers    = array(
+				0  => 'Article Code',
+				1  => '',
+				2  => 'Article Name',
+				3  => '',
+				4  => 'Quantity',
+				5  => '',
+				6  => '',
+				7  => '',
+				8  => 'Avg. Amount',
+				9  => '',
+				10 => '',
+				11 => 'Total Amount',
+			);
+			$aligned = $controller->article_summary_header_positions( $headers );
+			$row     = $controller->stream_assoc_row(
+				array(
+					1  => 'STK-TEST-001',
+					2  => 'TEST ITEM',
+					4  => '2',
+					8  => '12.50',
+					11 => '25.00',
+				),
+				$aligned
+			);
+			$mapping_result = $controller->auto_map_headers( $aligned, 'DAILY_SALES' );
+			$mapping        = (array) ( $mapping_result['mapping'] ?? array() );
+			$checks         = array(
+				'article_code_header_to_column_b' => ( $aligned[1] ?? null ) === 'Article Code' && ! isset( $aligned[0] ),
+				'article_name_remains_column_c'   => ( $aligned[2] ?? null ) === 'Article Name',
+				'quantity_remains_column_e'       => ( $aligned[4] ?? null ) === 'Quantity',
+				'average_amount_remains_column_i' => ( $aligned[8] ?? null ) === 'Avg. Amount',
+				'total_amount_remains_column_l'   => ( $aligned[11] ?? null ) === 'Total Amount',
+				'sku_uses_article_code'            => ( $mapping['sku'] ?? null ) === 'Article Code' && ( $row['Article Code'] ?? null ) === 'STK-TEST-001',
+				'quantity_uses_column_e'           => ( $mapping['qty'] ?? null ) === 'Quantity' && ( $row['Quantity'] ?? null ) === '2',
+				'average_uses_column_i'            => ( $mapping['selling_price'] ?? null ) === 'Avg. Amount' && ( $row['Avg. Amount'] ?? null ) === '12.50',
+				'total_uses_column_l'              => ( $mapping['line_total'] ?? null ) === 'Total Amount' && ( $row['Total Amount'] ?? null ) === '25.00',
+			);
+			return array(
+				'ok'              => ! in_array( false, $checks, true ),
+				'format'          => 'SUMMARIZED_BY_ARTICLE',
+				'checks'          => $checks,
+				'checked_columns' => array( 'Article Code: A label to B value', 'Article Name: C', 'Quantity: E', 'Avg. Amount: I', 'Total Amount: L' ),
+			);
+		} catch ( Throwable $error ) {
+			return array(
+				'ok'     => false,
+				'format' => 'SUMMARIZED_BY_ARTICLE',
+				'error'  => 'Article-summary layout self-test could not complete.',
+			);
+		}
+	}
+
+	/**
 	 * Confirms the known third-party summary header signature before shifting its data columns.
 	 *
 	 * @param array $headers Candidate worksheet headers.

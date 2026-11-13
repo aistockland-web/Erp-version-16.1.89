@@ -69,4 +69,8 @@ try {
 }
 pos_assert( $thrown, 'conflicting column B header fails closed instead of overwriting source data' );
 
-echo "POS article-summary layout regression: PASS (16 assertions).\n";
+$self_test = Stockland_REST_Import_V16::article_summary_layout_self_test();
+pos_assert( ! empty( $self_test['ok'] ), 'Deep System Health self-test executes the real article-summary mapping contract' );
+pos_assert( 9 === count( $self_test['checks'] ) && ! in_array( false, $self_test['checks'], true ), 'all nine source-column and field-mapping assertions pass in Health' );
+
+echo "POS article-summary layout regression: PASS (18 assertions).\n";
