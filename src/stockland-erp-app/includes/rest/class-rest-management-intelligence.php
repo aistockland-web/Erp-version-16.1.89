@@ -117,6 +117,10 @@ final class Stockland_REST_Management_Intelligence extends Stockland_REST_Base {
 		}
 		$records = array();
 		foreach ( $rows as $row ) {
+			$key = isset( $row['setting_key'] ) ? (string) $row['setting_key'] : '';
+			if ( 0 !== strpos( $key, $prefix ) ) {
+				return $this->bad( 'management_social_scope_invalid', 'The Core settings query returned a record outside the requested Management Intelligence namespace.', 500 );
+			}
 			$record = json_decode( (string) ( $row['setting_value'] ?? '' ), true );
 			if ( JSON_ERROR_NONE !== json_last_error() || ! is_array( $record ) ) {
 				return $this->bad( 'management_social_record_invalid', 'A stored Management Intelligence record is invalid. The result was not silently omitted.', 500 );
@@ -267,10 +271,14 @@ final class Stockland_REST_Management_Intelligence extends Stockland_REST_Base {
 		$metrics = array();
 		foreach ( array( 'reach_count', 'view_count', 'engagement_count', 'click_count', 'lead_count' ) as $field ) {
 			$value = $payload[ $field ] ?? null;
-			if ( null !== $value && ( ! is_numeric( $value ) || (float) $value < 0 || floor( (float) $value ) !== (float) $value ) ) {
+			if ( null === $value || '' === $value ) {
+				$metrics[ $field ] = null;
+				continue;
+			}
+			if ( ! is_numeric( $value ) || (float) $value < 0 || floor( (float) $value ) !== (float) $value ) {
 				return $this->bad( 'management_social_metric_invalid', 'Count metrics must be non-negative whole numbers.' );
 			}
-			$metrics[ $field ] = null === $value ? null : (int) $value;
+			$metrics[ $field ] = (int) $value;
 		}
 		$amounts = array();
 		foreach ( array( 'watch_time_minutes', 'spend_amount', 'attributed_sales' ) as $field ) {
@@ -286,6 +294,9 @@ final class Stockland_REST_Management_Intelligence extends Stockland_REST_Base {
 			$amounts[ $field ] = $amount;
 		}
 		$follower_delta = $payload['follower_delta'] ?? null;
+		if ( '' === $follower_delta ) {
+			$follower_delta = null;
+		}
 		if ( null !== $follower_delta && filter_var( $follower_delta, FILTER_VALIDATE_INT ) === false ) {
 			return $this->bad( 'management_social_delta_invalid', 'Follower delta must be a whole number.' );
 		}
