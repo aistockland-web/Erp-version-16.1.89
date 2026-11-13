@@ -496,7 +496,7 @@ class Stockland_Frontend {
 			'display'                     => 'standalone',
 			'display_override'            => array( 'window-controls-overlay', 'standalone' ),
 			'background_color'            => '#0b1b33',
-			'theme_color'                 => '#2563eb',
+			'theme_color'                 => '#295ff3',
 			'orientation'                 => 'any',
 			'lang'                        => 'en',
 			'categories'                  => array( 'business', 'productivity', 'finance' ),
@@ -614,7 +614,7 @@ class Stockland_Frontend {
 			echo '<link rel="manifest" href="' . esc_url( add_query_arg( 'stockland_pwa_manifest', '1', self::page_url() ) ) . '">';
 			echo '<link rel="apple-touch-icon" sizes="180x180" href="' . esc_url( STOCKLAND_PLUGIN_URL . 'assets/icon-180.png' ) . '">';
 			echo '<link rel="icon" type="image/png" sizes="192x192" href="' . esc_url( STOCKLAND_PLUGIN_URL . 'assets/icon-192.png' ) . '">';
-			echo '<meta name="theme-color" content="#2563eb">';
+			echo '<meta name="theme-color" content="#295ff3">';
 			echo '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">';
 			echo '<meta name="apple-mobile-web-app-capable" content="yes">';
 			echo '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">';
@@ -744,7 +744,7 @@ elseif ( 'missing' === $status ) :
 <head>
 <meta charset="<?php echo esc_attr( get_bloginfo( 'charset' ) ); ?>">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#2563eb">
+<meta name="theme-color" content="#295ff3">
 <meta name="robots" content="noindex,nofollow,noarchive">
 <link rel="manifest" href="<?php echo esc_url( add_query_arg( 'stockland_pwa_manifest', '1', $page ) ); ?>">
 <link rel="apple-touch-icon" sizes="180x180" href="<?php echo esc_url( STOCKLAND_PLUGIN_URL . 'assets/icon-180.png' ); ?>">
@@ -755,7 +755,7 @@ elseif ( 'missing' === $status ) :
 <link rel="stylesheet" href="<?php echo esc_url( self::asset_url( $css ) ); ?>">
 <title>Stockland Ethiopia ERP</title>
 </head>
-<body class="stockland-erp-standalone sl-modern-saas">
+<body class="stockland-erp-standalone sl-modern-saas" data-sl-theme="sapphire">
 		<?php if ( ! is_user_logged_in() ) : ?>
 <div class="sl-login">
 	<div class="sl-login-shell">
