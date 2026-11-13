@@ -64,3 +64,5 @@ The Codespaces environment validation workflow (devcontainer JSON/shell validati
 4. Compares the snapshots: no table, column or index lost, no type change, no row lost or changed, no table added: PASS.
 5. Resilience drills: repeat setup is a no-op, a lost table is recreated alone on retry, an interrupted run is reported incomplete and resumes, a concurrent installer is refused while locked, deep integrity scan 52/52 before and after: PASS.
 Baseline defect confirmed and fixed in 16.2.18: duplicate customer code returned HTTP 500 on 16.2.13 and returns HTTP 409 on 16.2.18.
+
+Upgrade path on MySQL 8.0.46 (CI run 43387907392): BLOCKED by a baseline defect, not by 16.2.18. The 16.2.13 baseline's `wp_stock_balances` DDL has `PRIMARY KEY (location_id,variant_id)` with nullable `variant_id`; MySQL 8 rejects it ("All parts of a PRIMARY KEY must be NOT NULL", wizard batch 25 HTTP 500). No 16.2.13 site can be completed on MySQL 8, so there is nothing to upgrade there (issue #76). Fresh 16.2.18 install on MySQL 8 is PASS. Upgrade path on MariaDB 10.11 (CI) is PASS. CI asserts the exact blocked signature on MySQL 8 so any change is noticed.
