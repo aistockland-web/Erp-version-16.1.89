@@ -55,15 +55,7 @@ class Stockland_REST_Setup {
 	 * @return bool Whether a version-bound approval record is present.
 	 */
 	private function hr_schema_approval_is_current() {
-		$approval = get_option( 'stockland_hr_schema_migration_approval', array() );
-		$signature = Stockland_HR::schema_signature();
-		return is_array( $approval )
-			&& '' !== $signature
-			&& Stockland_HR::DB_VERSION === (string) ( $approval['schema_version'] ?? '' )
-			&& hash_equals( $signature, (string) ( $approval['schema_signature'] ?? '' ) )
-			&& (int) ( $approval['approved_by'] ?? 0 ) > 0
-			&& ! empty( $approval['approved_at'] )
-			&& strlen( trim( (string) ( $approval['reason'] ?? '' ) ) ) >= 12;
+		return Stockland_HR::schema_migration_approved();
 	}
 
 	/**
