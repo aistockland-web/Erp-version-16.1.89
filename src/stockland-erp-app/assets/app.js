@@ -576,11 +576,44 @@ function miSocialCampaignForm(){
   miSocialField('title','Campaign title','text','',true)+
   miSocialSelect('platform','Platform',[['INSTAGRAM','Instagram'],['FACEBOOK','Facebook'],['TIKTOK','TikTok'],['YOUTUBE','YouTube'],['OTHER','Other']],'INSTAGRAM')+
   miSocialField('account_label','Account label (not credentials)','text','',true)+
-  miSocialField('start_date','Planned start date','date',localDate(),false)+
-  miSocialField('end_date','Planned end date','date','',false)+
+  miSocialField('account_owner_user_id','Account owner Stockland user ID','number','',true,'Active ERP profile accountable for the social account.')+
+  miSocialField('operator_user_id','Internal operator Stockland user ID','number','',true,'Active ERP profile assigned to prepare and maintain content.')+
+  miSocialField('influencer_label','Influencer / partner (optional)','text','',false,'Name or approved label only. Do not store passwords or private account access.')+
+  miSocialField('start_date','Planned start date','date',localDate(),true)+
+  miSocialField('end_date','Planned end date','date','',true)+
   miSocialField('budget','Planned budget estimate (ETB)','number','0.00',true,'Planning estimate only—not an approved expense, purchase order or GL posting.')+
-  miSocialField('manager_user_id','Assigned Stockland operator user ID','number','',false,'Optional existing Stockland user profile.')+
-  '<div class="sl-field full"><button type="submit" class="sl-btn primary">Save campaign draft</button></div><p class="sl-sub full">Campaigns remain DRAFT planning records. No social account credentials are stored and no financial posting occurs here.</p></form></details>';
+  '<div class="sl-field full"><button class="sl-btn primary" type="submit">Save campaign draft</button></div><p class="sl-sub full">DRAFT only. Account ownership and operator assignments are verified against active ERP profiles before the campaign can be planned.</p></form></details>';
+}
+function miSocialCampaignActions(campaign){
+ const code=hrlcEsc(campaign.campaign_code||'');
+ let html='';
+ if(campaign.status==='DRAFT'){
+  html+='<button type="button" class="sl-btn sl-btn-sm primary" data-mi-campaign-action="PLANNED" data-campaign-code="'+code+'">MARK PLANNED</button>';
+  html+='<button type="button" class="sl-btn sl-btn-sm" data-mi-campaign-action="CANCELLED" data-campaign-code="'+code+'">CANCEL</button>';
+ }else if(campaign.status==='PLANNED'){
+  html+='<button type="button" class="sl-btn sl-btn-sm primary" data-mi-campaign-action="PUBLISHED" data-campaign-code="'+code+'">RECORD PUBLISHED</button>';
+  html+='<button type="button" class="sl-btn sl-btn-sm" data-mi-campaign-action="CANCELLED" data-campaign-code="'+code+'">CANCEL</button>';
+ }
+ return '<div class="sl-action-row" style="gap:6px;flex-wrap:wrap">'+html+'</div>'+miSocialSnapshotForm(campaign);
+}
+function miSocialContentForm(campaigns){
+ const planned=(Array.isArray(campaigns)?campaigns:[]).filter(c=>c.status==='PLANNED');
+ if(!planned.length)return '<div class="sl-notice sl-notice-soft">Plan a campaign before adding calendar content.</div>';
+ const options=planned.map(c=>[c.campaign_code,String(c.title||c.campaign_code)+' · '+String(c.platform||'')]);
+ return '<details class="sl-hrlc-form sl-mi-content-form"><summary><b>Add content to calendar</b><span class="sl-pill info">Planning only</span></summary><form class="sl-form sl-hrlc-grid" data-mi-social-content-form="create-content">'+
+  miSocialSelect('campaign_code','Campaign',options,options[0][0],'content')+
+  miSocialField('title','Content title','text','',true,'', 'content')+
+  miSocialSelect('content_type','Content type',[['POST','Post'],['REEL','Reel'],['STORY','Story'],['SHORT','Short video'],['VIDEO','Video'],['OTHER','Other']],'POST','content')+
+  miSocialField('planned_at','Planned publication date/time','datetime-local',localDate()+'T12:00',true,'Site-local planning time; no automatic schedule is sent to a platform.','content')+
+  miSocialField('operator_user_id','Internal operator Stockland user ID','number','',false,'Leave blank to use the campaign operator.','content')+
+  miSocialField('influencer_label','Influencer / partner (optional)','text','',false,'Name or approved label only.','content')+
+  '<div class="sl-field full"><label for="mi-content-brief">Content brief</label><textarea id="mi-content-brief" name="brief" rows="3" maxlength="4000"></textarea></div>'+
+  '<div class="sl-field full"><button type="submit" class="sl-btn primary">ADD TO CONTENT CALENDAR</button></div><p class="sl-sub full">Calendar entries are PLANNED only. This does not post, schedule or authenticate with external platforms.</p></form></details>';
+}
+function miSocialContentActions(item){
+ const code=hrlcEsc(item.content_code||'');
+ if(item.status!=='PLANNED')return '<span class="sl-pill info">'+hrlcEsc(item.status||'')+'</span>';
+ return '<div class="sl-action-row" style="gap:6px;flex-wrap:wrap"><button type="button" class="sl-btn sl-btn-sm primary" data-mi-content-action="PUBLISHED" data-content-code="'+code+'">RECORD PUBLISHED</button><button type="button" class="sl-btn sl-btn-sm" data-mi-content-action="CANCELLED" data-content-code="'+code+'">CANCEL</button></div>';
 }
 function miSocialTable(rows,columns,actions){
  if(!Array.isArray(rows)||!rows.length)return '<div class="sl-empty">No records yet.</div>';
@@ -588,18 +621,21 @@ function miSocialTable(rows,columns,actions){
 }
 async function loadManagementSocial(){
  const body=document.getElementById('slMiSocialBody');if(!body)return;
- let social={campaigns:[],snapshots:[]},warning='';
+ let social={campaigns:[],content_items:[],snapshots:[]},warning='';
  try{social=await api16('/management/social')}catch(e){warning='Management social planning is unavailable: '+String(e.message||e)}
  if(!document.getElementById('slMiSocialBody'))return;
  const role=String(state.boot?.user?.role||'').toLowerCase();
  const canManage=['owner','management'].includes(role);
  let h='<h4 class="sl-sub"><b>Official platform access</b></h4>'+miSocialLinks();
- h+='<div class="sl-notice" style="margin-top:12px">Management Intelligence uses the Core settings store and is available independently of HR lifecycle setup. The workspace is read-only to sales, stock, expenses and accounting ledgers.</div>';
+ h+='<div class="sl-notice" style="margin-top:12px">Management Intelligence is a Core-owned planning and reporting workspace, independent of HR lifecycle readiness. ERP ledger and stock records are read-only here. Daily POS sales upload, Product Master import and Warehouse receiving remain in their own operational modules.</div>';
  if(warning)h+='<div class="sl-notice sl-notice-warn" style="margin-top:12px">'+hrlcEsc(warning)+'</div>';
  else{
-  h+='<h4 class="sl-sub" style="margin-top:16px"><b>Campaign planning</b></h4>';
+  h+='<h4 class="sl-sub" style="margin-top:16px"><b>Campaign ownership and planning</b></h4>';
   if(canManage)h+=miSocialCampaignForm();
-  h+=miSocialTable(social.campaigns||[],[['campaign_code','Code'],['title','Campaign'],['platform','Platform'],['account_label','Account'],['budget','Planned ETB','money'],['status','State','status']],r=>canManage?miSocialSnapshotForm(r):hrlcStatus(r.status||'DRAFT'));
+  h+=miSocialTable(social.campaigns||[],[['campaign_code','Code'],['title','Campaign'],['platform','Platform'],['account_label','Account'],['account_owner_user_id','Account owner'],['operator_user_id','Operator'],['influencer_label','Influencer'],['start_date','Start'],['end_date','End'],['budget','Planned ETB','money'],['status','State','status']],r=>canManage?miSocialCampaignActions(r):hrlcStatus(r.status||'DRAFT'));
+  h+='<h4 class="sl-sub" style="margin-top:18px"><b>Content calendar</b></h4>';
+  if(canManage)h+=miSocialContentForm(social.campaigns||[]);
+  h+=miSocialTable(social.content_items||[],[['content_code','Reference'],['campaign_code','Campaign'],['title','Content'],['content_type','Type'],['planned_at','Planned'],['operator_user_id','Operator'],['influencer_label','Influencer'],['status','State','status'],['post_url','Published URL']],r=>canManage?miSocialContentActions(r):hrlcStatus(r.status||'PLANNED'));
   h+='<h4 class="sl-sub" style="margin-top:18px"><b>Timestamped export snapshots</b></h4>';
   h+=miSocialTable(social.snapshots||[],[['snapshot_code','Snapshot'],['campaign_code','Campaign'],['platform','Platform'],['account_label','Account'],['period_start','From'],['period_end','To'],['report_as_of','As of'],['watch_time_minutes','Watch minutes'],['reach_count','Reach'],['engagement_count','Engagement'],['spend_amount','Spend ETB','money'],['attributed_sales','Attributed ETB','money']],()=>'<span class="sl-pill info">Append-only</span>');
  }
@@ -617,11 +653,29 @@ function bindManagementSocialWorkspace(){
    if(button)button.disabled=true;
    try{
     const data=Object.fromEntries(new FormData(form).entries());
-    if(data.manager_user_id)data.manager_user_id=Number(data.manager_user_id);else delete data.manager_user_id;
+    ['account_owner_user_id','operator_user_id'].forEach(key=>{if(data[key])data[key]=Number(data[key]);else delete data[key]});
     await api16('/management/social',{method:'POST',body:JSON.stringify(data)});
     toast('Campaign draft saved. No financial posting was created.');
     await loadManagementSocial();
    }catch(error){toast(error.message||'Campaign save failed',true)}
+   finally{if(button)button.disabled=false}
+  });
+ });
+ document.querySelectorAll('[data-mi-social-content-form]').forEach(form=>{
+  if(form.__miSocialBound)return;
+  form.__miSocialBound=true;
+  form.addEventListener('submit',async event=>{
+   event.preventDefault();
+   if(!form.reportValidity())return;
+   const button=form.querySelector('[type="submit"]');if(button)button.disabled=true;
+   try{
+    const data=Object.fromEntries(new FormData(form).entries());
+    if(data.operator_user_id)data.operator_user_id=Number(data.operator_user_id);else delete data.operator_user_id;
+    const code=String(data.campaign_code||'');delete data.campaign_code;
+    await api16('/management/social/campaigns/'+encodeURIComponent(code)+'/content',{method:'POST',body:JSON.stringify(data)});
+    toast('Content item added to the manual calendar. Nothing was published or scheduled externally.');
+    await loadManagementSocial();
+   }catch(error){toast(error.message||'Content calendar save failed',true)}
    finally{if(button)button.disabled=false}
   });
  });
@@ -631,8 +685,7 @@ function bindManagementSocialWorkspace(){
   form.addEventListener('submit',async event=>{
    event.preventDefault();
    if(!form.reportValidity())return;
-   const button=form.querySelector('[type="submit"]');
-   if(button)button.disabled=true;
+   const button=form.querySelector('[type="submit"]');if(button)button.disabled=true;
    try{
     const data=Object.fromEntries(new FormData(form).entries());
     const code=String(form.dataset.miSocialSnapshotForm||'');
@@ -641,6 +694,44 @@ function bindManagementSocialWorkspace(){
     await loadManagementSocial();
    }catch(error){toast(error.message||'Snapshot save failed',true)}
    finally{if(button)button.disabled=false}
+  });
+ });
+ document.querySelectorAll('[data-mi-campaign-action]').forEach(button=>{
+  if(button.__miActionBound)return;button.__miActionBound=true;
+  button.addEventListener('click',async()=>{
+   const status=String(button.dataset.miCampaignAction||''),code=String(button.dataset.campaignCode||'');
+   const payload={status};
+   if(status==='PUBLISHED'){
+    payload.post_url=window.prompt('Enter the HTTPS post URL recorded from the official platform:','');
+    if(!payload.post_url)return;
+    payload.published_at=window.prompt('Platform publication time (YYYY-MM-DD HH:MM):',localDate()+' 12:00');
+    if(!payload.published_at)return;
+   }else if(status==='CANCELLED'){
+    payload.cancellation_reason=window.prompt('Enter the reason for cancelling this campaign:','');
+    if(!payload.cancellation_reason)return;
+   }
+   button.disabled=true;
+   try{await api16('/management/social/campaigns/'+encodeURIComponent(code),{method:'POST',body:JSON.stringify(payload)});toast('Campaign status updated and audited.');await loadManagementSocial()}
+   catch(error){toast(error.message||'Campaign update failed',true);button.disabled=false}
+  });
+ });
+ document.querySelectorAll('[data-mi-content-action]').forEach(button=>{
+  if(button.__miActionBound)return;button.__miActionBound=true;
+  button.addEventListener('click',async()=>{
+   const status=String(button.dataset.miContentAction||''),code=String(button.dataset.contentCode||'');
+   const payload={status};
+   if(status==='PUBLISHED'){
+    payload.post_url=window.prompt('Enter the HTTPS post URL recorded from the official platform:','');
+    if(!payload.post_url)return;
+    payload.published_at=window.prompt('Platform publication time (YYYY-MM-DD HH:MM):',localDate()+' 12:00');
+    if(!payload.published_at)return;
+   }else if(status==='CANCELLED'){
+    payload.cancellation_reason=window.prompt('Enter the reason for cancelling this content item:','');
+    if(!payload.cancellation_reason)return;
+   }
+   button.disabled=true;
+   try{await api16('/management/social/content/'+encodeURIComponent(code),{method:'POST',body:JSON.stringify(payload)});toast('Content status updated and audited.');await loadManagementSocial()}
+   catch(error){toast(error.message||'Content update failed',true);button.disabled=false}
   });
  });
 }
