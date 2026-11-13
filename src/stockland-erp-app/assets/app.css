@@ -2904,3 +2904,8 @@ body[data-sl-theme],body[data-sl-theme="sapphire"]{
  #stockland-app .sl-panel,#stockland-app .sl-card,#stockland-app .sl-table-wrap{box-shadow:none!important;break-inside:avoid}
  #stockland-app .sl-table{min-width:0!important}
 }
+
+/* Daily POS intake is one three-method workflow; keep all three choices together across breakpoints. */
+.sl-import-purpose-grid.sl-daily-pos-intake-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(max-width:991.98px){.sl-import-purpose-grid.sl-daily-pos-intake-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:575.98px){.sl-import-purpose-grid.sl-daily-pos-intake-grid{grid-template-columns:1fr}}

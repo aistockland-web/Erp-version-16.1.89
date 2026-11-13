@@ -6,6 +6,7 @@ on:
     paths:
       - 'src/stockland-erp-app/**'
       - 'scripts/release/**'
+      - 'tools/stockland-pos-folder-agent/**'
       - 'STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTALLER.zip*'
       - 'docs/engineering/**'
       - '.github/workflows/master-installer-wordpress-verify.yml'
@@ -14,6 +15,7 @@ on:
     paths:
       - 'src/stockland-erp-app/**'
       - 'scripts/release/**'
+      - 'tools/stockland-pos-folder-agent/**'
       - 'STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTALLER.zip*'
       - 'docs/engineering/**'
       - '.github/workflows/master-installer-wordpress-verify.yml'
@@ -80,6 +82,7 @@ jobs:
           python3 scripts/release/tests/compare_snapshots_test.py
           node --check scripts/release/ui/ui_smoke.js
           node --check scripts/release/ui/admin_launcher_smoke.js
+          node scripts/release/tests/daily_pos_ui_contract.js
 
       - name: Build installer from the exact source tree under test
         run: |
@@ -236,9 +239,23 @@ jobs:
           if-no-files-found: warn
 
 
+  folder-agent-contract:
+    name: Windows branch-folder agent contract tests
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Run folder pickup contract tests
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          ./tools/stockland-pos-folder-agent/tests/Test-StocklandPosFolderAgent.ps1
+
+
   publish-reviewed-one-pack-artifact:
     name: Publish downloadable one-pack installer artifact
-    needs: verify
+    needs: [verify, folder-agent-contract]
     if: success()
     runs-on: ubuntu-latest
     timeout-minutes: 5
