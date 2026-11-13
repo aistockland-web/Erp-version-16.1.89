@@ -164,3 +164,9 @@ Installer built from this branch: `STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTAL
 | Security gates | `scripts/release/security/run_gates.py` | PASS (reviewed allowlist) |
 
 Setup table split used by the installer: 49 operational baseline tables plus 37 separately approved HR lifecycle tables = 86.
+
+### UI increment 2026-11-14: table holders and legacy-browser colours
+- Every ERP table with five or more rows gets a holder: search box, up to three dropdown filters (columns with 2 to 12 repeated values), row counter and Clear. Applies to HR & Payroll, reports, dashboard and operational tables, including tables rendered after load.
+- CSS module `14-table-holders-legacy-colors.css`: holder styling, and literal Sapphire colours inside `@supports not (--a:0)` for browsers without CSS custom properties, plus an inline-block fallback for browsers without CSS grid.
+- Browser smoke asserts the holder (search narrows to 1 of 6, dropdown to 3 of 6) and the fallback block. Security gate now also verifies `app.css` equals the ordered modules and `app.min.css` carries every module class.
+- Local dev-container run: 122 PASS, 0 FAIL, GL unbalanced journals 0.

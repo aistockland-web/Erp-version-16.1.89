@@ -2904,3 +2904,28 @@ body[data-sl-theme],body[data-sl-theme="sapphire"]{
  #stockland-app .sl-panel,#stockland-app .sl-card,#stockland-app .sl-table-wrap{box-shadow:none!important;break-inside:avoid}
  #stockland-app .sl-table{min-width:0!important}
 }
+
+/* 14 · Table holders and legacy-browser colour fallbacks (presentation layer only). */
+.sl-table-tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 8px;padding:8px;border:1px solid #e4e7ec;border-radius:11px;background:#f9fafb}
+.sl-table-tools input[type=search]{flex:1 1 14rem;min-width:0;padding:8px 10px;border:1px solid #d0d5dd;border-radius:8px;background:#fff;color:#101828;font:inherit}
+.sl-table-tools select{flex:0 1 11rem;min-width:0;padding:8px;border:1px solid #d0d5dd;border-radius:8px;background:#fff;color:#101828;font:inherit}
+.sl-table-tools button{padding:8px 12px;border:1px solid #d0d5dd;border-radius:8px;background:#fff;color:#344054;font:inherit;cursor:pointer}
+.sl-table-tools .sl-table-count{margin-left:auto;font-size:.85rem;color:#667085}
+.sl-table-tools :focus-visible{outline:2px solid #295ff3;outline-offset:2px}
+.sl-row-filtered{display:none!important}
+.sl-sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+@media(max-width:700px){.sl-table-tools select,.sl-table-tools input[type=search]{flex:1 1 100%}.sl-table-tools .sl-table-count{margin-left:0;width:100%}}
+@supports not (--a:0){
+ #stockland-app{background:#eef2f7;color:#344054}
+ #stockland-app a{color:#295ff3}
+ #stockland-app .sl-btn.primary,#stockland-app .sl-btn-primary{background:#295ff3;border:1px solid #295ff3;color:#fff}
+ #stockland-app .sl-panel,#stockland-app .sl-table-wrap{background:#fff;border:1px solid #e4e7ec;color:#344054}
+ #stockland-app .sl-table th{background:#f2f4f7;color:#101828}
+ #stockland-app .sl-table td{border-bottom:1px solid #e4e7ec}
+ #stockland-app h1,#stockland-app h2,#stockland-app h3,#stockland-app h4{color:#101828}
+ #stockland-app small,#stockland-app .sl-sub{color:#667085}
+}
+@supports not (display:grid){
+ #hrPage .sl-hrlc-cycle>.sl-hrlc-section,#hrPage .sl-hrlc-lists>.sl-hrlc-section{display:inline-block;vertical-align:top;width:48%;margin:0 1% 14px}
+ .sl-table-tools{display:block}
+}

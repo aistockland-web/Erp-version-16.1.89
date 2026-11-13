@@ -238,6 +238,35 @@ const isLocal = (url) => {
     }
 
 
+    // Table holders: any table with five or more rows gets search + dropdown filters; legacy-browser colours ship in the bundle.
+    const holder = await page.evaluate(async () => {
+      const app = document.getElementById('stockland-app');
+      if (!app) return { error: 'no app root' };
+      const wrap = document.createElement('div');
+      wrap.className = 'sl-table-wrap';
+      wrap.innerHTML = '<table class="sl-table"><thead><tr><th>Item</th><th>State</th></tr></thead><tbody>' +
+        ['alpha:OPEN', 'bravo:OPEN', 'charlie:CLOSED', 'delta:CLOSED', 'echo:OPEN', 'foxtrot:CLOSED'].map(x => { const [a, b] = x.split(':'); return '<tr><td>' + a + '</td><td>' + b + '</td></tr>'; }).join('') + '</tbody></table>';
+      app.appendChild(wrap);
+      await new Promise(r => setTimeout(r, 400));
+      const bar = wrap.previousElementSibling;
+      if (!bar || !bar.classList.contains('sl-table-tools')) return { error: 'toolbar missing' };
+      const q = bar.querySelector('input[type=search]'); q.value = 'bravo'; q.dispatchEvent(new Event('input', { bubbles: true }));
+      const afterSearch = wrap.querySelectorAll('tbody tr:not(.sl-row-filtered)').length;
+      q.value = ''; q.dispatchEvent(new Event('input', { bubbles: true }));
+      const sel = bar.querySelector('select[data-col="1"]'); if (bar.querySelectorAll('select').length !== 1) return { error: 'expected exactly one useful dropdown, found ' + bar.querySelectorAll('select').length }; sel.value = 'CLOSED'; sel.dispatchEvent(new Event('change', { bubbles: true }));
+      const afterFilter = wrap.querySelectorAll('tbody tr:not(.sl-row-filtered)').length;
+      const hidden = getComputedStyle(wrap.querySelector('tbody tr.sl-row-filtered')).display;
+      const count = bar.querySelector('.sl-table-count').textContent;
+      wrap.remove(); bar.remove();
+      return { afterSearch, afterFilter, hidden, count };
+    });
+    if (holder.error) fail('table holder: ' + holder.error);
+    else if (holder.afterSearch !== 1 || holder.afterFilter !== 3 || holder.hidden !== 'none') fail('table holder filtering wrong: ' + JSON.stringify(holder));
+    else note('table holder: search and dropdown filter work (' + holder.count + ')');
+    const cssText = await page.evaluate(async () => { const l = [...document.querySelectorAll('link[rel=stylesheet]')].map(x => x.href).find(h => /app(\.min)?\.css/.test(h)); return l ? (await (await fetch(l)).text()) : ''; });
+    if (!cssText.includes('@supports not (--a:0)')) fail('legacy-browser colour fallbacks missing from the CSS bundle');
+    else note('legacy-browser colour fallbacks present in the CSS bundle');
+
     await context.close();
   } catch (error) {
     fail('UI smoke runner exception: ' + (error && error.stack ? error.stack : String(error)));

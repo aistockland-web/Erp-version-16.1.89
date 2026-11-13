@@ -483,6 +483,7 @@ if(content){
 }
 applyFinanceTableLabels();
 bind();
+watchTableHolders();
 if(state.view==='intelligence')bindManagementIntelligence();
 if(state.view==='dashboard'&&state.boot.user?.role==='owner'&&state.boot.user?.capabilities?.wholesale)loadWholesaleSurplusAdvice(false);
 if(state.view==='products' && !state.catalogLoading && !state.catalogSearchPending && (state.catalog===null || state.catalogQuery!==String(state.productQuery||'').trim())) {
@@ -643,6 +644,40 @@ function bindManagementSocialWorkspace(){
    finally{if(button)button.disabled=false}
   });
  });
+}
+
+let slHolderSeq=0;
+function enhanceTableHolders(root){
+ const scope=root||document.getElementById('stockland-app')||document;
+ scope.querySelectorAll('.sl-table-wrap').forEach(wrap=>{
+  if(wrap.dataset.slHolder||wrap.closest('[data-sl-no-filter]'))return;
+  const table=wrap.querySelector(':scope>table');if(!table||!table.tBodies[0])return;
+  const rows=[...table.tBodies[0].rows].filter(r=>r.cells.length>1);
+  if(rows.length<5)return;
+  wrap.dataset.slHolder='1';
+  const id='slth'+(++slHolderSeq),heads=[...table.querySelectorAll('thead th')].map(th=>th.textContent.trim());
+  const texts=rows.map(r=>r.textContent.toLowerCase().replace(/\s+/g,' '));
+  const selects=[];
+  heads.forEach((h,i)=>{if(!h||selects.length>=3)return;const vals=[...new Set(rows.map(r=>(r.cells[i]?.textContent||'').trim()).filter(Boolean))];if(vals.length>=2&&vals.length<=12&&vals.length<=rows.length*0.8&&vals.every(v=>v.length<=40))selects.push({i,h,vals:vals.sort((a,b)=>a.localeCompare(b))})});
+  const bar=document.createElement('div');bar.className='sl-table-tools';bar.setAttribute('role','search');
+  bar.innerHTML='<label class="sl-sr-only" for="'+id+'q">Search rows</label><input type="search" id="'+id+'q" placeholder="Search this table" autocomplete="off">'
+   +selects.map((x,k)=>'<label class="sl-sr-only" for="'+id+'f'+k+'">Filter by '+esc(x.h)+'</label><select id="'+id+'f'+k+'" data-col="'+x.i+'"><option value="">All '+esc(x.h)+'</option>'+x.vals.map(v=>'<option>'+esc(v)+'</option>').join('')+'</select>').join('')
+   +'<button type="button" data-clear>Clear</button><span class="sl-table-count" aria-live="polite"></span>';
+  wrap.parentNode.insertBefore(bar,wrap);
+  const count=bar.querySelector('.sl-table-count'),q=bar.querySelector('input');
+  const apply=()=>{const term=q.value.trim().toLowerCase(),picks=[...bar.querySelectorAll('select')].map(s=>[Number(s.dataset.col),s.value]).filter(p=>p[1]);let shown=0;
+   rows.forEach((r,n)=>{const ok=(!term||texts[n].includes(term))&&picks.every(([c,v])=>(r.cells[c]?.textContent||'').trim()===v);r.classList.toggle('sl-row-filtered',!ok);if(ok)shown++});
+   count.textContent=shown+' of '+rows.length+' rows'};
+  bar.addEventListener('input',apply);bar.addEventListener('change',apply);
+  bar.querySelector('[data-clear]').addEventListener('click',()=>{q.value='';bar.querySelectorAll('select').forEach(s=>{s.value=''});apply();q.focus()});
+  apply();
+ });
+}
+function watchTableHolders(){
+ const app=document.getElementById('stockland-app');if(!app||app.__slHolderWatch||typeof MutationObserver==='undefined')return;
+ app.__slHolderWatch=true;let queued=false;
+ new MutationObserver(()=>{if(queued)return;queued=true;(window.requestAnimationFrame||setTimeout)(()=>{queued=false;enhanceTableHolders(app)})}).observe(app,{childList:true,subtree:true});
+ enhanceTableHolders(app);
 }
 function bindManagementIntelligence(){
  const btn=document.getElementById('refreshManagementIntelligence');

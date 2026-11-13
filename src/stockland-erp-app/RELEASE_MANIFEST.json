@@ -44,7 +44,7 @@
     "approval_status": "DRAFT_NOT_APPROVED"
   },
   "file_inventory": {
-    "count": 123,
+    "count": 124,
     "manifest_excludes_itself": true,
     "files": [
       {
@@ -84,18 +84,18 @@
       },
       {
         "path": "assets/app.css",
-        "bytes": 256117,
-        "sha256": "67f5293923ac4d1a41ad1308b463837000c1dd52fe1537c7e7609ac07a2ba9bc"
+        "bytes": 258142,
+        "sha256": "83a70b3470645f2f0a3eff77c3b6921a029070bc76e389b16c2d668e0f7e9d3d"
       },
       {
         "path": "assets/app.js",
-        "bytes": 545971,
-        "sha256": "00f5518043f686122540c237b58f8922eb9d12d5414f1bf817e7bcb9170e5e44"
+        "bytes": 548826,
+        "sha256": "c6b3474bcfb84b00cb0274c2deb3a9e00c2ed33bf9c2d2589a591eb23ec2cb79"
       },
       {
         "path": "assets/app.min.css",
-        "bytes": 243635,
-        "sha256": "f0e6dbd140e0952c3787e6f373c2d9106bf20de58f0779dc8b64ce8cc96ad5b5"
+        "bytes": 245537,
+        "sha256": "bdda21d154d16e2d8c44ac955c33852d623f8ede3777ff650300d7f49d0f14c3"
       },
       {
         "path": "assets/bootstrap.min.css",
@@ -168,9 +168,14 @@
         "sha256": "50c5752e7cf0c9a893e6a4bdc3ccaafe8abf30a638fef882381148fb48cdf001"
       },
       {
+        "path": "assets/css/14-table-holders-legacy-colors.css",
+        "bytes": 2024,
+        "sha256": "d6d5189bdde1bcc767d4a58137f71b68e547907066947c1786e767fa82832217"
+      },
+      {
         "path": "assets/css/modules.json",
-        "bytes": 711,
-        "sha256": "7e0bf47a94a54fbb87850d31e2e00c23fa6ad4b0577067789177859f7ef7a682"
+        "bytes": 753,
+        "sha256": "b8b664c49a5e623c690090090ac586235633e457e1ba6f2808bf23f075aea210"
       },
       {
         "path": "assets/icon-180.png",

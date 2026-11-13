@@ -1,6 +1,6 @@
 {
   "release": "16.2.18",
-  "description": "16.2.18 Stockland Sapphire enterprise design system; 13 ordered presentation modules, full responsive shell, dashboard, operations, POS, worksheets, overlays and HR/payroll UI. Presentation layer only.",
+  "description": "16.2.18 Stockland Sapphire enterprise design system; 14 ordered presentation modules, full responsive shell, dashboard, operations, POS, worksheets, overlays and HR/payroll UI. Presentation layer only.",
   "modules": [
     "01-foundation.css",
     "02-shell-navigation.css",
@@ -14,6 +14,7 @@
     "10-bootstrap-desktop-search.css",
     "11-operational-workflows.css",
     "12-hr-payroll-lifecycle.css",
-    "13-enterprise-saas-system.css"
+    "13-enterprise-saas-system.css",
+    "14-table-holders-legacy-colors.css"
   ]
 }
