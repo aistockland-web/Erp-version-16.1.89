@@ -74,6 +74,7 @@ jobs:
           bash -n scripts/release/verify_master_installer.sh scripts/release/backup_restore_check.sh scripts/release/e2e/run_all.sh scripts/release/tests/backup_restore_guard_test.sh
           bash scripts/release/tests/backup_restore_guard_test.sh
           python3 -m py_compile scripts/release/build_master_installer.py
+          python3 scripts/release/tests/compare_snapshots_test.py
           node --check scripts/release/ui/ui_smoke.js
           node --check scripts/release/ui/admin_launcher_smoke.js
 
