@@ -182,6 +182,43 @@ const isLocal = (url) => {
       }
     }
 
+    // Management Intelligence is a Core-owned workspace, independent of HR lifecycle.
+    // Verify the browser calls its own route and never falls back to the former HR endpoint.
+    const miNav = page.locator('[data-view="intelligence"]').first();
+    if (await miNav.count() < 1) {
+      fail('Owner dashboard does not expose Management Intelligence');
+    } else {
+      const managementRequests = [];
+      const captureManagementRequest = (request) => {
+        const url = request.url();
+        if (url.includes('/management/social') || url.includes('/hr/management-social')) {
+          managementRequests.push(url);
+        }
+      };
+      page.on('request', captureManagementRequest);
+      await miNav.click();
+      await page.waitForSelector('#refreshManagementIntelligence', { timeout: 15000 })
+        .catch(() => fail('Management Intelligence did not render'));
+      await page.waitForSelector('#slMiSocialBody .sl-hrlc-social-card', { timeout: 15000 })
+        .catch(() => fail('Management Intelligence official platform links did not render'));
+      const platformLinks = await page.locator('#slMiSocialBody .sl-hrlc-social-card').count();
+      if (platformLinks !== 4) {
+        fail('Management Intelligence rendered ' + platformLinks + ' official platform links; expected 4');
+      }
+      const usedManagementRoute = managementRequests.some((url) => url.includes('/management/social'));
+      const usedHrRoute = managementRequests.some((url) => url.includes('/hr/management-social'));
+      if (!usedManagementRoute) {
+        fail('Management Intelligence did not request its independent /management/social route');
+      }
+      if (usedHrRoute) {
+        fail('Management Intelligence called the deprecated HR /hr/management-social route');
+      }
+      if (usedManagementRoute && !usedHrRoute && platformLinks === 4) {
+        note('Management Intelligence uses independent Core route with four official platform links; no HR social API call');
+      }
+      page.off('request', captureManagementRequest);
+    }
+
     // Verify both indirect dashboard access and the command palette respect the HR gate.
     await page.keyboard.press('Control+k');
     const paletteCount = await page.locator('#slCommandPalette').count();
