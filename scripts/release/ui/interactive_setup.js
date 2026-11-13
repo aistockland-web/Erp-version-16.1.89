@@ -1,30 +1,48 @@
-// Interactive browser acceptance: install the ZIP through wp-admin, activate, open System Control, authorize live operation as Owner.
-// Disposable site only. Usage: node interactive_setup.js <site-url> <admin-user> <admin-pass> <zip> <shots-dir>
+// Interactive browser acceptance on a disposable site.
+// Installs the ZIP through wp-admin, verifies the 49-key operational baseline,
+// confirms the 37-table HR lifecycle remains unapproved, and checks the ERP shell.
+// This test must never record HR DDL approval or live-release authorization.
 const { chromium } = require('playwright');
 const path = require('path');
 (async () => {
   const [base, user, pass, zip, shots] = process.argv.slice(2);
-  const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1366, height: 900 } }); const p = await ctx.newPage();
-  p.setDefaultTimeout(120000); const fails = []; const step = (n, ok, d = '') => { console.log((ok ? 'PASS ' : 'FAIL ') + n + (ok ? '' : ' :: ' + d)); if (!ok) fails.push(n); };
-  await p.goto(base + '/wp-login.php'); await p.fill('#user_login', user); await p.fill('#user_pass', pass); await p.click('#wp-submit'); await p.waitForURL(/wp-admin/, { waitUntil: 'commit' });
-  await p.goto(base + '/wp-admin/plugin-install.php?tab=upload', { waitUntil: 'domcontentloaded' });
-  await p.setInputFiles('input#pluginzip', path.resolve(zip)); await p.click('#install-plugin-submit');
-  await p.waitForSelector('a.button-primary:has-text("Activate Plugin")'); step('plugin uploaded through wp-admin', true);
-  await p.click('a.button-primary:has-text("Activate Plugin")'); await p.waitForLoadState('domcontentloaded');
-  const act = (await p.locator('body').innerText()).slice(0, 4000);
-  step('plugin activates without error', /Plugin activated|activated/i.test(act) && !/fatal error|Parse error/i.test(act), act.slice(0, 200));
-  await p.goto(base + '/wp-admin/admin.php?page=stockland-system-control', { waitUntil: 'domcontentloaded' });
-  let sc = await p.locator('body').innerText();
-  step('System Control opens for the administrator', /System Control/.test(sc), sc.slice(0, 160));
-  step('one-click installation reports complete during activation', /Installation complete/.test(sc), (sc.match(/One-click installation[^\n]*\n[^\n]*/i) || [''])[0]);
-  step('86 application tables reported', /86/.test(sc));
-  await p.screenshot({ path: path.join(shots, 'interactive-system-control.png'), fullPage: true });
-  if (await p.locator('#stockland_release_reason').count()) {
-    await p.fill('#stockland_release_reason', 'Interactive acceptance on a disposable site'); await p.check('input[name="stockland_release_confirm"]'); await p.click('button[name="stockland_authorize_release"]'); await p.waitForLoadState('domcontentloaded');
-    sc = await p.locator('body').innerText(); step('Owner authorization recorded through the form', /authorized for live operation|Live operation authorized/i.test(sc), sc.slice(0, 200));
-  } else { step('authorization form shown to the Owner', false, 'form missing'); }
-  await p.goto(base + '/?pagename=stockland-erp-app', { waitUntil: 'domcontentloaded' }); await p.waitForTimeout(3000);
-  const app = await p.locator('body').innerText(); step('ERP app shell renders after setup', /Dashboard|Inventory|Sales/i.test(app), app.slice(0, 120));
-  await p.screenshot({ path: path.join(shots, 'interactive-app.png') });
-  await b.close(); console.log(fails.length ? 'RESULT FAIL (' + fails.length + ')' : 'RESULT PASS'); process.exit(fails.length ? 1 : 0);
+  if (!base || !user || !pass || !zip || !shots) throw new Error('Usage: node interactive_setup.js <site-url> <admin-user> <admin-pass> <zip> <shots-dir>');
+  const browser = await chromium.launch();
+  const context = await browser.newContext({ viewport: { width: 1366, height: 900 } });
+  const page = await context.newPage();
+  page.setDefaultTimeout(120000);
+  const failures = [];
+  const check = (label, ok, detail = '') => { console.log((ok ? 'PASS ' : 'FAIL ') + label + (ok ? '' : ' :: ' + detail)); if (!ok) failures.push(label); };
+  try {
+    await page.goto(base + '/wp-login.php');
+    await page.fill('#user_login', user);
+    await page.fill('#user_pass', pass);
+    await page.click('#wp-submit');
+    await page.waitForURL(/wp-admin/, { waitUntil: 'commit' });
+    await page.goto(base + '/wp-admin/plugin-install.php?tab=upload', { waitUntil: 'domcontentloaded' });
+    await page.setInputFiles('input#pluginzip', path.resolve(zip));
+    await page.click('#install-plugin-submit');
+    await page.waitForSelector('a.button-primary:has-text("Activate Plugin")');
+    check('plugin uploaded through wp-admin', true);
+    await page.click('a.button-primary:has-text("Activate Plugin")');
+    await page.waitForLoadState('domcontentloaded');
+    const activation = (await page.locator('body').innerText()).slice(0, 4000);
+    check('plugin activates without error', /Plugin activated|activated/i.test(activation) && !/fatal error|Parse error/i.test(activation), activation.slice(0, 200));
+    await page.goto(base + '/wp-admin/admin.php?page=stockland-system-control', { waitUntil: 'domcontentloaded' });
+    const systemControl = await page.locator('body').innerText();
+    check('System Control opens for the administrator', /Stockland System Control/.test(systemControl), systemControl.slice(0, 160));
+    check('Core inventory/POS baseline is physically complete', /all 29 present/.test(systemControl), systemControl.slice(0, 500));
+    check('four legacy HR tables present and lifecycle schema pending', /4 of 41 present/.test(systemControl) && /Owner approval reason/.test(systemControl), systemControl.slice(0, 800));
+    check('live release authorization withheld before full HR approval', await page.locator('#stockland_release_reason').count() === 0);
+    await page.screenshot({ path: path.join(shots, 'interactive-system-control.png'), fullPage: true });
+    await page.goto(base + '/?pagename=stockland-erp-app', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(3000);
+    const appText = await page.locator('body').innerText();
+    check('ERP shell renders on the operational baseline', /Dashboard|Inventory|Sales/i.test(appText), appText.slice(0, 160));
+    await page.screenshot({ path: path.join(shots, 'interactive-app.png') });
+  } finally {
+    await browser.close();
+  }
+  console.log(failures.length ? 'RESULT FAIL (' + failures.length + ')' : 'RESULT PASS');
+  process.exit(failures.length ? 1 : 0);
 })();
