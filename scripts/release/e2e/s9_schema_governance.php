@@ -16,6 +16,15 @@ $checks = array(
 	'global application schema gate true' => 1 === (int) get_option( 'stockland_application_schema_ready' ),
 );
 
+// The preceding business E2E scenario leaves a branch/warehouse user active.
+ // Control-plane readiness is intentionally restricted, so run these assertions
+ // under the disposable WordPress administrator just as the browser smoke does.
+$setup_admin_users = get_users( array( 'role' => 'administrator', 'number' => 1, 'fields' => 'ID' ) );
+$setup_admin_id    = ! empty( $setup_admin_users ) ? (int) $setup_admin_users[0] : 0;
+if ( $setup_admin_id > 0 ) {
+	wp_set_current_user( $setup_admin_id );
+}
+
 $setup_response = rest_do_request( new WP_REST_Request( 'GET', '/stockland/v16/setup/status' ) );
 $setup_payload  = $setup_response instanceof WP_REST_Response ? $setup_response->get_data() : array();
 $checks['setup status exposes the operational baseline'] = $setup_response instanceof WP_REST_Response
