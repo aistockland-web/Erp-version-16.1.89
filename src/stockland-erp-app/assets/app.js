@@ -92,7 +92,7 @@ try{
  for(let i=0;i<160 && !st.ready;i++){
    let requestBody={};
    if(st.state==='HR'&&st.hr?.schema_approval_required){
-     const approvalReason=window.prompt('Owner approval required for additive HR/Payroll schema version '+String(st.hr.schema_version||'')+'. Confirm you reviewed the source DDL and have a restorable database/files backup. Enter the approval reason (at least 12 characters):','Owner-approved additive HR/Payroll schema migration after backup and source review');
+     const approvalReason=window.prompt('Owner approval required for additive HR/Payroll schema version '+String(st.hr.schema_version||'')+'. Confirm you reviewed the source DDL and have a restorable database/files backup. Enter the approval reason (at least 12 characters):');
      if(!approvalReason||approvalReason.trim().length<12){renderSetup(st,'HR/Payroll schema setup paused. No HR schema change was attempted because Owner approval was not provided.');return;}
      requestBody={approve_hr_schema:true,approval_reason:approvalReason.trim()};
    }
@@ -650,33 +650,81 @@ let slHolderSeq=0;
 function enhanceTableHolders(root){
  const scope=root||document.getElementById('stockland-app')||document;
  scope.querySelectorAll('.sl-table-wrap').forEach(wrap=>{
-  if(wrap.dataset.slHolder||wrap.closest('[data-sl-no-filter]'))return;
-  const table=wrap.querySelector(':scope>table');if(!table||!table.tBodies[0])return;
-  const rows=[...table.tBodies[0].rows].filter(r=>r.cells.length>1);
-  if(rows.length<5)return;
+  let state=wrap.__slHolderState;
+  const destroy=()=>{if(state&&state.bar&&state.bar.parentNode)state.bar.remove();delete wrap.__slHolderState;delete wrap.dataset.slHolder;};
+  if(wrap.closest('[data-sl-no-filter]')){if(state)destroy();return;}
+  const table=Array.from(wrap.children).find(el=>el.tagName==='TABLE');
+  if(!table||!table.tBodies[0]){if(state)destroy();return;}
+  const rows=Array.from(table.tBodies[0].rows).filter(r=>r.cells.length>1);
+  if(rows.length<5){if(state)destroy();return;}
+  if(!state){
+   const id='slth'+(++slHolderSeq),bar=document.createElement('div');
+   bar.className='sl-table-tools';bar.setAttribute('role','search');
+   state={id,bar,table:null,rows:[],texts:[],signature:''};
+   state.apply=()=>{
+    const q=bar.querySelector('input[type="search"]'),count=bar.querySelector('.sl-table-count');
+    if(!q||!count)return;
+    const term=q.value.trim().toLowerCase();
+    const picks=Array.from(bar.querySelectorAll('select')).map(s=>[Number(s.dataset.col),s.value]).filter(p=>p[1]);
+    let shown=0;
+    state.rows.forEach((r,n)=>{
+     const ok=(!term||state.texts[n].includes(term))&&picks.every(([c,v])=>(r.cells[c]?.textContent||'').trim()===v);
+     r.classList.toggle('sl-row-filtered',!ok);if(ok)shown++;
+    });
+    count.textContent=shown+' of '+state.rows.length+' rows';
+   };
+   bar.addEventListener('input',()=>state.apply());
+   bar.addEventListener('change',()=>state.apply());
+   bar.addEventListener('click',event=>{
+    const clear=event.target?.closest?.('[data-clear]');
+    if(!clear)return;
+    const q=bar.querySelector('input[type="search"]');if(q)q.value='';
+    bar.querySelectorAll('select').forEach(s=>{s.value='';});
+    state.apply();if(q)q.focus();
+   });
+   wrap.parentNode.insertBefore(bar,wrap);
+   wrap.__slHolderState=state;
+  }else if(state.bar.nextElementSibling!==wrap){
+   wrap.parentNode.insertBefore(state.bar,wrap);
+  }
   wrap.dataset.slHolder='1';
-  const id='slth'+(++slHolderSeq),heads=[...table.querySelectorAll('thead th')].map(th=>th.textContent.trim());
-  const texts=rows.map(r=>r.textContent.toLowerCase().replace(/\s+/g,' '));
-  const selects=[];
-  heads.forEach((h,i)=>{if(!h||selects.length>=3)return;const vals=[...new Set(rows.map(r=>(r.cells[i]?.textContent||'').trim()).filter(Boolean))];if(vals.length>=2&&vals.length<=12&&vals.length<=rows.length*0.8&&vals.every(v=>v.length<=40))selects.push({i,h,vals:vals.sort((a,b)=>a.localeCompare(b))})});
-  const bar=document.createElement('div');bar.className='sl-table-tools';bar.setAttribute('role','search');
-  bar.innerHTML='<label class="sl-sr-only" for="'+id+'q">Search rows</label><input type="search" id="'+id+'q" placeholder="Search this table" autocomplete="off">'
-   +selects.map((x,k)=>'<label class="sl-sr-only" for="'+id+'f'+k+'">Filter by '+esc(x.h)+'</label><select id="'+id+'f'+k+'" data-col="'+x.i+'"><option value="">All '+esc(x.h)+'</option>'+x.vals.map(v=>'<option>'+esc(v)+'</option>').join('')+'</select>').join('')
-   +'<button type="button" data-clear>Clear</button><span class="sl-table-count" aria-live="polite"></span>';
-  wrap.parentNode.insertBefore(bar,wrap);
-  const count=bar.querySelector('.sl-table-count'),q=bar.querySelector('input');
-  const apply=()=>{const term=q.value.trim().toLowerCase(),picks=[...bar.querySelectorAll('select')].map(s=>[Number(s.dataset.col),s.value]).filter(p=>p[1]);let shown=0;
-   rows.forEach((r,n)=>{const ok=(!term||texts[n].includes(term))&&picks.every(([c,v])=>(r.cells[c]?.textContent||'').trim()===v);r.classList.toggle('sl-row-filtered',!ok);if(ok)shown++});
-   count.textContent=shown+' of '+rows.length+' rows'};
-  bar.addEventListener('input',apply);bar.addEventListener('change',apply);
-  bar.querySelector('[data-clear]').addEventListener('click',()=>{q.value='';bar.querySelectorAll('select').forEach(s=>{s.value=''});apply();q.focus()});
-  apply();
+  state.table=table;state.rows=rows;
+  state.texts=rows.map(r=>r.textContent.toLowerCase().replace(/\s+/g,' '));
+  const heads=Array.from(table.querySelectorAll('thead th')).map(th=>th.textContent.trim());
+  const filters=[];
+  heads.forEach((h,i)=>{
+   if(!h||filters.length>=3)return;
+   const vals=Array.from(new Set(rows.map(r=>(r.cells[i]?.textContent||'').trim()).filter(Boolean)));
+   if(vals.length>=2&&vals.length<=12&&vals.length<=rows.length*0.8&&vals.every(v=>v.length<=40)){
+    filters.push({i,h,vals:vals.sort((a,b)=>a.localeCompare(b))});
+   }
+  });
+  const suggestionSet=new Set();
+  rows.forEach(r=>Array.from(r.cells).forEach(c=>{const v=c.textContent.trim();if(v&&v.length<=80&&suggestionSet.size<80)suggestionSet.add(v);}));
+  const suggestions=Array.from(suggestionSet);
+  const signature=JSON.stringify({heads,filters,suggestions});
+  if(signature!==state.signature){
+   const searchValue=state.bar.querySelector('input[type="search"]')?.value||'';
+   const previous=new Map(Array.from(state.bar.querySelectorAll('select')).map(s=>[Number(s.dataset.col),s.value]));
+   state.bar.innerHTML='<label class="sl-sr-only" for="'+state.id+'q">Search rows</label><input type="search" id="'+state.id+'q" list="'+state.id+'suggestions" placeholder="Search this table" autocomplete="off">'
+    +'<datalist id="'+state.id+'suggestions">'+suggestions.map(v=>'<option value="'+esc(v)+'"></option>').join('')+'</datalist>'
+    +filters.map((x,k)=>'<label class="sl-sr-only" for="'+state.id+'f'+k+'">Filter by '+esc(x.h)+'</label><select id="'+state.id+'f'+k+'" data-col="'+x.i+'"><option value="">All '+esc(x.h)+'</option>'+x.vals.map(v=>'<option value="'+esc(v)+'">'+esc(v)+'</option>').join('')+'</select>').join('')
+    +'<button type="button" data-clear>Clear</button><span class="sl-table-count" aria-live="polite"></span>';
+   const q=state.bar.querySelector('input[type="search"]');q.value=searchValue;
+   state.bar.querySelectorAll('select').forEach(s=>{const prior=previous.get(Number(s.dataset.col));if(prior&&Array.from(s.options).some(o=>o.value===prior))s.value=prior;});
+   state.signature=signature;
+  }
+  state.apply();
  });
 }
 function watchTableHolders(){
  const app=document.getElementById('stockland-app');if(!app||app.__slHolderWatch||typeof MutationObserver==='undefined')return;
  app.__slHolderWatch=true;let queued=false;
- new MutationObserver(()=>{if(queued)return;queued=true;(window.requestAnimationFrame||setTimeout)(()=>{queued=false;enhanceTableHolders(app)})}).observe(app,{childList:true,subtree:true});
+ const observer=new MutationObserver(()=>{
+  if(queued)return;queued=true;
+  (window.requestAnimationFrame||((callback)=>setTimeout(callback,0)))(()=>{queued=false;enhanceTableHolders(app);});
+ });
+ observer.observe(app,{childList:true,subtree:true,characterData:true});
  enhanceTableHolders(app);
 }
 function bindManagementIntelligence(){
