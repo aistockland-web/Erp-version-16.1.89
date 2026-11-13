@@ -151,7 +151,15 @@ final class Stockland_REST_Management_Intelligence extends Stockland_REST_Base {
 		if ( false === $inserted ) {
 			return $this->bad( 'management_social_save_failed', 'The record could not be saved. No existing record was overwritten.', 409 );
 		}
-		if ( ! Stockland_Audit::log( get_current_user_id(), null, $action, null, null, null, $record, $reason, $reference ) ) {
+		// The immutable audit table's new_value column is VARCHAR(255). Keep
+		// the full campaign/snapshot payload in Core settings and append a compact,
+		// verifiable pointer to the audit chain instead of overflowing that column.
+		$audit_pointer = 'CORE_SETTINGS:' . $key . ':sha256:' . hash( 'sha256', $json );
+		if ( strlen( $audit_pointer ) > 255 ) {
+			$deleted = Stockland_DB::delete_record( $table, array( 'setting_key' => $key ), array( '%s' ) );
+			return $this->bad( 'management_social_audit_reference_too_long', 'The audit reference exceeds the protected audit schema limit. The record was not accepted.', 500 );
+		}
+		if ( ! Stockland_Audit::log( get_current_user_id(), null, $action, null, null, null, $audit_pointer, $reason, $reference ) ) {
 			$deleted = Stockland_DB::delete_record( $table, array( 'setting_key' => $key ), array( '%s' ) );
 			if ( false === $deleted ) {
 				error_log( 'Stockland Management Intelligence: audit failed and the pending record could not be removed.' );
