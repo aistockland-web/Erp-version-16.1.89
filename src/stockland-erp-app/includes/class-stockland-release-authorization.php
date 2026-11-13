@@ -88,7 +88,10 @@ final class Stockland_Release_Authorization {
 		}
 		$missing = Stockland_Activator::application_missing_tables();
 		if ( ! empty( $missing ) ) {
-			return new WP_Error( 'schema_incomplete', 'The ERP database is incomplete. Missing: ' . implode( ', ', $missing ), array( 'status' => 409 ) );
+			return new WP_Error( 'schema_incomplete', 'The Core/Finance ERP database is incomplete. Missing: ' . implode( ', ', $missing ), array( 'status' => 409 ) );
+		}
+		if ( ! Stockland_HR::is_schema_ready() ) {
+			return new WP_Error( 'hr_schema_pending', 'Live release authorization is blocked until the active Owner approves the exact HR/Payroll schema fingerprint and physical verification passes.', array( 'status' => 409 ) );
 		}
 		$fp = self::fingerprint();
 		if ( ! Stockland_Audit::log( $user_id, null, 'RELEASE_AUTHORIZED_FOR_LIVE', null, null, null, STOCKLAND_VERSION . ':' . $fp, $reason, 'RELEASE_' . STOCKLAND_VERSION, $user_id ) ) {

@@ -88,6 +88,16 @@ class Stockland_REST_HR extends Stockland_REST_Base {
 	 * @return void Registers HR/payroll routes.
 	 */
 	public function register_routes() {
+		if ( ! Stockland_HR::is_schema_ready() ) {
+			register_rest_route( self::NAMESPACE_V1, '/hr/bootstrap', array(
+				'methods' => 'GET',
+				'callback' => static function () {
+					return new WP_Error( 'hr_schema_approval_required', 'HR/Payroll lifecycle is unavailable until active-Owner schema approval and physical verification pass.', array( 'status' => 409 ) );
+				},
+				'permission_callback' => static function () { return Stockland_Authority::can_view_hr(); },
+			) );
+			return;
+		}
 		register_rest_route(
 			self::NAMESPACE_V1,
 			'/hr/bootstrap',

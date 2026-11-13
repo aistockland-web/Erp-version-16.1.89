@@ -40,6 +40,7 @@ final class Stockland_REST_HR_Payroll_Cycle extends Stockland_REST_Base {
 	public function __construct() { add_action( 'stockland_register_rest_routes', array( $this, 'register_routes' ) ); }
 
 	public function register_routes() {
+		if ( ! Stockland_HR::is_schema_ready() ) { return; }
 		$ns = self::NAMESPACE_V1;
 		register_rest_route( $ns, '/hr/payroll-runs', array(
 			array( 'methods'=>'GET', 'callback'=>array( $this, 'list_runs' ), 'permission_callback'=>function(){ return Stockland_Authority::can_view_payroll(); } ),

@@ -168,6 +168,57 @@ class Stockland_Notifications {
 		return true;
 	}
 	/**
+	 * Notifies the right people about a stock transfer (stock moving between locations).
+	 *
+	 * Called after the transfer transaction has committed, so a notification problem can never undo stock movement.
+	 *
+	 * @param string $event Event: REQUESTED, APPROVED, REJECTED, RESERVED, PICKED, IN_TRANSIT, CANCELLED.
+	 * @param array  $t     Transfer row (needs transfer_id, sku, quantity, from/to location id and name, requested_by).
+	 * @return bool Whether notifications were requested.
+	 */
+	public static function notify_transfer( $event, array $t ) {
+		$id    = (string) ( $t['transfer_id'] ?? '' );
+		$from  = (int) ( $t['from_location_id'] ?? 0 );
+		$to    = (int) ( $t['to_location_id'] ?? 0 );
+		$what  = 'Transfer ' . $id . ' (' . (string) ( $t['product_name'] ?? $t['sku'] ?? '' ) . ' x ' . (string) ( $t['quantity'] ?? '' ) . ') from ' . (string) ( $t['from_location_name'] ?? '' ) . ' to ' . (string) ( $t['to_location_name'] ?? '' );
+		$sends = array();
+		switch ( strtoupper( (string) $event ) ) {
+			case 'REQUESTED':
+				$sends[] = array( 'warehouse_manager', $from, 'Transfer requested', $what . ' is waiting for approval.', 'action' );
+				$sends[] = array( 'management', null, 'Transfer requested', $what . ' was requested.', 'info' );
+				break;
+			case 'APPROVED':
+				$sends[] = array( 'warehouse_manager', $from, 'Transfer approved: reserve and pick', $what . ' is approved. Reserve and pick the stock.', 'action' );
+				$sends[] = array( 'branch_manager', $to, 'Transfer approved', $what . ' is approved and will be sent to you.', 'info' );
+				break;
+			case 'RESERVED':
+			case 'PICKED':
+				$sends[] = array( 'warehouse_manager', $from, 'Transfer ' . strtolower( $event ), $what . ' is ' . strtolower( $event ) . '.', 'info' );
+				break;
+			case 'IN_TRANSIT':
+				$sends[] = array( 'branch_manager', $to, 'Stock on the way: receive it', $what . ' has been dispatched. Receive and count it on arrival.', 'action' );
+				$sends[] = array( 'sales_employee', $to, 'Stock on the way', $what . ' has been dispatched to your location.', 'info' );
+				$sends[] = array( 'management', null, 'Transfer dispatched', $what . ' is in transit.', 'info' );
+				break;
+			case 'REJECTED':
+			case 'CANCELLED':
+				$sends[] = array( 'branch_manager', $to, 'Transfer ' . strtolower( $event ), $what . ' was ' . strtolower( $event ) . '. No stock will arrive.', 'warning' );
+				$sends[] = array( 'warehouse_manager', $from, 'Transfer ' . strtolower( $event ), $what . ' was ' . strtolower( $event ) . '. Release any reserved stock.', 'warning' );
+				$sends[] = array( 'management', null, 'Transfer ' . strtolower( $event ), $what . ' was ' . strtolower( $event ) . '.', 'warning' );
+				break;
+			default:
+				return false;
+		}
+		$ok = true;
+		foreach ( $sends as $n ) {
+			$ok = self::push_role( $n[0], $n[1], 'transfer_' . strtolower( $event ), $n[2], $n[3], 'transfer', $id, $n[4] ) && $ok;
+		}
+		if ( ! empty( $t['requested_by'] ) && in_array( strtoupper( (string) $event ), array( 'REQUESTED', 'APPROVED', 'RESERVED', 'PICKED', 'IN_TRANSIT', 'REJECTED', 'CANCELLED' ), true ) ) {
+			$ok = self::push_user( (int) $t['requested_by'], 'transfer_' . strtolower( $event ), 'Your transfer ' . $id . ': ' . strtolower( str_replace( '_', ' ', $event ) ), $what . '.', 'transfer', $id, in_array( strtoupper( $event ), array( 'REJECTED', 'CANCELLED' ), true ) ? 'warning' : 'info' ) && $ok;
+		}
+		return $ok;
+	}
+	/**
 	 * Sends a high-priority exception notice to Management and Owner.
 	 *
 	 * @param string      $title Notification title.

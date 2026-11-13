@@ -66,3 +66,10 @@ The Codespaces environment validation workflow (devcontainer JSON/shell validati
 Baseline defect confirmed and fixed in 16.2.18: duplicate customer code returned HTTP 500 on 16.2.13 and returns HTTP 409 on 16.2.18.
 
 Upgrade path on MySQL 8.0.46 (CI run 43387907392): BLOCKED by a baseline defect, not by 16.2.18. The 16.2.13 baseline's `wp_stock_balances` DDL has `PRIMARY KEY (location_id,variant_id)` with nullable `variant_id`; MySQL 8 rejects it ("All parts of a PRIMARY KEY must be NOT NULL", wizard batch 25 HTTP 500). No 16.2.13 site can be completed on MySQL 8, so there is nothing to upgrade there (issue #76). Fresh 16.2.18 install on MySQL 8 is PASS. Upgrade path on MariaDB 10.11 (CI) is PASS. CI asserts the exact blocked signature on MySQL 8 so any change is noticed.
+## Addendum 2026-11-12 (late): transfer notifications, interactive browser setup, backup/restore
+
+- Defect fixed: stock transfers between locations notified only on receipt. They now notify the right audiences when requested, approved, reserved, picked, in transit, rejected and cancelled (sent after the stock transaction commits; failures are logged and never roll back stock). Regression: `scripts/release/e2e/s8_transfer_notifications.php` (9 checks, PASS).
+- Installer ZIP rebuilt: SHA-256 `aee5c551bd3367717091de066bfd5f86d8298dda1f6361d7534813d8087cd54e`, 123 files (supersedes `be60d564…`).
+- Interactive browser acceptance (`scripts/release/ui/interactive_setup.js`) on a fresh disposable WordPress 6.8 + MariaDB 10.11.14 site: upload ZIP in wp-admin, activate, System Control shows all 29/16/41 tables present and "Installation complete", Owner authorization recorded through the form, ERP app shell renders: PASS (7/7).
+- Backup/restore drill (`scripts/release/backup_restore_check.sh`): logical dump, restore into a scratch database, CHECKSUM TABLE and row count per table, 98 tables compared (86 application tables), 0 mismatches: PASS.
+- Workflow regression `run_all.sh` (8 suites incl. payroll calculator vectors and transfer notifications): PASS locally on MariaDB. MySQL 8.0.46 result comes from the CI workflow run on the pull request.
