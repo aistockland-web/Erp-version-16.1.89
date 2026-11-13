@@ -471,11 +471,13 @@ default:b=dashboard()
 const content=document.querySelector('#sl-content .sl-content-inner');
 if(content){
  content.innerHTML=b;
- if(state.setupStatus?.hr_pending_approval){
+ if(state.setupStatus?.hr_pending){
   const pending=document.createElement('div');
   pending.className='sl-notice sl-notice-warn sl-operational-schema-banner';
   pending.setAttribute('role','status');
-  pending.textContent='HR lifecycle and Payroll extension are pending explicit active-Owner approval and qualified statutory review. Core, Inventory, POS and Finance/Procurement remain available on the verified 49-key operational baseline. No unapproved HR schema changes were made.';
+  pending.textContent=state.setupStatus.hr_pending_approval
+   ? 'HR lifecycle and Payroll extension are pending explicit active-Owner approval and qualified statutory review. Core, Inventory, POS and Finance/Procurement remain available on the verified 49-key operational baseline. No unapproved HR schema changes were made.'
+   : 'HR lifecycle and Payroll extension remain in the separately approved setup/validation process. Core, Inventory, POS and Finance/Procurement remain available on the verified 49-key operational baseline.';
   content.prepend(pending);
  }
 }
