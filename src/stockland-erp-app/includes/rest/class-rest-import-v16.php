@@ -376,11 +376,9 @@ class Stockland_REST_Import_V16 {
 					}
 					$candidate_headers = $candidate;
 					if ( 'DAILY_SALES' === $type && $this->is_article_summary_marker( $buffer ) && $this->has_article_summary_headers( $candidate_headers ) ) {
-						$shifted_headers = array();
-						foreach ( $candidate_headers as $column_index => $column_header ) {
-							$shifted_headers[ (int) $column_index + 1 ] = $column_header;
-						}
-						$candidate_headers    = $shifted_headers;
+						// Article Code is printed in A but its SKU values are in B. The other
+						// summary headers (C, E, I and L) already align with their data columns.
+						$candidate_headers    = $this->article_summary_header_positions( $candidate_headers );
 						$source_format        = 'SUMMARIZED_BY_ARTICLE';
 						$source_business_date = $this->article_summary_business_date( $buffer );
 					}
@@ -565,6 +563,30 @@ class Stockland_REST_Import_V16 {
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * Aligns the supplier's Article Code label with its SKU data column.
+	 *
+	 * The approved export labels Article Code in column A, but stores SKU values
+	 * in column B. Article Name, Quantity, Avg. Amount and Total Amount remain in
+	 * columns C, E, I and L. Only the Article Code label is shifted.
+	 *
+	 * @param array $headers Original zero-based source headers.
+	 * @return array Headers aligned to their corresponding source data columns.
+	 * @throws Exception When column B contains a conflicting header.
+	 */
+	private function article_summary_header_positions( $headers ) {
+		$headers = (array) $headers;
+		if ( isset( $headers[0] ) && 'article_code' === $this->norm( $headers[0] ) ) {
+			$column_b = isset( $headers[1] ) ? trim( (string) $headers[1] ) : '';
+			if ( '' !== $column_b ) {
+				throw new Exception( 'The POS article-summary Article Code column is ambiguous: column B must be blank before its label can be aligned to the SKU values.' );
+			}
+			$headers[1] = $headers[0];
+			unset( $headers[0] );
+		}
+		return $headers;
 	}
 
 	/**

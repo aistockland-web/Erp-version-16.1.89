@@ -119,9 +119,12 @@ def load_config() -> dict[str, Any]:
     }
 
 
-def open_state(path: Path) -> sqlite3.Connection:
+def open_state(path: Path, branch_id: int) -> sqlite3.Connection:
     path.parent.mkdir(parents=True, exist_ok=True)
     db = sqlite3.connect(str(path), timeout=30)
+    # Keep the original table as a compatibility source and migrate its history
+    # into a correctly scoped key. A content hash alone is not a daily import key:
+    # identical bytes can legitimately be used for another branch or business date.
     db.execute(
         """
         CREATE TABLE IF NOT EXISTS uploaded_sources (
@@ -135,14 +138,52 @@ def open_state(path: Path) -> sqlite3.Connection:
         )
         """
     )
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS uploaded_sources_scoped (
+            branch_id INTEGER NOT NULL,
+            business_date TEXT NOT NULL,
+            sha256 TEXT NOT NULL,
+            original_name TEXT NOT NULL,
+            job_id INTEGER,
+            job_status TEXT NOT NULL,
+            uploaded_at TEXT NOT NULL,
+            moved_path TEXT,
+            PRIMARY KEY (branch_id, business_date, sha256)
+        )
+        """
+    )
+    columns = {row[1] for row in db.execute("PRAGMA table_info(uploaded_sources)")}
+    legacy_columns = {
+        "sha256", "original_name", "business_date", "job_id",
+        "job_status", "uploaded_at", "moved_path",
+    }
+    if legacy_columns.issubset(columns):
+        db.execute(
+            """
+            INSERT OR IGNORE INTO uploaded_sources_scoped
+                (branch_id, business_date, sha256, original_name, job_id,
+                 job_status, uploaded_at, moved_path)
+            SELECT ?, business_date, sha256, original_name, job_id,
+                   job_status, uploaded_at, moved_path
+            FROM uploaded_sources
+            """,
+            (int(branch_id),),
+        )
     db.commit()
     return db
 
 
-def was_uploaded(db: sqlite3.Connection, source_hash: str) -> bool:
+def was_uploaded(
+    db: sqlite3.Connection, branch_id: int, business_date: str, source_hash: str
+) -> bool:
     row = db.execute(
-        "SELECT 1 FROM uploaded_sources WHERE sha256 = ? LIMIT 1",
-        (source_hash,),
+        """
+        SELECT 1 FROM uploaded_sources_scoped
+        WHERE branch_id = ? AND business_date = ? AND sha256 = ?
+        LIMIT 1
+        """,
+        (int(branch_id), business_date, source_hash),
     ).fetchone()
     return row is not None
 
@@ -221,7 +262,7 @@ def upload_file(config: dict[str, Any], path: Path, business_date: str) -> dict[
 
 
 def process_once(config: dict[str, Any], dry_run: bool = False) -> int:
-    db = open_state(config["state_db"])
+    db = open_state(config["state_db"], config["branch_id"])
     failures = 0
     files = sorted(
         (
@@ -245,7 +286,7 @@ def process_once(config: dict[str, Any], dry_run: bool = False) -> int:
                 raise AgentError(f"File size {size} bytes is outside the upload limit.")
             business_date = business_date_for_file(path, config["fallback_date"])
             source_hash = sha256_file(path)
-            if was_uploaded(db, source_hash):
+            if was_uploaded(db, config["branch_id"], business_date, source_hash):
                 print(f"SKIP: {path.name} was already staged by this agent.")
                 continue
             if dry_run:
@@ -261,14 +302,15 @@ def process_once(config: dict[str, Any], dry_run: bool = False) -> int:
             shutil.move(str(path), str(destination))
             db.execute(
                 """
-                INSERT INTO uploaded_sources
-                    (sha256, original_name, business_date, job_id, job_status, uploaded_at, moved_path)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO uploaded_sources_scoped
+                    (branch_id, business_date, sha256, original_name, job_id, job_status, uploaded_at, moved_path)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
+                    config["branch_id"],
+                    business_date,
                     source_hash,
                     path.name,
-                    business_date,
                     job_id,
                     status,
                     datetime.now().astimezone().isoformat(timespec="seconds"),

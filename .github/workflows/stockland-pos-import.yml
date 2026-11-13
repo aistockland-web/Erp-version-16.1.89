@@ -1,0 +1,80 @@
+
+name: Stockland POS importer exact-layout and folder-agent tests
+
+on:
+  push:
+    branches:
+      - "feat/stockland-pos-import-modes-*"
+    paths:
+      - "src/stockland-erp-app/includes/rest/class-rest-import-v16.php"
+      - "src/stockland-erp-app/includes/class-stockland-xlsx.php"
+      - "src/stockland-erp-app/assets/app.js"
+      - "src/stockland-erp-app/includes/class-stockland-runtime-diagnostics.php"
+      - "src/stockland-erp-app/includes/rest/class-rest-setup.php"
+      - "tools/pos-folder-agent/**"
+      - "ci/qa/test_pos_article_summary_headers.php"
+      - "ci/qa/test_pos_folder_agent.py"
+      - "ci/qa/test_pos_import_contract.py"
+      - ".github/workflows/stockland-pos-import.yml"
+  pull_request:
+    branches: [main, "delivery/**", "fix/**"]
+    paths:
+      - "src/stockland-erp-app/includes/rest/class-rest-import-v16.php"
+      - "src/stockland-erp-app/includes/class-stockland-xlsx.php"
+      - "src/stockland-erp-app/assets/app.js"
+      - "tools/pos-folder-agent/**"
+      - "ci/qa/test_pos_*.py"
+      - "ci/qa/test_pos_article_summary_headers.php"
+      - ".github/workflows/stockland-pos-import.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stockland-pos-import-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-and-behavior:
+    name: POS importer regression — PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ["8.3", "8.4"]
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Set up PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          tools: none
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - name: PHP syntax and exact article-summary column regression
+        run: |
+          set -euo pipefail
+          php -l src/stockland-erp-app/includes/rest/class-rest-import-v16.php
+          php ci/qa/test_pos_article_summary_headers.php src/stockland-erp-app/includes/rest/class-rest-import-v16.php
+      - name: Folder agent state and staging tests
+        run: python3 -m unittest discover -s ci/qa -p 'test_pos_folder_agent.py' -v
+      - name: Daily POS source, role and health contract tests
+        run: python3 ci/qa/test_pos_import_contract.py
+      - name: Validate browser JavaScript syntax
+        run: node --check src/stockland-erp-app/assets/app.js
+      - name: Validate Python syntax
+        run: python3 -m py_compile tools/pos-folder-agent/stockland_pos_folder_agent.py ci/qa/test_pos_folder_agent.py ci/qa/test_pos_import_contract.py
+      - name: Check patch whitespace
+        run: git diff --check
