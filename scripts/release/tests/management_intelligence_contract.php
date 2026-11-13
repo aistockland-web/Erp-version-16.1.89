@@ -139,7 +139,7 @@ class Stockland_Audit {
 	}
 }
 
-require dirname( __DIR__, 2 ) . '/src/stockland-erp-app/includes/rest/class-rest-management-intelligence.php';
+require dirname( __DIR__, 3 ) . '/src/stockland-erp-app/includes/rest/class-rest-management-intelligence.php';
 
 $checks = 0;
 function check_result( $label, $condition, $detail = '' ) {
