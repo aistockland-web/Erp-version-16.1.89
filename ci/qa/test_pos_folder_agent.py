@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 import sqlite3
 import tempfile
 import unittest
@@ -15,6 +16,52 @@ SPEC = importlib.util.spec_from_file_location("stockland_pos_folder_agent", AGEN
 assert SPEC and SPEC.loader
 agent = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(agent)
+
+
+
+class FolderAgentConfigTests(unittest.TestCase):
+    def _environment(self, root: Path, url: str) -> dict[str, str]:
+        inbox = root / "inbox"
+        inbox.mkdir()
+        return {
+            "STOCKLAND_ERP_URL": url,
+            "STOCKLAND_ERP_USERNAME": "branch.sales",
+            "STOCKLAND_ERP_APP_PASSWORD": "test-only-not-a-real-secret",
+            "STOCKLAND_POS_BRANCH_ID": "3",
+            "STOCKLAND_POS_INBOX": str(inbox),
+        }
+
+    def test_rejects_plain_http_before_building_basic_auth_request(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            env = self._environment(Path(tmp), "http://erp.example")
+            with patch.dict(os.environ, env, clear=True):
+                with self.assertRaisesRegex(agent.AgentError, "HTTPS base URL"):
+                    agent.load_config()
+
+    def test_rejects_credentials_embedded_in_erp_url(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            env = self._environment(Path(tmp), "https://user:secret@erp.example")
+            with patch.dict(os.environ, env, clear=True):
+                with self.assertRaisesRegex(agent.AgentError, "embedded credentials"):
+                    agent.load_config()
+
+    def test_rejects_malformed_port(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            env = self._environment(Path(tmp), "https://erp.example:not-a-port")
+            with patch.dict(os.environ, env, clear=True):
+                with self.assertRaisesRegex(agent.AgentError, "valid HTTPS base URL"):
+                    agent.load_config()
+
+    def test_accepts_https_wordpress_path_as_base_url(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            env = self._environment(Path(tmp), "https://erp.example/stockland")
+            with patch.dict(os.environ, env, clear=True):
+                config = agent.load_config()
+            self.assertEqual(config["base_url"], "https://erp.example/stockland")
+            self.assertEqual(
+                config["endpoint"],
+                "https://erp.example/stockland/wp-json/stockland/v16/import/daily-sales/preview",
+            )
 
 
 class FolderAgentStateTests(unittest.TestCase):
