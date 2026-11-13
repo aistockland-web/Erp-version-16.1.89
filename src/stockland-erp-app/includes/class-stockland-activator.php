@@ -1821,10 +1821,70 @@ class Stockland_Activator {
 					)
 				);
 				$stage_rows = (int) Stockland_DB::read_var( $wpdb->prepare( 'SELECT COUNT(*) FROM %i', $stage ) );
-				$source_total = (float) Stockland_DB::read_var( $wpdb->prepare( 'SELECT COALESCE(SUM(physical_qty),0) FROM %i', $bal ) );
-				$stage_total  = (float) Stockland_DB::read_var( $wpdb->prepare( 'SELECT COALESCE(SUM(physical_qty),0) FROM %i', $stage ) );
 				if ( '' !== (string) $wpdb->last_error ) {
-					throw new RuntimeException( 'Could not verify staged balance reconciliation: ' . $wpdb->last_error );
+					throw new RuntimeException( 'Could not count staged balance rows: ' . $wpdb->last_error );
+				}
+				$source_total = (float) Stockland_DB::read_var( $wpdb->prepare( 'SELECT COALESCE(SUM(physical_qty),0) FROM %i', $bal ) );
+				if ( '' !== (string) $wpdb->last_error ) {
+					throw new RuntimeException( 'Could not total source stock balances: ' . $wpdb->last_error );
+				}
+				$stage_total = (float) Stockland_DB::read_var( $wpdb->prepare( 'SELECT COALESCE(SUM(physical_qty),0) FROM %i', $stage ) );
+				if ( '' !== (string) $wpdb->last_error ) {
+					throw new RuntimeException( 'Could not total staged stock balances: ' . $wpdb->last_error );
+				}
+
+				// Compare every resolved location/variant quantity, not just a global
+				// grand total. This detects quantity shifted between variants even when
+				// the overall sum happens to remain unchanged.
+				$wpdb->last_error = '';
+				$source_variant_totals = Stockland_DB::read_results(
+					$wpdb->prepare(
+						'SELECT b.location_id,COALESCE(by_variant.variant_id,by_sku.variant_id) AS variant_id,
+						        SUM(COALESCE(b.physical_qty,0)) AS total_qty
+						 FROM %i b
+						 LEFT JOIN %i by_variant ON b.variant_id IS NOT NULL AND by_variant.variant_id=b.variant_id
+						 LEFT JOIN %i by_sku ON b.variant_id IS NULL AND by_sku.sku=b.sku
+						 GROUP BY b.location_id,COALESCE(by_variant.variant_id,by_sku.variant_id)
+						 ORDER BY b.location_id,COALESCE(by_variant.variant_id,by_sku.variant_id)',
+						$bal,
+						$products,
+						$products
+					),
+					ARRAY_A
+				);
+				if ( '' !== (string) $wpdb->last_error || ! is_array( $source_variant_totals ) ) {
+					throw new RuntimeException( 'Could not read source location/variant quantity totals: ' . $wpdb->last_error );
+				}
+				$stage_variant_totals = Stockland_DB::read_results(
+					$wpdb->prepare(
+						'SELECT location_id,variant_id,SUM(physical_qty) AS total_qty
+						 FROM %i GROUP BY location_id,variant_id ORDER BY location_id,variant_id',
+						$stage
+					),
+					ARRAY_A
+				);
+				if ( '' !== (string) $wpdb->last_error || ! is_array( $stage_variant_totals ) ) {
+					throw new RuntimeException( 'Could not read staged location/variant quantity totals: ' . $wpdb->last_error );
+				}
+				$source_variant_map = array();
+				foreach ( $source_variant_totals as $row ) {
+					$key = (int) $row['location_id'] . ':' . (int) $row['variant_id'];
+					$source_variant_map[ $key ] = (float) $row['total_qty'];
+				}
+				$stage_variant_map = array();
+				foreach ( $stage_variant_totals as $row ) {
+					$key = (int) $row['location_id'] . ':' . (int) $row['variant_id'];
+					$stage_variant_map[ $key ] = (float) $row['total_qty'];
+				}
+				ksort( $source_variant_map );
+				ksort( $stage_variant_map );
+				if ( array_keys( $source_variant_map ) !== array_keys( $stage_variant_map ) ) {
+					throw new RuntimeException( 'Derived balance location/variant identity set changed before cutover. Live read model was preserved.' );
+				}
+				foreach ( $source_variant_map as $key => $source_variant_total ) {
+					if ( abs( $source_variant_total - $stage_variant_map[ $key ] ) > 0.00001 ) {
+						throw new RuntimeException( 'Derived balance quantity changed for location/variant ' . $key . ' before cutover. Live read model was preserved.' );
+					}
 				}
 				if ( $expected_groups !== $stage_rows ) {
 					throw new RuntimeException( 'Derived balance identity reconciliation failed before cutover: expected location/variant groups do not match staged rows. Live read model was preserved.' );
