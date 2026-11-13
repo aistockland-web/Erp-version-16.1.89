@@ -79,6 +79,8 @@ try {
     $retry = Invoke-StocklandFolderAgent -Config $config
     Assert-True ($retry.RetainedForRetry -eq 1) 'Transient HTTP 503 must keep the original file in Incoming.'
     Assert-True (@(Get-ChildItem -LiteralPath $folders.Incoming -File).Count -eq 1) 'Transient file must remain available for retry.'
+    # Isolate the permanent-403 assertion from the retained transient-503 fixture.
+    Remove-Item -LiteralPath (Join-Path $folders.Incoming 'retry.xlsx') -Force
 
     $script:MockHttpStatus = 403
     Set-Content -LiteralPath (Join-Path $folders.Incoming 'forbidden.xlsx') -Value 'fixture' -Encoding UTF8
