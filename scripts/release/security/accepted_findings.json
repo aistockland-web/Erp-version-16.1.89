@@ -1,0 +1,56 @@
+{
+  "_note": "Reviewed 2026-11-13 on exact master 16.2.18. Any finding NOT listed here fails the gate. Each entry states why it is accepted.",
+  "semgrep": [
+    {
+      "file": "includes/class-stockland-hr-private-vault.php",
+      "rule": "unlink-use",
+      "max": 6,
+      "why": "unlink only on files the vault itself created: 0600 temp files, or paths resolved by locate() from a reference validated by ^hrv_[a-f0-9]{48}$"
+    },
+    {
+      "file": "includes/class-stockland-hr-private-vault.php",
+      "rule": "openssl-decrypt-validate",
+      "max": 1,
+      "why": "AES-256-GCM: authentication tag is verified by openssl_decrypt; the result is checked with is_string() and the SHA-256 is compared with hash_equals()"
+    }
+  ],
+  "wpcs": [
+    {
+      "file": "includes/class-stockland-admin.php",
+      "sniff": "WordPress.Security.NonceVerification.Recommended",
+      "max": 2,
+      "why": "read-only admin menu redirect keyed on a sanitized page slug; no state change"
+    },
+    {
+      "file": "includes/rest/class-rest-hr-payroll-cycle.php",
+      "sniff": "WordPress.DB.PreparedSQL.NotPrepared",
+      "max": 5,
+      "why": "all five are wpdb->prepare() calls using %i/%d/%s placeholders: line 28 concatenates only the fixed literal ' FOR UPDATE'; lines 547/550 pass a static SQL string"
+    },
+    {
+      "file": "includes/rest/class-rest-hr-payroll-cycle.php",
+      "sniff": "WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode",
+      "max": 1,
+      "why": "encoding a download body, not code obfuscation"
+    },
+    {
+      "file": "includes/rest/class-rest-sop-library.php",
+      "sniff": "WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode",
+      "max": 1,
+      "why": "decoding bundled SOP payload; integrity-checked by SHA-256"
+    },
+    {
+      "file": "includes/class-stockland-hr-private-vault.php",
+      "sniff": "WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode",
+      "max": 1,
+      "why": "decoding the key from the Owner-configured keyring"
+    },
+    {
+      "file": "includes/class-stockland-hr-private-vault.php",
+      "sniff": "WordPress.Security.ValidatedSanitizedInput",
+      "max": 2,
+      "why": "DOCUMENT_ROOT is only passed to realpath() to refuse a vault inside the web root"
+    }
+  ],
+  "wpcs_escape_output_max_total": 17
+}
