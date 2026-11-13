@@ -194,14 +194,30 @@ $campaign_audits = (int) Stockland_DB::read_var( $wpdb->prepare(
 	'MI_SOCIAL_CAMPAIGN_CREATE',
 	$campaign_code
 ) );
+$campaign_audit = Stockland_DB::read_row( $wpdb->prepare(
+	'SELECT new_value FROM %i WHERE action=%s AND reference=%s ORDER BY id DESC LIMIT 1',
+	$audit_table,
+	'MI_SOCIAL_CAMPAIGN_CREATE',
+	$campaign_code
+), ARRAY_A );
+$campaign_audit_pointer = 'CORE_SETTINGS:mi_social_campaign_' . $campaign_code . ':sha256:' . hash( 'sha256', (string) $campaign_json );
 $snapshot_audits = (int) Stockland_DB::read_var( $wpdb->prepare(
 	'SELECT COUNT(*) FROM %i WHERE action=%s AND reference=%s',
 	$audit_table,
 	'MI_SOCIAL_SNAPSHOT_APPEND',
 	$snapshot_code
 ) );
+$snapshot_audit = Stockland_DB::read_row( $wpdb->prepare(
+	'SELECT new_value FROM %i WHERE action=%s AND reference=%s ORDER BY id DESC LIMIT 1',
+	$audit_table,
+	'MI_SOCIAL_SNAPSHOT_APPEND',
+	$snapshot_code
+), ARRAY_A );
+$snapshot_audit_pointer = 'CORE_SETTINGS:mi_social_snapshot_' . $snapshot_code . ':sha256:' . hash( 'sha256', (string) $snapshot_json );
 $check( 'campaign creation has exactly one immutable audit event', 1 === $campaign_audits );
+$check( 'campaign audit compact pointer verifies full Core record hash', is_array( $campaign_audit ) && hash_equals( $campaign_audit_pointer, (string) ( $campaign_audit['new_value'] ?? '' ) ) && strlen( $campaign_audit_pointer ) <= 255 );
 $check( 'snapshot append has exactly one immutable audit event after duplicate retry', 1 === $snapshot_audits );
+$check( 'snapshot audit compact pointer verifies full Core record hash', is_array( $snapshot_audit ) && hash_equals( $snapshot_audit_pointer, (string) ( $snapshot_audit['new_value'] ?? '' ) ) && strlen( $snapshot_audit_pointer ) <= 255 );
 
 $ledger_after = array();
 foreach ( $ledger_before as $key => $before ) {
