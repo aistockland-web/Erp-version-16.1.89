@@ -47,3 +47,4 @@
 - Management Intelligence: the "Refresh intelligence" button had no click handler; it now reloads authorized insights and the social workspace.
 - Social media analysis (official platform sign-in, campaigns, export snapshots) moved out of HR & Payroll into Management Intelligence; HR & Payroll keeps only a link. Credentials, tokens and posting APIs are still never stored.
 - Theme colour is now set by the server (`data-sl-theme="sapphire"` on the standalone body; manifest and meta `theme-color` unified to #295ff3), so the Sapphire colours no longer depend on JavaScript running first.
+- Manual `watch_time_minutes` snapshots are validated and stored as decimal minutes, not passed through ETB monetary normalization; the snapshot table labels the value in minutes.
