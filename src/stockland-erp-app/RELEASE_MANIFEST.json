@@ -23,7 +23,7 @@
     "fresh_install_ddl_patch_sha256": "104b9b28bb20105dc282b11c17982633c5ff5b8e1d34a299f1adc29bec608fbc",
     "canonical_source_commit": null,
     "github_release_id": null,
-    "provenance_note": "Built locally from the checksum-verified 16.2.13 operational archive and the locally reconciled 16.2.15 candidate. Connected GitHub API was unavailable (HTTP 403); no canonical source commit or GitHub release is claimed."
+    "provenance_note": "The canonical editable source is maintained in the repository. The one-pack installer is deterministically generated in GitHub Actions from the exact checkout used by the verification run; that run records the build commit, artifact and SHA-256. This manifest does not claim a GitHub Release or release tag."
   },
   "schema_governance": {
     "legacy_subset": "29 core + 16 accounting + 4 legacy HR keys preserved",
@@ -662,7 +662,7 @@
   "installation_repair": {
     "version": "16.2.16",
     "fixes": [
-      "One-click WordPress System Control runner for sequential Core \u2192 Finance \u2192 HR setup",
+      "One-click WordPress System Control runner for sequential Core → Finance → HR setup",
       "Protected HR/Payroll continuation in System Control",
       "Bounded 160-step setup browser runner",
       "HR structural-gap progress detection",
