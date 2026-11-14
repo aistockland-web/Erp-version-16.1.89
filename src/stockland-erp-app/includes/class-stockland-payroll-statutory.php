@@ -257,7 +257,7 @@ final class Stockland_Payroll_Statutory {
 		if ( ! is_array( $rules ) || 'APPROVED' !== strtoupper( (string) ( $rules['status'] ?? '' ) ) || empty( $rules['rule_version'] ) || empty( $rules['rule_set_id'] ) || (int) ( $rules['approved_by'] ?? 0 ) < 1 || empty( $rules['approved_at'] ) || ! array_key_exists( 'employee_pension_rate', $rules ) || null === $rules['employee_pension_rate'] || '' === $rules['employee_pension_rate'] || ! array_key_exists( 'employer_pension_rate', $rules ) || null === $rules['employer_pension_rate'] || '' === $rules['employer_pension_rate'] || empty( $rules['monthly_tax_bands'] ) || empty( $rules['tax_base_method'] ) ) {
 			throw new InvalidArgumentException( 'An independently reviewed, Owner-approved, effective-dated statutory rule set is required; no legacy payroll fallback is permitted.' );
 		}
-		if ( ! preg_match( '/^[a-f0-9]{64}$/iD', (string) ( $rules['source_sha256'] ?? '' ) ) || empty( $rules['source_url'] ) || ! class_exists( 'Stockland_HR_Lifecycle' ) || ! Stockland_HR_Lifecycle::has_qualified_legal_review( $rules ) ) {
+		if ( ! preg_match( '/^[a-f0-9]{64}$/iD', (string) ( $rules['source_sha256'] ?? '' ) ) || empty( $rules['source_url'] ) || ! class_exists( 'Stockland_HR_Lifecycle' ) || ! Stockland_HR_Lifecycle::has_qualified_legacy_payroll_review( $rules ) ) {
 			throw new InvalidArgumentException( 'The approved statutory rule set is missing its official source hash or independent qualified review evidence.' );
 		}
 		$employee_rate = $rules['employee_pension_rate'];
