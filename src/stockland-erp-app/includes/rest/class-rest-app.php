@@ -3460,8 +3460,6 @@ class Stockland_REST_App extends Stockland_REST_Base {
 					array( 'key' => 'availability_exception', 'label' => 'Reservation integrity' ),
 					array( 'key' => 'inbound_stock', 'label' => 'Inbound transfer', 'format' => 'number' ),
 					array( 'key' => 'reorder_position', 'label' => 'Reorder position', 'format' => 'number' ),
-					array( 'key' => 'inbound_stock', 'label' => 'Inbound transfer', 'format' => 'number' ),
-					array( 'key' => 'reorder_position', 'label' => 'Reorder position', 'format' => 'number' ),
 					array( 'key' => 'reorder_level', 'label' => 'Reorder level', 'format' => 'number' ),
 				);
 				$rows = is_array( $data['stock'] ?? null ) ? $data['stock'] : array();

@@ -71,6 +71,22 @@ jobs:
           python3 -m unittest discover -s ci/codespaces -p 'test_*.py' -v
           python3 -m json.tool ci/codespaces/candidate-packages.json >/dev/null
 
+      - name: Prepare pinned 16.2.18 baseline test suite
+        shell: bash
+        env:
+          BASELINE_SOURCE_COMMIT: 387c193c7999840c731d37acd854ec920f134507
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/codespaces
+          git fetch --no-tags --depth=1 origin "$BASELINE_SOURCE_COMMIT"
+          archive="artifacts/codespaces/stockland-16.2.18-baseline-release-tests.tar.gz"
+          git archive --format=tar "$BASELINE_SOURCE_COMMIT" scripts/release | gzip -n -9 > "$archive"
+          sha256sum "$archive" > "$archive.sha256"
+          tar -tzf "$archive" > "$archive.contents"
+          grep -qx 'scripts/release/e2e/run_all.sh' "$archive.contents"
+          rm -f "$archive.contents"
+          echo "PASS pinned 16.2.18 baseline test suite from $BASELINE_SOURCE_COMMIT"
+
       - name: Create isolated CI credentials and validate Compose
         run: |
           set -euo pipefail

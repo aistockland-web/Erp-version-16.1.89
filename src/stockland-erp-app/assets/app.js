@@ -410,7 +410,7 @@ function renderSelectedReport(report){
   const heading='<div class="sl-block-head"><div><div class="sl-eyebrow">STOCKLAND ETHIOPIA • REPORT</div><h3>'+esc(report?.title||'Selected report')+'</h3><small>'+esc(report?.from||'')+' to '+esc(report?.to||'')+' • '+esc(report?.location_label||'All authorized locations')+'</small></div><small>Generated '+esc(report?.generated_at||'')+'</small></div>';
   const headers=cols.map(c=>'<th>'+esc(c.label||c.key||'')+'</th>').join('')+(critical?'<th data-report-action-column>Details</th>':'');
   const body=rows.map((row,index)=>'<tr>'+cols.map(c=>'<td data-label="'+esc(c.label||c.key||'')+'">'+reportDisplayValue(row?.[c.key],c.format==='metric'?row?.format:c.format)+'</td>').join('')+(critical?'<td data-label="Details" data-report-action-column><button type="button" class="sl-btn" data-report-details="'+index+'">DETAILS</button></td>':'')+'</tr>').join('')||'<tr><td colspan="'+Math.max(1,cols.length+(critical?1:0))+'">No records matched this report and filter.</td></tr>';
-  el.innerHTML='<div class="sl-panel" id="selectedOpsReport" data-report-type="'+esc(report?.type||'')+'">'+heading+'<div class="sl-sub">'+esc(report?.description||'Read-only report from authorized ERP records.')+'</div><div class="sl-table-wrap"><table class="sl-table sl-responsive-cards"><thead><tr>'+headers+'</tr></thead><tbody>'+body+'</tbody></table></div><div class="sl-sub">Rows: '+String(rows.length)+'</div></div>';
+  el.innerHTML='<div class="sl-panel" id="selectedOpsReport" data-report-type="'+esc(report?.type||'')+'">'+heading+'<div class="sl-sub">'+esc(report?.description||'Read-only report from authorized ERP records.')+'</div><div class="sl-table-wrap" data-sl-force-filter><table class="sl-table sl-responsive-cards"><thead><tr>'+headers+'</tr></thead><tbody>'+body+'</tbody></table></div><div class="sl-sub">Rows: '+String(rows.length)+'</div></div>';
   document.querySelectorAll('[data-report-details]').forEach(button=>{button.onclick=()=>{const record=rows[Number(button.dataset.reportDetails)];const detail=document.getElementById('reportRowDetail');if(!record||!detail)return;detail.hidden=false;detail.innerHTML='<div class="sl-block-head"><div><div class="sl-eyebrow">REORDER ROW DETAIL</div><h3>'+esc(record.product_name||record.sku||'Stock item')+'</h3></div><button type="button" class="sl-btn" id="closeReportRowDetail">CLOSE</button></div><div class="sl-table-wrap"><table class="sl-table"><tbody>'+cols.map(c=>'<tr><th>'+esc(c.label||c.key||'')+'</th><td>'+reportDisplayValue(record[c.key],c.format)+'</td></tr>').join('')+'</tbody></table></div><div class="sl-notice">Suggested replenishment is a read-only calculation; no purchase order, reservation or stock movement was created.</div>';document.getElementById('closeReportRowDetail')?.addEventListener('click',()=>{detail.hidden=true;detail.innerHTML=''});detail.scrollIntoView({behavior:'smooth',block:'start'});}});
 }
 function buildSelectedReportCsv(report){
@@ -656,7 +656,8 @@ function enhanceTableHolders(root){
   const table=Array.from(wrap.children).find(el=>el.tagName==='TABLE');
   if(!table||!table.tBodies[0]){if(state)destroy();return;}
   const rows=Array.from(table.tBodies[0].rows).filter(r=>r.cells.length>1);
-  if(rows.length<5){if(state)destroy();return;}
+  const forceFilter=wrap.hasAttribute('data-sl-force-filter');
+  if(rows.length<1||(rows.length<5&&!forceFilter)){if(state)destroy();return;}
   if(!state){
    const id='slth'+(++slHolderSeq),bar=document.createElement('div');
    bar.className='sl-table-tools';bar.setAttribute('role','search');
