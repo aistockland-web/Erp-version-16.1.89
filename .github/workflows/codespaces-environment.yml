@@ -9,12 +9,14 @@ on:
     paths:
       - '.devcontainer/**'
       - '.gitignore'
+      - 'scripts/codespaces/**'
       - '.github/workflows/codespaces-environment.yml'
   pull_request:
-    branches: [main, 'infra/**', 'fix/**']
+    branches: [main, 'infra/**', 'fix/**', 'delivery/**']
     paths:
       - '.devcontainer/**'
       - '.gitignore'
+      - 'scripts/codespaces/**'
       - '.github/workflows/codespaces-environment.yml'
   workflow_dispatch:
 
@@ -52,6 +54,9 @@ jobs:
           bash -n scripts/codespaces/smoke_test_sites.sh
           bash -n scripts/codespaces/wp_cli_wrapper.sh
           bash -n scripts/codespaces/run_mysql8_parity.sh
+          bash -n scripts/codespaces/test_bootstrap_wrapper.sh
+          python3 scripts/codespaces/test_project_source.py
+          bash scripts/codespaces/test_bootstrap_wrapper.sh
           bash -n scripts/release/verify_master_installer.sh
           bash -n scripts/release/e2e/run_all.sh
           python3 -m unittest discover -s ci/codespaces -p 'test_*.py' -v
