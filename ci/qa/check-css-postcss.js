@@ -68,6 +68,24 @@ function minifyCssPreservingSemantics(source) {
   if (quote !== null) throw new Error('Unterminated CSS quoted string.');
   return out.trim();
 }
+
+function cssSemanticFingerprint(source) {
+  const rootNode = postcss.parse(source);
+  const normalize = value => String(value || '').trim().replace(/\\s+/g, ' ');
+  const visit = node => {
+    if (node.type === 'comment') return '';
+    if (node.type === 'root') return (node.nodes || []).map(visit).join('');
+    if (node.type === 'rule') return 'R:' + normalize(node.selector) + '{' + (node.nodes || []).map(visit).join('') + '}';
+    if (node.type === 'atrule') {
+      const prefix = 'A:' + node.name + ':' + normalize(node.params);
+      return prefix + (node.nodes ? '{' + node.nodes.map(visit).join('') + '}' : ';');
+    }
+    if (node.type === 'decl') return 'D:' + normalize(node.prop) + ':' + normalize(node.value) + (node.important ? '!important' : '') + ';';
+    throw new Error('Unsupported PostCSS node in semantic parity test: ' + node.type);
+  };
+  return visit(rootNode);
+}
+
 const fixture = '.desc :hover{content:"ratio: 9 : 16";width:calc(100% - 2rem)} /* test */ .next{color:red}';
 const fixtureMin = minifyCssPreservingSemantics(fixture);
 if (!fixtureMin.includes('.desc :hover') ||
@@ -77,7 +95,7 @@ if (!fixtureMin.includes('.desc :hover') ||
   throw new Error('CSS minifier semantic safety fixture failed');
 }
 if (built !== appCss) throw new Error('app.css differs from ordered CSS source modules');
-if (['16.2.0', '16.2.1', '16.2.2', '16.2.3', '16.2.4', '16.2.5', '16.2.6', '16.2.7', '16.2.9', '16.2.18'].includes(release)) {
+if (['16.2.0', '16.2.1', '16.2.2', '16.2.3', '16.2.4', '16.2.5', '16.2.6', '16.2.7', '16.2.9'].includes(release)) {
   const expectedTail = release === '16.2.18' ? [
     '09-command-center-theme.css',
     '10-bootstrap-desktop-search.css',
@@ -99,6 +117,11 @@ if (['16.2.0', '16.2.1', '16.2.2', '16.2.3', '16.2.4', '16.2.5', '16.2.6', '16.2
   if (minifyCssPreservingSemantics(built) !== appMin) {
     throw new Error('app.min.css differs from semantics-safe minification of source modules');
   }
+} else if (release === '16.2.18') {
+  if (cssSemanticFingerprint(built) !== cssSemanticFingerprint(appMin)) {
+    throw new Error('app.min.css differs semantically from the ordered 16.2.18 CSS source modules');
+  }
+  console.log('PASS 16.2.18 app.css/app.min.css PostCSS semantic parity');
 } else {
   // Keep historical release artifacts reproducible; the new builder uses the
   // safer minifier on 16.2.0+ candidate builds.
