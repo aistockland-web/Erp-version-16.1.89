@@ -170,3 +170,9 @@ Setup table split used by the installer: 49 operational baseline tables plus 37 
 - CSS module `14-table-holders-legacy-colors.css`: holder styling, and literal Sapphire colours inside `@supports not (--a:0)` for browsers without CSS custom properties, plus an inline-block fallback for browsers without CSS grid.
 - Browser smoke asserts the holder (search narrows to 1 of 6, dropdown to 3 of 6) and the fallback block. Security gate now also verifies `app.css` equals the ordered modules and `app.min.css` carries every module class.
 - Local dev-container run: 122 PASS, 0 FAIL, GL unbalanced journals 0.
+
+### Dashboard report filters 2026-11-14
+- `GET /app/dashboard/insights` accepts `period` (7d, 14d, 30d, mtd; validated) and `location_id` (integer; validated). The location filter can only narrow the caller's authorized scope; a location outside it returns 403 `location_out_of_scope`. Without parameters the response is unchanged.
+- Dashboard shows a filter bar (period and branch dropdowns, Reset); every dashboard report card (trend, categories, branches, recent transactions) follows it. Long trend charts thin their date labels.
+- New E2E `s12_dashboard_filters.php` (13 checks): point counts per period, invalid period rejected, branch narrowing never exceeds company total, branch manager refused another location. The check found that the route did not reject an unknown period; the route now declares `validate_callback`.
+- Dev-container run on MariaDB 10.11: 135 PASS, 0 FAIL, 0 unbalanced journals.

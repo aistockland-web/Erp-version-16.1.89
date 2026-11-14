@@ -2929,6 +2929,7 @@ body[data-sl-theme],body[data-sl-theme="sapphire"]{
  #hrPage .sl-hrlc-cycle>.sl-hrlc-section,#hrPage .sl-hrlc-lists>.sl-hrlc-section{display:inline-block;vertical-align:top;width:48%;margin:0 1% 14px}
  .sl-table-tools{display:block}
 }
+.sl-dashboard-filters{grid-column:1/-1}
 
 /* Daily POS intake is one three-method workflow; keep all three choices together across breakpoints. */
 .sl-import-purpose-grid.sl-daily-pos-intake-grid{grid-template-columns:repeat(3,minmax(0,1fr))}

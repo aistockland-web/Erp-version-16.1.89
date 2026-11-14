@@ -887,9 +887,10 @@ const path=values.map((v,i)=>(i?'L':'M')+x(i).toFixed(2)+' '+y(v).toFixed(2)).jo
 const area=path+' L '+right+' '+bottom+' L '+left+' '+bottom+' Z';
 const grid=[0,0.25,0.5,0.75,1].map(k=>{const yy=bottom-k*(bottom-top);const val=max*k;return '<line x1="'+left+'" y1="'+yy.toFixed(2)+'" x2="'+right+'" y2="'+yy.toFixed(2)+'" stroke="#e8eef6" stroke-width="1"/><text x="39" y="'+(yy+3).toFixed(2)+'" text-anchor="end" font-size="10" fill="#73839a">'+esc(new Intl.NumberFormat('en-ET',{notation:'compact',maximumFractionDigits:1}).format(val))+'</text>'}).join('');
 const points=values.map((v,i)=>'<circle cx="'+x(i).toFixed(2)+'" cy="'+y(v).toFixed(2)+'" r="3.5" fill="#2563eb" stroke="#fff" stroke-width="2"><title>'+esc(rows[i].date)+': '+esc(money(v))+'</title></circle>').join('');
-const labels=rows.map((r,i)=>{const dt=new Date(String(r.date||'')+'T12:00:00');const label=Number.isNaN(dt.getTime())?String(r.date||''):new Intl.DateTimeFormat('en-ET',{month:'short',day:'numeric'}).format(dt);return '<text x="'+x(i).toFixed(2)+'" y="211" text-anchor="middle" font-size="10" fill="#73839a">'+esc(label)+'</text>'}).join('');
+const labelStep=Math.max(1,Math.ceil(rows.length/8));
+const labels=rows.map((r,i)=>{if(i%labelStep!==0&&i!==rows.length-1)return '';const dt=new Date(String(r.date||'')+'T12:00:00');const label=Number.isNaN(dt.getTime())?String(r.date||''):new Intl.DateTimeFormat('en-ET',{month:'short',day:'numeric'}).format(dt);return '<text x="'+x(i).toFixed(2)+'" y="211" text-anchor="middle" font-size="10" fill="#73839a">'+esc(label)+'</text>'}).join('');
 const total=values.reduce((a,v)=>a+v,0);
-return '<svg class="sl-dashboard-linechart" viewBox="0 0 650 228" role="img" aria-label="Posted retail sales for the last seven dates"><title>Posted retail sales by date</title><desc>Values are retrieved from closed retail sales in the authorized location scope.</desc>'+grid+'<path d="'+area+'" fill="#eaf2ff"/><path d="'+path+'" fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>'+points+labels+'</svg>';
+return '<svg class="sl-dashboard-linechart" viewBox="0 0 650 228" role="img" aria-label="Posted retail sales by date for the selected period"><title>Posted retail sales by date</title><desc>Values are retrieved from closed retail sales in the authorized location scope.</desc>'+grid+'<path d="'+area+'" fill="#eaf2ff"/><path d="'+path+'" fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>'+points+labels+'</svg>';
 }
 function dashboardCategoryHtml(payload){
 const all=Array.isArray(payload?.categories)?payload.categories.map(x=>({category:String(x.category||'Uncategorized'),sales:Math.max(0,Number(x.sales||0))})).filter(x=>x.sales>0):[];
@@ -916,13 +917,36 @@ return '<div class="sl-table-wrap"><table class="sl-table sl-responsive-cards"><
  return '<tr><td data-label="Date & Time">'+esc(x.sale_date||'')+'</td><td data-label="Type"><span class="sl-dashboard-transaction-type">'+uiIcon('cart')+' Sales</span></td><td data-label="Document No."><b>'+esc(id)+'</b></td><td data-label="Branch">'+esc(x.location_name||'—')+'</td><td data-label="Total Amount"><b>'+esc(money(x.sales_total||0))+'</b></td><td data-label="Status"><span class="sl-pill '+(String(x.posting_status||'CLOSED').toUpperCase()==='CLOSED'?'ok':'warn')+'">'+esc(x.posting_status||'CLOSED')+'</span></td><td data-label="Action"><div class="sl-dashboard-sale-actions"><button type="button" class="sl-btn sl-btn-sm sl-dashboard-sale-view" data-dashboard-sale-view'+attrs+'>View</button><button type="button" class="sl-btn sl-btn-sm sl-dashboard-sale-more" data-dashboard-sale-more="'+i+'" aria-label="More actions for '+esc(id)+'" aria-expanded="false" aria-controls="slDashboardSaleMenu'+i+'">⌄</button><div class="sl-dashboard-sale-menu" id="slDashboardSaleMenu'+i+'" hidden><button type="button" data-dashboard-sale-view'+attrs+'>Open in POS</button><button type="button" data-dashboard-sale-copy="'+esc(id)+'">Copy document number</button></div></div></td></tr>';
 }).join('')+'</tbody></table></div>';
 }
+
+function dashboardFilterQuery(){
+ const f=state.dashboardFilters||{};const q=[];
+ if(f.period&&f.period!=='7d')q.push('period='+encodeURIComponent(f.period));
+ if(f.location_id)q.push('location_id='+encodeURIComponent(f.location_id));
+ return q.length?'?'+q.join('&'):'';
+}
+function ensureDashboardFilters(){
+ const host=document.getElementById('slDashboardSalesTrend');if(!host||document.getElementById('slDashboardFilters'))return;
+ const card=host.closest('.sl-dashboard-card');if(!card||!card.parentNode)return;
+ const f=state.dashboardFilters=state.dashboardFilters||{period:'7d',location_id:''};
+ const branches=authorizedLocations().filter(l=>l.location_type==='Branch'&&Number(l.is_active)!==0);
+ const periods=[['7d','Last 7 days'],['14d','Last 14 days'],['30d','Last 30 days'],['mtd','Month to date']];
+ const bar=document.createElement('div');bar.id='slDashboardFilters';bar.className='sl-table-tools sl-dashboard-filters';bar.setAttribute('role','group');bar.setAttribute('aria-label','Dashboard report filters');
+ bar.innerHTML='<label class="sl-sr-only" for="slDashPeriod">Report period</label><select id="slDashPeriod">'+periods.map(p=>'<option value="'+p[0]+'"'+(f.period===p[0]?' selected':'')+'>'+p[1]+'</option>').join('')+'</select>'
+  +'<label class="sl-sr-only" for="slDashLocation">Branch</label><select id="slDashLocation"><option value="">All authorized branches</option>'+branches.map(l=>'<option value="'+esc(l.id)+'"'+(String(f.location_id)===String(l.id)?' selected':'')+'>'+esc(l.location_name)+'</option>').join('')+'</select>'
+  +'<button type="button" id="slDashReset">Reset</button><span class="sl-table-count" aria-live="polite">Reports follow these filters</span>';
+ card.parentNode.insertBefore(bar,card);
+ const apply=()=>{f.period=bar.querySelector('#slDashPeriod').value;f.location_id=bar.querySelector('#slDashLocation').value;loadDashboardInsights(true)};
+ bar.querySelector('#slDashPeriod').addEventListener('change',apply);bar.querySelector('#slDashLocation').addEventListener('change',apply);
+ bar.querySelector('#slDashReset').addEventListener('click',()=>{bar.querySelector('#slDashPeriod').value='7d';bar.querySelector('#slDashLocation').value='';apply()});
+}
 async function loadDashboardInsights(force=false){
 const host=document.getElementById('slDashboardSalesTrend');if(!host||!['dashboard','intelligence'].includes(state.view)||!state.boot)return;
 if(state.dashboardInsightsLoading&&!force)return;
+ensureDashboardFilters();
 const requestId=++state.dashboardInsightsRequestId;state.dashboardInsightsLoading=true;
 const status=document.getElementById('slDashboardInsightsStatus');if(status)status.textContent='Loading authorized data…';
 try{
- const payload=await api('/app/dashboard/insights');
+ const payload=await api('/app/dashboard/insights'+dashboardFilterQuery());
  if(requestId!==state.dashboardInsightsRequestId||!['dashboard','intelligence'].includes(state.view))return;
  state.dashboardInsights=payload||{};
  const target=(id,html)=>{const node=document.getElementById(id);if(node)node.innerHTML=html};
