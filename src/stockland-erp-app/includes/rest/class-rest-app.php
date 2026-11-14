@@ -447,6 +447,35 @@ class Stockland_REST_App extends Stockland_REST_Base {
 				},
 			)
 		);
+		// These are the role/location-scoped notification resources consumed by the PWA bell.
+		register_rest_route(
+			self::NAMESPACE_V1,
+			'/notifications',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'unread_notifications' ),
+				'permission_callback' => function () {
+					return Stockland_Authority::assert_profile();
+				},
+				'args' => array(
+					'limit' => array(
+						'default'           => 50,
+						'sanitize_callback' => 'absint',
+					),
+				),
+			)
+		);
+		register_rest_route(
+			self::NAMESPACE_V1,
+			'/notifications/(?P<id>\\d+)/read',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'mark_notification_read' ),
+				'permission_callback' => function () {
+					return Stockland_Authority::assert_profile();
+				},
+			)
+		);
 	}
 	/**
 	 * Guarantee the first native WordPress administrator has a Stockland ERP profile.
@@ -4550,6 +4579,38 @@ class Stockland_REST_App extends Stockland_REST_Base {
 		$sql .= ' ORDER BY e.id DESC LIMIT 50';
 		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- SQL is assembled only from fixed query fragments and generated numeric placeholders; dynamic values and identifiers are bound by prepare().
 		return rest_ensure_response( $args ? Stockland_DB::read_results( $wpdb->prepare( $sql, $args ), ARRAY_A ) : Stockland_DB::read_results( $sql, ARRAY_A ) );
+	}
+
+	/**
+	 * Returns unread role/user notifications visible to the current ERP profile.
+	 *
+	 * This is the PWA bell endpoint. It intentionally reads the notifications
+	 * table rather than the workflow-history feed exposed by /app/notifications.
+	 *
+	 * @param WP_REST_Request $r REST request with an optional result limit.
+	 * @return WP_REST_Response|WP_Error Role/location-scoped unread notifications.
+	 */
+	public function unread_notifications( WP_REST_Request $r ) {
+		$limit = max( 1, min( 100, absint( $r->get_param( 'limit' ) ?: 50 ) ) );
+		return rest_ensure_response( Stockland_Notifications::unread( get_current_user_id(), $limit ) );
+	}
+
+	/**
+	 * Marks one notification read only when it belongs to the current user's scope.
+	 *
+	 * @param WP_REST_Request $r REST request carrying the notification ID.
+	 * @return WP_REST_Response|WP_Error Result or a not-found/forbidden response.
+	 */
+	public function mark_notification_read( WP_REST_Request $r ) {
+		$id = absint( $r['id'] );
+		if ( $id < 1 ) {
+			return new WP_Error( 'invalid_notification', 'A valid notification ID is required.', array( 'status' => 400 ) );
+		}
+		if ( ! Stockland_Notifications::mark_read( $id, get_current_user_id() ) ) {
+			// Do not disclose whether an out-of-scope notification exists.
+			return new WP_Error( 'notification_not_found', 'The notification is not available to this account.', array( 'status' => 404 ) );
+		}
+		return rest_ensure_response( array( 'success' => true, 'id' => $id ) );
 	}
 
 	/**

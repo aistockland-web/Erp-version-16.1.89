@@ -122,7 +122,10 @@ class Stockland_Notifications {
 		$assigned_table = $wpdb->prefix . 'stock_user_locations';
 		$sql            = 'UPDATE %i AS n SET is_read=1,read_at=%s WHERE n.id=%d AND (n.user_id=%d OR (n.audience_role=%s AND (n.location_id IS NULL OR n.location_id=%d OR EXISTS (SELECT 1 FROM %i sul WHERE sul.wp_user_id=%d AND sul.location_id=n.location_id AND sul.is_active=1 AND (sul.effective_from IS NULL OR sul.effective_from<=CURDATE()) AND (sul.effective_to IS NULL OR sul.effective_to>=CURDATE())))))';
 		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $sql is a fixed UPDATE template; table identifiers, timestamp, notification ID, user, role, location and assignment table are all bound through prepare().
-		return false !== Stockland_DB::execute_query( $wpdb->prepare( $sql, Stockland_DB::table( 'notifications' ), current_time( 'mysql' ), (int) $id, (int) $user_id, $role, $loc, $assigned_table, (int) $user_id ) );
+		$updated = Stockland_DB::execute_query( $wpdb->prepare( $sql, Stockland_DB::table( 'notifications' ), current_time( 'mysql' ), (int) $id, (int) $user_id, $role, $loc, $assigned_table, (int) $user_id ) );
+		// wpdb::query() returns 0 when the ID exists but is outside the user's role/location
+		// scope. Treat that as denied; false-only checking would disclose success for no-op updates.
+		return is_int( $updated ) && $updated > 0;
 	}
 	/**
 	 * Notifies Management and Owner that a requisition awaits review.
