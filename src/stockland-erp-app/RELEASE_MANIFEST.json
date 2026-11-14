@@ -25,7 +25,7 @@
     },
     "source_patch_sha256": "8c13190bb838a39b2d74f69a372d44c73d1f560616642ce1a36ecf27d7edcdde",
     "fresh_install_ddl_patch_sha256": "104b9b28bb20105dc282b11c17982633c5ff5b8e1d34a299f1adc29bec608fbc",
-    "canonical_source_commit": "2b4bcca9bb8205e69224e0886f869a4069424f53",
+    "canonical_source_commit": "387c193c7999840c731d37acd854ec920f134507",
     "github_release_id": null,
     "provenance_note": "The canonical editable source is maintained in the repository. canonical_source_commit records the exact Git checkout used for this build (the pull-request merge commit in PR verification). The one-pack installer is deterministically generated from that checkout; CI records the workflow run, artifact ID and independently verifiable SHA-256. A GitHub Release/tag is not claimed unless a release ID is separately recorded."
   },
@@ -263,8 +263,8 @@
       },
       {
         "path": "includes/class-stockland-audit.php",
-        "bytes": 14164,
-        "sha256": "0a0d2fee8adfffd29941e40190eadbafb5257aac76b4f4a19cda8c2235484121"
+        "bytes": 14615,
+        "sha256": "aa23168b9f1e743663c66fa3006e6059da159b362c10ebea486ab5024a9305db"
       },
       {
         "path": "includes/class-stockland-authority.php",
@@ -308,8 +308,8 @@
       },
       {
         "path": "includes/class-stockland-hr-private-vault.php",
-        "bytes": 27534,
-        "sha256": "a6e2e6be92a9fdd8a847d9997b9cfddf92747e28e6b549568071e38cea86a695"
+        "bytes": 27776,
+        "sha256": "99805a730396b36c811c666d207409608fcc4ed30c690290f8f07b883f601d72"
       },
       {
         "path": "includes/class-stockland-hr.php",
@@ -428,18 +428,18 @@
       },
       {
         "path": "includes/rest/class-rest-hr-lifecycle.php",
-        "bytes": 71206,
-        "sha256": "f2f6342b8d2d21338aa07961af5a00ee98181b72e66b7d85df38350dafb4efe5"
+        "bytes": 71197,
+        "sha256": "df829d656282485acb82a9d8624dabceb6b6310b795312f98c5b56328bada004"
       },
       {
         "path": "includes/rest/class-rest-hr-payroll-cycle.php",
-        "bytes": 111157,
-        "sha256": "50a12eaf96f4ae2498f3a0d82fc504fac7e8d96fdf730dbfa4590c38e37e0e88"
+        "bytes": 112517,
+        "sha256": "2543df0061968f3fbfe75b799cf54ace3b83707c3bf1110f88ccd48eb32ff275"
       },
       {
         "path": "includes/rest/class-rest-hr.php",
-        "bytes": 98964,
-        "sha256": "0683d6de27efa206dbb092fb7e07778bcff2858abeede93aae55282fe408a948"
+        "bytes": 99061,
+        "sha256": "4cc1e465628bf6dd9710ef0761f8c122c7d3e4090a7f1eb85d520396d2780973"
       },
       {
         "path": "includes/rest/class-rest-import-v16.php",

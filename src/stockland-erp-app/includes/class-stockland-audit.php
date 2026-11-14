@@ -60,13 +60,13 @@ class Stockland_Audit {
 		try {
 			$previous         = (string) Stockland_DB::read_var( $wpdb->prepare( 'SELECT event_hash FROM %i ORDER BY id DESC LIMIT 1', $table ) );
 			$stamp            = current_time( 'mysql' );
-			$action_stored    = self::stored_action( $action );
-			$sku_stored       = self::stored_text( $sku );
+			$action_stored    = self::stored_text( self::stored_action( $action ), 50 );
+			$sku_stored       = self::stored_text( $sku, 64 );
 			$quantity_stored  = null !== $quantity ? number_format( (float) $quantity, 2, '.', '' ) : null;
 			$old_stored       = self::stored_text( $old_value );
 			$new_stored       = self::stored_text( $new_value );
 			$reason_stored    = self::stored_text( $reason );
-			$reference_stored = self::stored_text( $reference );
+			$reference_stored = self::stored_text( $reference, 50 );
 			$payload          = self::payload(
 				$user_id,
 				$branch_location_id,
@@ -114,20 +114,22 @@ class Stockland_Audit {
 	 * @param mixed $value Value to normalize.
 	 * @return string|null Normalized text or null.
 	 */
-	private static function stored_text( $value ) {
+	private static function stored_text( $value, $max_chars = 255 ) {
 		if ( null === $value ) {
 			return null;
 		}
 		if ( is_string( $value ) ) {
-			return $value;
+			$text = $value;
+		} elseif ( is_bool( $value ) ) {
+			$text = $value ? '1' : '0';
+		} elseif ( is_scalar( $value ) ) {
+			$text = (string) $value;
+		} else {
+			$text = (string) wp_json_encode( $value );
 		}
-		if ( is_bool( $value ) ) {
-			return $value ? '1' : '0';
-		}
-		if ( is_scalar( $value ) ) {
-			return (string) $value;
-		}
-		return wp_json_encode( $value );
+		// Bound to the column width BEFORE hashing so the stored row and the hash-chain payload always agree and a long
+		// detail string (for example an allowance breakdown) can never make the audit insert fail and roll back a business write.
+		return function_exists( 'mb_substr' ) ? mb_substr( $text, 0, (int) $max_chars, 'UTF-8' ) : substr( $text, 0, (int) $max_chars );
 	}
 
 	/**

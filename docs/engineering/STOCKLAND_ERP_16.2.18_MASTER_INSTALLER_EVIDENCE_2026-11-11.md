@@ -176,3 +176,12 @@ Setup table split used by the installer: 49 operational baseline tables plus 37 
 - Dashboard shows a filter bar (period and branch dropdowns, Reset); every dashboard report card (trend, categories, branches, recent transactions) follows it. Long trend charts thin their date labels.
 - New E2E `s12_dashboard_filters.php` (13 checks): point counts per period, invalid period rejected, branch narrowing never exceeds company total, branch manager refused another location. The check found that the route did not reject an unknown period; the route now declares `validate_callback`.
 - Dev-container run on MariaDB 10.11: 135 PASS, 0 FAIL, 0 unbalanced journals.
+
+### Payroll cycle end to end 2026-11-14 (CAP-04)
+- New E2E `s14_payroll_cycle.php`, run last by `run_all.sh` because it approves the HR lifecycle schema on the disposable site. It refuses to run unless `STOCKLAND_DISPOSABLE_SITE=yes` and the site and database host are loopback.
+- Uses a SYNTHETIC rule set (labelled, example.invalid source, placeholder hash) only inside the disposable database; no real rates are shipped or invented.
+- Drives the real REST routes with distinct users: Owner, second Owner, Management. Maker-checker refusals are asserted for rule sets, compensation and payroll runs.
+- Two consecutive periods are calculated against an independent decimal oracle; payroll accrual, payment clearing, statutory clearing and final-settlement journals balance and tie to the trial balance. A second reconcile of a remittance is refused.
+- Product fixes: audit text bounded to column widths before hashing; compensation id captured before the audit insert; component status shortened to fit its column; vault permission read-back clears the stat cache; MIME comparison ignores parameters; remittance reconcile requires DRAFT, posts the liability-clearing journal and refuses replays.
+- Dev-container run on MariaDB 10.11: 416 PASS, 0 FAIL (s14 contributes 247 assertions).
+
