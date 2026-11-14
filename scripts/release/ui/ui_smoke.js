@@ -186,10 +186,17 @@ const isLocal = (url) => {
           path.join(screenshots, name + '-' + viewport.label + '-axe.json'),
           JSON.stringify(axeReport, null, 2) + '\n'
         );
-        if (axeResults.violations.length) {
-          const summary = axeResults.violations.map((v) => v.id + ':' + v.impact + '(' + v.nodes.length + ')').join(', ');
+        const blockingAxeViolations = axeResults.violations.filter((v) => ['serious', 'critical'].includes(v.impact));
+        const advisoryAxeViolations = axeResults.violations.filter((v) => !['serious', 'critical'].includes(v.impact));
+        if (blockingAxeViolations.length) {
+          const summary = blockingAxeViolations.map((v) => v.id + ':' + v.impact + '(' + v.nodes.length + ')').join(', ');
+          fail(name + ' ' + viewport.label + ' serious/critical accessibility violations: ' + summary);
+        }
+        if (advisoryAxeViolations.length) {
+          const summary = advisoryAxeViolations.map((v) => v.id + ':' + (v.impact || 'minor') + '(' + v.nodes.length + ')').join(', ');
           console.log('A11Y ADVISORY ' + name + ' ' + viewport.label + ': ' + summary);
-        } else {
+        }
+        if (!axeResults.violations.length) {
           note(name + ' ' + viewport.label + ' axe accessibility scan: 0 WCAG 2.1 A/AA violations');
         }
 
@@ -392,6 +399,8 @@ const isLocal = (url) => {
     });
     if (!jsText || jsText.includes('Owner-approved additive HR/Payroll schema migration after backup and source review')) fail('HR schema approval prompt contains a prefilled approval statement');
     else note('HR schema approval prompt requires an unprefilled Owner decision');
+    if (!jsText.includes('aria-label="ALERTS — Open operational alerts"')) fail('notification button accessible name omits its visible ALERTS text');
+    else note('notification button accessible name includes its visible ALERTS label');
     if (!jsText.includes('both monthly_tax_bands (legacy) and paye_bands (frozen runs)')) fail('HR payroll rule form does not explain the dual calculator schedule contract');
     else note('HR payroll rule form explains the dual calculator contract');
     const legalReviewFields = ['Independent legal review decision','Reviewer independent of rule preparation','Independent reviewer full name','Reviewer professional registration / licence ID','Professional qualification / licence basis','Review date','Signed opinion reference / document ID','Signed opinion document SHA-256','Legal clauses reviewed (one per line)','Approved parameter keys (comma-separated)'];
