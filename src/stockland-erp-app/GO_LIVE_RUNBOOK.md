@@ -1,11 +1,13 @@
 # Go-live runbook — Stockland ERP 16.2.18
 
+> **Deployment scope:** This runbook installs or updates the existing single-company STOCKLAND ETHIOPIA deployment only. It does not provision separate customer tenants or implement multi-tenant isolation. The Central Warehouse and Goro, Gerji, Mexico and Megenagna location seeds are Stockland-specific defaults, not generic new-customer defaults.
+
 ## Before installing
 1. Take a full backup (files + database) and confirm it restores. Existing sites: note current table counts.
 2. Confirm PHP 8.3/8.4, HTTPS, and upload limits of at least 8 MB. Deactivate any older Stockland plugin copy first; do not delete data.
 
 ## Install
-1. Upload the ZIP (Plugins → Add New → Upload) and activate. Fresh sites create and verify the 49-table operational baseline (29 Core/Operations, 16 Accounting/Procurement, four legacy HR/payroll tables). The 37-table HR lifecycle extension is separate and remains pending by default.
+1. Upload the ZIP (Plugins → Add New → Upload) and activate on the existing Stockland instance. Fresh Stockland installs create and verify the 49-table operational baseline (29 Core/Operations, 16 Accounting/Procurement, four legacy HR/payroll tables). The 37-table HR lifecycle extension is separate and remains pending by default.
 2. For an existing partial site, activation/setup completes the missing operational-baseline tables additively. If HR lifecycle creation or a legacy-HR column migration is required, the active Stockland Owner must review the exact schema version/fingerprint, confirm a restorable backup, and submit the required written reason through the Owner-only System Control approval path before the HR DDL runs. No HR lifecycle DDL is attempted without that approval.
 3. Confirm System Control reports the operational baseline and HR lifecycle states separately. Nothing is dropped, truncated, renamed or reseeded by the documented add-only setup path.
 

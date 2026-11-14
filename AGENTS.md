@@ -42,9 +42,11 @@ The historical project window is 5 August–5 November 2026. The primary reposit
 
 Read these before product edits. Refresh main, all useful branches, merge ancestry, PR discussions/reviews, reverts, current workflow runs/jobs/logs, artifacts and Notion decisions. Inspect code and package bytes; never infer implementation from a PR title, branch name or version label.
 
-Preserve the full product scope: frontend-first premium SaaS web ERP; one Stockland company; central warehouse and four branches; Product Master/SKU/brand/size/colour; POS/cart, retail and wholesale; reservations, availability and approval; receiving, requisitions, transfers, returns, damage, adjustments, physical counts and daily closing; procurement, supplier/customer masters, AP, AR, expenses, cash/bank, journals, GL/PLEDGER; role/capability/location enforcement; reports, print/Excel/PDF; notifications, audit, diagnostics and PWA; recruitment, employee lifecycle, time/leave, compensation, payroll, payout/remittance, private HR documents and controlled SOP/JD/contract resources.
+For the current STOCKLAND ETHIOPIA runtime, preserve the full product scope: frontend-first premium SaaS web ERP; one existing Stockland company; its Stockland-specific Central Warehouse and Goro, Gerji, Mexico and Megenagna branches; Product Master/SKU/brand/size/colour; POS/cart, retail and wholesale; reservations, availability and approval; receiving, requisitions, transfers, returns, damage, adjustments, physical counts and daily closing; procurement, supplier/customer masters, AP, AR, expenses, cash/bank, journals, GL/PLEDGER; role/capability/location enforcement; reports, print/Excel/PDF; notifications, audit, diagnostics and PWA; recruitment, employee lifecycle, time/leave, compensation, payroll, payout/remittance, private HR documents and controlled SOP/JD/contract resources.
 
-The five inventory locations are CENTRAL WAREHOUSE, GORO BRANCH, GERJI BRANCH, MEXICO BRANCH and MEGENAGNA BRANCH. Central Warehouse is a first-class inventory control point and wholesale source. Keep the single-company stock/money ledgers, maker-checker authority, branch scoping, historical prices, audit history and all existing posted records.
+The five seeded inventory locations in the current Stockland instance are CENTRAL WAREHOUSE, GORO BRANCH, GERJI BRANCH, MEXICO BRANCH and MEGENAGNA BRANCH. These are Stockland-specific deployment defaults, not new-customer defaults. Central Warehouse is a first-class inventory control point and wholesale source. Keep this instance's single-company stock/money ledgers, maker-checker authority, branch scoping, historical prices, audit history and all existing posted records.
+
+The intended commercial product is a customer-neutral, multi-tenant Apparel Supply Chain platform. Separate customer-company identity, tenant isolation/provisioning, customer sites/factories/warehouses/branches and customer-specific users are future capabilities and are **not implemented** in the current 16.2.18 runtime. Do not describe this single-company Stockland installation as an already multi-tenant platform. Any future multi-tenant implementation requires its own explicit architecture, data-isolation, security and acceptance work.
 
 ## 3. Version-line and exact-package roles
 
@@ -85,7 +87,7 @@ The `.13/.15` Codespaces candidate smoke installs the exact locked 16.2.13 basel
 
 ## 5. Non-negotiable business, schema and security invariants
 
-- One company and one source of truth; server-side branch/location/record/object scope on every REST action.
+- Current Stockland runtime: one company and one source of truth; enforce server-side branch/location/record/object scope on every REST action. Multi-tenant provisioning and tenant isolation are future work, not implemented in 16.2.18.
 - Maker-checker approval; no self-approval; auditable approver identity, timestamp and reason.
 - Fail closed for missing stock, unknown schema, failed queries, missing approval, invalid amounts, duplicate requests or incomplete evidence. Never substitute zero/empty success.
 - Atomic/idempotent POS/cart, receiving, stock movements, reservation, transfer, payout and journal writes. Retry must not duplicate business effects.
