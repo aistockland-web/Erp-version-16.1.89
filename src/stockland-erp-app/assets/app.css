@@ -2947,5 +2947,7 @@ body[data-sl-theme],body[data-sl-theme="sapphire"]{
 #stockland-app .sl-dashboard-category .sl-block-head small,
 #stockland-app .sl-dashboard-card .sl-block-head small,
 #stockland-app #slDashboardCategories .sl-empty,
-#stockland-app .sl-dashboard-action small{color:#536981}
+#stockland-app .sl-dashboard-action small,
+#stockland-app .sl-dashboard-empty-state>div>small{color:#536981}
+#stockland-app .sl-dashboard-page .sl-link-btn{color:#336da8}
 #stockland-app .sl-notification-badge[hidden]{display:none!important}
