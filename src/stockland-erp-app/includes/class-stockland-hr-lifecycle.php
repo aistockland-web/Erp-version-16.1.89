@@ -851,25 +851,49 @@ final class Stockland_HR_Lifecycle {
 		if ( ! is_array( $legacy ) || ! is_array( $engine ) || ! $legacy || count( $legacy ) !== count( $engine ) ) { return false; }
 		$legacy = array_values( $legacy );
 		$engine = array_values( $engine );
-		$previous = -1;
+		$previous = 0;
+		$tax_at_previous = 0;
 		$unbounded = false;
 		foreach ( $legacy as $i => $band ) {
 			$calc_band = $engine[ $i ] ?? null;
-			if ( ! is_array( $band ) || ! is_array( $calc_band ) || ! array_key_exists( 'up_to', $band ) || ! array_key_exists( 'up_to', $calc_band ) || ! isset( $band['rate'], $band['credit'], $calc_band['rate'] ) || ! is_numeric( $band['credit'] ) ) { return false; }
+			if (
+				! is_array( $band ) || ! is_array( $calc_band )
+				|| ! array_key_exists( 'up_to', $band ) || ! array_key_exists( 'up_to', $calc_band )
+				|| ! isset( $band['rate'], $band['credit'], $calc_band['rate'], $calc_band['credit'] )
+				|| ! is_numeric( $band['credit'] ) || ! is_numeric( $calc_band['credit'] )
+			) { return false; }
 			try {
-				$credit = Stockland_Money::minor( $band['credit'] );
+				$legacy_credit = Stockland_Money::minor( $band['credit'] );
+				$engine_credit = Stockland_Money::minor( $calc_band['credit'] );
 				$legacy_cap = null === $band['up_to'] ? null : Stockland_Money::minor( $band['up_to'] );
 				$engine_cap = null === $calc_band['up_to'] ? null : Stockland_Money::minor( $calc_band['up_to'] );
 			} catch ( Throwable $e ) { return false; }
-			if ( $credit < 0 || $legacy_cap !== $engine_cap ) { return false; }
+			if ( $legacy_credit < 0 || $legacy_credit !== $engine_credit || $legacy_cap !== $engine_cap ) { return false; }
 			$legacy_rate = self::payroll_rate_micro_contract( (string) $band['rate'] );
-			$engine_rate = self::payroll_rate_micro_contract( $calc_band['rate'] );
+			$engine_rate = self::payroll_rate_micro_contract( (string) $calc_band['rate'] );
 			if ( null === $legacy_rate || null === $engine_rate || $legacy_rate !== $engine_rate ) { return false; }
+
+			// The legacy formula applies percentage(full taxable income) minus this band's credit.
+			// The credit must make the formula continuous at the previous band's upper limit.
+			try {
+				$rate_at_lower = Stockland_Money::minor(
+					Stockland_Money::percentage( Stockland_Money::decimal( $previous ), (string) $band['rate'] )
+				);
+			} catch ( Throwable $e ) { return false; }
+			$expected_credit = $rate_at_lower - $tax_at_previous;
+			if ( $expected_credit < 0 || $legacy_credit !== $expected_credit ) { return false; }
+
 			if ( null === $legacy_cap ) {
 				if ( $i !== count( $legacy ) - 1 ) { return false; }
 				$unbounded = true;
 			} else {
 				if ( $legacy_cap < 0 || $legacy_cap <= $previous ) { return false; }
+				try {
+					$gross_tax_at_cap = Stockland_Money::minor(
+						Stockland_Money::percentage( Stockland_Money::decimal( $legacy_cap ), (string) $band['rate'] )
+					);
+				} catch ( Throwable $e ) { return false; }
+				$tax_at_previous = max( 0, $gross_tax_at_cap - $legacy_credit );
 				$previous = $legacy_cap;
 			}
 		}
@@ -899,6 +923,9 @@ final class Stockland_HR_Lifecycle {
 		$payload = json_decode( (string) $row['rules_json'], true );
 		if ( ! self::has_qualified_legal_review( $payload ) ) {
 			return new WP_Error( 'payroll_legal_review_missing', 'Payroll is blocked: independent qualified Ethiopian tax/pension review evidence is missing from this exact rule version.', array( 'status' => 409 ) );
+		}
+		if ( ! self::has_payroll_calculator_contract( $payload ) ) {
+			return new WP_Error( 'payroll_calculator_contract_mismatch', 'The approved PAYROLL rule does not reconcile legacy monthly bands/credits with the frozen-run band schedule.', array( 'status' => 409 ) );
 		}
 		if ( ! is_array( $payload ) || empty( $payload['monthly_tax_bands'] ) || empty( $payload['employee_pension_rate'] ) || empty( $payload['employer_pension_rate'] ) || empty( $payload['tax_base_method'] ) ) {
 			return new WP_Error( 'payroll_rules_invalid', 'The approved payroll rule version is incomplete; payroll was not generated.', array( 'status' => 409 ) );
