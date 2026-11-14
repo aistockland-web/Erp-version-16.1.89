@@ -8,8 +8,9 @@ if (!root || !fs.existsSync(root)) throw new Error('Pass extracted stockland-erp
 const assets = path.join(root, 'assets');
 const manifest = JSON.parse(fs.readFileSync(path.join(assets, 'css/modules.json'), 'utf8'));
 const releaseManifest = JSON.parse(fs.readFileSync(path.join(root, 'RELEASE_MANIFEST.json'), 'utf8'));
-const expectedModuleCount = releaseManifest.release === '16.2.18' ? 14 : (['16.2.0', '16.2.1', '16.2.2', '16.2.3', '16.2.4', '16.2.5', '16.2.6', '16.2.7', '16.2.9'].includes(releaseManifest.release) ? 12 : 6);
-if (!releaseManifest.release || manifest.release !== releaseManifest.release ||
+const release = releaseManifest.application?.version || releaseManifest.release || null;
+const expectedModuleCount = release === '16.2.18' ? 14 : (['16.2.0', '16.2.1', '16.2.2', '16.2.3', '16.2.4', '16.2.5', '16.2.6', '16.2.7', '16.2.9'].includes(release) ? 12 : 6);
+if (!release || manifest.release !== release ||
     !Array.isArray(manifest.modules) || manifest.modules.length !== expectedModuleCount ||
     new Set(manifest.modules).size !== expectedModuleCount) {
   throw new Error('CSS source-module count, uniqueness, or release marker is invalid');
@@ -76,7 +77,7 @@ if (!fixtureMin.includes('.desc :hover') ||
   throw new Error('CSS minifier semantic safety fixture failed');
 }
 if (built !== appCss) throw new Error('app.css differs from ordered CSS source modules');
-if (['16.2.0', '16.2.1', '16.2.2', '16.2.3', '16.2.4', '16.2.5', '16.2.6', '16.2.7', '16.2.9'].includes(releaseManifest.release)) {
+if (['16.2.0', '16.2.1', '16.2.2', '16.2.3', '16.2.4', '16.2.5', '16.2.6', '16.2.7', '16.2.9'].includes(release)) {
   const expectedTail = [
     '07-dashboard-operations.css',
     '08-reporting-worksheet.css',
@@ -100,7 +101,7 @@ if (['16.2.0', '16.2.1', '16.2.2', '16.2.3', '16.2.4', '16.2.5', '16.2.6', '16.2
     throw new Error('Historical app.min.css differs from its release-era normalizer');
   }
 }
-if (['16.2.0', '16.2.1', '16.2.2', '16.2.3', '16.2.4', '16.2.5', '16.2.6', '16.2.7', '16.2.9', '16.2.18'].includes(releaseManifest.release)) {
+if (['16.2.0', '16.2.1', '16.2.2', '16.2.3', '16.2.4', '16.2.5', '16.2.6', '16.2.7', '16.2.9', '16.2.18'].includes(release)) {
   const bootstrap = fs.readFileSync(path.join(assets, 'bootstrap.min.css'));
   const header = bootstrap.toString('utf8', 0, 220);
   const digest = crypto.createHash('sha256').update(bootstrap).digest('hex');
@@ -116,7 +117,7 @@ for (const file of ['app.css', 'app.min.css', 'bootstrap.min.css']) {
   postcss.parse(fs.readFileSync(path.join(assets, file), 'utf8'), { from: file });
   console.log('PASS PostCSS parse ' + file);
 }
-if (releaseManifest.release === '16.2.18') {
+if (release === '16.2.18') {
   const expectedModules = [
     '01-foundation.css',
     '02-shell-navigation.css',
