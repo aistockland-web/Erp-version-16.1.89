@@ -64,6 +64,12 @@ The 16.2.13 archive remains the operational/upgrade baseline. The 16.2.15 archiv
 
 The Owner's single objective and copy-ready agent prompt are in [docs/AGENT_FIRST_PROMPT.md](../docs/AGENT_FIRST_PROMPT.md). The complete Codespaces, full business acceptance and one-click installer runbook is [here](../docs/engineering/STOCKLAND_ERP_FINAL_CODESPACES_ONE_CLICK_RELEASE_RUNBOOK_2026-11-11.md). Read the repository-root AGENTS.md before implementation.
 
+## Current Codespaces default — approved 16.2.18 only
+
+The current Dev Container sets `STOCKLAND_DEV_RELEASE_MODE=approved-16.2.18`. On first creation, `post-create.sh` installs the engineering toolchain (PHP 8.3, Node 22, Python 3.12, Composer, WP-CLI with checksum verification, locked CSS/PHPCS dependencies) and then **skips historical 16.2.13/16.2.15 candidate intake, repair and activation**. It does not rebuild or repackage the approved ERP plugin.
+
+Use the original approved Actions artifact verification command below for disposable MariaDB 10.11 and MySQL 8.0.46 WordPress installs. The older candidate-source and .13/.15 routines remain in the repository for historical/explicit legacy testing only; they are not the default Codespaces startup workflow.
+
 The canonical editable runtime source is `src/stockland-erp-app/`, not the disposable WordPress site or an extracted /tmp candidate. On first Codespaces post-create the environment verifies the exact .13/.15 original ZIP identities, creates or reuses a distinct repaired .15 QA candidate, verifies the .13 per-file manifest, and materializes the real .13 source plus `src/.stockland-erp-app.source.json`. A marked source tree is preserved on rebuild; an unmarked existing folder is never overwritten.
 
 Check source intake:
