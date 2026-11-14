@@ -28,3 +28,11 @@
 .sl-import-purpose-grid.sl-daily-pos-intake-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
 @media(max-width:991.98px){.sl-import-purpose-grid.sl-daily-pos-intake-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:575.98px){.sl-import-purpose-grid.sl-daily-pos-intake-grid{grid-template-columns:1fr}}
+
+/* WCAG 2.1 AA: readable muted labels on the light ERP canvas.
+ * Keep the Stockland neutral palette; use a deeper muted blue-grey for small text.
+ */
+#stockland-app .sl-top-brand small,
+#stockland-app .sl-user-copy small,
+#stockland-app .sl-global-search-control kbd,
+#stockland-app .sl-dashboard-page .sl-dashboard-kpi-copy .meta{color:#536981}
