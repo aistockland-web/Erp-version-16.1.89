@@ -13,7 +13,7 @@ The host initialization creates random development-only credentials in the ignor
 ## Included environment
 
 - PHP 8.3 CLI with WordPress database/XML/ZIP extensions; Node.js 22; Python 3.12; Composer; GitHub CLI; Docker CLI support; WP-CLI checksum verification.
-- MariaDB 10.11 with two isolated WordPress sites and separate databases.
+- MariaDB 10.11 with one default disposable WordPress site and a separate upgrade database; the legacy second WordPress site is opt-in only.
 - Default MariaDB 10.11 site on private port 8080: installs the exact Owner-approved 16.2.18 artifact when the approved-artifact helper is run.
 - Legacy upgrade site on private port 8081: retained in Compose for explicitly requested historical migration research; it is not part of the approved 16.2.18 default test.
 - Optional MySQL 8.0.46 site on private port 8082: fresh disposable WordPress target for the exact approved 16.2.18 artifact.
@@ -36,7 +36,7 @@ bash scripts/codespaces/verify_approved_16_2_18.sh all
 
 ## Historical 16.2.13/16.2.15 candidate parity — legacy only
 
-The previous candidate workflow is retained for historical archaeology only. It is not part of the Owner-approved 16.2.18 production environment and must not be used to install, downgrade, replace or promote the ERP. For the live-approved version, use `bash scripts/codespaces/verify_approved_16_2_18.sh all`; this validates and installs the exact pinned GitHub Actions artifact without rebuilding it.
+The previous candidate workflow is retained for historical archaeology only. It is not part of the Owner-approved 16.2.18 production environment and must not be used to install, downgrade, replace or promote the ERP. The upgrade-site container is disabled by default; do not enable the `legacy-upgrade` profile for the approved 16.2.18 workflow. For the live-approved version, use `bash scripts/codespaces/verify_approved_16_2_18.sh all`; this validates and installs the exact pinned GitHub Actions artifact without rebuilding it.
 
 ## Repository QA commands
 
