@@ -58,16 +58,19 @@ $rules = array(
 	'approved_at'               => '2026-01-03 00:00:00',
 	'approved_by'               => 999998,
 	'official_source_url'       => 'https://example.invalid/synthetic-only',
+	'source_url'                => 'https://example.invalid/synthetic-only',
 	'approval_evidence_ref'     => 'SYNTHETIC-OPINION-ONLY-0001',
 	'paye_tax_base_method'      => 'TAXABLE_EARNINGS_LESS_EMPLOYEE_PENSION',
 	'tax_base_method'           => 'TAXABLE_GROSS_LESS_EMPLOYEE_PENSION',
 	'monthly_tax_bands'         => array(
 		array( 'up_to' => '1000.00', 'rate' => '0.00', 'credit' => '0.00' ),
-		array( 'up_to' => null, 'rate' => '0.10', 'credit' => '100.00' ),
+		array( 'up_to' => '3000.00', 'rate' => '0.10', 'credit' => '100.00' ),
+		array( 'up_to' => null, 'rate' => '0.20', 'credit' => '400.00' ),
 	),
 	'paye_bands'                => array(
-		array( 'up_to' => '1000.00', 'rate' => '0.00' ),
-		array( 'up_to' => null, 'rate' => '0.10' ),
+		array( 'up_to' => '1000.00', 'rate' => '0.00', 'credit' => '0.00' ),
+		array( 'up_to' => '3000.00', 'rate' => '0.10', 'credit' => '100.00' ),
+		array( 'up_to' => null, 'rate' => '0.20', 'credit' => '400.00' ),
 	),
 	'employee_pension_rate'     => '0.05',
 	'employer_pension_rate'     => '0.08',
@@ -87,6 +90,13 @@ $check( 'dual contract rejects conflicting legacy and frozen-run PAYE bases', ! 
 $bad_band_map = $rules;
 $bad_band_map['paye_bands'][1]['rate'] = '0.15';
 $check( 'dual contract rejects different tax rates in the two band schedules', ! Stockland_HR_Lifecycle::has_payroll_calculator_contract( $bad_band_map ) );
+$bad_credit_map = $rules;
+$bad_credit_map['paye_bands'][2]['credit'] = '400.01';
+$check( 'dual contract rejects different tax credits between the two schedules', ! Stockland_HR_Lifecycle::has_payroll_calculator_contract( $bad_credit_map ) );
+$discontinuous_credit_map = $rules;
+$discontinuous_credit_map['monthly_tax_bands'][2]['credit'] = '399.99';
+$discontinuous_credit_map['paye_bands'][2]['credit'] = '399.99';
+$check( 'dual contract rejects a credit that breaks continuity at a bracket boundary', ! Stockland_HR_Lifecycle::has_payroll_calculator_contract( $discontinuous_credit_map ) );
 $missing_legacy_signoff = $rules;
 $missing_legacy_signoff['qualified_legal_review']['approved_parameters'] = array_values( array_diff( $review['approved_parameters'], array( 'monthly_tax_bands' ) ) );
 $check( 'dual contract rejects a legacy schedule omitted from reviewer scope', ! Stockland_HR_Lifecycle::has_payroll_calculator_contract( $missing_legacy_signoff ) );
@@ -103,25 +113,30 @@ $result = Stockland_HR_Payroll_Calculator::calculate(
 	$rules
 );
 
-$legacy_rules = array(
-	'status' => 'APPROVED',
-	'rule_version' => $rules['rule_version'],
-	'rule_set_id' => $rules['rule_set_id'],
-	'approved_by' => $rules['approved_by'],
-	'approved_at' => $rules['approved_at'],
-	'source_url' => $rules['official_source_url'],
-	'source_sha256' => $rules['source_sha256'],
-	'employee_pension_rate' => $rules['employee_pension_rate'],
-	'employer_pension_rate' => $rules['employer_pension_rate'],
-	'tax_base_method' => $rules['tax_base_method'],
-	'monthly_tax_bands' => $rules['monthly_tax_bands'],
-	'qualified_legal_review' => $review,
-);
-$legacy_result = Stockland_Payroll_Statutory::calculate( '1500.00', '0.00', '0.00', '1500.00', '50.00', $legacy_rules );
+$legacy_result = Stockland_Payroll_Statutory::calculate( '1500.00', '0.00', '0.00', '1500.00', '50.00', $rules );
 $check( 'legacy and frozen-run engines reconcile PAYE for a synthetic period', $legacy_result['income_tax'] === $result['totals']['payable_income_tax'] );
 $check( 'legacy and frozen-run engines reconcile employee pension', $legacy_result['employee_pension'] === $result['totals']['employee_pension'] );
 $check( 'legacy and frozen-run engines reconcile employer pension', $legacy_result['employer_pension'] === $result['totals']['employer_pension'] );
 $check( 'legacy and frozen-run engines reconcile net pay', $legacy_result['net_pay'] === $result['totals']['net_pay'] );
+
+foreach ( array( '1052.62', '1052.63', '1052.64', '3157.89', '3157.90', '3157.91', '4000.00' ) as $gross ) {
+	$cycle_boundary = Stockland_HR_Payroll_Calculator::calculate(
+		array(
+			'employee_ref' => 'SYNTH-EMPLOYEE-BOUNDARY',
+			'period_date'  => '2026-01-31',
+			'items'        => array( array( 'code' => 'BASE', 'amount' => $gross, 'source_ref' => 'SYNTH-BOUNDARY-' . str_replace( '.', '', $gross ) ) ),
+		),
+		$rules
+	);
+	$legacy_boundary = Stockland_Payroll_Statutory::calculate( $gross, '0.00', '0.00', $gross, '0.00', $rules );
+	$check(
+		'legacy and frozen-run engines reconcile at bracket boundary gross ETB ' . $gross,
+		$legacy_boundary['income_tax'] === $cycle_boundary['totals']['payable_income_tax']
+			&& $legacy_boundary['employee_pension'] === $cycle_boundary['totals']['employee_pension']
+			&& $legacy_boundary['employer_pension'] === $cycle_boundary['totals']['employer_pension']
+			&& $legacy_boundary['net_pay'] === $cycle_boundary['totals']['net_pay']
+	);
+}
 
 $check( 'calculator returns preview-only status', 'CALCULATED_REQUIRES_APPROVAL' === ( $result['status'] ?? '' ) );
 $check( 'calculator prohibits automatic posting', false === ( $result['posting_allowed'] ?? true ) );
