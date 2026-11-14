@@ -112,10 +112,23 @@ $expect_refusal = static function ( $label, $mutate ) use ( $rules, $check ) {
 $expect_refusal( 'calculator refuses missing reviewer ID', static function ( $r ) { $r['reviewer_id'] = ''; return $r; } );
 $expect_refusal( 'calculator refuses a review without an opinion reference', static function ( $r ) { $r['approval_evidence_ref'] = ''; return $r; } );
 $expect_refusal( 'calculator refuses a period before rule effective date', static function ( $r ) { $r['effective_from'] = '2026-02-01'; return $r; } );
-$expect_refusal( 'calculator refuses duplicate source references', static function ( $r ) {
-	$r['component_treatments']['OTHER_DEDUCTION'] = array( 'kind' => 'DEDUCTION', 'taxable' => false, 'pensionable' => false );
-	return $r;
-});
+$duplicate_source_refused = false;
+try {
+	Stockland_HR_Payroll_Calculator::calculate(
+		array(
+			'employee_ref' => 'SYNTH-EMPLOYEE-0001',
+			'period_date'  => '2026-01-31',
+			'items'        => array(
+				array( 'code' => 'BASE', 'amount' => '1500.00', 'source_ref' => 'SYNTH-DUPLICATE-0001' ),
+				array( 'code' => 'OTHER_DEDUCTION', 'amount' => '50.00', 'source_ref' => 'SYNTH-DUPLICATE-0001' ),
+			),
+		),
+		$rules
+	);
+} catch ( Throwable $e ) {
+	$duplicate_source_refused = false !== strpos( $e->getMessage(), 'duplicate_input_source' );
+}
+$check( 'calculator rejects duplicate frozen input source references', $duplicate_source_refused );
 
 echo $fail ? "RESULT FAIL ($fail)\n" : "RESULT PASS\n";
 exit( $fail ? 1 : 0 );
