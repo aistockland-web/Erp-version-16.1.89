@@ -720,6 +720,7 @@ class Stockland_REST_HR extends Stockland_REST_Base {
 			if ( false === Stockland_DB::insert_record( Stockland_DB::table( 'employee_compensation' ), $row ) ) {
 				throw new Exception( $wpdb->last_error ? $wpdb->last_error : 'Could not save compensation.' );
 			}
+			$compensation_id = (int) $wpdb->insert_id; // Capture before the audit insert overwrites insert_id.
 			$details = array(
 				'taxable_allowance'   => $taxable,
 				'exempt_allowance'    => $exempt,
@@ -737,7 +738,7 @@ class Stockland_REST_HR extends Stockland_REST_Base {
 			if ( false === Stockland_DB::execute_query( 'COMMIT' ) ) {
 				throw new Exception( 'Compensation commit failed.' );
 			}
-			$row['id'] = (int) $wpdb->insert_id;
+			$row['id'] = $compensation_id;
 			return rest_ensure_response( $row );
 		} catch ( Throwable $e ) {
 			Stockland_DB::execute_query( 'ROLLBACK' );
