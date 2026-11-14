@@ -726,6 +726,12 @@ class Stockland_REST_App extends Stockland_REST_Base {
 					'vat_basis'                   => Stockland_DB::get_vat_basis(),
 					'business_name'               => Stockland_DB::get_setting( 'business_name', 'Stockland Ethiopia' ),
 					'tagline'                     => Stockland_DB::get_setting( 'tagline', 'Brand Apparel — Central Warehouse & Branch Retail' ),
+					'company_legal_name'          => (string) Stockland_DB::get_setting( 'company_legal_name', '' ),
+					'company_address'             => (string) Stockland_DB::get_setting( 'company_address', '' ),
+					'company_phone'               => (string) Stockland_DB::get_setting( 'company_phone', '' ),
+					'company_email'               => (string) Stockland_DB::get_setting( 'company_email', '' ),
+					'company_website'             => (string) Stockland_DB::get_setting( 'company_website', '' ),
+					'careers_url'                 => (string) Stockland_DB::get_setting( 'careers_url', '' ),
 					'brand_logo'                  => STOCKLAND_PLUGIN_URL . 'assets/stockland-logo.jpg',
 					'brand_logo_source'           => 'WordPress Media Library asset supplied by Stockland',
 					'branch_reorder_alert_level'  => (int) Stockland_DB::get_setting( 'branch_reorder_alert_level', '2' ),
@@ -2713,7 +2719,7 @@ class Stockland_REST_App extends Stockland_REST_Base {
 	 */
 	public function save_settings( WP_REST_Request $r ) {
 		$p       = $r->get_json_params();
-		$allowed = array( 'vat_rate', 'vat_basis', 'business_name', 'tagline', 'branch_reorder_alert_level', 'central_reorder_alert_level' );
+		$allowed = array( 'vat_rate', 'vat_basis', 'business_name', 'tagline', 'branch_reorder_alert_level', 'central_reorder_alert_level', 'company_legal_name', 'company_address', 'company_phone', 'company_email', 'company_website', 'careers_url' );
 		global $wpdb;
 		foreach ( array_keys( (array) $p ) as $submitted_key ) {
 			if ( 0 === strpos( (string) $submitted_key, Stockland_Sequence::KEY_PREFIX ) ) {
@@ -2728,8 +2734,27 @@ class Stockland_REST_App extends Stockland_REST_Base {
 				if ( $v < 0 || $v > 1 ) {
 					return new WP_Error( 'invalid_vat', 'VAT rate must be between 0 and 100%.', array( 'status' => 400 ) );
 				}$v = number_format( $v, 4, '.', '' );
+			} elseif ( 'company_email' === $k ) {
+				$v = trim( sanitize_email( (string) $p[ $k ] ) );
+				if ( '' !== trim( (string) $p[ $k ] ) && '' === $v ) {
+					return new WP_Error( 'invalid_company_email', 'Company email is not a valid address.', array( 'status' => 400 ) );
+				}
+			} elseif ( 'company_website' === $k || 'careers_url' === $k ) {
+				$raw = trim( (string) $p[ $k ] );
+				$v   = '' === $raw ? '' : esc_url_raw( $raw, array( 'https' ) );
+				if ( '' !== $raw && '' === $v ) {
+					return new WP_Error( 'invalid_company_url', 'Website and careers links must be secure https addresses.', array( 'status' => 400 ) );
+				}
+			} elseif ( 'company_phone' === $k ) {
+				$v = trim( sanitize_text_field( (string) $p[ $k ] ) );
+				if ( '' !== $v && ! preg_match( '/^[0-9+()\-\s]{5,30}$/D', $v ) ) {
+					return new WP_Error( 'invalid_company_phone', 'Phone may contain digits, spaces, + ( ) and - only.', array( 'status' => 400 ) );
+				}
 			} else {
 				$v = sanitize_text_field( (string) $p[ $k ] );
+				if ( strlen( $v ) > 200 ) {
+					return new WP_Error( 'invalid_setting_length', 'A setting value is too long (200 characters maximum).', array( 'status' => 400 ) );
+				}
 			}$changes[ $k ] = $v;}
 		if ( empty( $changes ) ) {
 			return $this->settings();
@@ -2740,7 +2765,7 @@ class Stockland_REST_App extends Stockland_REST_Base {
 		try {
 			foreach ( $changes as $k => $v ) {
 				$old = Stockland_DB::get_setting( $k, null );
-				if ( false === Stockland_DB::execute_query( $wpdb->prepare( 'INSERT INTO %i (setting_key,setting_value,updated_by) VALUES(%s,%s,%d) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by)', 'settings', $k, $v, get_current_user_id() ) ) ) {
+				if ( false === Stockland_DB::execute_query( $wpdb->prepare( 'INSERT INTO %i (setting_key,setting_value,updated_by) VALUES(%s,%s,%d) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by)', Stockland_DB::table( 'settings' ), $k, $v, get_current_user_id() ) ) ) {
 					throw new Exception( 'Could not save setting ' . $k . '.' );
 				}
 				if ( (string) $old !== (string) $v && ! Stockland_Audit::log( get_current_user_id(), null, 'SETTING_UPDATE', null, null, $old, $v, 'Management setting update', $k ) ) {
