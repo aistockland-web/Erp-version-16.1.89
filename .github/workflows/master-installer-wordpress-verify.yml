@@ -88,6 +88,14 @@ jobs:
           python3 scripts/release/build_master_installer.py --update-manifest --out-dir "$PWD"
           sha256sum -c STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTALLER.zip.sha256
           python3 - <<'PY'
+          import json, subprocess
+          manifest = json.load(open("src/stockland-erp-app/RELEASE_MANIFEST.json"))
+          checkout = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+          recorded = manifest.get("source_lineage", {}).get("canonical_source_commit")
+          assert recorded == checkout, f"manifest source commit {recorded!r} != exact checkout {checkout}"
+          print("PASS installer manifest is bound to exact checkout", checkout)
+          PY
+          python3 - <<'PY'
           import hashlib, os, zipfile
           z = zipfile.ZipFile("STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTALLER.zip")
           root = "src/stockland-erp-app"

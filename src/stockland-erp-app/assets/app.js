@@ -92,7 +92,7 @@ try{
  for(let i=0;i<160 && !st.ready;i++){
    let requestBody={};
    if(st.state==='HR'&&st.hr?.schema_approval_required){
-     const approvalReason=window.prompt('Owner approval required for additive HR/Payroll schema version '+String(st.hr.schema_version||'')+'. Confirm you reviewed the source DDL and have a restorable database/files backup. Enter the approval reason (at least 12 characters):','Owner-approved additive HR/Payroll schema migration after backup and source review');
+     const approvalReason=window.prompt('Owner approval required for additive HR/Payroll schema version '+String(st.hr.schema_version||'')+'. Confirm you reviewed the source DDL and have a restorable database/files backup. Enter the approval reason (at least 12 characters):');
      if(!approvalReason||approvalReason.trim().length<12){renderSetup(st,'HR/Payroll schema setup paused. No HR schema change was attempted because Owner approval was not provided.');return;}
      requestBody={approve_hr_schema:true,approval_reason:approvalReason.trim()};
    }
@@ -368,7 +368,7 @@ function mobileMenu(){
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(document.querySelector('.sl-mobile-menu'))closeMobileMenu(true);const c=document.getElementById('slCommandPalette');if(c)c.remove();const th=document.getElementById('slThemePicker');if(th)th.remove();}});
 window.addEventListener('resize',debounce(()=>{if(window.matchMedia&&window.matchMedia('(min-width: 992px)').matches&&document.querySelector('.sl-mobile-menu'))closeMobileMenu(false)},80),{passive:true});
 function systemControlPage(){return title('System Control','Protected ERP foundation control. This does not replace WordPress administration or change business data.')+'<div id="systemControlPage"><div class="sl-panel"><div class="sl-empty">Loading schema verification…</div></div></div>';}
-async function loadSystemControl(){const el=document.getElementById('systemControlPage');if(!el)return;try{const st=await api16('/setup/status'),c=st.core||{},f=st.finance||{},h=st.hr||{},t=st.total||{},ready=!!st.ready,can=!!state.boot?.user?.capabilities?.install_schema,missing=Array.isArray(t.missing)?t.missing:[];const cards='<div class="sl-grid sl-grid-compact">'+card('Core',String(c.present??0)+' / '+String(c.total??'—'),c.missing?.length?'Needs repair':'Verified')+card('Finance & Procurement',String(f.present??0)+' / '+String(f.total??'—'),f.missing?.length?'Needs repair':(f.upgrade_gaps?.length?'Repair required':'Verified'))+card('HR & Payroll',String(h.present??0)+' / '+String(h.total??'—'),h.missing?.length?'Needs setup':(h.upgrade_gaps?.length?'Repair required':'Verified'))+card('Full ERP schema',String(t.present??0)+' / '+String(t.total??'—'),ready?'LIVE':'Incomplete')+'</div>';let action='';if(ready)action='<div class="sl-notice"><b>Production schema verified.</b> All required ERP tables are present. No schema action is required.</div>';else if(can)action='<div class="sl-notice sl-notice-soft"><b>Protected setup is resumable.</b> The next action advances only one bounded schema batch and never deletes or reseeds existing ERP records.</div><button class="sl-btn primary" id="advanceSchema">CONTINUE PROTECTED SETUP</button>';else action='<div class="sl-notice"><b>Setup is locked for this account.</b> A Stockland Owner / authorized schema administrator must continue the protected setup.</div>';const missingHtml=can&&(missing.length||(h.upgrade_gaps||[]).length||(f.upgrade_gaps||[]).length)?'<div class="sl-panel" style="margin-top:14px"><div class="sl-block-head"><div><div class="sl-eyebrow">SERVER-VERIFIED REMAINING WORK</div><h3>Tables and structural checks still required</h3></div><small>'+esc(String(missing.length+(h.upgrade_gaps||[]).length+(f.upgrade_gaps||[]).length))+' item(s)</small></div>'+(missing.length?'<div class="sl-sub"><b>Tables:</b> '+esc(missing.join(', '))+'</div>':'')+((f.upgrade_gaps||[]).length?'<div class="sl-sub"><b>Finance checks:</b> '+esc(f.upgrade_gaps.join(', '))+'</div>':'')+((h.upgrade_gaps||[]).length?'<div class="sl-sub"><b>HR checks:</b> '+esc(h.upgrade_gaps.join(', '))+'</div>':'')+'</div>':'';el.innerHTML=cards+'<div class="sl-panel"><div class="sl-block-head"><div><div class="sl-eyebrow">SYSTEM FOUNDATION</div><h3>Source-declared ERP database readiness</h3></div><span class="sl-pill '+(ready?'ok':'bad')+'">'+(ready?'LIVE':'SETUP')+'</span></div>'+action+(st.error?.message&&can?'<div class="sl-notice sl-danger-block" style="margin-top:12px"><b>Last setup error:</b> '+esc(st.error.message)+'</div>':'')+'</div>'+missingHtml;const b=document.getElementById('advanceSchema');if(b)b.onclick=async()=>{if(state.setupAdvancing)return;state.setupAdvancing=true;b.disabled=true;b.setAttribute('aria-busy','true');try{let before=await api16('/setup/status');let previousPresent=Number(before.total?.present||0);let previousFinanceGaps=(before.finance?.upgrade_gaps||[]).length;let previousHRGaps=(before.hr?.upgrade_gaps||[]).length;for(let i=0;i<160&&!before.ready;i++){b.textContent='VERIFYING SETUP… '+(i+1);let requestBody={};if(before.state==='HR'&&before.hr?.schema_approval_required){const approvalReason=window.prompt('Owner approval required for additive HR/Payroll schema version '+String(before.hr.schema_version||'')+'. Confirm you reviewed the source DDL and have a restorable database/files backup. Enter the approval reason (at least 12 characters):','Owner-approved additive HR/Payroll schema migration after backup and source review');if(!approvalReason||approvalReason.trim().length<12)throw new Error('HR/Payroll setup paused. No HR schema change was attempted because Owner approval was not provided.');requestBody={approve_hr_schema:true,approval_reason:approvalReason.trim()};}await api16('/setup/advance',{method:'POST',body:JSON.stringify(requestBody)});const after=await api16('/setup/status');const present=Number(after.total?.present||0),financeGaps=(after.finance?.upgrade_gaps||[]).length,hrGaps=(after.hr?.upgrade_gaps||[]).length;if(after.ready){toast('Core, Finance and HR schema are physically verified');await loadSystemControl();return;}if(present<=previousPresent&&financeGaps>=previousFinanceGaps&&hrGaps>=previousHRGaps){throw new Error('No physically verified setup progress. Review the remaining tables, structural checks and server error before retrying.');}previousPresent=present;previousFinanceGaps=financeGaps;previousHRGaps=hrGaps;before=after;}if(!before.ready)throw new Error('Protected setup reached its per-run safety limit. Refresh status and continue; completed batches are retained.');await loadSystemControl();}catch(e){toast(e.message,true);await loadSystemControl();}finally{state.setupAdvancing=false;const current=document.getElementById('advanceSchema');if(current){current.disabled=false;current.removeAttribute('aria-busy');current.textContent='CONTINUE PROTECTED SETUP'}}};}catch(e){el.innerHTML='<div class="sl-notice sl-danger-block">'+esc(e.message)+'</div>';}}
+async function loadSystemControl(){const el=document.getElementById('systemControlPage');if(!el)return;try{const st=await api16('/setup/status'),c=st.core||{},f=st.finance||{},h=st.hr||{},t=st.total||{},ready=!!st.ready,can=!!state.boot?.user?.capabilities?.install_schema,missing=Array.isArray(t.missing)?t.missing:[];const cards='<div class="sl-grid sl-grid-compact">'+card('Core',String(c.present??0)+' / '+String(c.total??'—'),c.missing?.length?'Needs repair':'Verified')+card('Finance & Procurement',String(f.present??0)+' / '+String(f.total??'—'),f.missing?.length?'Needs repair':(f.upgrade_gaps?.length?'Repair required':'Verified'))+card('HR & Payroll',String(h.present??0)+' / '+String(h.total??'—'),h.missing?.length?'Needs setup':(h.upgrade_gaps?.length?'Repair required':'Verified'))+card('Full ERP schema',String(t.present??0)+' / '+String(t.total??'—'),ready?'LIVE':'Incomplete')+'</div>';let action='';if(ready)action='<div class="sl-notice"><b>Production schema verified.</b> All required ERP tables are present. No schema action is required.</div>';else if(can)action='<div class="sl-notice sl-notice-soft"><b>Protected setup is resumable.</b> The next action advances only one bounded schema batch and never deletes or reseeds existing ERP records.</div><button class="sl-btn primary" id="advanceSchema">CONTINUE PROTECTED SETUP</button>';else action='<div class="sl-notice"><b>Setup is locked for this account.</b> A Stockland Owner / authorized schema administrator must continue the protected setup.</div>';const missingHtml=can&&(missing.length||(h.upgrade_gaps||[]).length||(f.upgrade_gaps||[]).length)?'<div class="sl-panel" style="margin-top:14px"><div class="sl-block-head"><div><div class="sl-eyebrow">SERVER-VERIFIED REMAINING WORK</div><h3>Tables and structural checks still required</h3></div><small>'+esc(String(missing.length+(h.upgrade_gaps||[]).length+(f.upgrade_gaps||[]).length))+' item(s)</small></div>'+(missing.length?'<div class="sl-sub"><b>Tables:</b> '+esc(missing.join(', '))+'</div>':'')+((f.upgrade_gaps||[]).length?'<div class="sl-sub"><b>Finance checks:</b> '+esc(f.upgrade_gaps.join(', '))+'</div>':'')+((h.upgrade_gaps||[]).length?'<div class="sl-sub"><b>HR checks:</b> '+esc(h.upgrade_gaps.join(', '))+'</div>':'')+'</div>':'';el.innerHTML=cards+'<div class="sl-panel"><div class="sl-block-head"><div><div class="sl-eyebrow">SYSTEM FOUNDATION</div><h3>Source-declared ERP database readiness</h3></div><span class="sl-pill '+(ready?'ok':'bad')+'">'+(ready?'LIVE':'SETUP')+'</span></div>'+action+(st.error?.message&&can?'<div class="sl-notice sl-danger-block" style="margin-top:12px"><b>Last setup error:</b> '+esc(st.error.message)+'</div>':'')+'</div>'+missingHtml;const b=document.getElementById('advanceSchema');if(b)b.onclick=async()=>{if(state.setupAdvancing)return;state.setupAdvancing=true;b.disabled=true;b.setAttribute('aria-busy','true');try{let before=await api16('/setup/status');let previousPresent=Number(before.total?.present||0);let previousFinanceGaps=(before.finance?.upgrade_gaps||[]).length;let previousHRGaps=(before.hr?.upgrade_gaps||[]).length;for(let i=0;i<160&&!before.ready;i++){b.textContent='VERIFYING SETUP… '+(i+1);let requestBody={};if(before.state==='HR'&&before.hr?.schema_approval_required){const approvalReason=window.prompt('Owner approval required for additive HR/Payroll schema version '+String(before.hr.schema_version||'')+'. Confirm you reviewed the source DDL and have a restorable database/files backup. Enter the approval reason (at least 12 characters):');if(!approvalReason||approvalReason.trim().length<12)throw new Error('HR/Payroll setup paused. No HR schema change was attempted because Owner approval was not provided.');requestBody={approve_hr_schema:true,approval_reason:approvalReason.trim()};}await api16('/setup/advance',{method:'POST',body:JSON.stringify(requestBody)});const after=await api16('/setup/status');const present=Number(after.total?.present||0),financeGaps=(after.finance?.upgrade_gaps||[]).length,hrGaps=(after.hr?.upgrade_gaps||[]).length;if(after.ready){toast('Core, Finance and HR schema are physically verified');await loadSystemControl();return;}if(present<=previousPresent&&financeGaps>=previousFinanceGaps&&hrGaps>=previousHRGaps){throw new Error('No physically verified setup progress. Review the remaining tables, structural checks and server error before retrying.');}previousPresent=present;previousFinanceGaps=financeGaps;previousHRGaps=hrGaps;before=after;}if(!before.ready)throw new Error('Protected setup reached its per-run safety limit. Refresh status and continue; completed batches are retained.');await loadSystemControl();}catch(e){toast(e.message,true);await loadSystemControl();}finally{state.setupAdvancing=false;const current=document.getElementById('advanceSchema');if(current){current.disabled=false;current.removeAttribute('aria-busy');current.textContent='CONTINUE PROTECTED SETUP'}}};}catch(e){el.innerHTML='<div class="sl-notice sl-danger-block">'+esc(e.message)+'</div>';}}
 function reportCsvField(value){const numeric=typeof value==='number'&&Number.isFinite(value);let text=value===null||value===undefined?'':String(value);if(!numeric&&/^\s*[=+\-@]/.test(text))text="'"+text;if(/[",\r\n]/.test(text))text='"'+text.replace(/"/g,'""')+'"';return text}
 function buildPeriodSummaryCsv(report,user){const d=report&&typeof report==='object'?report:{},t=d.totals||{},ret=d.returns||{},canProfit=!!(user&&user.can_cost);const n=v=>{const x=Number(v);return Number.isFinite(x)?x:0};const rows=[['Stockland Ethiopia ERP — Period Summary'],['From',d.from||''],['To',d.to||''],['Scope','Current user authorized ERP scope'],[],['Summary','Metric','Value'],['Summary','Gross sales',n(t.sales)],['Summary','Net sales excluding VAT',n(t.net)],['Summary','Recorded VAT',n(t.vat)],['Summary','Units sold',n(t.units)],['Summary','Return units',n(ret.units)],['Summary','Return rows',n(ret.rows)]];if(canProfit)rows.push(['Summary','Gross profit',n(t.profit)]);rows.push([],['Branch performance','Branch','Units sold','Sales value',...(canProfit?['Gross profit']:[])]);for(const b of Array.isArray(d.branches)?d.branches:[]){const row=['Branch',b.location_name||'',n(b.retail_units),n(b.retail_sales)];if(canProfit)row.push(n(b.retail_profit));rows.push(row)}rows.push([],['Top products','SKU','Product','Units sold','Sales value',...(canProfit?['Gross profit']:[])]);for(const x of Array.isArray(d.top_products)?d.top_products:[]){const row=['Product',x.sku||'',x.product_name||'',n(x.units),n(x.sales)];if(canProfit)row.push(n(x.profit));rows.push(row)}rows.push([],['Transfers','Transfer ID','From location','To location','SKU','Quantity','Received quantity','Status']);for(const x of Array.isArray(d.transfers)?d.transfers:[])rows.push(['Transfer',x.transfer_id||'',x.from_location_name||'',x.to_location_name||'',x.sku||'',n(x.quantity),n(x.received_qty),x.status||'']);rows.push([],['Transfer variances','Transfer ID','SKU','Product','From location','To location','Sent quantity','Received quantity','Variance']);for(const x of Array.isArray(d.variances)?d.variances:[])rows.push(['Variance',x.transfer_id||'',x.sku||'',x.product_name||'',x.from_location_name||'',x.to_location_name||'',n(x.dispatched_qty),n(x.received_qty),n(x.variance_qty)]);rows.push([],['Physical counts','Batch ID','Location','Status','Lines','Variance lines','Counted units','System units','Variance units']);for(const x of Array.isArray(d.physical_counts)?d.physical_counts:[])rows.push(['Physical count',x.batch_id||'',x.location_name||'',x.status||'',n(x.lines),n(x.variance_lines),n(x.counted_qty),n(x.system_qty),n(x.variance_qty)]);return '\uFEFF'+rows.map(row=>row.map(reportCsvField).join(',')).join('\r\n')+'\r\n'}
 function reportPresetRange(period){const [year,month,day]=localDate().split('-').map(Number);const end=new Date(year,month-1,day);const start=new Date(end);if(period==='weekly')start.setDate(start.getDate()-6);else if(period==='monthly')start.setDate(1);const fmt=x=>x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');return{from:fmt(start),to:fmt(end)}}
@@ -483,6 +483,7 @@ if(content){
 }
 applyFinanceTableLabels();
 bind();
+watchTableHolders();
 if(state.view==='intelligence')bindManagementIntelligence();
 if(state.view==='dashboard'&&state.boot.user?.role==='owner'&&state.boot.user?.capabilities?.wholesale)loadWholesaleSurplusAdvice(false);
 if(state.view==='products' && !state.catalogLoading && !state.catalogSearchPending && (state.catalog===null || state.catalogQuery!==String(state.productQuery||'').trim())) {
@@ -643,6 +644,88 @@ function bindManagementSocialWorkspace(){
    finally{if(button)button.disabled=false}
   });
  });
+}
+
+let slHolderSeq=0;
+function enhanceTableHolders(root){
+ const scope=root||document.getElementById('stockland-app')||document;
+ scope.querySelectorAll('.sl-table-wrap').forEach(wrap=>{
+  let state=wrap.__slHolderState;
+  const destroy=()=>{if(state&&state.bar&&state.bar.parentNode)state.bar.remove();delete wrap.__slHolderState;delete wrap.dataset.slHolder;};
+  if(wrap.closest('[data-sl-no-filter]')){if(state)destroy();return;}
+  const table=Array.from(wrap.children).find(el=>el.tagName==='TABLE');
+  if(!table||!table.tBodies[0]){if(state)destroy();return;}
+  const rows=Array.from(table.tBodies[0].rows).filter(r=>r.cells.length>1);
+  if(rows.length<5){if(state)destroy();return;}
+  if(!state){
+   const id='slth'+(++slHolderSeq),bar=document.createElement('div');
+   bar.className='sl-table-tools';bar.setAttribute('role','search');
+   state={id,bar,table:null,rows:[],texts:[],signature:''};
+   state.apply=()=>{
+    const q=bar.querySelector('input[type="search"]'),count=bar.querySelector('.sl-table-count');
+    if(!q||!count)return;
+    const term=q.value.trim().toLowerCase();
+    const picks=Array.from(bar.querySelectorAll('select')).map(s=>[Number(s.dataset.col),s.value]).filter(p=>p[1]);
+    let shown=0;
+    state.rows.forEach((r,n)=>{
+     const ok=(!term||state.texts[n].includes(term))&&picks.every(([c,v])=>(r.cells[c]?.textContent||'').trim()===v);
+     r.classList.toggle('sl-row-filtered',!ok);if(ok)shown++;
+    });
+    count.textContent=shown+' of '+state.rows.length+' rows';
+   };
+   bar.addEventListener('input',()=>state.apply());
+   bar.addEventListener('change',()=>state.apply());
+   bar.addEventListener('click',event=>{
+    const clear=event.target?.closest?.('[data-clear]');
+    if(!clear)return;
+    const q=bar.querySelector('input[type="search"]');if(q)q.value='';
+    bar.querySelectorAll('select').forEach(s=>{s.value='';});
+    state.apply();if(q)q.focus();
+   });
+   wrap.parentNode.insertBefore(bar,wrap);
+   wrap.__slHolderState=state;
+  }else if(state.bar.nextElementSibling!==wrap){
+   wrap.parentNode.insertBefore(state.bar,wrap);
+  }
+  wrap.dataset.slHolder='1';
+  state.table=table;state.rows=rows;
+  state.texts=rows.map(r=>r.textContent.toLowerCase().replace(/\s+/g,' '));
+  const heads=Array.from(table.querySelectorAll('thead th')).map(th=>th.textContent.trim());
+  const filters=[];
+  heads.forEach((h,i)=>{
+   if(!h||filters.length>=3)return;
+   const vals=Array.from(new Set(rows.map(r=>(r.cells[i]?.textContent||'').trim()).filter(Boolean)));
+   if(vals.length>=2&&vals.length<=12&&vals.length<=rows.length*0.8&&vals.every(v=>v.length<=40)){
+    filters.push({i,h,vals:vals.sort((a,b)=>a.localeCompare(b))});
+   }
+  });
+  const suggestionSet=new Set();
+  rows.forEach(r=>Array.from(r.cells).forEach(c=>{const v=c.textContent.trim();if(v&&v.length<=80&&suggestionSet.size<80)suggestionSet.add(v);}));
+  const suggestions=Array.from(suggestionSet);
+  const signature=JSON.stringify({heads,filters,suggestions});
+  if(signature!==state.signature){
+   const searchValue=state.bar.querySelector('input[type="search"]')?.value||'';
+   const previous=new Map(Array.from(state.bar.querySelectorAll('select')).map(s=>[Number(s.dataset.col),s.value]));
+   state.bar.innerHTML='<label class="sl-sr-only" for="'+state.id+'q">Search rows</label><input type="search" id="'+state.id+'q" list="'+state.id+'suggestions" placeholder="Search this table" autocomplete="off">'
+    +'<datalist id="'+state.id+'suggestions">'+suggestions.map(v=>'<option value="'+esc(v)+'"></option>').join('')+'</datalist>'
+    +filters.map((x,k)=>'<label class="sl-sr-only" for="'+state.id+'f'+k+'">Filter by '+esc(x.h)+'</label><select id="'+state.id+'f'+k+'" data-col="'+x.i+'"><option value="">All '+esc(x.h)+'</option>'+x.vals.map(v=>'<option value="'+esc(v)+'">'+esc(v)+'</option>').join('')+'</select>').join('')
+    +'<button type="button" data-clear>Clear</button><span class="sl-table-count" aria-live="polite"></span>';
+   const q=state.bar.querySelector('input[type="search"]');q.value=searchValue;
+   state.bar.querySelectorAll('select').forEach(s=>{const prior=previous.get(Number(s.dataset.col));if(prior&&Array.from(s.options).some(o=>o.value===prior))s.value=prior;});
+   state.signature=signature;
+  }
+  state.apply();
+ });
+}
+function watchTableHolders(){
+ const app=document.getElementById('stockland-app');if(!app||app.__slHolderWatch||typeof MutationObserver==='undefined')return;
+ app.__slHolderWatch=true;let queued=false;
+ const observer=new MutationObserver(()=>{
+  if(queued)return;queued=true;
+  (window.requestAnimationFrame||((callback)=>setTimeout(callback,0)))(()=>{queued=false;enhanceTableHolders(app);});
+ });
+ observer.observe(app,{childList:true,subtree:true,characterData:true});
+ enhanceTableHolders(app);
 }
 function bindManagementIntelligence(){
  const btn=document.getElementById('refreshManagementIntelligence');

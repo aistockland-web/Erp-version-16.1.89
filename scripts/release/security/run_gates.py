@@ -69,6 +69,16 @@ if res is not None:
         if n > cap: fails.append(f"SEMGREP new finding {f} {rule} x{n} (accepted {cap})")
     notes.append(f"semgrep findings: {len(res)} (reviewed allowlist: {sum(a['max'] for a in acc['semgrep'])})")
 
+# 6. CSS bundle consistency: app.css equals the ordered modules and app.min.css carries every module class
+mods = json.load(open(os.path.join(plugin, "assets/css/modules.json")))["modules"]
+norm = lambda t: re.sub(r"\s+", "", re.sub(r"/\*.*?\*/", "", t, flags=re.S))
+cat = "".join(open(os.path.join(plugin, "assets/css", m)).read() for m in mods)
+if norm(cat) != norm(open(os.path.join(plugin, "assets/app.css")).read()): fails.append("CSS app.css does not equal the ordered modules in modules.json")
+mini = open(os.path.join(plugin, "assets/app.min.css")).read()
+missing = sorted(c for c in set(re.findall(r"\.sl-[a-z0-9-]+", cat)) if c not in mini)
+if missing: fails.append("CSS app.min.css is missing classes: " + ", ".join(missing[:8]))
+notes.append("CSS bundle consistency: " + ("PASS" if norm(cat) == norm(open(os.path.join(plugin, "assets/app.css")).read()) and not missing else "FAIL"))
+
 print("\n".join(notes))
 print("\n".join("FAIL " + f for f in fails) if fails else "RESULT PASS")
 sys.exit(1 if fails else 0)
