@@ -71,6 +71,16 @@ fi
 : "${STOCKLAND_DEV_DB_USER:?Missing STOCKLAND_DEV_DB_USER in the Codespaces workspace environment}"
 : "${STOCKLAND_DEV_DB_PASSWORD:?Missing STOCKLAND_DEV_DB_PASSWORD in the Codespaces workspace environment}"
 
+# Start only the services needed for this exact-artifact test. The historical
+# 16.2.13/.15 upgrade site remains disabled unless its legacy profile is requested.
+COMPOSE=(docker compose --env-file "$ROOT/.devcontainer/.env" \
+  --project-directory "$ROOT/.devcontainer" \
+  -f "$ROOT/.devcontainer/docker-compose.yml")
+"${COMPOSE[@]}" up -d mariadb wordpress_baseline
+if [[ "$TARGET" == "mysql8" || "$TARGET" == "all" ]]; then
+  "${COMPOSE[@]}" --profile mysql8 up -d mysql8 wordpress_mysql8
+fi
+
 verify_site() {
   local label="$1" wp_path="$2" db_host="$3" db_name="$4"
   echo "=== Exact 16.2.18 installer: $label ==="
