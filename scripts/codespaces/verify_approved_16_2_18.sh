@@ -10,6 +10,8 @@ case "$TARGET" in mariadb|mysql8|all) ;; *) echo "Unsupported target: $TARGET" >
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
+# The mounted checkout is owned by the Actions runner; trust this repo explicitly in the workspace container.
+git config --global --add safe.directory "$ROOT"
 RUN_ID=43570216177
 ARTIFACT_ID=14104031868
 # The approved ZIP was built from this exact source commit. Its baseline E2E
