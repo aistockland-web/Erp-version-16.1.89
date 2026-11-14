@@ -245,6 +245,7 @@ jobs:
             /tmp/ui-smoke.log
             /tmp/admin-launcher-smoke.log
             /tmp/stockland-ui-smoke/*.png
+            /tmp/stockland-ui-smoke/*-axe.json
             /tmp/stockland-php-server.log
             STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTALLER.zip.sha256
           if-no-files-found: warn
