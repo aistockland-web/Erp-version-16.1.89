@@ -2935,3 +2935,10 @@ body[data-sl-theme],body[data-sl-theme="sapphire"]{
 .sl-import-purpose-grid.sl-daily-pos-intake-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
 @media(max-width:991.98px){.sl-import-purpose-grid.sl-daily-pos-intake-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:575.98px){.sl-import-purpose-grid.sl-daily-pos-intake-grid{grid-template-columns:1fr}}
+
+/* Payroll rule builder: form fields instead of JSON. */
+.sl-rule-builder{grid-column:1/-1}
+.sl-rule-builder h4{margin:12px 0 6px;font-size:15px}
+.sl-rule-builder [hidden]{display:none}
+.sl-rule-builder .sl-table input,.sl-rule-builder .sl-table select{width:100%;min-width:90px}
+.sl-rule-builder .sl-notice-bad{border-color:#c0392b;color:#8a1f12}
