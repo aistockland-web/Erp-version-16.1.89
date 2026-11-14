@@ -202,6 +202,23 @@ const isLocal = (url) => {
 
     // Management Intelligence is a Core-owned workspace, independent of HR lifecycle.
     // Verify the browser calls its own route and never falls back to the former HR endpoint.
+    // Dashboard report filters: period + branch dropdowns drive the insights request.
+    const dashNav = page.locator('[data-view="dashboard"]').first();
+    if (await dashNav.count()) await dashNav.click();
+    const filterBar = await page.waitForSelector('#slDashboardFilters', { timeout: 15000 }).catch(() => null);
+    if (!filterBar) fail('dashboard report filter bar missing');
+    else {
+      const wait30 = page.waitForRequest(r => r.url().includes('dashboard/insights') && /period(=|%3D)30d/.test(r.url()), { timeout: 10000 }).catch(() => null);
+      await page.selectOption('#slDashPeriod', '30d');
+      if (!(await wait30)) fail('selecting 30 days did not request period=30d');
+      else {
+        await page.waitForFunction(() => document.querySelectorAll('#slDashboardSalesTrend circle').length >= 30 || document.querySelector('#slDashboardSalesTrend .sl-empty'), { timeout: 10000 }).catch(() => {});
+        const points = await page.locator('#slDashboardSalesTrend circle').count();
+        if (points && points !== 30) fail('trend chart shows ' + points + ' points for a 30-day period');
+        else note('dashboard filters: period dropdown re-queries insights (' + (points || 'empty-state') + ' trend points)');
+      }
+      await page.click('#slDashReset');
+    }
     const miNav = page.locator('[data-view="intelligence"]').first();
     if (await miNav.count() < 1) {
       fail('Owner dashboard does not expose Management Intelligence');

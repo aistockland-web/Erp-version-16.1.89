@@ -2929,3 +2929,4 @@ body[data-sl-theme],body[data-sl-theme="sapphire"]{
  #hrPage .sl-hrlc-cycle>.sl-hrlc-section,#hrPage .sl-hrlc-lists>.sl-hrlc-section{display:inline-block;vertical-align:top;width:48%;margin:0 1% 14px}
  .sl-table-tools{display:block}
 }
+.sl-dashboard-filters{grid-column:1/-1}

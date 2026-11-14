@@ -309,6 +309,20 @@ class Stockland_REST_App extends Stockland_REST_Base {
 			'/app/dashboard/insights',
 			array(
 				'methods'             => 'GET',
+				'args'                => array(
+					'period'      => array(
+						'type'              => 'string',
+						'enum'              => array( '7d', '14d', '30d', 'mtd' ),
+						'validate_callback' => 'rest_validate_request_arg',
+						'sanitize_callback' => 'sanitize_key',
+					),
+					'location_id' => array(
+						'type'              => 'integer',
+						'minimum'           => 1,
+						'validate_callback' => 'rest_validate_request_arg',
+						'sanitize_callback' => 'absint',
+					),
+				),
 				'callback'            => array( $this, 'dashboard_insights' ),
 				'permission_callback' => function () {
 					return $this->can_access_erp_profile();
@@ -2866,11 +2880,23 @@ class Stockland_REST_App extends Stockland_REST_Base {
 	 *
 	 * @return mixed Dashboard series and recent posted sales.
 	 */
-	public function dashboard_insights() {
+	public function dashboard_insights( $request = null ) {
 		global $wpdb;
 		$scope = $this->scope_locations();
 		if ( false === $scope ) {
 			return new WP_Error( 'location_scope_unavailable', 'A valid Stockland location scope is required for dashboard analytics.', array( 'status' => 403 ) );
+		}
+		$period_param = ( $request instanceof WP_REST_Request ) ? (string) $request->get_param( 'period' ) : '';
+		$filtered     = '' !== $period_param;
+		$period       = in_array( $period_param, array( '7d', '14d', '30d', 'mtd' ), true ) ? $period_param : '7d';
+		$filter_loc   = ( $request instanceof WP_REST_Request ) ? absint( $request->get_param( 'location_id' ) ) : 0;
+		if ( $filter_loc > 0 ) {
+			// A location filter can only narrow the caller's authorized scope, never widen it.
+			if ( is_array( $scope ) && ! in_array( $filter_loc, $scope, true ) ) {
+				return new WP_Error( 'location_out_of_scope', 'The selected location is outside your authorized scope.', array( 'status' => 403 ) );
+			}
+			$scope    = array( $filter_loc );
+			$filtered = true;
 		}
 
 		$sales     = Stockland_DB::table( 'sales' );
@@ -2881,8 +2907,14 @@ class Stockland_REST_App extends Stockland_REST_Base {
 		if ( ! $today_obj ) {
 			return new WP_Error( 'dashboard_date_invalid', 'The configured business date could not be resolved.', array( 'status' => 500 ) );
 		}
-		$trend_start = $today_obj->modify( '-6 days' )->format( 'Y-m-d' );
 		$month_start = $today_obj->modify( 'first day of this month' )->format( 'Y-m-d' );
+		if ( 'mtd' === $period ) {
+			$trend_days = (int) $today_obj->format( 'j' );
+		} else {
+			$trend_days = (int) rtrim( $period, 'd' );
+		}
+		$trend_start   = $today_obj->modify( '-' . ( $trend_days - 1 ) . ' days' )->format( 'Y-m-d' );
+		$summary_start = $filtered ? $trend_start : $month_start;
 
 		$trend_args = array( $sales, $trend_start, $today );
 		$trend_sql  = "SELECT sale_date, COALESCE(SUM(sales_total),0) sales
@@ -2899,15 +2931,15 @@ class Stockland_REST_App extends Stockland_REST_Base {
 			$trend_map[ (string) $row['sale_date'] ] = (float) $row['sales'];
 		}
 		$trend = array();
-		for ( $index = 0; $index < 7; $index++ ) {
-			$day     = $today_obj->modify( '-' . ( 6 - $index ) . ' days' )->format( 'Y-m-d' );
+		for ( $index = 0; $index < $trend_days; $index++ ) {
+			$day     = $today_obj->modify( '-' . ( $trend_days - 1 - $index ) . ' days' )->format( 'Y-m-d' );
 			$trend[] = array(
 				'date'  => $day,
 				'sales' => (float) ( $trend_map[ $day ] ?? 0 ),
 			);
 		}
 
-		$category_args = array( $sales, $products, $month_start, $today );
+		$category_args = array( $sales, $products, $summary_start, $today );
 		$category_sql  = "SELECT COALESCE(NULLIF(TRIM(p.category),''),'Uncategorized') category, COALESCE(SUM(s.sales_total),0) sales
 			FROM %i s LEFT JOIN %i p ON (p.variant_id=s.variant_id OR (s.variant_id IS NULL AND p.sku=s.sku))
 			WHERE s.posting_status='CLOSED' AND s.sale_date BETWEEN %s AND %s";
@@ -2919,7 +2951,7 @@ class Stockland_REST_App extends Stockland_REST_Base {
 			return new WP_Error( 'dashboard_query_failed', 'The category sales summary could not be loaded. Check System Health before retrying.', array( 'status' => 500 ) );
 		}
 
-		$branch_args = array( $locations, $sales, $month_start, $today );
+		$branch_args = array( $locations, $sales, $summary_start, $today );
 		$branch_sql  = "SELECT l.id location_id,l.location_name,COALESCE(SUM(s.sales_total),0) sales
 			FROM %i l LEFT JOIN %i s ON s.branch_location_id=l.id AND s.posting_status='CLOSED' AND s.sale_date BETWEEN %s AND %s
 			WHERE l.location_type='Branch' AND l.is_active=1";
@@ -2931,13 +2963,14 @@ class Stockland_REST_App extends Stockland_REST_Base {
 			return new WP_Error( 'dashboard_query_failed', 'The branch performance summary could not be loaded. Check System Health before retrying.', array( 'status' => 500 ) );
 		}
 
-		$recent_start = $today_obj->modify( '-30 days' )->format( 'Y-m-d' );
+		$recent_start = $filtered ? $trend_start : $today_obj->modify( '-30 days' )->format( 'Y-m-d' );
+		$recent_limit = $filtered ? 25 : 8;
 		$recent_args  = array( $sales, $locations, $recent_start, $today );
 		$recent_sql   = "SELECT s.sale_id,s.sale_date,s.sales_total,s.posting_status,s.quantity_sold,l.location_name
 			FROM %i s LEFT JOIN %i l ON l.id=s.branch_location_id
 			WHERE s.posting_status='CLOSED' AND s.sale_date BETWEEN %s AND %s";
 		$recent_sql  .= $this->append_scope_filter( 's.branch_location_id', $recent_args, $scope );
-		$recent_sql  .= ' ORDER BY s.sale_date DESC,s.created_at DESC LIMIT 8';
+		$recent_sql  .= ' ORDER BY s.sale_date DESC,s.created_at DESC LIMIT ' . (int) $recent_limit;
 		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Fixed query fragments; table identifiers and scope values are bound with prepare().
 		$recent = Stockland_DB::read_results( $wpdb->prepare( $recent_sql, $recent_args ), ARRAY_A );
 		if ( '' !== (string) $wpdb->last_error ) {
@@ -2983,6 +3016,10 @@ class Stockland_REST_App extends Stockland_REST_Base {
 					'from'       => $trend_start,
 					'to'         => $today,
 					'month_from' => $month_start,
+				),
+				'filters'      => array(
+					'period'      => $period,
+					'location_id' => $filter_loc,
 				),
 				'source'       => 'CLOSED_RETAIL_SALES_ONLY',
 			)

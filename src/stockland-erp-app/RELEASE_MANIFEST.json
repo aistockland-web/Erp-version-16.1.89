@@ -84,18 +84,18 @@
       },
       {
         "path": "assets/app.css",
-        "bytes": 258142,
-        "sha256": "83a70b3470645f2f0a3eff77c3b6921a029070bc76e389b16c2d668e0f7e9d3d"
+        "bytes": 258182,
+        "sha256": "fe856a7c8f062bce58f7c153005a588f36f285b6a18c17b6f68a139c9ee97ad0"
       },
       {
         "path": "assets/app.js",
-        "bytes": 548826,
-        "sha256": "c6b3474bcfb84b00cb0274c2deb3a9e00c2ed33bf9c2d2589a591eb23ec2cb79"
+        "bytes": 551193,
+        "sha256": "1d12a26adb5f99ca11815ca9e9c8e8fa3bdfe9e6fe35687684f673d557a98c99"
       },
       {
         "path": "assets/app.min.css",
-        "bytes": 245537,
-        "sha256": "bdda21d154d16e2d8c44ac955c33852d623f8ede3777ff650300d7f49d0f14c3"
+        "bytes": 245576,
+        "sha256": "ace94dd07f6c8c1e4da1199637476fd974c3c15965238f417393d674d11d529e"
       },
       {
         "path": "assets/bootstrap.min.css",
@@ -169,8 +169,8 @@
       },
       {
         "path": "assets/css/14-table-holders-legacy-colors.css",
-        "bytes": 2024,
-        "sha256": "d6d5189bdde1bcc767d4a58137f71b68e547907066947c1786e767fa82832217"
+        "bytes": 2064,
+        "sha256": "658d24126df2e628da93be8ca0f5f7a33e01d20c6a4dfc1581445c3a27dcf234"
       },
       {
         "path": "assets/css/modules.json",
@@ -409,8 +409,8 @@
       },
       {
         "path": "includes/rest/class-rest-app.php",
-        "bytes": 248817,
-        "sha256": "c2c033c6de389d40d4ec7b92a37a9ed485ca194d4c195a26785a105b14e6f495"
+        "bytes": 250532,
+        "sha256": "2b3cf49620e38db61959e0daaf867cb7785ce40a282c132bd199f4ee2ed3dd5f"
       },
       {
         "path": "includes/rest/class-rest-calendar.php",
