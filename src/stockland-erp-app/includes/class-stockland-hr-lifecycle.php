@@ -839,6 +839,27 @@ final class Stockland_HR_Lifecycle {
 		);
 	}
 
+	/** Signed scope for the legacy allowance-component classification table. */
+	public static function has_qualified_allowance_review( $payload ) {
+		return self::has_qualified_review_evidence(
+			$payload,
+			array( 'allowance_tax_treatment', 'allowance_exemption_cap', 'allowance_pensionable_treatment', 'allowance_pensionable_cap' )
+		);
+	}
+
+	/** Signed scope for final-settlement component classification; PAYE/pension uses the legacy PAYROLL rule separately. */
+	public static function has_qualified_final_settlement_review( $payload ) {
+		return self::has_qualified_review_evidence( $payload, array( 'component_rules' ) );
+	}
+
+	/** Signed scope for individual payee withholding, distinct from employee payroll. */
+	public static function has_qualified_individual_payee_review( $payload ) {
+		$method = strtoupper( (string) ( $payload['withholding_method'] ?? '' ) );
+		$required = array( 'withholding_method', 'cash_in_kind_tax_basis' );
+		if ( 'NO_WITHHOLDING' !== $method ) { $required[] = 'withholding_rate'; }
+		return self::has_qualified_review_evidence( $payload, $required );
+	}
+
 	/** The PAYE rules are not guessed: payroll is blocked unless one approved rule version covers the entire month. */
 	public static function payroll_rules_for_period( $start_date, $end_date ) {
 		global $wpdb;
@@ -927,7 +948,7 @@ final class Stockland_HR_Lifecycle {
 		if ( ! is_array( $sets ) || ! $sets ) { return array(); }
 		$active = $sets[0];
 		$payload = json_decode( (string) $active['rules_json'], true );
-		if ( ! self::has_qualified_legal_review( $payload ) ) { return array(); }
+		if ( ! self::has_qualified_allowance_review( $payload ) ) { return array(); }
 		$rows = Stockland_DB::read_results( $wpdb->prepare( 'SELECT * FROM %i WHERE rule_set_id=%d ORDER BY category', Stockland_DB::table( 'hr_rule_components' ), (int) $active['id'] ), ARRAY_A );
 		$rules = array();
 		foreach ( (array) $rows as $row ) {
