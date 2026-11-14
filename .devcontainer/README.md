@@ -57,6 +57,10 @@ The current selected ERP release is the Owner-approved 16.2.18 package identifie
 
 The Owner's single objective and copy-ready agent prompt are in [docs/AGENT_FIRST_PROMPT.md](../docs/AGENT_FIRST_PROMPT.md). The complete Codespaces, full business acceptance and one-click installer runbook is [here](../docs/engineering/STOCKLAND_ERP_FINAL_CODESPACES_ONE_CLICK_RELEASE_RUNBOOK_2026-11-11.md). Read the repository-root AGENTS.md before implementation.
 
+## GitHub Free Codespaces usage
+
+The Dev Container requests the smallest profile: 2 cores, 8 GB RAM, 32 GB disk. GitHub Free personal accounts currently include 120 core-hours and 15 GB-month of storage. A 2-core machine consumes 2 core-hours for each active hour, so 60 hours is the theoretical compute ceiling if none of the account's monthly allowance has already been used. Storage is a separate usage meter, and custom devcontainer images/repository files/extensions count. Check the account's remaining usage in GitHub Settings → Billing and licensing → Usage before creating the Codespace. Stop the Codespace when idle and do not enable paid overage. Details are recorded in [CLOUDFLARE_FREE_PLAN.md](CLOUDFLARE_FREE_PLAN.md).
+
 ## Current Codespaces default — approved 16.2.18 only
 
 The current Dev Container sets `STOCKLAND_DEV_RELEASE_MODE=approved-16.2.18`. On first creation, `post-create.sh` installs the engineering toolchain (PHP 8.3, Node 22, Python 3.12, Composer, WP-CLI with checksum verification, locked CSS/PHPCS dependencies) and then **skips historical 16.2.13/16.2.15 candidate intake, repair and activation**. It does not rebuild or repackage the approved ERP plugin.
@@ -79,7 +83,6 @@ Do not run `.devcontainer/verify-master-installer.sh` for this exact-artifact ch
 
 ```bash
 bash .devcontainer/initialize-host.sh
-docker compose --project-directory .devcontainer -f .devcontainer/docker-compose.yml --profile mysql8 up -d --build
 bash scripts/codespaces/verify_approved_16_2_18.sh all
 ```
 
