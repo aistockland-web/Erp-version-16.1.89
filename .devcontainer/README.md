@@ -6,14 +6,14 @@ This is the real Stockland ERP engineering workspace, not a sample application. 
 
 Open the repository's Codespaces creation page and choose branch:
 
-https://github.com/codespaces/new?repo=aistockland-web%2FErp-version-16.1.89&ref=delivery%2Fstockland-full-erp-completion-2026-11-11
+https://github.com/codespaces/new?repo=aistockland-web%2FErp-version-16.1.89&ref=infra%2Fstockland-codespaces-16218-only-2026-11-14
 
 The host initialization creates random development-only credentials in the ignored repository-root .env file. They are not committed or printed.
 
 ## Included environment
 
 - PHP 8.3 CLI with WordPress database/XML/ZIP extensions; Node.js 22; Python 3.12; Composer; GitHub CLI; Docker CLI support; WP-CLI checksum verification.
-- MariaDB 10.11 with one default disposable WordPress site and a separate upgrade database; the legacy second WordPress site is opt-in only.
+- MariaDB 10.11 with one default disposable WordPress site; the legacy upgrade site is opt-in only.
 - Default MariaDB 10.11 site on private port 8080: installs the exact Owner-approved 16.2.18 artifact when the approved-artifact helper is run.
 - Legacy upgrade site on private port 8081: retained in Compose for explicitly requested historical migration research; it is not part of the approved 16.2.18 default test.
 - Optional MySQL 8.0.46 site on private port 8082: fresh disposable WordPress target for the exact approved 16.2.18 artifact.
@@ -30,7 +30,6 @@ node -v
 python3 --version
 wp --info
 bash .devcontainer/initialize-host.sh
-docker compose --project-directory .devcontainer -f .devcontainer/docker-compose.yml --profile mysql8 up -d --build
 bash scripts/codespaces/verify_approved_16_2_18.sh all
 ~~~
 
@@ -38,7 +37,7 @@ bash scripts/codespaces/verify_approved_16_2_18.sh all
 
 The previous candidate workflow is retained for historical archaeology only. It is not part of the Owner-approved 16.2.18 production environment and must not be used to install, downgrade, replace or promote the ERP. The upgrade-site container is disabled by default; do not enable the `legacy-upgrade` profile for the approved 16.2.18 workflow. For the live-approved version, use `bash scripts/codespaces/verify_approved_16_2_18.sh all`; this validates and installs the exact pinned GitHub Actions artifact without rebuilding it.
 
-## Repository QA commands
+## Historical package QA commands (not part of the 16.2.18 default release path)
 
 ~~~bash
 python3 ci/codespaces/validate_candidate_packages.py --extract-root /tmp/stockland-candidates
@@ -84,7 +83,7 @@ docker compose --project-directory .devcontainer -f .devcontainer/docker-compose
 bash scripts/codespaces/verify_approved_16_2_18.sh all
 ```
 
-The helper validates both the outer Actions artifact digest and the inner installer SHA, its 16.2.18 manifest, 124 file hashes, ZIP paths and CRC. It then installs that exact ZIP in the disposable MariaDB 10.11 and MySQL 8.0.46 WordPress Compose sites and runs the existing synthetic ERP workflow suites. It does not connect to the live company database, rebuild the plugin, or alter the original approved package. The canonical `scripts/release/verify_master_installer.sh` and the existing package-build/release workflow are left unchanged; the Compose-specific host check and installation sequence live only in `scripts/codespaces/verify_approved_16_2_18.sh`.
+The helper starts only the required disposable WordPress/MariaDB services and (for `all` or `mysql8`) the optional MySQL 8.0.46 services; it leaves the legacy upgrade site stopped. It validates both the outer Actions artifact digest and the inner installer SHA, the 16.2.18 manifest, all 124 file hashes, archive paths and CRC. It installs that exact ZIP into the disposable database targets and runs the existing synthetic ERP workflow suites. It does not connect to the live company database, rebuild the plugin, or alter the original approved package. The canonical `scripts/release/verify_master_installer.sh` and the existing package-build/release workflow are left unchanged; the Compose-specific host check and installation sequence live only in `scripts/codespaces/verify_approved_16_2_18.sh`.
 
 ## Cloudflare Free plan
 
