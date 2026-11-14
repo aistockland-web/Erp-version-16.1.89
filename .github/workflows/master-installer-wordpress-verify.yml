@@ -84,6 +84,8 @@ jobs:
           node --check scripts/release/ui/ui_smoke.js
           node --check scripts/release/ui/admin_launcher_smoke.js
           node scripts/release/tests/daily_pos_ui_contract.js
+          npm ci --prefix ci/cssqa --ignore-scripts --no-audit --no-fund
+          NODE_PATH="$PWD/ci/cssqa/node_modules" node ci/qa/check-css-postcss.js "$PWD/src/stockland-erp-app" --scope baseline
 
       - name: Build installer from the exact source tree under test
         run: |
