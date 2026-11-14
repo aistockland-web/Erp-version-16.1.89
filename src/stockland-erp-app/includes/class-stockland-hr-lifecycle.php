@@ -854,7 +854,9 @@ final class Stockland_HR_Lifecycle {
 
 	/** Signed scope for individual payee withholding, distinct from employee payroll. */
 	public static function has_qualified_individual_payee_review( $payload ) {
+		if ( ! is_array( $payload ) ) { return false; }
 		$method = strtoupper( (string) ( $payload['withholding_method'] ?? '' ) );
+		if ( ! in_array( $method, array( 'RATE_ON_GROSS_CASH', 'RATE_ON_CASH_PLUS_IN_KIND', 'NO_WITHHOLDING' ), true ) ) { return false; }
 		$required = array( 'withholding_method', 'cash_in_kind_tax_basis' );
 		if ( 'NO_WITHHOLDING' !== $method ) { $required[] = 'withholding_rate'; }
 		return self::has_qualified_review_evidence( $payload, $required );
