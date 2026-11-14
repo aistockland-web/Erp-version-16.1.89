@@ -37,4 +37,8 @@
 #stockland-app .sl-global-search-control kbd,
 #stockland-app .sl-dashboard-page .sl-dashboard-kpi-copy .meta,
 #stockland-app .sl-dashboard-trend .sl-block-head small,
-#stockland-app .sl-dashboard-category .sl-block-head small{color:#536981}
+#stockland-app .sl-dashboard-category .sl-block-head small,
+#stockland-app .sl-dashboard-card .sl-block-head small,
+#stockland-app #slDashboardCategories .sl-empty,
+#stockland-app .sl-dashboard-action small{color:#536981}
+#stockland-app .sl-notification-badge[hidden]{display:none!important}
