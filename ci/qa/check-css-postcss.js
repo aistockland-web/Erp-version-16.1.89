@@ -118,10 +118,13 @@ if (['16.2.0', '16.2.1', '16.2.2', '16.2.3', '16.2.4', '16.2.5', '16.2.6', '16.2
     throw new Error('app.min.css differs from semantics-safe minification of source modules');
   }
 } else if (release === '16.2.18') {
+  if (minifyCssPreservingSemantics(built) !== appMin) {
+    throw new Error('app.min.css differs from semantics-safe minification of the ordered 16.2.18 source modules');
+  }
   if (cssSemanticFingerprint(built) !== cssSemanticFingerprint(appMin)) {
     throw new Error('app.min.css differs semantically from the ordered 16.2.18 CSS source modules');
   }
-  console.log('PASS 16.2.18 app.css/app.min.css PostCSS semantic parity');
+  console.log('PASS 16.2.18 exact generated app.min.css and PostCSS semantic parity');
 } else {
   // Keep historical release artifacts reproducible; the new builder uses the
   // safer minifier on 16.2.0+ candidate builds.
