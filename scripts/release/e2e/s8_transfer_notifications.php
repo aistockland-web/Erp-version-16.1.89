@@ -3,6 +3,7 @@
 // Runs immediately after s3_transfer.php, which stores the exact created transfer fixture.
 require_once __DIR__ . '/lib.php';
 global $wpdb;
+$u = get_option( 'e2e_users', array() );
 
 $fail = 0;
 $check = function ( $label, $cond ) use ( &$fail ) {
