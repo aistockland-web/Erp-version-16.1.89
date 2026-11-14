@@ -55,6 +55,18 @@ $personal_count = static function ( $type ) use ( $wpdb, $notification_table, $t
 	) );
 };
 
+$location_count = static function ( $type, $role, $location_id ) use ( $wpdb, $notification_table, $tid ) {
+	return (int) $wpdb->get_var( $wpdb->prepare(
+		'SELECT COUNT(*) FROM %i WHERE entity_type=%s AND entity_id=%s AND notification_type=%s AND audience_role=%s AND location_id=%d',
+		$notification_table,
+		'transfer',
+		$tid,
+		$type,
+		$role,
+		(int) $location_id
+	) );
+};
+
 $check( 'requested: source warehouse is asked to approve', $count( 'transfer_requested', 'warehouse_manager' ) >= 1 );
 $check( 'requested: management informed', $count( 'transfer_requested', 'management' ) >= 1 );
 $check( 'approved: warehouse told to reserve and pick', $count( 'transfer_approved', 'warehouse_manager' ) >= 1 );
@@ -68,35 +80,40 @@ foreach ( array( 'requested', 'approved', 'reserved', 'picked', 'in_transit' ) a
 	$check( 'requester receives personal ' . $stage . ' update', $personal_count( 'transfer_' . $stage ) >= 1 );
 }
 
-$check(
-	'receipt notification still raised',
-	$count( 'transfer_received' ) >= 1
-		|| (int) $wpdb->get_var( $wpdb->prepare(
-			'SELECT COUNT(*) FROM %i WHERE entity_type=%s AND entity_id=%s AND title LIKE %s',
-			$notification_table,
-			'transfer',
-			$tid,
-			'Receiving variance%'
-		) ) >= 1
-);
+$check( 'received: source warehouse manager informed', $count( 'transfer_received', 'warehouse_manager' ) >= 1 );
+$check( 'received: destination branch manager informed', $count( 'transfer_received', 'branch_manager' ) >= 1 );
+$check( 'received: destination sales staff informed', $count( 'transfer_received', 'sales_employee' ) >= 1 );
+$check( 'received: management informed', $count( 'transfer_received', 'management' ) >= 1 );
+$check( 'received: owner informed', $count( 'transfer_received', 'owner' ) >= 1 );
 
+$check( 'completed: source warehouse manager informed', $count( 'transfer_completed', 'warehouse_manager' ) >= 1 );
+$check( 'completed: destination branch manager informed', $count( 'transfer_completed', 'branch_manager' ) >= 1 );
+$check( 'completed: destination sales staff informed', $count( 'transfer_completed', 'sales_employee' ) >= 1 );
+$check( 'completed: management informed', $count( 'transfer_completed', 'management' ) >= 1 );
+$check( 'completed: owner informed', $count( 'transfer_completed', 'owner' ) >= 1 );
+
+foreach ( array( 'requested', 'approved', 'reserved', 'picked', 'in_transit', 'received', 'completed' ) as $stage ) {
+	$check( 'requester receives personal ' . $stage . ' update', $personal_count( 'transfer_' . $stage ) >= 1 );
+}
+
+$source = (int) $wpdb->get_var( $wpdb->prepare(
+	'SELECT from_location_id FROM %i WHERE transfer_id=%s',
+	$transfer_table,
+	$tid
+) );
 $destination = (int) $wpdb->get_var( $wpdb->prepare(
 	'SELECT to_location_id FROM %i WHERE transfer_id=%s',
 	$transfer_table,
 	$tid
 ) );
-$check(
-	'in-transit notice targets the destination location',
-	(int) $wpdb->get_var( $wpdb->prepare(
-		'SELECT COUNT(*) FROM %i WHERE entity_type=%s AND entity_id=%s AND notification_type=%s AND audience_role=%s AND location_id=%d',
-		$notification_table,
-		'transfer',
-		$tid,
-		'transfer_in_transit',
-		'branch_manager',
-		$destination
-	) ) >= 1
-);
+
+$check( 'in-transit branch notice targets the destination location', $location_count( 'transfer_in_transit', 'branch_manager', $destination ) >= 1 );
+$check( 'receipt warehouse notice targets the source location', $location_count( 'transfer_received', 'warehouse_manager', $source ) >= 1 );
+$check( 'receipt branch notice targets the destination location', $location_count( 'transfer_received', 'branch_manager', $destination ) >= 1 );
+$check( 'receipt sales notice targets the destination location', $location_count( 'transfer_received', 'sales_employee', $destination ) >= 1 );
+$check( 'completion warehouse notice targets the source location', $location_count( 'transfer_completed', 'warehouse_manager', $source ) >= 1 );
+$check( 'completion branch notice targets the destination location', $location_count( 'transfer_completed', 'branch_manager', $destination ) >= 1 );
+$check( 'completion sales notice targets the destination location', $location_count( 'transfer_completed', 'sales_employee', $destination ) >= 1 );
 
 echo $fail ? "RESULT FAIL ($fail)\n" : "RESULT PASS\n";
 if ( $fail ) {

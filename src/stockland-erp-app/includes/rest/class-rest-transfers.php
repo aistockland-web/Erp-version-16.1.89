@@ -534,7 +534,7 @@ class Stockland_REST_Transfers extends Stockland_REST_Base {
 			}
 			$after = $this->row( $id );
 			try {
-				$event_map = array( 'Approved' => 'APPROVED', 'Rejected' => 'REJECTED', 'Reserved' => 'RESERVED', 'Picked' => 'PICKED', 'In Transit' => 'IN_TRANSIT', 'Received' => 'RECEIVED', 'Cancelled' => 'CANCELLED' );
+				$event_map = array( 'Approved' => 'APPROVED', 'Rejected' => 'REJECTED', 'Reserved' => 'RESERVED', 'Picked' => 'PICKED', 'In Transit' => 'IN_TRANSIT', 'Received' => 'RECEIVED', 'Completed' => 'COMPLETED', 'Cancelled' => 'CANCELLED' );
 				if ( isset( $event_map[ $new ] ) && false === Stockland_Notifications::notify_transfer( $event_map[ $new ], (array) $after ) ) {
 					$this->log_notification_failure( $event_map[ $new ], $id, 'notification_dispatch_returned_false' );
 				}

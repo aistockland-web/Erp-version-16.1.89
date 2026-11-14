@@ -172,7 +172,7 @@ class Stockland_Notifications {
 	 *
 	 * Called after the transfer transaction has committed, so a notification problem can never undo stock movement.
 	 *
-	 * @param string $event Event: REQUESTED, APPROVED, REJECTED, RESERVED, PICKED, IN_TRANSIT, CANCELLED.
+	 * @param string $event Event: REQUESTED, APPROVED, REJECTED, RESERVED, PICKED, IN_TRANSIT, RECEIVED, COMPLETED, CANCELLED.
 	 * @param array  $t     Transfer row (needs transfer_id, sku, quantity, from/to location id and name, requested_by).
 	 * @return bool Whether notifications were requested.
 	 */
@@ -201,8 +201,18 @@ class Stockland_Notifications {
 				$sends[] = array( 'management', null, 'Transfer dispatched', $what . ' is in transit.', 'info' );
 				break;
 			case 'RECEIVED':
+				$sends[] = array( 'warehouse_manager', $from, 'Transfer received at destination', $what . ' was received at the destination and recorded. Review the receipt and any variance.', 'info' );
+				$sends[] = array( 'branch_manager', $to, 'Transfer received', $what . ' was received and recorded at your location.', 'info' );
+				$sends[] = array( 'sales_employee', $to, 'New stock received', $what . ' was received at your location and recorded in inventory.', 'info' );
 				$sends[] = array( 'management', null, 'Transfer received', $what . ' was received and recorded.', 'info' );
 				$sends[] = array( 'owner', null, 'Transfer received', $what . ' was received and recorded.', 'info' );
+				break;
+			case 'COMPLETED':
+				$sends[] = array( 'warehouse_manager', $from, 'Transfer completed', $what . ' has completed at the destination. Review the source and destination movement records.', 'info' );
+				$sends[] = array( 'branch_manager', $to, 'Transfer completed', $what . ' is complete and recorded at your location.', 'info' );
+				$sends[] = array( 'sales_employee', $to, 'Transfer completed', $what . ' is complete in inventory.', 'info' );
+				$sends[] = array( 'management', null, 'Transfer completed', $what . ' is complete.', 'info' );
+				$sends[] = array( 'owner', null, 'Transfer completed', $what . ' is complete.', 'info' );
 				break;
 			case 'REJECTED':
 			case 'CANCELLED':
@@ -217,7 +227,7 @@ class Stockland_Notifications {
 		foreach ( $sends as $n ) {
 			$ok = self::push_role( $n[0], $n[1], 'transfer_' . strtolower( $event ), $n[2], $n[3], 'transfer', $id, $n[4] ) && $ok;
 		}
-		if ( ! empty( $t['requested_by'] ) && in_array( strtoupper( (string) $event ), array( 'REQUESTED', 'APPROVED', 'RESERVED', 'PICKED', 'IN_TRANSIT', 'RECEIVED', 'REJECTED', 'CANCELLED' ), true ) ) {
+		if ( ! empty( $t['requested_by'] ) && in_array( strtoupper( (string) $event ), array( 'REQUESTED', 'APPROVED', 'RESERVED', 'PICKED', 'IN_TRANSIT', 'RECEIVED', 'COMPLETED', 'REJECTED', 'CANCELLED' ), true ) ) {
 			$ok = self::push_user( (int) $t['requested_by'], 'transfer_' . strtolower( $event ), 'Your transfer ' . $id . ': ' . strtolower( str_replace( '_', ' ', $event ) ), $what . '.', 'transfer', $id, in_array( strtoupper( $event ), array( 'REJECTED', 'CANCELLED' ), true ) ? 'warning' : 'info' ) && $ok;
 		}
 		return $ok;
