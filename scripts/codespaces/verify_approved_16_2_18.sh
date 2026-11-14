@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Install and test the exact Owner-approved 16.2.18 Actions artifact.
-# No local build/repack step is performed. All WordPress targets must be disposable Compose services.
+# No local build/repack step is performed. Every WordPress target must be a disposable Compose site.
 set -euo pipefail
 
 TARGET=all
@@ -11,8 +11,9 @@ case "$TARGET" in mariadb|mysql8|all) ;; *) echo "Unsupported target: $TARGET" >
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 RUN_ID=43570216177
-ARTIFACT_NAME=stockland-erp-16.2.18-one-pack-installer
+ARTIFACT_ID=14104031868
 EXPECTED_SHA=de7b087906e82185de1782af1125f3194c6904785afb5338e0c828c743d38a08
+EXPECTED_OUTER_SHA=ff58626d39c63980eba7f3de5cf8e2ee7c5788952e746731791fdd20b434d133
 ARTIFACT_DIR="$(mktemp -d /tmp/stockland-approved-16218.XXXXXX)"
 trap 'rm -rf "$ARTIFACT_DIR"' EXIT
 
@@ -22,8 +23,7 @@ if [[ -z "$GH_TOKEN_VALUE" ]] && command -v gh >/dev/null 2>&1; then
 fi
 [[ -n "$GH_TOKEN_VALUE" ]] || { echo "Authenticate gh or provide GH_TOKEN to download the approved Actions artifact." >&2; exit 2; }
 
-echo "=== Download exact approved release artifact #14104031868 from run $RUN_ID ==="
-ARTIFACT_ID=14104031868
+echo "=== Download exact approved release artifact #$ARTIFACT_ID from run $RUN_ID ==="
 API_URL="https://api.github.com/repos/aistockland-web/Erp-version-16.1.89/actions/artifacts/$ARTIFACT_ID/zip"
 DOWNLOAD_URL="$(curl --fail --silent --show-error --output /dev/null --write-out '%{redirect_url}' \
   -H "Accept: application/vnd.github+json" \
@@ -35,8 +35,8 @@ curl --fail --silent --show-error --location --retry 3 "$DOWNLOAD_URL" --output 
 chmod 0755 "$ARTIFACT_DIR"
 chmod 0644 "$OUTER"
 OUTER_SHA="$(sha256sum "$OUTER" | awk '{print $1}')"
-[[ "$OUTER_SHA" == "ff58626d39c63980eba7f3de5cf8e2ee7c5788952e746731791fdd20b434d133" ]] || {
-  echo "Downloaded Actions wrapper does not match artifact #14104031868." >&2; exit 1;
+[[ "$OUTER_SHA" == "$EXPECTED_OUTER_SHA" ]] || {
+  echo "Downloaded Actions wrapper does not match artifact #$ARTIFACT_ID." >&2; exit 1;
 }
 unzip -q "$OUTER" -d "$ARTIFACT_DIR"
 
@@ -64,37 +64,58 @@ if ! command -v wp >/dev/null 2>&1; then
   [[ -n "$EXPECTED_WP_CLI" && "$ACTUAL_WP_CLI" == "$EXPECTED_WP_CLI" ]] || {
     echo "WP-CLI checksum verification failed." >&2; exit 1;
   }
-  chmod 0755 "$ARTIFACT_DIR/wp-cli/wp"
+  chmod 0755 "$ARTIFACT_DIR/wp-cli" "$ARTIFACT_DIR/wp-cli/wp"
   export PATH="$ARTIFACT_DIR/wp-cli:$PATH"
 fi
 
-[[ -n "$STOCKLAND_DEV_DB_USER" && -n "$STOCKLAND_DEV_DB_PASSWORD" ]] || {
-  echo "Missing local disposable database credentials; run .devcontainer/initialize-host.sh first." >&2; exit 2;
-}
+: "${STOCKLAND_DEV_DB_USER:?Missing STOCKLAND_DEV_DB_USER in the Codespaces workspace environment}"
+: "${STOCKLAND_DEV_DB_PASSWORD:?Missing STOCKLAND_DEV_DB_PASSWORD in the Codespaces workspace environment}"
 
 verify_site() {
   local label="$1" wp_path="$2" db_host="$3" db_name="$4"
   echo "=== Exact 16.2.18 installer: $label ==="
-  export WORDPRESS_DB_HOST="$db_host"
-  export WORDPRESS_DB_NAME="$db_name"
-  export WORDPRESS_DB_USER="$STOCKLAND_DEV_DB_USER"
-  export WORDPRESS_DB_PASSWORD="$STOCKLAND_DEV_DB_PASSWORD"
-  export STOCKLAND_DISPOSABLE_SITE=yes
-  export STOCKLAND_CODESPACES_COMPOSE=yes
-  export STOCKLAND_DISPOSABLE_DB_NAME="$db_name"
-  export STOCKLAND_DISPOSABLE_DB_HOST="$db_host"
+  case "$db_host" in
+    mariadb:3306|mysql8:3306) ;;
+    *) echo "Refusing unsupported disposable DB host: $db_host" >&2; return 2 ;;
+  esac
 
-  sudo -u www-data env HOME=/tmp PATH="$PATH" \
-    WORDPRESS_DB_HOST="$db_host" WORDPRESS_DB_NAME="$db_name" \
-    WORDPRESS_DB_USER="$STOCKLAND_DEV_DB_USER" WORDPRESS_DB_PASSWORD="$STOCKLAND_DEV_DB_PASSWORD" \
-    STOCKLAND_DISPOSABLE_SITE=yes STOCKLAND_CODESPACES_COMPOSE=yes \
-    STOCKLAND_DISPOSABLE_DB_NAME="$db_name" STOCKLAND_DISPOSABLE_DB_HOST="$db_host" \
-    bash scripts/release/verify_master_installer.sh "$wp_path" "$ZIP"
+  wp_as_www() {
+    sudo -u www-data env HOME=/tmp PATH="$PATH" \
+      WORDPRESS_DB_HOST="$db_host" WORDPRESS_DB_NAME="$db_name" \
+      WORDPRESS_DB_USER="$STOCKLAND_DEV_DB_USER" WORDPRESS_DB_PASSWORD="$STOCKLAND_DEV_DB_PASSWORD" \
+      wp --path="$wp_path" "$@"
+  }
+
+  # Verify the wp-config.php points to the intended internal Compose service/database BEFORE reset.
+  local actual_db actual_host
+  actual_db="$(wp_as_www config get DB_NAME)"
+  actual_host="$(wp_as_www config get DB_HOST)"
+  [[ "$actual_db" == "$db_name" ]] || {
+    echo "Refusing: expected DB $db_name but WordPress config reports $actual_db." >&2; return 2;
+  }
+  [[ "$actual_host" == "$db_host" ]] || {
+    echo "Refusing: expected host $db_host but WordPress config reports $actual_host." >&2; return 2;
+  }
+
+  # Same disposable-site reset/install sequence as the shared verifier, kept local here
+  # so the canonical release verifier and its CI/rebuild workflow remain untouched.
+  wp_as_www db reset --yes
+  local qa_password
+  qa_password="$(openssl rand -hex 18)"
+  wp_as_www core install --url=http://localhost --title=Stockland-QA --admin_user=admin \
+    --admin_password="$qa_password" --admin_email=qa@example.com --skip-email
+  unset qa_password
+  sudo -u www-data rm -rf "$wp_path/wp-content/plugins/stockland-erp-app"
+  wp_as_www --user=admin plugin install "$ZIP" --activate
+  wp_as_www --user=admin eval-file scripts/release/complete_baseline.php
+  wp_as_www --user=admin eval-file scripts/release/verify_master_installer.php
+
   sudo -u www-data env HOME=/tmp PATH="$PATH" \
     WORDPRESS_DB_HOST="$db_host" WORDPRESS_DB_NAME="$db_name" \
     WORDPRESS_DB_USER="$STOCKLAND_DEV_DB_USER" WORDPRESS_DB_PASSWORD="$STOCKLAND_DEV_DB_PASSWORD" \
     STOCKLAND_DISPOSABLE_SITE=yes \
     bash scripts/release/e2e/run_all.sh "$wp_path"
+
   echo "PASS $label — exact approved 16.2.18 artifact, ZIP SHA $EXPECTED_SHA"
 }
 
