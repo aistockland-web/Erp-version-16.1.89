@@ -8,7 +8,7 @@ if [[ $# -gt 0 ]]; then TARGET="$1"; fi
 if [[ $# -gt 1 ]]; then echo "Usage: $0 [mariadb|mysql8|all]" >&2; exit 2; fi
 case "$TARGET" in mariadb|mysql8|all) ;; *) echo "Unsupported target: $TARGET" >&2; exit 2 ;; esac
 
-ROOT="$(git rev-parse --show-toplevel)"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 RUN_ID=43570216177
 ARTIFACT_NAME=stockland-erp-16.2.18-one-pack-installer
