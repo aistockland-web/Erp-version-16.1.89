@@ -69,6 +69,21 @@ if ! command -v wp >/dev/null 2>&1; then
 fi
 wp --info
 
+# The Owner-approved 16.2.18 path intentionally skips historical .13/.15
+# candidate intake/repair/activation. Those legacy scripts remain available
+# only when the release-mode environment is explicitly changed.
+if [[ "${STOCKLAND_DEV_RELEASE_MODE:-}" == "approved-16.2.18" ]]; then
+  mkdir -p artifacts/codespaces
+  echo "=== Approved Stockland ERP 16.2.18 Codespaces profile ==="
+  echo "Skipping legacy 16.2.13/.15 package intake, repair and WordPress activation."
+  echo "The exact approved 16.2.18 artifact is retrieved and SHA-verified only when the owner runs:"
+  echo "  bash scripts/codespaces/verify_approved_16_2_18.sh all"
+  echo "MariaDB 10.11 is available by default; MySQL 8.0.46 is enabled with the mysql8 Compose profile."
+  echo "Only disposable test databases are reset by the exact-artifact verification helper."
+  echo "PASS approved 16.2.18 release-only Codespaces preparation"
+  exit 0
+fi
+
 echo "=== Create or reuse the exact repaired 16.2.15 QA candidate ==="
 mkdir -p artifacts/codespaces
 REPAIRED_PACKAGE="$PWD/artifacts/codespaces/STOCKLAND_ERP_16.2.15_REPAIRED_CANDIDATE_WORDPRESS_INSTALLER.zip"
