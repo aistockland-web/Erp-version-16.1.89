@@ -797,28 +797,46 @@ final class Stockland_HR_Lifecycle {
 	}
 
 	/** Require independent, evidence-backed professional review before any statutory rule can be used. */
-	public static function has_qualified_legal_review( $payload ) {
+	private static function has_qualified_review_evidence( $payload, $required_parameters ) {
 		if ( ! is_array( $payload ) || ! isset( $payload['qualified_legal_review'] ) || ! is_array( $payload['qualified_legal_review'] ) ) { return false; }
 		$q = $payload['qualified_legal_review'];
 		$sha = strtolower( (string) ( $q['opinion_sha256'] ?? '' ) );
 		$clauses = $q['clauses_reviewed'] ?? array();
 		$params = $q['approved_parameters'] ?? array();
-		return strtoupper( (string) ( $q['decision'] ?? '' ) ) === 'APPROVED'
-			&& ! empty( $q['independence_confirmed'] )
-			&& strlen( trim( (string) ( $q['reviewer_name'] ?? '' ) ) ) >= 3
-			&& strlen( trim( (string) ( $q['reviewer_id'] ?? '' ) ) ) >= 3
-			&& strlen( trim( (string) ( $q['professional_basis'] ?? '' ) ) ) >= 8
-			&& preg_match( '/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/D', (string) ( $q['review_date'] ?? '' ) )
-			&& strlen( trim( (string) ( $q['opinion_reference'] ?? '' ) ) ) >= 6
-			&& preg_match( '/^[a-f0-9]{64}$/', $sha )
-			&& is_array( $clauses ) && count( $clauses ) > 0
-			&& is_array( $params ) && in_array( 'paye_bands', $params, true )
-			&& in_array( 'paye_tax_base_method', $params, true )
-			&& in_array( 'pensionable_base_method', $params, true )
-			&& in_array( 'employee_pension_rate', $params, true )
-			&& in_array( 'employer_pension_rate', $params, true )
-			&& in_array( 'component_treatments', $params, true )
-			&& in_array( 'rounding_method', $params, true );
+		if (
+			strtoupper( (string) ( $q['decision'] ?? '' ) ) !== 'APPROVED'
+			|| empty( $q['independence_confirmed'] )
+			|| strlen( trim( (string) ( $q['reviewer_name'] ?? '' ) ) ) < 3
+			|| strlen( trim( (string) ( $q['reviewer_id'] ?? '' ) ) ) < 3
+			|| strlen( trim( (string) ( $q['professional_basis'] ?? '' ) ) ) < 8
+			|| ! preg_match( '/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/D', (string) ( $q['review_date'] ?? '' ) )
+			|| strlen( trim( (string) ( $q['opinion_reference'] ?? '' ) ) ) < 6
+			|| ! preg_match( '/^[a-f0-9]{64}$/', $sha )
+			|| ! is_array( $clauses ) || ! $clauses
+			|| ! is_array( $params )
+		) {
+			return false;
+		}
+		foreach ( $required_parameters as $parameter ) {
+			if ( ! in_array( $parameter, $params, true ) ) { return false; }
+		}
+		return true;
+	}
+
+	/** Signed scope for the newer frozen payroll-cycle calculator contract. */
+	public static function has_qualified_legal_review( $payload ) {
+		return self::has_qualified_review_evidence(
+			$payload,
+			array( 'paye_bands', 'paye_tax_base_method', 'pensionable_base_method', 'employee_pension_rate', 'employer_pension_rate', 'component_treatments', 'rounding_method' )
+		);
+	}
+
+	/** Signed scope for the preserved legacy statutory/final-settlement calculator contract. */
+	public static function has_qualified_legacy_payroll_review( $payload ) {
+		return self::has_qualified_review_evidence(
+			$payload,
+			array( 'monthly_tax_bands', 'tax_base_method', 'employee_pension_rate', 'employer_pension_rate' )
+		);
 	}
 
 	/** The PAYE rules are not guessed: payroll is blocked unless one approved rule version covers the entire month. */
@@ -833,7 +851,7 @@ final class Stockland_HR_Lifecycle {
 			return new WP_Error( 'payroll_rules_unapproved', 'No Owner-approved Ethiopian payroll rule version covers the entire payroll period. Add the official rule source, effective dates and test vectors, then obtain independent payroll/tax review and Owner approval.', array( 'status' => 409 ) );
 		}
 		$payload = json_decode( (string) $row['rules_json'], true );
-		if ( ! self::has_qualified_legal_review( $payload ) ) {
+		if ( ! self::has_qualified_legacy_payroll_review( $payload ) ) {
 			return new WP_Error( 'payroll_legal_review_missing', 'Payroll is blocked: independent qualified Ethiopian tax/pension review evidence is missing from this exact rule version.', array( 'status' => 409 ) );
 		}
 		if ( ! is_array( $payload ) || empty( $payload['monthly_tax_bands'] ) || empty( $payload['employee_pension_rate'] ) || empty( $payload['employer_pension_rate'] ) || empty( $payload['tax_base_method'] ) ) {
@@ -850,6 +868,53 @@ final class Stockland_HR_Lifecycle {
 		$payload['source_sha256'] = (string) $row['source_sha256'];
 		$payload['approved_by'] = (int) $row['approved_by'];
 		$payload['approved_at'] = (string) $row['approved_at'];
+		return $payload;
+	}
+
+
+	/** Returns only a reviewed rule explicitly authored for the frozen payroll-cycle calculator. */
+	public static function payroll_cycle_rules_for_period( $start_date, $end_date ) {
+		global $wpdb;
+		$table = Stockland_DB::table( 'hr_rule_sets' );
+		$row = Stockland_DB::read_row( $wpdb->prepare(
+			"SELECT * FROM %i WHERE rule_type='PAYROLL_CYCLE' AND review_status='APPROVED' AND effective_from<=%s AND (effective_to IS NULL OR effective_to>=%s) ORDER BY effective_from DESC,id DESC LIMIT 1",
+			$table, $start_date, $end_date
+		), ARRAY_A );
+		if ( ! $row || ! empty( $wpdb->last_error ) ) {
+			return new WP_Error( 'payroll_cycle_rules_unapproved', 'No Owner-approved PAYROLL_CYCLE rule version with independent calculator-specific review covers the entire payroll period.', array( 'status' => 409 ) );
+		}
+		$payload = json_decode( (string) $row['rules_json'], true );
+		if ( ! self::has_qualified_legal_review( $payload ) ) {
+			return new WP_Error( 'payroll_cycle_legal_review_missing', 'The PAYROLL_CYCLE rule lacks independent approval for its exact calculator parameters.', array( 'status' => 409 ) );
+		}
+		if (
+			! is_array( $payload )
+			|| empty( $payload['paye_bands'] )
+			|| empty( $payload['employee_pension_rate'] )
+			|| empty( $payload['employer_pension_rate'] )
+			|| empty( $payload['paye_tax_base_method'] )
+			|| empty( $payload['pensionable_base_method'] )
+			|| empty( $payload['component_treatments'] )
+			|| empty( $payload['rounding_method'] )
+		) {
+			return new WP_Error( 'payroll_cycle_rules_invalid', 'The approved PAYROLL_CYCLE rule does not match the frozen payroll calculator contract.', array( 'status' => 409 ) );
+		}
+		$review = $payload['qualified_legal_review'];
+		$payload['status'] = 'APPROVED';
+		$payload['rule_version'] = (string) $row['version_label'];
+		$payload['rule_set_id'] = (int) $row['id'];
+		$payload['jurisdiction'] = (string) $row['jurisdiction'];
+		$payload['effective_from'] = (string) $row['effective_from'];
+		$payload['effective_to'] = $row['effective_to'] ? (string) $row['effective_to'] : null;
+		$payload['source_title'] = (string) $row['source_title'];
+		$payload['source_clause'] = (string) $row['source_clause'];
+		$payload['source_url'] = (string) $row['source_url'];
+		$payload['source_sha256'] = (string) $row['source_sha256'];
+		$payload['reviewer_id'] = (string) $review['reviewer_id'];
+		$payload['approved_by'] = (int) $row['approved_by'];
+		$payload['approved_at'] = (string) $row['approved_at'];
+		$payload['official_source_url'] = (string) $row['source_url'];
+		$payload['approval_evidence_ref'] = (string) $review['opinion_reference'];
 		return $payload;
 	}
 
