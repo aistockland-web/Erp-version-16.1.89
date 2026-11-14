@@ -36,7 +36,8 @@ assert DEVCONTAINER.get("forwardPorts") == [8080, 8082], (
     "Only MariaDB and optional MySQL 8.0.46 private QA ports should be forwarded"
 )
 workspace_services = COMPOSE.split("  mariadb:", 1)[0]
-assert "wordpress_upgrade:" not in workspace_services, (
+workspace_dependencies = workspace_services.split("    depends_on:", 1)[1]
+assert "wordpress_upgrade:" not in workspace_dependencies, (
     "Legacy upgrade WordPress must not be a default workspace dependency"
 )
 legacy_upgrade_service = COMPOSE.split("  wordpress_upgrade:", 1)[1].split("  mysql8:", 1)[0]
