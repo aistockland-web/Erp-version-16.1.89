@@ -86,7 +86,7 @@ final class Stockland_REST_HR_Payroll_Cycle extends Stockland_REST_Base {
 	}
 
 	private function legal_rule_bundle( $start, $end ) {
-		$rules = Stockland_HR_Lifecycle::payroll_rules_for_period( $start, $end );
+		$rules = Stockland_HR_Lifecycle::payroll_cycle_rules_for_period( $start, $end );
 		if ( is_wp_error( $rules ) ) { return $rules; }
 		$review = $rules['qualified_legal_review'] ?? array();
 		if ( ! Stockland_HR_Lifecycle::has_qualified_legal_review( $rules ) ) {
