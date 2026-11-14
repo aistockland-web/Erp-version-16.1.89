@@ -68,6 +68,7 @@ jobs:
           bash -n scripts/release/e2e/run_all.sh
           bash -n scripts/codespaces/verify_approved_16_2_18.sh
           python3 -m py_compile ci/codespaces/verify_approved_16_2_18_zip.py
+          python3 ci/codespaces/test_approved_16_2_18_mode.py
           python3 -m unittest discover -s ci/codespaces -p 'test_*.py' -v
           python3 -m json.tool ci/codespaces/candidate-packages.json >/dev/null
 
