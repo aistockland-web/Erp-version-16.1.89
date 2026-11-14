@@ -184,7 +184,7 @@ const isLocal = (url) => {
         };
         fs.writeFileSync(
           path.join(screenshots, name + '-' + viewport.label + '-axe.json'),
-          JSON.stringify(axeReport, null, 2) + '\\n'
+          JSON.stringify(axeReport, null, 2) + '\n'
         );
         if (axeResults.violations.length) {
           const summary = axeResults.violations.map((v) => v.id + ':' + v.impact + '(' + v.nodes.length + ')').join(', ');
