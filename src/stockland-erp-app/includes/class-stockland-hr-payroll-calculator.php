@@ -63,7 +63,10 @@ final class Stockland_HR_Payroll_Calculator {
 		if ( self::RULE_STATUS_APPROVED !== $status ) {
 			self::fail( 'rule_not_approved', 'rule bundle is not approved; final payroll calculation is blocked' );
 		}
-		foreach ( array( 'rule_version', 'jurisdiction', 'effective_from', 'source_sha256', 'reviewer_id', 'approved_at', 'paye_tax_base_method', 'paye_bands', 'employee_pension_rate', 'employer_pension_rate', 'pensionable_base_method', 'component_treatments', 'rounding_method' ) as $required ) {
+		if ( ! class_exists( 'Stockland_HR_Lifecycle' ) || ! Stockland_HR_Lifecycle::has_qualified_legal_review( $rules ) || ! Stockland_HR_Lifecycle::has_payroll_calculator_contract( $rules ) ) {
+			self::fail( 'payroll_calculator_contract_mismatch', 'the legacy and frozen-run PAYE bands, credits, tax bases and approved parameters must reconcile before calculation' );
+		}
+		foreach ( array( 'rule_version', 'jurisdiction', 'effective_from', 'source_sha256', 'reviewer_id', 'approved_at', 'tax_base_method', 'monthly_tax_bands', 'paye_tax_base_method', 'paye_bands', 'employee_pension_rate', 'employer_pension_rate', 'pensionable_base_method', 'component_treatments', 'rounding_method' ) as $required ) {
 			if ( ! array_key_exists( $required, $rules ) || null === $rules[ $required ] || '' === $rules[ $required ] ) {
 				self::fail( 'rule_bundle_incomplete', 'required rule field missing: ' . $required );
 			}
@@ -103,8 +106,12 @@ final class Stockland_HR_Payroll_Calculator {
 		$last_cap = 0;
 		$unbounded_seen = false;
 		foreach ( $rules['paye_bands'] as $i => $band ) {
-			if ( ! is_array( $band ) || ! isset( $band['rate'] ) || ! array_key_exists( 'up_to', $band ) ) {
-				self::fail( 'paye_band_invalid', 'each progressive band must declare rate and up_to (null only for final unbounded band)' );
+			if ( ! is_array( $band ) || ! isset( $band['rate'], $band['credit'] ) || ! array_key_exists( 'up_to', $band ) ) {
+				self::fail( 'paye_band_invalid', 'each frozen-run band must declare rate, credit and up_to (null only for final unbounded band)' );
+			}
+			$credit = self::money_minor( $band['credit'], 'paye_bands[' . $i . '].credit' );
+			if ( $credit < 0 ) {
+				self::fail( 'paye_credit_invalid', 'PAYE band credit cannot be negative' );
 			}
 			$rate = self::rate_micro( $band['rate'], 'paye_bands[' . $i . '].rate' );
 			if ( $unbounded_seen ) {
@@ -138,32 +145,32 @@ final class Stockland_HR_Payroll_Calculator {
 	}
 
 	private static function progressive_tax( $taxable_minor, $bands ) {
-		$tax = 0;
 		$previous_cap = 0;
-		$trace = array();
 		foreach ( $bands as $i => $band ) {
 			$cap = null === $band['up_to'] ? null : self::money_minor( $band['up_to'], 'paye band upper limit' );
-			$segment_end = null === $cap ? $taxable_minor : min( $taxable_minor, $cap );
-			$segment = max( 0, $segment_end - $previous_cap );
-			$rate = self::rate_micro( $band['rate'], 'paye band rate' );
-			$segment_tax = self::rounded_product( $segment, $rate );
-			$tax += $segment_tax;
-			$trace[] = array(
-				'band_index' => $i + 1,
-				'lower_exclusive_minor' => $previous_cap,
-				'upper_minor' => $cap,
-				'taxable_segment' => self::minor_money( $segment ),
-				'rate_fraction' => $band['rate'],
-				'tax_amount' => self::minor_money( $segment_tax ),
-			);
-			if ( null !== $cap ) {
+			if ( null !== $cap && $taxable_minor > $cap ) {
 				$previous_cap = $cap;
+				continue;
 			}
-			if ( null !== $cap && $taxable_minor <= $cap ) {
-				break;
-			}
+			$rate = self::rate_micro( $band['rate'], 'paye band rate' );
+			$credit = self::money_minor( $band['credit'], 'paye band credit' );
+			$gross_tax = self::rounded_product( $taxable_minor, $rate );
+			$tax = max( 0, $gross_tax - $credit );
+			$trace = array(
+				array(
+					'band_index' => $i + 1,
+					'lower_exclusive_minor' => $previous_cap,
+					'upper_minor' => $cap,
+					'taxable_income' => self::minor_money( $taxable_minor ),
+					'rate_fraction' => $band['rate'],
+					'credit' => self::minor_money( $credit ),
+					'gross_tax_before_credit' => self::minor_money( $gross_tax ),
+					'tax_amount' => self::minor_money( $tax ),
+				),
+			);
+			return array( $tax, $trace );
 		}
-		return array( $tax, $trace );
+		self::fail( 'paye_bands_incomplete', 'no approved PAYE band covers the taxable income' );
 	}
 
 	/**
