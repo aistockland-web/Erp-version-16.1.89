@@ -71,7 +71,7 @@ function minifyCssPreservingSemantics(source) {
 
 function cssSemanticFingerprint(source) {
   const rootNode = postcss.parse(source);
-  const normalize = value => String(value || '').trim().replace(/\\s+/g, ' ');
+  const normalize = value => String(value || '').trim().replace(/\s+/g, ' ');
   const visit = node => {
     if (node.type === 'comment') return '';
     if (node.type === 'root') return (node.nodes || []).map(visit).join('');
@@ -86,6 +86,9 @@ function cssSemanticFingerprint(source) {
   return visit(rootNode);
 }
 
+if (cssSemanticFingerprint('body.example,\nbody.other{color:red}') !== cssSemanticFingerprint('body.example, body.other{color:red}')) {
+  throw new Error('CSS semantic normalizer must treat selector line breaks as whitespace');
+}
 const fixture = '.desc :hover{content:"ratio: 9 : 16";width:calc(100% - 2rem)} /* test */ .next{color:red}';
 const fixtureMin = minifyCssPreservingSemantics(fixture);
 if (!fixtureMin.includes('.desc :hover') ||
