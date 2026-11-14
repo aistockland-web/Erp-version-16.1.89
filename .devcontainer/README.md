@@ -14,9 +14,9 @@ The host initialization creates random development-only credentials in the ignor
 
 - PHP 8.3 CLI with WordPress database/XML/ZIP extensions; Node.js 22; Python 3.12; Composer; GitHub CLI; Docker CLI support; WP-CLI checksum verification.
 - MariaDB 10.11 with two isolated WordPress sites and separate databases.
-- Baseline site on private port 8080: installs the exact 16.2.13 operational package.
-- Upgrade site on private port 8081: installs 16.2.13 first, then replaces it with the selected 16.2.15 candidate to exercise the upgrade/activation path.
-- Optional MySQL 8.0.46 site on private port 8082: installs the 16.2.13 baseline first, then upgrades to 16.2.15 and verifies the synthetic marker and pre-update database snapshot.
+- Default MariaDB 10.11 site on private port 8080: installs the exact Owner-approved 16.2.18 artifact when the approved-artifact helper is run.
+- Legacy upgrade site on private port 8081: retained in Compose for explicitly requested historical migration research; it is not part of the approved 16.2.18 default test.
+- Optional MySQL 8.0.46 site on private port 8082: fresh disposable WordPress target for the exact approved 16.2.18 artifact.
 - Repository-locked PostCSS and PHPCS/WPCS development dependencies. These are engineering tools, not plugin runtime dependencies.
 
 The database ports are internal to the Compose network. Only the private WordPress preview ports are forwarded.
@@ -25,24 +25,18 @@ The database ports are internal to the Compose network. Only the private WordPre
 
 ~~~bash
 git status --short --branch
-git rev-parse HEAD
 php -v
 node -v
 python3 --version
 wp --info
-python3 ci/codespaces/test_rest_index.py
-bash scripts/codespaces/smoke_test_sites.sh
+bash .devcontainer/initialize-host.sh
+docker compose --project-directory .devcontainer -f .devcontainer/docker-compose.yml --profile mysql8 up -d --build
+bash scripts/codespaces/verify_approved_16_2_18.sh all
 ~~~
 
-## MySQL 8.0.46 parity
+## Historical 16.2.13/16.2.15 candidate parity — legacy only
 
-Run this from the Codespaces terminal:
-
-~~~bash
-bash scripts/codespaces/run_mysql8_parity.sh
-~~~
-
-It starts the optional MySQL 8 service, creates a disposable WordPress instance, installs the exact 16.2.13 baseline, snapshots the disposable database, upgrades to the exact 16.2.15 candidate, verifies marker preservation, and records a local QA receipt.
+The previous candidate workflow is retained for historical archaeology only. It is not part of the Owner-approved 16.2.18 production environment and must not be used to install, downgrade, replace or promote the ERP. For the live-approved version, use `bash scripts/codespaces/verify_approved_16_2_18.sh all`; this validates and installs the exact pinned GitHub Actions artifact without rebuilding it.
 
 ## Repository QA commands
 
@@ -57,7 +51,7 @@ bash scripts/codespaces/smoke_test_sites.sh
 
 This environment uses isolated synthetic databases and random local credentials. Never import production databases, employee files, real payroll, customer/supplier details, real payments or stock ledgers. Never make the database port public. Never use production credentials. Do not run migrations or test destructive operations against the live Stockland site.
 
-The 16.2.13 archive remains the operational/upgrade baseline. The 16.2.15 archive remains a candidate until exact archive validation, WordPress install/update, database compatibility and all separate release acceptance gates pass. A green Codespaces build is not production approval.
+The current selected ERP release is the Owner-approved 16.2.18 package identified in the section below. Historical 16.2.13/16.2.15 archives remain reference material only; they are not the production installer or a downgrade path. All tests in this profile use synthetic disposable data and never access the live company database.
 
 
 ## Final full-ERP delivery path
@@ -83,11 +77,11 @@ git status --short --branch
 
 The repaired .15 QA artifact is distinct from the original candidate ZIP. Do not rename its digest to the original digest. The first post-create uses the repaired artifact for disposable WordPress activation/update; the original .13 archive remains the operational baseline.
 
-After the smoke tests, the next target is the resumable ERP setup wizard and physical schema/data verification on MariaDB 10.11 and MySQL 8.0.46, followed by full authenticated module workflows and full-cycle HR/payroll. A 12-table WordPress-only receipt is not full ERP schema acceptance. Build the final installable WordPress ZIP only from the final reviewed canonical source commit, with release manifest, file hashes, SBOM, build receipt and exact SHA-256. The standard WordPress plugin-upload flow is the final installer interface; production publication/deployment follows final Owner release authorization.
+The ERP's installed/approved release baseline is 16.2.18. Continue operational development and testing against this release without rebuilding a replacement installer or changing production data. The pinned installer and SHA are recorded below; future application-version changes require a separate Owner decision. The standard WordPress plugin-upload interface remains the installation interface.
 
-## 16.2.18 master installer verification
+## Legacy source-rebuild verifier — do not use for the approved package
 
-`bash .devcontainer/verify-master-installer.sh [mariadb|mysql8|all]` builds `STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTALLER.zip` from `src/stockland-erp-app/`, resets the disposable WordPress databases, installs the ZIP through WordPress, activates once, verifies all 86 tables, setup state and the business-workflow regression scripts. Use the MySQL 8 profile (`docker compose --profile mysql8 up -d`) for the `mysql8` target. Synthetic data only; the script refuses to run without `STOCKLAND_DISPOSABLE_SITE=yes`.
+`.devcontainer/verify-master-installer.sh` rebuilds the installer from source. It is retained for future engineering and source archaeology, but it is **not** the production-approved installation path. Do not run it to produce a replacement 16.2.18 package. Use the exact-artifact helper in the next section.
 
 ## Exact approved 16.2.18 artifact — no rebuild
 
