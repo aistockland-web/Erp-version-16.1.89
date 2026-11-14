@@ -176,3 +176,14 @@ Setup table split used by the installer: 49 operational baseline tables plus 37 
 - Dashboard shows a filter bar (period and branch dropdowns, Reset); every dashboard report card (trend, categories, branches, recent transactions) follows it. Long trend charts thin their date labels.
 - New E2E `s12_dashboard_filters.php` (13 checks): point counts per period, invalid period rejected, branch narrowing never exceeds company total, branch manager refused another location. The check found that the route did not reject an unknown period; the route now declares `validate_callback`.
 - Dev-container run on MariaDB 10.11: 135 PASS, 0 FAIL, 0 unbalanced journals.
+
+
+### CAP-04 full payroll-cycle candidate — rebased integration, 2026-11-14
+
+- The disposable-only full payroll-cycle test from PR #132 is carried forward as `scripts/release/e2e/s16_payroll_cycle.php`, after existing `s14_reports_explorer_columns` and `s15_hr_payroll_rule_contract`. The older PR #132 runner was not copied because it omitted those newer regression suites.
+- The synthetic rule fixture explicitly authorizes both legacy `monthly_tax_bands` / `tax_base_method` and frozen-run `paye_bands` / `paye_tax_base_method`, preserving PR #130's dual-contract validator. It still uses synthetic rates, example.invalid source metadata and a test-only reviewer identity solely on a loopback disposable site.
+- PR #132's candidate evidence reports 247 cycle assertions and 416 total PASS / 0 FAIL on MariaDB 10.11. This is recorded as prior candidate-origin evidence; it is **not** accepted as a test of the newly rebased combined source.
+- Six source fixes are ported into the combined candidate: audit text bounded before hashing, compensation ID captured before audit insert, allowance status fitting its column, cache-cleared vault permission verification, MIME comparison ignoring parameters, and one-time statutory remittance reconciliation with GL/PLEDGER liability clearing.
+- Exact-head WordPress install and the complete E2E runner must pass on MariaDB 10.11 + MySQL 8.0.46, PHP 8.3 + 8.4, plus security/runtime, browser, backup/restore and Codespaces/Docker checks. Only then can this CAP item be marked accepted.
+- No real employee/payroll data, statutory defaults, historical payroll, live site, production database, DNS, SSL or hosting configuration was changed by this candidate work.
+
