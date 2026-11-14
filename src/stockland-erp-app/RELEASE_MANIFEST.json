@@ -25,9 +25,9 @@
     },
     "source_patch_sha256": "8c13190bb838a39b2d74f69a372d44c73d1f560616642ce1a36ecf27d7edcdde",
     "fresh_install_ddl_patch_sha256": "104b9b28bb20105dc282b11c17982633c5ff5b8e1d34a299f1adc29bec608fbc",
-    "canonical_source_commit": null,
+    "canonical_source_commit": "19fe43981723f30e3839d1c8a67498f50c8134d4",
     "github_release_id": null,
-    "provenance_note": "The canonical editable source is maintained in the repository. The one-pack installer is deterministically generated in GitHub Actions from the exact checkout used by the verification run; that run records the build commit, artifact and SHA-256. This manifest does not claim a GitHub Release or release tag."
+    "provenance_note": "The canonical editable source is maintained in the repository. canonical_source_commit records the exact Git checkout used for this build (the pull-request merge commit in PR verification). The one-pack installer is deterministically generated from that checkout; CI records the workflow run, artifact ID and independently verifiable SHA-256. A GitHub Release/tag is not claimed unless a release ID is separately recorded."
   },
   "schema_governance": {
     "legacy_subset": "29 core + 16 accounting + 4 legacy HR keys preserved",
@@ -63,8 +63,8 @@
       },
       {
         "path": "GO_LIVE_RUNBOOK.md",
-        "bytes": 2136,
-        "sha256": "a2615d1da0f1ce64c9336b38c508c97c8ee4d6fbff325f3ed962799964b4446e"
+        "bytes": 3337,
+        "sha256": "c58aa29afff5bc5780ddb6705290e26b8b0ca22001ec8b5bf04ade5da8211932"
       },
       {
         "path": "MIGRATION_GUIDE.md",
@@ -73,8 +73,8 @@
       },
       {
         "path": "README.md",
-        "bytes": 8852,
-        "sha256": "5f9e0a98bd5772f4007094a44a6a10633f6b8ec03c38aea22aa4bd783b58a145"
+        "bytes": 10783,
+        "sha256": "d3ff73e012449717748bbe4bb2ec33a000481da699a97ffc0e54138489e437c8"
       },
       {
         "path": "SBOM.spdx.json",
@@ -88,18 +88,18 @@
       },
       {
         "path": "assets/app.css",
-        "bytes": 258182,
-        "sha256": "fe856a7c8f062bce58f7c153005a588f36f285b6a18c17b6f68a139c9ee97ad0"
+        "bytes": 258599,
+        "sha256": "68fa9f1ac63a7a934c19c3f434c7f88edbbb2c1cc4d6b0af605dd9ff531de7db"
       },
       {
         "path": "assets/app.js",
-        "bytes": 551193,
-        "sha256": "1d12a26adb5f99ca11815ca9e9c8e8fa3bdfe9e6fe35687684f673d557a98c99"
+        "bytes": 555466,
+        "sha256": "bc9d30fdfc4421092872d51f776969f885d32c29a1de47e444123040becb1b04"
       },
       {
         "path": "assets/app.min.css",
-        "bytes": 245576,
-        "sha256": "ace94dd07f6c8c1e4da1199637476fd974c3c15965238f417393d674d11d529e"
+        "bytes": 246874,
+        "sha256": "e57ab798866f110fce690f2589bd0f3636c6f88b899471b944e60fda1ca2ba75"
       },
       {
         "path": "assets/bootstrap.min.css",
@@ -173,8 +173,8 @@
       },
       {
         "path": "assets/css/14-table-holders-legacy-colors.css",
-        "bytes": 2064,
-        "sha256": "658d24126df2e628da93be8ca0f5f7a33e01d20c6a4dfc1581445c3a27dcf234"
+        "bytes": 2494,
+        "sha256": "7a9786faef8bc4b6bf3f0c906c15c3770f00325d8e04ff4a70391b431e47dfcc"
       },
       {
         "path": "assets/css/modules.json",
@@ -338,8 +338,8 @@
       },
       {
         "path": "includes/class-stockland-notifications.php",
-        "bytes": 14964,
-        "sha256": "ed89fc0e663dedd4cc36d9111223d6a644c1a4945d07906155547d78395ce35a"
+        "bytes": 16661,
+        "sha256": "7a9f8beb16fc45833cc7bf642978885be4bb4d1f423d5ac861b1ce79dad96009"
       },
       {
         "path": "includes/class-stockland-payroll-statutory.php",
@@ -413,8 +413,8 @@
       },
       {
         "path": "includes/rest/class-rest-app.php",
-        "bytes": 250532,
-        "sha256": "2b3cf49620e38db61959e0daaf867cb7785ce40a282c132bd199f4ee2ed3dd5f"
+        "bytes": 253403,
+        "sha256": "8ca98f441ddc03b4ffd54db7f6f8b43d22681981695a52ffacbff14152c0406a"
       },
       {
         "path": "includes/rest/class-rest-calendar.php",
@@ -443,8 +443,8 @@
       },
       {
         "path": "includes/rest/class-rest-import-v16.php",
-        "bytes": 140298,
-        "sha256": "cbf6e7397f7f29f9c32065dba3b3cc6f90fbea6e1e9880c28ba99fc65d2ae161"
+        "bytes": 152924,
+        "sha256": "5fecc52ec5431dfd664cff25d0702bbb66f85bcc8de135b8a848e58975a69962"
       },
       {
         "path": "includes/rest/class-rest-inventory-report-v16.php",
@@ -513,8 +513,8 @@
       },
       {
         "path": "includes/rest/class-rest-transfers.php",
-        "bytes": 27435,
-        "sha256": "f03c5e2fb25f0da62d0808120261788ad059afa7850ae5406733e52c8d1e0732"
+        "bytes": 28483,
+        "sha256": "937bcd9dcef21998abf3710a1e1b29d4a6caa0cc490a0fcb8085b3dec6ccad4a"
       },
       {
         "path": "includes/rest/class-rest-wholesale.php",
