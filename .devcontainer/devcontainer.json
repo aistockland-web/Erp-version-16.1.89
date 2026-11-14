@@ -1,5 +1,5 @@
 {
-  "name": "Stockland Ethiopia ERP — Free Codespaces profile (4 core / 16 GB RAM)",
+  "name": "Stockland Ethiopia ERP — Free Codespaces profile (2 core / 8 GB RAM / 32 GB storage)",
   "dockerComposeFile": "docker-compose.yml",
   "service": "workspace",
   "workspaceFolder": "/workspaces/stockland-erp",
@@ -50,8 +50,9 @@
     }
   },
   "hostRequirements": {
-    "cpus": 4,
-    "memory": "16gb"
+    "cpus": 2,
+    "memory": "8gb",
+    "storage": "32gb"
   },
   "containerEnv": {
     "STOCKLAND_DEV_RELEASE_MODE": "approved-16.2.18"
