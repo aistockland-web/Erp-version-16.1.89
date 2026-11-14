@@ -298,24 +298,19 @@ def materialize(
             try:
                 verify_source_tree(destination, report)
             except RuntimeError as error:
-                if os.environ.get("STOCKLAND_SOURCE_STRICT", "").strip() == "1":
-                    raise RuntimeError(
-                        "Existing marked editable source has drifted from the exact .13 intake manifest "
-                        "while STOCKLAND_SOURCE_STRICT=1 is enabled. All files were preserved. "
-                        f"Verification detail: {error}"
-                    ) from error
                 if allow_local_modifications:
                     print(
-                        "WARNING: preserving an explicitly allowed locally modified source tree. "
-                        "It is not verified as byte-identical to the pinned .13 package."
+                        "WARNING: explicitly allowing local source modifications. "
+                        "All existing files are preserved; this tree is NOT byte-identical "
+                        "to the pinned .13 package and must not be treated as an exact-source pass."
                     )
                     return False
-                print(
-                    "WARNING: editable source differs from the exact .13 intake manifest; "
-                    "preserving all files without overwriting them. Set STOCKLAND_SOURCE_STRICT=1 "
-                    f"to fail instead. Verification detail: {error}"
-                )
-                return False
+                raise RuntimeError(
+                    "FAIL-CLOSED: existing marked editable source differs from the exact .13 intake "
+                    "manifest. All existing files were preserved. To continue intentionally with "
+                    "local edits, set STOCKLAND_ALLOW_LOCAL_SOURCE_MODIFICATIONS=1. "
+                    f"Verification detail: {error}"
+                ) from error
             print(f"PASS: existing source re-hashed and matches the exact .13 manifest: {destination}")
             return False
 

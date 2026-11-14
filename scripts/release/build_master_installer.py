@@ -6,7 +6,7 @@ Fails if RELEASE_MANIFEST.json does not match the tree, if any PHP file lacks an
 opening tag, or if the plugin header/constant versions disagree.
 """
 from __future__ import annotations
-import argparse, hashlib, json, re, sys, zipfile
+import argparse, hashlib, json, os, re, subprocess, sys, zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -16,6 +16,28 @@ FIXED_TIME = (2026, 11, 11, 0, 0, 0)
 
 def sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def canonical_source_commit() -> str:
+    """Return the exact Git checkout commit used to build this package."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--verify", "HEAD"],
+            cwd=ROOT,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError) as exc:
+        sys.exit(f"FAIL: cannot resolve canonical source commit: {exc}")
+    commit = result.stdout.strip().lower()
+    if not re.fullmatch(r"[0-9a-f]{40}", commit):
+        sys.exit("FAIL: canonical source commit is not a full 40-character SHA")
+    github_sha = os.environ.get("GITHUB_SHA", "").strip().lower()
+    if github_sha and github_sha != commit:
+        sys.exit(f"FAIL: Git checkout {commit} differs from GITHUB_SHA {github_sha}")
+    return commit
 
 
 def collect() -> dict[str, bytes]:
@@ -53,13 +75,28 @@ def main() -> None:
     ap.add_argument("--out-dir", default=str(ROOT))
     ap.add_argument("--update-manifest", action="store_true", help="rewrite RELEASE_MANIFEST.json file inventory from the source tree first")
     args = ap.parse_args()
+    source_commit = canonical_source_commit()
+    mp = SRC / "RELEASE_MANIFEST.json"
     if args.update_manifest:
-        mp = SRC / "RELEASE_MANIFEST.json"
         m = json.loads(mp.read_text())
-        inv = [{"path": n, "bytes": len(b), "sha256": sha256(b)} for n, b in collect().items() if n != "RELEASE_MANIFEST.json"]
+        lineage = m.setdefault("source_lineage", {})
+        lineage["canonical_source_commit"] = source_commit
+        lineage["provenance_note"] = (
+            "The canonical editable source is maintained in the repository. "
+            "canonical_source_commit records the exact Git checkout used for this build "
+            "(the pull-request merge commit in PR verification). The one-pack installer "
+            "is deterministically generated from that checkout; CI records the workflow run, "
+            "artifact ID and independently verifiable SHA-256. A GitHub Release/tag is not "
+            "claimed unless a release ID is separately recorded."
+        )
+        inv = [{"path": n, "bytes": len(data), "sha256": sha256(data)} for n, data in collect().items() if n != "RELEASE_MANIFEST.json"]
         m["file_inventory"] = {"count": len(inv), "manifest_excludes_itself": True, "files": inv}
         mp.write_text(json.dumps(m, indent=2))
     files = collect()
+    manifest = json.loads(files["RELEASE_MANIFEST.json"])
+    recorded_commit = manifest.get("source_lineage", {}).get("canonical_source_commit")
+    if recorded_commit != source_commit:
+        sys.exit(f"FAIL: RELEASE_MANIFEST canonical_source_commit {recorded_commit!r} != checkout {source_commit}")
     version = preflight(files)
     out = Path(args.out_dir) / f"STOCKLAND_ERP_{version}_MASTER_WORDPRESS_INSTALLER.zip"
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:

@@ -255,7 +255,7 @@ const isLocal = (url) => {
     }
 
 
-    // Table holders: any table with five or more rows gets search + dropdown filters; legacy-browser colours ship in the bundle.
+    // Table holders: verify first enhancement, filters, row appends, row replacement and search suggestions.
     const holder = await page.evaluate(async () => {
       const app = document.getElementById('stockland-app');
       if (!app) return { error: 'no app root' };
@@ -267,19 +267,62 @@ const isLocal = (url) => {
       await new Promise(r => setTimeout(r, 400));
       const bar = wrap.previousElementSibling;
       if (!bar || !bar.classList.contains('sl-table-tools')) return { error: 'toolbar missing' };
-      const q = bar.querySelector('input[type=search]'); q.value = 'bravo'; q.dispatchEvent(new Event('input', { bubbles: true }));
+      const q = bar.querySelector('input[type=search]');
+      q.value = 'bravo'; q.dispatchEvent(new Event('input', { bubbles: true }));
       const afterSearch = wrap.querySelectorAll('tbody tr:not(.sl-row-filtered)').length;
       q.value = ''; q.dispatchEvent(new Event('input', { bubbles: true }));
-      const sel = bar.querySelector('select[data-col="1"]'); if (bar.querySelectorAll('select').length !== 1) return { error: 'expected exactly one useful dropdown, found ' + bar.querySelectorAll('select').length }; sel.value = 'CLOSED'; sel.dispatchEvent(new Event('change', { bubbles: true }));
+      const sel = bar.querySelector('select[data-col="1"]');
+      if (!sel || bar.querySelectorAll('select').length !== 1) return { error: 'expected exactly one useful dropdown' };
+      sel.value = 'CLOSED'; sel.dispatchEvent(new Event('change', { bubbles: true }));
       const afterFilter = wrap.querySelectorAll('tbody tr:not(.sl-row-filtered)').length;
       const hidden = getComputedStyle(wrap.querySelector('tbody tr.sl-row-filtered')).display;
-      const count = bar.querySelector('.sl-table-count').textContent;
-      wrap.remove(); bar.remove();
-      return { afterSearch, afterFilter, hidden, count };
+      bar.querySelector('[data-clear]').click();
+
+      // Append a row while retaining the same enhanced wrapper.
+      const appended = document.createElement('tr');
+      appended.innerHTML = '<td>golf</td><td>PENDING</td>';
+      wrap.querySelector('tbody').appendChild(appended);
+      await new Promise(r => setTimeout(r, 400));
+      const countAfterAppend = bar.querySelector('.sl-table-count').textContent;
+      const appendSuggestion = [...bar.querySelectorAll('datalist option')].some(o => o.value === 'golf');
+
+      // Replace all rows in the existing table; the same toolbar must refresh its rows and options.
+      wrap.querySelector('tbody').innerHTML =
+        ['hotel:PENDING', 'india:PENDING', 'juliet:CLOSED', 'kilo:CLOSED', 'lima:OPEN', 'mike:OPEN', 'november:PENDING']
+        .map(x => { const [a, b] = x.split(':'); return '<tr><td>' + a + '</td><td>' + b + '</td></tr>'; }).join('');
+      await new Promise(r => setTimeout(r, 400));
+      const barAfterUpdate = wrap.previousElementSibling;
+      const qAfterUpdate = barAfterUpdate.querySelector('input[type=search]');
+      const datalist = barAfterUpdate.querySelector('datalist');
+      const hasNewSuggestion = !!datalist && [...datalist.options].some(o => o.value === 'hotel');
+      const updatedSelect = barAfterUpdate.querySelector('select[data-col="1"]');
+      const hasPendingOption = !!updatedSelect && [...updatedSelect.options].some(o => o.value === 'PENDING');
+      qAfterUpdate.value = 'hotel'; qAfterUpdate.dispatchEvent(new Event('input', { bubbles: true }));
+      const afterUpdatedSearch = wrap.querySelectorAll('tbody tr:not(.sl-row-filtered)').length;
+      qAfterUpdate.value = ''; qAfterUpdate.dispatchEvent(new Event('input', { bubbles: true }));
+      updatedSelect.value = 'PENDING'; updatedSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      const afterUpdatedFilter = wrap.querySelectorAll('tbody tr:not(.sl-row-filtered)').length;
+      const updatedCount = barAfterUpdate.querySelector('.sl-table-count').textContent;
+      const adjacentToolbarCount = [...app.querySelectorAll('.sl-table-tools')].filter(el => el.nextElementSibling === wrap).length;
+      const sameToolbar = barAfterUpdate === bar;
+      wrap.remove(); barAfterUpdate.remove();
+      return { afterSearch, afterFilter, hidden, countAfterAppend, appendSuggestion, hasNewSuggestion, hasPendingOption, afterUpdatedSearch, afterUpdatedFilter, updatedCount, adjacentToolbarCount, sameToolbar };
     });
     if (holder.error) fail('table holder: ' + holder.error);
-    else if (holder.afterSearch !== 1 || holder.afterFilter !== 3 || holder.hidden !== 'none') fail('table holder filtering wrong: ' + JSON.stringify(holder));
-    else note('table holder: search and dropdown filter work (' + holder.count + ')');
+    else if (holder.afterSearch !== 1 || holder.afterFilter !== 3 || holder.hidden !== 'none' ||
+      holder.countAfterAppend !== '7 of 7 rows' || !holder.appendSuggestion || !holder.hasNewSuggestion ||
+      !holder.hasPendingOption || holder.afterUpdatedSearch !== 1 || holder.afterUpdatedFilter !== 3 ||
+      holder.updatedCount !== '3 of 7 rows' || holder.adjacentToolbarCount !== 1 || !holder.sameToolbar) {
+      fail('table holder dynamic refresh failed: ' + JSON.stringify(holder));
+    } else note('table holder: search, dropdowns, suggestions, append and row replacement PASS (' + holder.updatedCount + ')');
+
+    const jsText = await page.evaluate(async () => {
+      const l = [...document.querySelectorAll('script[src]')].map(x => x.src).find(h => /app\.js/.test(h));
+      return l ? (await (await fetch(l)).text()) : '';
+    });
+    if (!jsText || jsText.includes('Owner-approved additive HR/Payroll schema migration after backup and source review')) fail('HR schema approval prompt contains a prefilled approval statement');
+    else note('HR schema approval prompt requires an unprefilled Owner decision');
+
     const cssText = await page.evaluate(async () => { const l = [...document.querySelectorAll('link[rel=stylesheet]')].map(x => x.href).find(h => /app(\.min)?\.css/.test(h)); return l ? (await (await fetch(l)).text()) : ''; });
     if (!cssText.includes('@supports not (--a:0)')) fail('legacy-browser colour fallbacks missing from the CSS bundle');
     else note('legacy-browser colour fallbacks present in the CSS bundle');

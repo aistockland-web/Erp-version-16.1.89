@@ -5,6 +5,10 @@
     "version": "16.2.18",
     "plugin_entrypoint": "stockland-inventory.php"
   },
+  "frontend": {
+    "bootstrap_version": "5.3.8",
+    "bootstrap_asset_sha256": "55034e7dc304305d482a58f9faa558250efab85708ab7cbf08fdc609cb9a005d"
+  },
   "artifact_status": "MASTER_INSTALLER",
   "created_at": "2026-11-11",
   "source_lineage": {

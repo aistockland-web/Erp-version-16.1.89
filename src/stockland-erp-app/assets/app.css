@@ -72,7 +72,6 @@ button,input,select,textarea{font:inherit}
 #stockland-app button:focus-visible,#stockland-app a:focus-visible,#stockland-app input:focus-visible,#stockland-app select:focus-visible,#stockland-app textarea:focus-visible{outline:0;box-shadow:var(--sl-focus)!important}
 #stockland-app .sl-shell{height:100%;min-height:0;display:grid;grid-template-columns:var(--sl-sidebar-w) minmax(0,1fr);background:var(--sl-canvas)}
 #stockland-app .sl-main{min-width:0;min-height:0;height:100%;display:grid;grid-template-rows:var(--sl-header-h) minmax(0,1fr);background:var(--sl-canvas)}
-
 /* Stockland ERP 16.1.91 • Shell, navigation, top bar and controls • Ordered source module. */
 #stockland-app .sl-sidebar{min-width:0;height:100%;overflow-y:auto;overflow-x:hidden;background:var(--sl-navy);border-right:1px solid rgba(255,255,255,.10);color:#fff;padding:18px 13px;scrollbar-width:thin}
 #stockland-app .sl-sidebar::-webkit-scrollbar,#stockland-app .sl-content::-webkit-scrollbar{width:9px}
@@ -179,7 +178,6 @@ button,input,select,textarea{font:inherit}
  .sl-global-search-result{grid-template-columns:32px minmax(0,1fr);gap:8px}
  .sl-global-search-result-type{display:none}
 }
-
 /* Stockland ERP 16.1.91 • Page hierarchy, cards, forms, tables and data components • Ordered source module. */
 .sl-content{min-width:0;min-height:0;overflow:auto;background:var(--sl-canvas);padding:28px clamp(15px,2.4vw,36px) 44px;scroll-behavior:smooth}
 .sl-content-inner{width:100%;max-width:1720px;margin:0 auto}
@@ -285,7 +283,6 @@ button,input,select,textarea{font:inherit}
 
 /* Health evidence is a long report: keep its heading in normal flow so mobile scrolling never covers the status panel. */
 .sl-content-inner>.sl-page-title-static{position:relative;top:auto;z-index:auto;margin-top:0;padding-top:0;padding-bottom:0;background:transparent;box-shadow:none}
-
 /* Stockland ERP 16.1.91 • Dialogs, overlays, workflow steps and notifications • Ordered source module. */
 .sl-modal{position:fixed;inset:0;z-index:2147483002;background:rgba(5,19,38,.52);display:grid;place-items:center;padding:14px}.sl-modal>div{width:min(760px,100%);max-height:min(88vh,780px);overflow:auto;background:#fff;border:1px solid #bfd0e0;border-radius:16px;box-shadow:var(--sl-shadow-lg)}
 .sl-overlay{position:fixed;inset:0;z-index:2147483003;display:grid;place-items:center;padding:14px;background:rgba(5,20,40,.52)}.sl-drawer{position:fixed;right:0;top:0;bottom:0;width:min(560px,94vw);overflow:auto;background:#fff;border-left:1px solid #bed0e2;box-shadow:-20px 0 60px rgba(4,22,45,.18);padding:17px}.sl-drawer-head,.sl-command-head,.sl-mobile-panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.sl-drawer-head h2,.sl-command-head h2{margin:0;color:var(--sl-ink);font-size:19px;font-weight:900}.sl-icon-btn{width:36px;height:36px;display:grid;place-items:center;border:1px solid #cbd8e5;border-radius:9px;background:#fff;color:var(--sl-ink);cursor:pointer;font-size:18px;line-height:1}.sl-command{width:min(700px,96vw);max-height:86vh;overflow:hidden;border:1px solid #bfd0e0;border-radius:16px;background:#fff;box-shadow:var(--sl-shadow-lg)}.sl-command-head{padding:15px 16px;border-bottom:1px solid var(--sl-line)}.sl-command-input{display:block;width:calc(100% - 24px);margin:12px;border:1px solid #c9d6e4;border-radius:9px;padding:11px;color:var(--sl-ink)}.sl-command-list{max-height:55vh;overflow:auto;padding:4px 7px}.sl-command-list>button{width:100%;display:grid;grid-template-columns:34px minmax(0,1fr) auto;align-items:center;gap:9px;padding:9px;border:0;border-radius:9px;background:#fff;text-align:left;cursor:pointer}.sl-command-list>button:hover{background:#f1f6fc}.sl-command-list b{display:block;font-size:10px;color:var(--sl-ink)}.sl-command-list small{display:block;color:var(--sl-muted);font-size:8px;margin-top:2px}.sl-command-list kbd{padding:3px 6px;border:1px solid #d4dee8;border-radius:6px;background:#f8fafc;color:#73869a;font-size:8px}.sl-command-foot{padding:10px 14px;border-top:1px solid var(--sl-line);display:flex;gap:8px;align-items:center}.sl-command-foot span{font-size:8px;font-weight:900;color:var(--sl-cobalt);text-transform:uppercase}.sl-command-foot small{color:var(--sl-muted);font-size:8px}
@@ -358,7 +355,6 @@ body.sl-mobile-menu-open{overflow:hidden!important;overscroll-behavior:none}
 .sl-mobile-panel .sl-nav button{width:100%;min-width:0;min-height:46px;grid-template-columns:30px minmax(0,1fr);align-items:center;white-space:normal;text-align:left;transform:none}
 .sl-mobile-panel .sl-nav button:hover{transform:none}
 .sl-mobile-panel .sl-nav-text{min-width:0;white-space:normal;overflow-wrap:anywhere;word-break:normal}
-
 /* Stockland ERP 16.1.91 • Breakpoint and responsive layout rules • Ordered source module. */
 /* ==========================================================================
    16.1.39 RESPONSIVE SYSTEM
@@ -570,7 +566,6 @@ body.sl-mobile-menu-open{overflow:hidden!important;overscroll-behavior:none}
   #stockland-app .sl-notification-trigger{justify-content:center;min-width:40px;padding-inline:8px}
   #stockland-app .sl-wp-admin{padding-inline:9px;font-size:10px}
 }
-
 /* Stockland ERP 16.1.91 • Mobile diagnostics and operational content guards • Ordered source module. */
 /* 16.1.44 mobile health / statutory payroll overflow guard */
 .sl-health-grid>div{min-width:0;overflow-wrap:anywhere;word-break:normal}
@@ -920,7 +915,6 @@ body[data-sl-theme] #stockland-app .sl-sidebar,
     background-position:center,64% center;
   }
 }
-
 /* Stockland ERP 16.1.78 dashboard: data-driven command center aligned to the approved layout. */
 #stockland-app .sl-dashboard-shell{display:grid;grid-template-columns:minmax(0,1fr) minmax(270px,318px);gap:14px;align-items:start;min-width:0}
 #stockland-app .sl-dashboard-main,#stockland-app .sl-dashboard-side{display:grid;gap:13px;min-width:0}
@@ -1394,7 +1388,6 @@ body[data-sl-theme] #stockland-app .sl-sidebar,
 
 /* Keep grouped System Health payroll diagnostics readable on phone and desktop. */
 #stockland-app .sl-system-health-panel .sl-payroll-readiness-reasons{margin:8px 0 0;padding-inline-start:22px;display:grid;gap:5px;overflow-wrap:anywhere}#stockland-app .sl-system-health-panel .sl-payroll-readiness-reasons li{padding-inline-start:2px;line-height:1.45}
-
 /* STK-UI-162-WORKSHEET — spreadsheet-style catalog, inventory and report data. */
 body[data-sl-view="products"] #stockland-app .sl-panel,
 body[data-sl-view="inventory"] #stockland-app .sl-panel,
@@ -1552,7 +1545,6 @@ body[data-sl-view="dailyreport"] #stockland-app .sl-grid-compact>.sl-card .meta,
   #stockland-app .sl-card,#stockland-app .sl-panel {break-inside:avoid; page-break-inside:avoid}
   #stockland-app .sl-card::before {display:none!important}
 }
-
 /* 16.1.84 — Premium classic SaaS command center. Presentation-only; live data and actions remain bound to the existing ERP. */
 #stockland-app .sl-dashboard-page{display:grid;gap:14px;min-width:0;color:var(--sl-text)}
 #stockland-app .sl-dashboard-welcome{display:flex;justify-content:space-between;align-items:center;gap:16px;min-width:0;padding:8px 0 4px}
@@ -1734,7 +1726,6 @@ body[data-sl-view="dailyreport"] #stockland-app .sl-grid-compact>.sl-card .meta,
  #stockland-app .sl-dashboard-date b{font-size:10px}
  #stockland-app .sl-dashboard-date small{font-size:9px}
 }
-
 /* 16.1.86 — reference-matched desktop SaaS shell, isolated search, and Bootstrap light bridge. */
 #stockland-app[data-bs-theme="light"],
 #stockland-app .sl-root[data-bs-theme="light"],
@@ -2112,7 +2103,6 @@ body[data-sl-view="dailyreport"] #stockland-app .sl-grid-compact>.sl-card .meta,
  #stockland-app .sl-side-footer small{font-size:8px!important;line-height:1.35!important;margin-top:4px!important;white-space:nowrap}
  #stockland-app .sl-side-footer b{font-size:9px!important;line-height:1.25!important}
 }
-
 /* 16.1.87 — Owner-only wholesale recommendation desk. All quantities are server-returned read-only advice. */
 #stockland-app .sl-owner-wholesale-advice{margin-top:14px;min-width:0;overflow:hidden}
 #stockland-app .sl-owner-wholesale-advice>.sl-block-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 16px;background:#fbfdff;border-bottom:1px solid #e8eef5}
@@ -2354,7 +2344,6 @@ body[data-sl-view="pos"] #stockland-app #posResult { min-width: 0; overflow-wrap
 @media (max-width: 359px) {
   body[data-sl-view="pos"] #stockland-app .sl-grid-compact { grid-template-columns: minmax(0, 1fr); }
 }
-
 /* HRIS lifecycle workspace: conservative SAP/Odoo-style data density with polished mobile-first accordion holders and social platform cards. */
 #hrPage .sl-hrlc-flow{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;margin:16px 0 22px}
 #hrPage .sl-hrlc-flow span{display:flex;align-items:center;justify-content:center;min-height:48px;border:1px solid var(--sl-border,#d9e1e8);border-radius:12px;background:var(--sl-surface,#fff);padding:8px;text-align:center;font-size:12px;font-weight:700;color:var(--sl-ink,#243346)}
@@ -2473,7 +2462,6 @@ body[data-sl-view="pos"] #stockland-app #posResult { min-width: 0; overflow-wrap
 #stockland-app .sl-pos-cart-result .sl-notice{overflow-wrap:anywhere}
 @media(max-width:900px){#stockland-app .sl-pos-cart-summary{grid-template-columns:repeat(2,minmax(0,1fr))}#stockland-app .sl-pos-cart-meta{gap:10px;padding:13px}}
 @media(max-width:620px){#stockland-app .sl-pos-cart-meta{grid-template-columns:minmax(0,1fr);padding:12px}#stockland-app .sl-pos-cart-meta .full{grid-column:1}#stockland-app .sl-pos-cart-summary{grid-template-columns:minmax(0,1fr);gap:8px;padding:10px}#stockland-app .sl-pos-cart-summary>div{flex-direction:row;align-items:center;justify-content:space-between;gap:10px}#stockland-app .sl-pos-cart-summary b{font-size:14px;text-align:right}#stockland-app .sl-pos-cart-cell-input{width:88px}#stockland-app .sl-pos-cart-add-row{align-items:stretch;flex-direction:column}#stockland-app .sl-pos-cart-add-row .sl-sub{min-width:0}}
-
 /*
  * Stockland ERP 16.2.14 — Enterprise SaaS design system.
  * Presentation layer only: preserves existing PHP hooks, JS IDs, REST payloads,
@@ -2904,7 +2892,6 @@ body[data-sl-theme],body[data-sl-theme="sapphire"]{
  #stockland-app .sl-panel,#stockland-app .sl-card,#stockland-app .sl-table-wrap{box-shadow:none!important;break-inside:avoid}
  #stockland-app .sl-table{min-width:0!important}
 }
-
 /* 14 · Table holders and legacy-browser colour fallbacks (presentation layer only). */
 .sl-table-tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 8px;padding:8px;border:1px solid #e4e7ec;border-radius:11px;background:#f9fafb}
 .sl-table-tools input[type=search]{flex:1 1 14rem;min-width:0;padding:8px 10px;border:1px solid #d0d5dd;border-radius:8px;background:#fff;color:#101828;font:inherit}
@@ -2930,3 +2917,8 @@ body[data-sl-theme],body[data-sl-theme="sapphire"]{
  .sl-table-tools{display:block}
 }
 .sl-dashboard-filters{grid-column:1/-1}
+
+/* Daily POS intake is one three-method workflow; keep all three choices together across breakpoints. */
+.sl-import-purpose-grid.sl-daily-pos-intake-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(max-width:991.98px){.sl-import-purpose-grid.sl-daily-pos-intake-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:575.98px){.sl-import-purpose-grid.sl-daily-pos-intake-grid{grid-template-columns:1fr}}

@@ -220,9 +220,11 @@ class Stockland_REST_Transfers extends Stockland_REST_Base {
 			}
 			$created = $this->row( $id );
 			try {
-				Stockland_Notifications::notify_transfer( 'REQUESTED', (array) $created );
-			} catch ( Throwable $ignore ) {
-				Stockland_Runtime_Diagnostics::log_error( 'Transfer notification failed: ' . $ignore->getMessage() );
+				if ( false === Stockland_Notifications::notify_transfer( 'REQUESTED', (array) $created ) ) {
+					$this->log_notification_failure( 'REQUESTED', $id, 'notification_dispatch_returned_false' );
+				}
+			} catch ( Throwable $notification_error ) {
+				$this->log_notification_failure( 'REQUESTED', $id, $notification_error->getMessage() );
 			}
 			return rest_ensure_response( $created );
 		} catch ( Throwable $e ) {
@@ -519,31 +521,56 @@ class Stockland_REST_Transfers extends Stockland_REST_Base {
 				$variance_value = isset( $variance ) ? (float) $variance : 0.0;
 				$reason         = sanitize_text_field( (string) ( $p['reason'] ?? '' ) );
 				if ( abs( $variance_value ) > 0.00001 ) {
-					Stockland_Notifications::notify_exception_owners(
+					$exception_notified = Stockland_Notifications::notify_exception_owners(
 						'Receiving variance on ' . $id,
 						'Transfer ' . $id . ' for SKU ' . $sku . ' was received at ' . number_format( $received, 2 ) . ' against dispatched ' . number_format( $dispatch, 2 ) . '. Variance: ' . number_format( $variance_value, 2 ) . '.' . ( $reason ? ' Comment: ' . $reason : '' ),
 						'transfer',
 						$id
 					);
-				} else {
-					Stockland_Notifications::push_role( 'management', null, 'transfer_received', 'Transfer received', 'Transfer ' . $id . ' for SKU ' . $sku . ' was received and recorded.', 'transfer', $id, 'info' );
-					Stockland_Notifications::push_role( 'owner', null, 'transfer_received', 'Transfer received', 'Transfer ' . $id . ' for SKU ' . $sku . ' was received and recorded.', 'transfer', $id, 'info' );
+					if ( false === $exception_notified ) {
+						$this->log_notification_failure( 'RECEIVING_VARIANCE', $id, 'management_or_owner_notification_returned_false' );
+					}
 				}
 			}
 			$after = $this->row( $id );
 			try {
-				$event_map = array( 'Approved' => 'APPROVED', 'Rejected' => 'REJECTED', 'Reserved' => 'RESERVED', 'Picked' => 'PICKED', 'In Transit' => 'IN_TRANSIT', 'Cancelled' => 'CANCELLED' );
-				if ( isset( $event_map[ $new ] ) ) {
-					Stockland_Notifications::notify_transfer( $event_map[ $new ], (array) $after );
+				$event_map = array( 'Approved' => 'APPROVED', 'Rejected' => 'REJECTED', 'Reserved' => 'RESERVED', 'Picked' => 'PICKED', 'In Transit' => 'IN_TRANSIT', 'Received' => 'RECEIVED', 'Completed' => 'COMPLETED', 'Cancelled' => 'CANCELLED' );
+				if ( isset( $event_map[ $new ] ) && false === Stockland_Notifications::notify_transfer( $event_map[ $new ], (array) $after ) ) {
+					$this->log_notification_failure( $event_map[ $new ], $id, 'notification_dispatch_returned_false' );
 				}
-			} catch ( Throwable $ignore ) {
-				Stockland_Runtime_Diagnostics::log_error( 'Transfer notification failed: ' . $ignore->getMessage() );
+			} catch ( Throwable $notification_error ) {
+				$this->log_notification_failure( $event_map[ $new ] ?? $new, $id, $notification_error->getMessage() );
 			}
 			return rest_ensure_response( $after );
 		} catch ( Throwable $e ) {
 			Stockland_DB::execute_query( 'ROLLBACK' );
 			Stockland_DB::release_day_locks( $location_locks['locks'] );
 			return new WP_Error( 'transfer_failed', $e->getMessage(), array( 'status' => 409 ) ); }
+	}
+
+	/**
+	 * Logs a notification failure after the stock transfer transaction has committed.
+	 *
+	 * @param string $event Transfer event key.
+	 * @param string $transfer_id Transfer identifier.
+	 * @param string $reason Failure reason.
+	 * @return void
+	 */
+	private function log_notification_failure( $event, $transfer_id, $reason ) {
+		$context = array(
+			'event'                => 'transfer_notification_failed',
+			'transfer_event'       => sanitize_key( (string) $event ),
+			'transfer_id'          => sanitize_text_field( (string) $transfer_id ),
+			'transaction_committed' => true,
+			'reason'               => sanitize_text_field( (string) $reason ),
+		);
+		$encoded = wp_json_encode( $context );
+		$message = 'transfer_notification_failed ' . ( false !== $encoded ? $encoded : (string) $transfer_id );
+		try {
+			Stockland_Runtime_Diagnostics::log_error( $message );
+		} catch ( Throwable $logging_error ) {
+			error_log( '[Stockland ERP] ' . $message );
+		}
 	}
 
 	/**

@@ -1,17 +1,17 @@
 # Stockland Ethiopia ERP — 16.2.18 Master Installer
 
-One WordPress plugin, one upload, one activation. It installs the complete Stockland operating system: Command Center, POS/cart, wholesale, product master and SKU/variant identity, Central Warehouse and four branches, receiving, requisitions, reservations, transfers, returns, damage, adjustments, physical counts, procurement, suppliers/customers, AP/AR, expenses, GL/PLEDGER, daily close, authorization/audit, and the HR/payroll lifecycle with 24 Amharic SOP documents.
+One WordPress plugin, one upload, one activation for the existing single-company STOCKLAND ETHIOPIA deployment. It installs the Stockland operating system for that deployment: Command Center, POS/cart, wholesale, product master and SKU/variant identity, Central Warehouse and four branches, receiving, requisitions, reservations, transfers, returns, damage, adjustments, physical counts, procurement, suppliers/customers, AP/AR, expenses, GL/PLEDGER, daily close, authorization/audit, and the HR/payroll lifecycle with 24 Amharic SOP documents.
 
 ## Install in three steps
 
-1. **Plugins → Add New → Upload Plugin** → choose the ZIP → **Activate**. Activation creates all 86 tables (29 Core, 16 Accounting/Procurement, 41 HR/Payroll), verifies them physically, seeds the Central Warehouse and four branches, and gives the installing administrator the Stockland Owner profile.
-2. Open **Stockland → System Control**. If anything is unfinished (a slow host, or a site that already had ERP tables) press **Install / complete everything now**. It is add-only and resumable.
-3. When System Control shows installation complete, the Owner presses **Authorize live operation**. The health check then reports LIVE READY.
+1. **Plugins → Add New → Upload Plugin** → choose the ZIP → **Activate**. Activation creates and physically verifies the 49-table operational baseline: 29 Core/Operations, 16 Accounting/Procurement, and four legacy HR/payroll tables. It seeds Stockland's Central Warehouse and the Stockland-specific Goro, Gerji, Mexico and Megenagna branches and gives the installing administrator the Stockland Owner profile. These are defaults for this existing Stockland deployment, not generic new-customer defaults. The separate 37-table HR lifecycle extension is not created automatically.
+2. Open **Stockland → System Control** and complete any remaining operational-baseline batches. HR lifecycle DDL and existing legacy-HR column changes are separate Owner-gated actions: the active Stockland Owner must review the exact schema version/fingerprint, confirm a backup, and submit a written reason through the HR approval control before that work can run. Without that approval, the 37-table lifecycle extension remains pending; Core/Finance operational readiness is independent.
+3. When the operational baseline is complete, the Owner may use **Authorize live operation** for the exact ready operational schema/version. This authorization does not approve HR lifecycle DDL or Ethiopian statutory payroll rules; those retain their separate approval and acceptance gates.
 
 ## What 16.2.18 changes
 
 - **Fixed: missing `<?php` tag in `includes/class-stockland-schema-contract.php`** (present in 16.2.14, 16.2.15 recovery and 16.2.17). PHP printed the file as text, which broke activation and corrupted REST/JSON responses so the setup wizard could stall part-way.
-- **One-pack installer** (`Stockland_Installer`): Core → Accounting/Procurement → HR/Payroll in one bounded run, with progress verified against the physical database after every step. On a brand-new site the additive HR schema approval is recorded automatically in the audit chain; on a site that already has ERP tables the Owner's written reason is still required.
+- **Governed one-pack installer** (`Stockland_Installer`): installs and verifies the 49-table operational baseline in bounded batches. The 37-table HR lifecycle extension and any existing legacy-HR column migration remain separate: they require active Stockland Owner approval recorded against the exact schema version/fingerprint, a backup confirmation, and a written reason in the immutable audit chain. Fresh installation does not silently approve or create the lifecycle extension. Core/Finance readiness remains independent while HR lifecycle is pending.
 - **Owner go-live authorization** (`Stockland_Release_Authorization`): replaces the hard-coded `false` that made LIVE READY impossible. The Owner records one authorization, bound to this version and the exact schema fingerprint, written to the immutable audit chain. It lapses if the version or schema changes.
 - **Fixed:** health check demanded `XMLReader::fromStream` (PHP 8.4 only) although the reader has a streaming fallback; PHP 8.3 could never be LIVE READY.
 - **Fixed:** product code-map list queried unprefixed tables and returned nothing.
@@ -28,9 +28,9 @@ The software cannot supply these, and the app does not invent them: the qualifie
 
 ## Application scope
 
-The single plugin retains the Stockland operational application: Command Center, POS/cart, wholesale, Product Master and SKU/variant identity, Central Warehouse and four branches, receiving, requisitions, reservations, transfers, returns, damage, adjustments, physical counts, reporting, procurement, suppliers/customers, AP/AR, expenses, GL/PLEDGER, daily close, authorization/audit and HR/payroll lifecycle/resource modules.
+The current plugin instance retains the single-company Stockland operational application: Command Center, POS/cart, wholesale, Product Master and SKU/variant identity, Central Warehouse and four branches, receiving, requisitions, reservations, transfers, returns, damage, adjustments, physical counts, reporting, procurement, suppliers/customers, AP/AR, expenses, GL/PLEDGER, daily close, authorization/audit, four legacy HR/payroll tables, and the separately governed HR lifecycle/resource modules. HR lifecycle activation remains Owner-approval-gated.
 
-The ERP remains one company. Existing ledgers, POS workflows, routes, capabilities and business data structures are retained. No second accounting or ledger engine is introduced.
+The one-company model describes this existing STOCKLAND ETHIOPIA deployment only. Customer-neutral, multi-tenant Apparel Supply Chain provisioning—with separate customer companies, sites, factories, warehouses, branches and users—is a future product capability and is not implemented in 16.2.18. The Central Warehouse, Goro, Gerji, Mexico and Megenagna seeds are Stockland-specific defaults and must not be presented as defaults for new customers. Existing Stockland ledgers, POS workflows, routes, capabilities and business data structures are retained; no second accounting or ledger engine is introduced.
 
 ## Runtime targets
 
@@ -89,7 +89,7 @@ The 24 embedded Amharic-first DOCX resources passed local byte/hash/container-in
 
 ## Verification evidence (build 16.2.18)
 
-Executed on real WordPress 6.8 + MariaDB 10.11 + PHP 8.3: single-activation fresh install (86/86 tables, Owner profile, LIVE_SCHEMA_READY); partial-database upgrade (20 → 45 → 86 tables, HR approval gate honoured); Owner authorization and health `live_ready=true` with 52/52 deep integrity checks; all GET routes without a server error; business flow PO receipt → transfer → POS sale/cart with idempotent replay → return → daily close → AP invoice/payment → customer invoice, with stock balances equal to the transaction sum and every GL journal balanced.
+Executed on real WordPress 6.8 + MariaDB 10.11 + PHP 8.3: single-activation fresh install of the 49/49 operational baseline (29 Core/Operations, 16 Accounting/Procurement, four legacy HR/payroll tables; Owner profile; operational schema ready); the separate 37-table HR lifecycle extension remains pending until explicit Owner approval against its exact schema fingerprint. A separately approved additive setup path was exercised in the partial-database upgrade (20 → 45 → 86 tables; HR approval gate honoured). Deep integrity checks report 52/52 on the tested operational baseline. All GET routes returned without a server error; the tested business flow PO receipt → transfer → POS sale/cart with idempotent replay → return → daily close → AP invoice/payment → customer invoice reconciled stock balances to the transaction sum and every GL journal balanced. These results do not certify full HR lifecycle or statutory payroll acceptance.
 
 Not yet exercised by this build: two full payroll periods with approved statutory rules, role-by-role denial matrix, browser/device/PWA/print acceptance, load/concurrency, and host-specific MariaDB 11.4 behaviour. Run the runbook on your host and keep the backup until satisfied.
 

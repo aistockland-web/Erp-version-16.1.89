@@ -122,7 +122,10 @@ class Stockland_Notifications {
 		$assigned_table = $wpdb->prefix . 'stock_user_locations';
 		$sql            = 'UPDATE %i AS n SET is_read=1,read_at=%s WHERE n.id=%d AND (n.user_id=%d OR (n.audience_role=%s AND (n.location_id IS NULL OR n.location_id=%d OR EXISTS (SELECT 1 FROM %i sul WHERE sul.wp_user_id=%d AND sul.location_id=n.location_id AND sul.is_active=1 AND (sul.effective_from IS NULL OR sul.effective_from<=CURDATE()) AND (sul.effective_to IS NULL OR sul.effective_to>=CURDATE())))))';
 		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $sql is a fixed UPDATE template; table identifiers, timestamp, notification ID, user, role, location and assignment table are all bound through prepare().
-		return false !== Stockland_DB::execute_query( $wpdb->prepare( $sql, Stockland_DB::table( 'notifications' ), current_time( 'mysql' ), (int) $id, (int) $user_id, $role, $loc, $assigned_table, (int) $user_id ) );
+		$updated = Stockland_DB::execute_query( $wpdb->prepare( $sql, Stockland_DB::table( 'notifications' ), current_time( 'mysql' ), (int) $id, (int) $user_id, $role, $loc, $assigned_table, (int) $user_id ) );
+		// wpdb::query() returns 0 when the ID exists but is outside the user's role/location
+		// scope. Treat that as denied; false-only checking would disclose success for no-op updates.
+		return is_int( $updated ) && $updated > 0;
 	}
 	/**
 	 * Notifies Management and Owner that a requisition awaits review.
@@ -172,7 +175,7 @@ class Stockland_Notifications {
 	 *
 	 * Called after the transfer transaction has committed, so a notification problem can never undo stock movement.
 	 *
-	 * @param string $event Event: REQUESTED, APPROVED, REJECTED, RESERVED, PICKED, IN_TRANSIT, CANCELLED.
+	 * @param string $event Event: REQUESTED, APPROVED, REJECTED, RESERVED, PICKED, IN_TRANSIT, RECEIVED, COMPLETED, CANCELLED.
 	 * @param array  $t     Transfer row (needs transfer_id, sku, quantity, from/to location id and name, requested_by).
 	 * @return bool Whether notifications were requested.
 	 */
@@ -200,6 +203,20 @@ class Stockland_Notifications {
 				$sends[] = array( 'sales_employee', $to, 'Stock on the way', $what . ' has been dispatched to your location.', 'info' );
 				$sends[] = array( 'management', null, 'Transfer dispatched', $what . ' is in transit.', 'info' );
 				break;
+			case 'RECEIVED':
+				$sends[] = array( 'warehouse_manager', $from, 'Transfer received at destination', $what . ' was received at the destination and recorded. Review the receipt and any variance.', 'info' );
+				$sends[] = array( 'branch_manager', $to, 'Transfer received', $what . ' was received and recorded at your location.', 'info' );
+				$sends[] = array( 'sales_employee', $to, 'New stock received', $what . ' was received at your location and recorded in inventory.', 'info' );
+				$sends[] = array( 'management', null, 'Transfer received', $what . ' was received and recorded.', 'info' );
+				$sends[] = array( 'owner', null, 'Transfer received', $what . ' was received and recorded.', 'info' );
+				break;
+			case 'COMPLETED':
+				$sends[] = array( 'warehouse_manager', $from, 'Transfer completed', $what . ' has completed at the destination. Review the source and destination movement records.', 'info' );
+				$sends[] = array( 'branch_manager', $to, 'Transfer completed', $what . ' is complete and recorded at your location.', 'info' );
+				$sends[] = array( 'sales_employee', $to, 'Transfer completed', $what . ' is complete in inventory.', 'info' );
+				$sends[] = array( 'management', null, 'Transfer completed', $what . ' is complete.', 'info' );
+				$sends[] = array( 'owner', null, 'Transfer completed', $what . ' is complete.', 'info' );
+				break;
 			case 'REJECTED':
 			case 'CANCELLED':
 				$sends[] = array( 'branch_manager', $to, 'Transfer ' . strtolower( $event ), $what . ' was ' . strtolower( $event ) . '. No stock will arrive.', 'warning' );
@@ -213,7 +230,7 @@ class Stockland_Notifications {
 		foreach ( $sends as $n ) {
 			$ok = self::push_role( $n[0], $n[1], 'transfer_' . strtolower( $event ), $n[2], $n[3], 'transfer', $id, $n[4] ) && $ok;
 		}
-		if ( ! empty( $t['requested_by'] ) && in_array( strtoupper( (string) $event ), array( 'REQUESTED', 'APPROVED', 'RESERVED', 'PICKED', 'IN_TRANSIT', 'REJECTED', 'CANCELLED' ), true ) ) {
+		if ( ! empty( $t['requested_by'] ) && in_array( strtoupper( (string) $event ), array( 'REQUESTED', 'APPROVED', 'RESERVED', 'PICKED', 'IN_TRANSIT', 'RECEIVED', 'COMPLETED', 'REJECTED', 'CANCELLED' ), true ) ) {
 			$ok = self::push_user( (int) $t['requested_by'], 'transfer_' . strtolower( $event ), 'Your transfer ' . $id . ': ' . strtolower( str_replace( '_', ' ', $event ) ), $what . '.', 'transfer', $id, in_array( strtoupper( $event ), array( 'REJECTED', 'CANCELLED' ), true ) ? 'warning' : 'info' ) && $ok;
 		}
 		return $ok;
@@ -228,9 +245,9 @@ class Stockland_Notifications {
 	 * @return bool Whether notification dispatch was requested.
 	 */
 	public static function notify_exception_owners( $title, $message, $entity_type = null, $entity_id = null ) {
-		self::push_role( 'management', null, 'exception', $title, $message, $entity_type, $entity_id, 'danger' );
-		self::push_role( 'owner', null, 'exception', $title, $message, $entity_type, $entity_id, 'danger' );
-		return true;
+		$management_ok = self::push_role( 'management', null, 'exception', $title, $message, $entity_type, $entity_id, 'danger' );
+		$owner_ok      = self::push_role( 'owner', null, 'exception', $title, $message, $entity_type, $entity_id, 'danger' );
+		return $management_ok && $owner_ok;
 	}
 	/**
 	 * Notifies Management and Owner after a committed Product Master change.

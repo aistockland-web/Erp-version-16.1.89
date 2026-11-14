@@ -21,8 +21,8 @@ Rules for this folder: edit with goal-first wording; record measured results wit
 - [ ] **CAP-03 — Setup and documentation consistency** (High)
   - Goal: Present one table-count statement everywhere: 86 application tables, with the operational baseline and the separately approved HR lifecycle group named identically in README, runbook, UI and System Control.
   - Acceptance: README, runbook, UI text and installer constants give the same split.
-  - Evidence so far: The installer creates and verifies 86 tables (deep scan 52/52). The documented split must be aligned to the single wording above.
-  - Status: NEXT
+  - Evidence so far: s9_schema_governance on MariaDB 10.11 and MySQL 8 verifies the 49-table operational baseline and confirms the 37 HR lifecycle tables are not created by default; they remain Owner-approval-gated. The 86-table total applies only after the separately approved extension. README and runbook wording corrected on review branch; System Control/UI wording and all remaining documentation/constants still require exact cross-file audit.
+  - Status: IN PROGRESS
 - [ ] **CAP-04 — Full HR lifecycle end to end** (Critical)
   - Goal: Run hire, compensation, payroll run (create, generate, submit, approve), payment batch and results, reconciliation, statutory remittance, correction and final settlement on a disposable site.
   - Acceptance: Two consecutive synthetic periods balance to the cent and post to the GL with maker-checker separation.
