@@ -170,6 +170,13 @@ final class Stockland_HR_Private_Vault {
 		return false;
 	}
 
+	/** Verify exact permissions after clearing PHP's stat cache following chmod. */
+	private static function mode_is( $path, $mode ) {
+		clearstatcache( true, $path );
+		$perms = @fileperms( $path );
+		return false !== $perms && ( $perms & 0777 ) === $mode;
+	}
+
 	private static function root() {
 		if ( ! defined( 'STOCKLAND_PRIVATE_VAULT_DIR' ) || ! is_string( STOCKLAND_PRIVATE_VAULT_DIR ) || '' === trim( STOCKLAND_PRIVATE_VAULT_DIR ) ) {
 			return self::error( 'hr_private_vault_unconfigured', 'Private HR document storage is not configured. Define STOCKLAND_PRIVATE_VAULT_DIR outside the public web root before enabling uploads/downloads.', 503 );
@@ -197,7 +204,7 @@ final class Stockland_HR_Private_Vault {
 		if ( ! is_writable( $real ) ) {
 			return self::error( 'hr_private_vault_not_writable', 'The private HR vault is not writable.', 503 );
 		}
-		if ( ! @chmod( $real, 0700 ) || 0700 !== ( fileperms( $real ) & 0777 ) ) {
+		if ( ! @chmod( $real, 0700 ) || ! self::mode_is( $real, 0700 ) ) {
 			return self::error( 'hr_private_vault_permissions_unsafe', 'The private HR vault directory must be owner-only (0700); document storage is disabled until permissions can be enforced.', 503 );
 		}
 		return $real;
@@ -235,7 +242,7 @@ final class Stockland_HR_Private_Vault {
 		if ( $ok ) { $ok = fflush( $handle ); }
 		if ( $ok && function_exists( 'fsync' ) ) { $ok = fsync( $handle ); }
 		fclose( $handle );
-		if ( ! $ok || $offset !== $length || ! @chmod( $temp, 0600 ) || 0600 !== ( fileperms( $temp ) & 0777 ) ) {
+		if ( ! $ok || $offset !== $length || ! @chmod( $temp, 0600 ) || ! self::mode_is( $temp, 0600 ) ) {
 			@unlink( $temp );
 			return false;
 		}
@@ -243,7 +250,7 @@ final class Stockland_HR_Private_Vault {
 			@unlink( $temp );
 			return false;
 		}
-		return @chmod( $target, 0600 ) && 0600 === ( fileperms( $target ) & 0777 );
+		return @chmod( $target, 0600 ) && self::mode_is( $target, 0600 );
 	}
 
 	private static function locate( $reference ) {
@@ -260,7 +267,7 @@ final class Stockland_HR_Private_Vault {
 		if ( false === $path || ! is_file( $path ) || ! is_readable( $path ) || ! str_starts_with( $path, rtrim( $root, DIRECTORY_SEPARATOR ) . DIRECTORY_SEPARATOR ) ) {
 			return self::error( 'hr_private_file_unavailable', 'The private resource is not safely readable.', 404 );
 		}
-		if ( ! @chmod( $path, 0600 ) || 0600 !== ( fileperms( $path ) & 0777 ) ) {
+		if ( ! @chmod( $path, 0600 ) || ! self::mode_is( $path, 0600 ) ) {
 			return self::error( 'hr_private_file_permissions_unsafe', 'The encrypted HR object must have owner-only permissions (0600).', 503 );
 		}
 		return $path;
@@ -304,7 +311,7 @@ final class Stockland_HR_Private_Vault {
 		if ( is_link( $year_dir ) || is_link( $sub ) || ( ! is_dir( $year_dir ) && ! wp_mkdir_p( $year_dir ) ) || ( ! is_dir( $sub ) && ! wp_mkdir_p( $sub ) ) ) {
 			return self::error( 'hr_vault_subdir_failed', 'Could not prepare a safe private resource storage directory.', 503 );
 		}
-		if ( ! @chmod( $year_dir, 0700 ) || ! @chmod( $sub, 0700 ) || 0700 !== ( fileperms( $year_dir ) & 0777 ) || 0700 !== ( fileperms( $sub ) & 0777 ) ) {
+		if ( ! @chmod( $year_dir, 0700 ) || ! @chmod( $sub, 0700 ) || ! self::mode_is( $year_dir, 0700 ) || ! self::mode_is( $sub, 0700 ) ) {
 			return self::error( 'hr_private_subdir_permissions_unsafe', 'Vault year/month directories must have owner-only permissions (0700).', 503 );
 		}
 		$target = $sub . DIRECTORY_SEPARATOR . $reference . '.' . $ext;
@@ -363,7 +370,7 @@ final class Stockland_HR_Private_Vault {
 			return self::error( 'hr_private_temp_permissions_failed', 'A private download file could not be protected with owner-only permissions.', 503 );
 		}
 		$written = file_put_contents( $temp, $plain, LOCK_EX );
-		if ( false === $written || $written !== strlen( $plain ) || 0600 !== ( fileperms( $temp ) & 0777 ) ) {
+		if ( false === $written || $written !== strlen( $plain ) || ! self::mode_is( $temp, 0600 ) ) {
 			@unlink( $temp );
 			return self::error( 'hr_private_temp_write_failed', 'The authenticated document could not be prepared for download.', 500 );
 		}
