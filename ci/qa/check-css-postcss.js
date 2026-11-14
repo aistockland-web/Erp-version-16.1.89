@@ -76,7 +76,7 @@ if (!fixtureMin.includes('.desc :hover') ||
   throw new Error('CSS minifier semantic safety fixture failed');
 }
 if (built !== appCss) throw new Error('app.css differs from ordered CSS source modules');
-if (['16.2.0', '16.2.1', '16.2.2', '16.2.3', '16.2.4', '16.2.5', '16.2.6', '16.2.7', '16.2.9'].includes(releaseManifest.release)) {
+if (['16.2.0', '16.2.1', '16.2.2', '16.2.3', '16.2.4', '16.2.5', '16.2.6', '16.2.7', '16.2.9', '16.2.18'].includes(releaseManifest.release)) {
   const expectedTail = [
     '07-dashboard-operations.css',
     '08-reporting-worksheet.css',
