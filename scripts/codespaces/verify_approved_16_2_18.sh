@@ -16,13 +16,27 @@ EXPECTED_SHA=de7b087906e82185de1782af1125f3194c6904785afb5338e0c828c743d38a08
 ARTIFACT_DIR="$(mktemp -d /tmp/stockland-approved-16218.XXXXXX)"
 trap 'rm -rf "$ARTIFACT_DIR"' EXIT
 
-command -v gh >/dev/null 2>&1 || { echo "GitHub CLI is required to retrieve the approved Actions artifact." >&2; exit 2; }
-gh auth status >/dev/null
+GH_TOKEN_VALUE="$(printenv GH_TOKEN 2>/dev/null || true)"
+if [[ -z "$GH_TOKEN_VALUE" ]] && command -v gh >/dev/null 2>&1; then
+  GH_TOKEN_VALUE="$(gh auth token)"
+fi
+[[ -n "$GH_TOKEN_VALUE" ]] || { echo "Authenticate gh or provide GH_TOKEN to download the approved Actions artifact." >&2; exit 2; }
+
 echo "=== Download exact approved release artifact #14104031868 from run $RUN_ID ==="
-gh run download "$RUN_ID" \
-  --repo aistockland-web/Erp-version-16.1.89 \
-  --name "$ARTIFACT_NAME" \
-  --dir "$ARTIFACT_DIR"
+ARTIFACT_ID=14104031868
+API_URL="https://api.github.com/repos/aistockland-web/Erp-version-16.1.89/actions/artifacts/$ARTIFACT_ID/zip"
+DOWNLOAD_URL="$(curl --fail --silent --show-error --output /dev/null --write-out '%{redirect_url}' \
+  -H "Accept: application/vnd.github+json" \
+  -H "Authorization: Bearer $GH_TOKEN_VALUE" \
+  -H "X-GitHub-Api-Version: 2022-11-28" "$API_URL")"
+[[ -n "$DOWNLOAD_URL" ]] || { echo "GitHub did not return an artifact download URL." >&2; exit 1; }
+OUTER="$ARTIFACT_DIR/approved-actions-artifact.zip"
+curl --fail --silent --show-error --location --retry 3 "$DOWNLOAD_URL" --output "$OUTER"
+OUTER_SHA="$(sha256sum "$OUTER" | awk '{print $1}')"
+[[ "$OUTER_SHA" == "ff58626d39c63980eba7f3de5cf8e2ee7c5788952e746731791fdd20b434d133" ]] || {
+  echo "Downloaded Actions wrapper does not match artifact #14104031868." >&2; exit 1;
+}
+unzip -q "$OUTER" -d "$ARTIFACT_DIR"
 
 ZIP="$ARTIFACT_DIR/STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTALLER.zip"
 SIDECAR="$ZIP.sha256"
