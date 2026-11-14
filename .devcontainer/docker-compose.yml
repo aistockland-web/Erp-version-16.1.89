@@ -31,8 +31,6 @@ services:
         condition: service_healthy
       wordpress_baseline:
         condition: service_healthy
-      wordpress_upgrade:
-        condition: service_healthy
 
   mariadb:
     image: mariadb:10.11
@@ -74,6 +72,7 @@ services:
 
   wordpress_upgrade:
     image: wordpress:php8.3-apache
+    profiles: ["legacy-upgrade"]
     restart: unless-stopped
     depends_on:
       mariadb:
