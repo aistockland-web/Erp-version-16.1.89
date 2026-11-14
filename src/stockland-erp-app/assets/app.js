@@ -2818,7 +2818,7 @@ function dailyImportPage(){
     }
     const branches=authorizedBranches();const company=!!state.boot.user.can_all;const multi=company||branches.length>1;
     const branchField=multi?'<select name="branch_location_id" required>'+(company?'<option value="">Select branch…</option>':'')+branches.map(l=>'<option value="'+esc(l.id)+'">'+esc(l.location_name)+'</option>').join('')+'</select>':('<div class="sl-readonly-field">'+esc(branches[0]?.location_name||'Assigned branch')+'</div><input type="hidden" name="branch_location_id" value="'+esc(branches[0]?.id||'')+'">');
-    const folderGuide='https://github.com/aistockland-web/Erp-version-16.1.89/tree/feat/daily-pos-import-options-2026-11-13/tools/stockland-pos-folder-agent';
+    const folderGuide='https://github.com/aistockland-web/Erp-version-16.1.89/tree/delivery/stockland-pos-reconciled-2026-11-14/tools/stockland-pos-folder-agent';
     return title('Daily POS Control','One controlled branch-sales workflow with three intake methods. Every method feeds the same validation and staging route; only the assigned Branch Manager can release sales into ERP.','<button class="sl-btn" id="refresh">Refresh</button>')+importTrainingPanel('daily')+
       '<div class="sl-import-purpose-grid sl-daily-pos-intake-grid">'+
         '<div class="sl-purpose-card is-current"><b>1 • MANUAL EXCEL / CSV UPLOAD</b><span>Choose the original third-party POS daily report. CNET “Summarized By Article” is read in its existing layout, including its report date and source totals. No reformatting or template copy.</span><em>CLICK → VALIDATE → STAGE</em></div>'+
