@@ -83,6 +83,8 @@ verify_site() {
     sudo -u www-data env HOME=/tmp PATH="$PATH" \
       WORDPRESS_DB_HOST="$db_host" WORDPRESS_DB_NAME="$db_name" \
       WORDPRESS_DB_USER="$STOCKLAND_DEV_DB_USER" WORDPRESS_DB_PASSWORD="$STOCKLAND_DEV_DB_PASSWORD" \
+      STOCKLAND_DISPOSABLE_SITE=yes STOCKLAND_CODESPACES_COMPOSE=yes \
+      STOCKLAND_DISPOSABLE_DB_NAME="$db_name" STOCKLAND_DISPOSABLE_DB_HOST="$db_host" \
       wp --path="$wp_path" "$@"
   }
 
