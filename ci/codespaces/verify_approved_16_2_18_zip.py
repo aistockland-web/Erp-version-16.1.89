@@ -58,7 +58,7 @@ def main() -> None:
             file_bytes: dict[str, bytes] = {}
             for info in infos:
                 name = info.filename
-                if not name or "\\\\" in name or name.startswith(("/", "\\\\")):
+                if not name or "\\" in name or name.startswith(("/", "\\")):
                     fail(f"unsafe archive path: {name!r}")
                 relative = PurePosixPath(name)
                 if relative.is_absolute() or any(part in ("", ".", "..") for part in relative.parts):
@@ -114,8 +114,8 @@ def main() -> None:
             if entry is None:
                 fail("plugin entrypoint is missing")
             text = entry.decode("utf-8")
-            header = re.search(r"^\\s*\\*?\\s*Version:\\s*([0-9.]+)", text, re.M)
-            constant = re.search(r"define\\(\\s*'STOCKLAND_VERSION',\\s*'([0-9.]+)'", text)
+            header = re.search(r"^\s*\*?\s*Version:\s*([0-9.]+)", text, re.M)
+            constant = re.search(r"define\(\s*'STOCKLAND_VERSION',\s*'([0-9.]+)'", text)
             if not header or not constant or header.group(1) != "16.2.18" or constant.group(1) != "16.2.18":
                 fail("plugin header/constant versions do not both equal 16.2.18")
     except (zipfile.BadZipFile, OSError, UnicodeDecodeError, json.JSONDecodeError, KeyError) as exc:
