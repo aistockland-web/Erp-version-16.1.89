@@ -121,8 +121,16 @@ if (['16.2.0', '16.2.1', '16.2.2', '16.2.3', '16.2.4', '16.2.5', '16.2.6', '16.2
   if (minifyCssPreservingSemantics(built) !== appMin) {
     throw new Error('app.min.css differs from semantics-safe minification of the ordered 16.2.18 source modules');
   }
-  if (cssSemanticFingerprint(built) !== cssSemanticFingerprint(appMin)) {
-    throw new Error('app.min.css differs semantically from the ordered 16.2.18 CSS source modules');
+  const sourceFingerprint = cssSemanticFingerprint(built);
+  const minFingerprint = cssSemanticFingerprint(appMin);
+  if (sourceFingerprint !== minFingerprint) {
+    let offset = 0;
+    while (offset < sourceFingerprint.length && offset < minFingerprint.length &&
+      sourceFingerprint[offset] === minFingerprint[offset]) offset += 1;
+    throw new Error('app.min.css semantic diff at offset ' + offset +
+      '; source=' + JSON.stringify(sourceFingerprint.slice(Math.max(0, offset - 90), offset + 180)) +
+      '; min=' + JSON.stringify(minFingerprint.slice(Math.max(0, offset - 90), offset + 180)) +
+      '; source_chars=' + sourceFingerprint.length + '; min_chars=' + minFingerprint.length);
   }
   console.log('PASS 16.2.18 exact generated app.min.css and PostCSS semantic parity');
 } else {
