@@ -32,6 +32,8 @@ DOWNLOAD_URL="$(curl --fail --silent --show-error --output /dev/null --write-out
 [[ -n "$DOWNLOAD_URL" ]] || { echo "GitHub did not return an artifact download URL." >&2; exit 1; }
 OUTER="$ARTIFACT_DIR/approved-actions-artifact.zip"
 curl --fail --silent --show-error --location --retry 3 "$DOWNLOAD_URL" --output "$OUTER"
+chmod 0755 "$ARTIFACT_DIR"
+chmod 0644 "$OUTER"
 OUTER_SHA="$(sha256sum "$OUTER" | awk '{print $1}')"
 [[ "$OUTER_SHA" == "ff58626d39c63980eba7f3de5cf8e2ee7c5788952e746731791fdd20b434d133" ]] || {
   echo "Downloaded Actions wrapper does not match artifact #14104031868." >&2; exit 1;
@@ -82,8 +84,17 @@ verify_site() {
   export STOCKLAND_DISPOSABLE_DB_NAME="$db_name"
   export STOCKLAND_DISPOSABLE_DB_HOST="$db_host"
 
-  bash scripts/release/verify_master_installer.sh "$wp_path" "$ZIP"
-  bash scripts/release/e2e/run_all.sh "$wp_path"
+  sudo -u www-data env HOME=/tmp PATH="$PATH" \
+    WORDPRESS_DB_HOST="$db_host" WORDPRESS_DB_NAME="$db_name" \
+    WORDPRESS_DB_USER="$STOCKLAND_DEV_DB_USER" WORDPRESS_DB_PASSWORD="$STOCKLAND_DEV_DB_PASSWORD" \
+    STOCKLAND_DISPOSABLE_SITE=yes STOCKLAND_CODESPACES_COMPOSE=yes \
+    STOCKLAND_DISPOSABLE_DB_NAME="$db_name" STOCKLAND_DISPOSABLE_DB_HOST="$db_host" \
+    bash scripts/release/verify_master_installer.sh "$wp_path" "$ZIP"
+  sudo -u www-data env HOME=/tmp PATH="$PATH" \
+    WORDPRESS_DB_HOST="$db_host" WORDPRESS_DB_NAME="$db_name" \
+    WORDPRESS_DB_USER="$STOCKLAND_DEV_DB_USER" WORDPRESS_DB_PASSWORD="$STOCKLAND_DEV_DB_PASSWORD" \
+    STOCKLAND_DISPOSABLE_SITE=yes \
+    bash scripts/release/e2e/run_all.sh "$wp_path"
   echo "PASS $label — exact approved 16.2.18 artifact, ZIP SHA $EXPECTED_SHA"
 }
 
