@@ -14,7 +14,8 @@
 - Artifact wrapper SHA-256: `ff58626d39c63980eba7f3de5cf8e2ee7c5788952e746731791fdd20b434d133`.
 - Embedded package manifest identifies source commit `387c193c7999840c731d37acd854ec920f134507`, 124 inventoried application files. The ZIP has 125 entries, one `stockland-erp-app/` root, successful CRC validation, and every manifest file hash matches.
 - WordPress/PHP/MySQL remains the ERP application and transactional system of record. Cloudflare Workers, D1, KV, and R2 are not replacements for WordPress authentication, MySQL transactions, the Stockland stock ledger, finance journals, or audit history.
-- Cloudflare Containers are excluded because the current Containers pricing documentation lists no Free allocation; use repository Docker Compose in Codespaces/GitHub Actions for disposable engineering environments.
+- Cloudflare Containers are **not included in Workers Free**: the current Containers pricing page shows Free as N/A and the included 25 GiB-hours, 375 vCPU-minutes and 200 GB-hours are part of the $5/month Workers Paid plan. Do not deploy the ERP stack to Containers on this Free-only project. Use repository Docker Compose and GitHub Actions for disposable engineering environments.
+- GitHub personal Free includes 120 Codespaces core-hours and 15 GB-month storage. On the selected 2-core machine, that is at most 60 active hours per month before accounting for any prior account usage; storage is metered separately by GB-hours. Stop the Codespace when idle and check the actual remaining account allowance before creation. No prebuilds are configured.
 - No paid Cloudflare product, subscription, or production migration is authorized by this infrastructure target.
 
 ## 2. Live Cloudflare account inventory
@@ -53,7 +54,7 @@ Use only products and features with a documented Free tier, and only when they s
 | D1 | Free tier is available, with published daily read/write and storage caps | Do not use as the ERP's primary transactional database; no D1 database is currently provisioned |
 | R2 | Standard-storage free tier: 10 GB-month, 1 million Class A operations/month, 10 million Class B operations/month, free egress | Optional encrypted exports/static media only after Dashboard activation, access policy and restore test; currently unavailable through the API |
 | Turnstile | Free challenge service | Candidate for login/public forms only after both client widget and mandatory server-side Siteverify validation are implemented |
-| Containers | No Free CPU/memory/disk allocation in current pricing | Excluded; use Docker Compose locally and in CI |
+| Containers | Not available on Workers Free; included usage belongs to the $5/month Workers Paid plan | Excluded; use Docker Compose locally and in CI |
 
 Official limits and setup references:
 - [Workers limits](https://developers.cloudflare.com/workers/platform/limits/)
@@ -62,6 +63,8 @@ Official limits and setup references:
 - [D1 pricing and limits](https://developers.cloudflare.com/workers/platform/pricing/)
 - [R2 pricing](https://developers.cloudflare.com/r2/pricing/)
 - [Containers pricing](https://developers.cloudflare.com/containers/platform/pricing/)
+- [GitHub Codespaces Free usage](https://docs.github.com/en/billing/concepts/product-billing/github-codespaces)
+- [Codespaces included-usage guidance](https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-included-usage)
 - [Free-plan WAF / DDoS / Bot Fight Mode notes](https://developers.cloudflare.com/waf/feature-interoperability/)
 - [Turnstile server-side validation](https://developers.cloudflare.com/turnstile/get-started/server-side-validation/)
 
@@ -106,7 +109,7 @@ It does not connect to the production WordPress host, change production tables, 
 - The current Cloudflare account has no DNS zone. Therefore production DNS proxying, zone-level WAF/cache rules and SSL settings cannot be applied until the Owner supplies a domain that the account controls and completes the required nameserver delegation.
 - R2 requires one-time Dashboard activation before it can be used; it is not currently provisioned.
 - The Owner's live Codespace terminal is not exposed through the available GitHub repository connector. The same Docker Compose verification is therefore wired into GitHub Actions for a reproducible hosted check; the account owner can also run the command above in the interactive Codespace.
-- No Cloudflare Containers, paid Workers plan, D1 database, KV namespace, Queue, Durable Object, Pages project, production DB connection, or origin-domain change was created by this target.
+- No Cloudflare Container instance, paid Workers plan, D1 database, KV namespace, Queue, Durable Object, Pages project, production DB connection, or origin-domain change was created by this target.
 
 ## 7. Evidence and change boundaries
 
