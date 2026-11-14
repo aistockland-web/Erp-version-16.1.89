@@ -10,8 +10,6 @@ case "$TARGET" in mariadb|mysql8|all) ;; *) echo "Unsupported target: $TARGET" >
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
-# The mounted checkout is owned by the Actions runner; trust this repo explicitly in the workspace container.
-git config --global --add safe.directory "$ROOT"
 RUN_ID=43570216177
 ARTIFACT_ID=14104031868
 # The approved ZIP was built from this exact source commit. Its baseline E2E
@@ -59,13 +57,16 @@ python3 ci/codespaces/verify_approved_16_2_18_zip.py "$ZIP"
 # Extract the exact release's own test harness, not the evolving candidate
 # suite from the current feature branch. Candidate source is tested separately
 # by master-installer-wordpress-verify.yml, which builds from that exact HEAD.
+BASELINE_ARCHIVE="$ROOT/artifacts/codespaces/stockland-16.2.18-baseline-release-tests.tar.gz"
+BASELINE_ARCHIVE_SHA="$BASELINE_ARCHIVE.sha256"
+[[ -s "$BASELINE_ARCHIVE" && -s "$BASELINE_ARCHIVE_SHA" ]] || {
+  echo "Pinned 16.2.18 baseline test archive is missing; the host workflow must prepare it from $BASELINE_SOURCE_COMMIT." >&2
+  exit 1
+}
+sha256sum --check "$BASELINE_ARCHIVE_SHA"
 BASELINE_SOURCE_DIR="$ARTIFACT_DIR/baseline-source"
 mkdir -p "$BASELINE_SOURCE_DIR"
-if ! git cat-file -e "$BASELINE_SOURCE_COMMIT^{commit}" 2>/dev/null; then
-  git fetch --quiet --no-tags --depth=1 origin "$BASELINE_SOURCE_COMMIT"
-fi
-git cat-file -e "$BASELINE_SOURCE_COMMIT^{commit}"
-git archive --format=tar "$BASELINE_SOURCE_COMMIT" scripts/release | tar -xf - -C "$BASELINE_SOURCE_DIR"
+tar -xzf "$BASELINE_ARCHIVE" -C "$BASELINE_SOURCE_DIR"
 BASELINE_RELEASE_DIR="$BASELINE_SOURCE_DIR/scripts/release"
 [[ -s "$BASELINE_RELEASE_DIR/complete_baseline.php" && -s "$BASELINE_RELEASE_DIR/verify_master_installer.php" && -s "$BASELINE_RELEASE_DIR/e2e/run_all.sh" ]] || {
   echo "Pinned 16.2.18 baseline acceptance suite is incomplete." >&2; exit 1;
