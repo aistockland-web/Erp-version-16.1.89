@@ -1,10 +1,10 @@
 # Stockland Ethiopia ERP — 16.2.18 Master Installer
 
-One WordPress plugin, one upload, one activation. It installs the complete Stockland operating system: Command Center, POS/cart, wholesale, product master and SKU/variant identity, Central Warehouse and four branches, receiving, requisitions, reservations, transfers, returns, damage, adjustments, physical counts, procurement, suppliers/customers, AP/AR, expenses, GL/PLEDGER, daily close, authorization/audit, and the HR/payroll lifecycle with 24 Amharic SOP documents.
+One WordPress plugin, one upload, one activation for the existing single-company STOCKLAND ETHIOPIA deployment. It installs the Stockland operating system for that deployment: Command Center, POS/cart, wholesale, product master and SKU/variant identity, Central Warehouse and four branches, receiving, requisitions, reservations, transfers, returns, damage, adjustments, physical counts, procurement, suppliers/customers, AP/AR, expenses, GL/PLEDGER, daily close, authorization/audit, and the HR/payroll lifecycle with 24 Amharic SOP documents.
 
 ## Install in three steps
 
-1. **Plugins → Add New → Upload Plugin** → choose the ZIP → **Activate**. Activation creates and physically verifies the 49-table operational baseline: 29 Core/Operations, 16 Accounting/Procurement, and four legacy HR/payroll tables. It seeds the Central Warehouse and four branches and gives the installing administrator the Stockland Owner profile. The separate 37-table HR lifecycle extension is not created automatically.
+1. **Plugins → Add New → Upload Plugin** → choose the ZIP → **Activate**. Activation creates and physically verifies the 49-table operational baseline: 29 Core/Operations, 16 Accounting/Procurement, and four legacy HR/payroll tables. It seeds Stockland's Central Warehouse and the Stockland-specific Goro, Gerji, Mexico and Megenag na branches and gives the installing administrator the Stockland Owner profile. These are defaults for this existing Stockland deployment, not generic new-customer defaults. The separate 37-table HR lifecycle extension is not created automatically.
 2. Open **Stockland → System Control** and complete any remaining operational-baseline batches. HR lifecycle DDL and existing legacy-HR column changes are separate Owner-gated actions: the active Stockland Owner must review the exact schema version/fingerprint, confirm a backup, and submit a written reason through the HR approval control before that work can run. Without that approval, the 37-table lifecycle extension remains pending; Core/Finance operational readiness is independent.
 3. When the operational baseline is complete, the Owner may use **Authorize live operation** for the exact ready operational schema/version. This authorization does not approve HR lifecycle DDL or Ethiopian statutory payroll rules; those retain their separate approval and acceptance gates.
 
@@ -28,9 +28,9 @@ The software cannot supply these, and the app does not invent them: the qualifie
 
 ## Application scope
 
-The single plugin retains the Stockland operational application: Command Center, POS/cart, wholesale, Product Master and SKU/variant identity, Central Warehouse and four branches, receiving, requisitions, reservations, transfers, returns, damage, adjustments, physical counts, reporting, procurement, suppliers/customers, AP/AR, expenses, GL/PLEDGER, daily close, authorization/audit, four legacy HR/payroll tables, and the separately governed HR lifecycle/resource modules. HR lifecycle activation remains Owner-approval-gated.
+The current plugin instance retains the single-company Stockland operational application: Command Center, POS/cart, wholesale, Product Master and SKU/variant identity, Central Warehouse and four branches, receiving, requisitions, reservations, transfers, returns, damage, adjustments, physical counts, reporting, procurement, suppliers/customers, AP/AR, expenses, GL/PLEDGER, daily close, authorization/audit, four legacy HR/payroll tables, and the separately governed HR lifecycle/resource modules. HR lifecycle activation remains Owner-approval-gated.
 
-The ERP remains one company. Existing ledgers, POS workflows, routes, capabilities and business data structures are retained. No second accounting or ledger engine is introduced.
+The one-company model describes this existing STOCKLAND ETHIOPIA deployment only. Customer-neutral, multi-tenant Apparel Supply Chain provisioning—with separate customer companies, sites, factories, warehouses, branches and users—is a future product capability and is not implemented in 16.2.18. The Central Warehouse, Goro, Gerji, Mexico and Megenagna seeds are Stockland-specific defaults and must not be presented as defaults for new customers. Existing Stockland ledgers, POS workflows, routes, capabilities and business data structures are retained; no second accounting or ledger engine is introduced.
 
 ## Runtime targets
 
