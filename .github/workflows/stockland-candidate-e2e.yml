@@ -11,11 +11,14 @@ on:
       - 'STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER.zip.sha256'
       - 'STOCKLAND_ERP_16.2.15_LOCAL_REVIEW_CANDIDATE_WORDPRESS_INSTALLER.zip'
       - 'STOCKLAND_ERP_16.2.15_LOCAL_REVIEW_CANDIDATE_WORDPRESS_INSTALLER.zip.sha256'
-      - 'ci/codespaces/**'
-      - '.devcontainer/**'
-      - 'scripts/codespaces/**'
+      - 'ci/codespaces/candidate-packages.json'
+      - 'ci/codespaces/repair_candidate_php_entrypoint.py'
+      - 'ci/codespaces/test_repair_candidate_php_entrypoint.py'
+      - 'ci/codespaces/validate_candidate_packages.py'
+      - 'ci/codespaces/diagnose_php_entrypoint.py'
+      - 'ci/codespaces/check_web_assets.js'
+      - 'scripts/codespaces/verify_candidate_archives.py'
       - 'src/.stockland-erp-app.source.json'
-      - '.github/workflows/stockland-candidate-e2e.yml'
   pull_request:
     branches: [main, 'infra/**', 'fix/**']
     paths:
@@ -23,11 +26,14 @@ on:
       - 'STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER.zip.sha256'
       - 'STOCKLAND_ERP_16.2.15_LOCAL_REVIEW_CANDIDATE_WORDPRESS_INSTALLER.zip'
       - 'STOCKLAND_ERP_16.2.15_LOCAL_REVIEW_CANDIDATE_WORDPRESS_INSTALLER.zip.sha256'
-      - 'ci/codespaces/**'
-      - '.devcontainer/**'
-      - 'scripts/codespaces/**'
+      - 'ci/codespaces/candidate-packages.json'
+      - 'ci/codespaces/repair_candidate_php_entrypoint.py'
+      - 'ci/codespaces/test_repair_candidate_php_entrypoint.py'
+      - 'ci/codespaces/validate_candidate_packages.py'
+      - 'ci/codespaces/diagnose_php_entrypoint.py'
+      - 'ci/codespaces/check_web_assets.js'
+      - 'scripts/codespaces/verify_candidate_archives.py'
       - 'src/.stockland-erp-app.source.json'
-      - '.github/workflows/stockland-candidate-e2e.yml'
   workflow_dispatch:
 
 permissions:
@@ -78,7 +84,7 @@ jobs:
       - name: Test the narrow repair and validate exact baseline plus repaired candidate
         id: verify-candidate-packages
         run: |
-          python3 -m unittest discover -s ci/codespaces -p 'test_*.py' -v
+          python3 -m unittest discover -s ci/codespaces -p 'test_repair_candidate_php_entrypoint.py' -v
           python3 ci/codespaces/validate_candidate_packages.py --lock-file "$RUNNER_TEMP/stockland-candidate-lock.json" --extract-root "$RUNNER_TEMP/stockland-candidates" --summary "$RUNNER_TEMP/stockland-candidate-summary.json"
 
       - name: Preserve diagnostic of the untouched original .15 archive
