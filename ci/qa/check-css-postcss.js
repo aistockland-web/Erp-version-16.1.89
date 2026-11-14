@@ -8,7 +8,7 @@ if (!root || !fs.existsSync(root)) throw new Error('Pass extracted stockland-erp
 const assets = path.join(root, 'assets');
 const manifest = JSON.parse(fs.readFileSync(path.join(assets, 'css/modules.json'), 'utf8'));
 const releaseManifest = JSON.parse(fs.readFileSync(path.join(root, 'RELEASE_MANIFEST.json'), 'utf8'));
-const expectedModuleCount = ['16.2.0', '16.2.1', '16.2.2', '16.2.3', '16.2.4', '16.2.5', '16.2.6', '16.2.7', '16.2.9'].includes(releaseManifest.release) ? 12 : 6;
+const expectedModuleCount = releaseManifest.release === '16.2.18' ? 14 : (['16.2.0', '16.2.1', '16.2.2', '16.2.3', '16.2.4', '16.2.5', '16.2.6', '16.2.7', '16.2.9'].includes(releaseManifest.release) ? 12 : 6);
 if (!releaseManifest.release || manifest.release !== releaseManifest.release ||
     !Array.isArray(manifest.modules) || manifest.modules.length !== expectedModuleCount ||
     new Set(manifest.modules).size !== expectedModuleCount) {
@@ -115,6 +115,19 @@ if (['16.2.0', '16.2.1', '16.2.2', '16.2.3', '16.2.4', '16.2.5', '16.2.6', '16.2
 for (const file of ['app.css', 'app.min.css', 'bootstrap.min.css']) {
   postcss.parse(fs.readFileSync(path.join(assets, file), 'utf8'), { from: file });
   console.log('PASS PostCSS parse ' + file);
+}
+if (releaseManifest.release === '16.2.18') {
+  const expectedTail = ['13-enterprise-saas-system.css', '14-table-holders-legacy-colors.css'];
+  if (JSON.stringify(manifest.modules.slice(-2)) !== JSON.stringify(expectedTail)) {
+    throw new Error('16.2.18 enterprise and legacy-browser modules are not last in the cascade');
+  }
+  const legacy = chunks[chunks.length - 1];
+  if (!legacy.includes('@supports not (--a:0)') ||
+      !legacy.includes('@supports not (display:grid)') ||
+      !legacy.includes('.sl-table-tools')) {
+    throw new Error('16.2.18 table-holder or old-browser fallback rules are missing');
+  }
+  console.log('PASS 16.2.18 fourteen-module cascade and old-browser fallback source');
 }
 const source = chunks.join('\n');
 const cliArgs = process.argv.slice(3);
