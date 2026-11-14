@@ -2942,4 +2942,6 @@ body[data-sl-theme],body[data-sl-theme="sapphire"]{
 #stockland-app .sl-top-brand small,
 #stockland-app .sl-user-copy small,
 #stockland-app .sl-global-search-control kbd,
-#stockland-app .sl-dashboard-page .sl-dashboard-kpi-copy .meta{color:#536981}
+#stockland-app .sl-dashboard-page .sl-dashboard-kpi-copy .meta,
+#stockland-app .sl-dashboard-trend .sl-block-head small,
+#stockland-app .sl-dashboard-category .sl-block-head small{color:#536981}
