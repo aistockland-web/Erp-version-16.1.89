@@ -143,7 +143,7 @@ class Stockland_REST_Import_V16 {
 			'sku'           => array( 'sku', 'product_code', 'item_code', 'article_code', 'code', 'item', 'item_id', 'product_sku' ),
 			'receipt'       => array( 'receipt_no', 'receipt', 'invoice_no', 'invoice', 'transaction_no', 'transaction_id', 'reference', 'ref_no', 'order_no', 'bill_no' ),
 			'qty'           => array( 'qty', 'quantity', 'units', 'units_sold', 'qty_sold', 'sold_qty', 'sold_units' ),
-			'selling_price' => array( 'selling_price', 'sale_price', 'unit_price', 'actual_price', 'price', 'rate' ),
+			'selling_price' => array( 'selling_price', 'sale_price', 'unit_price', 'actual_price', 'average_amount', 'avg_amount', 'price', 'rate' ),
 			'line_total'    => array( 'sales_total', 'line_total', 'total', 'gross_sales', 'amount', 'revenue', 'net_total', 'total_amount' ),
 			'vat_amount'    => array( 'vat_amount', 'vat', 'tax_amount', 'tax' ),
 			'vat_mode'      => array( 'vat_mode', 'tax_mode', 'vat_basis' ),
@@ -353,100 +353,196 @@ class Stockland_REST_Import_V16 {
 		Stockland_Runtime_Diagnostics::stage( 'PRODUCT_MASTER' === $type ? 'product_master_scan' : 'daily_pos_scan' );
 		foreach ( $xlsx->sheet_names() as $sheet ) {
 			Stockland_Runtime_Diagnostics::stage( ( 'PRODUCT_MASTER' === $type ? 'product_master_sheet:' : 'daily_pos_sheet:' ) . substr( sanitize_key( (string) $sheet ), 0, 50 ) );
-			$header    = null;
-			$headers   = array();
-			$mapping   = array();
-			$profile   = null;
-			$auto      = null;
-			$buffer    = array();
-			$out       = array();
-			$data_rows = 0;
+			$header = null; $headers = array(); $mapping = array(); $profile = null; $auto = null; $buffer = array(); $out = array(); $data_rows = 0;
+			$source_meta = array( 'format' => 'GENERIC', 'source_date' => null, 'markers' => array(), 'totals' => array() );
 			foreach ( $xlsx->stream_rows( $sheet, Stockland_XLSX::MAX_PHYSICAL_ROW_NODES ) as $record ) {
 				$row_number = (int) $record['row_number'];
-				$values     = (array) $record['values'];
-				$buffer[]   = $record;
-				// Header discovery is limited to the first 10 physical worksheet rows.
+				$values = (array) $record['values'];
+				if ( 'DAILY_SALES' === $type ) {
+					foreach ( $values as $cell_value ) {
+						$cell_norm = $this->norm( $cell_value );
+						if ( false !== strpos( $cell_norm, 'cash_sales_voucher' ) ) $source_meta['markers']['cash_sales_voucher'] = true;
+						if ( false !== strpos( $cell_norm, 'summarized_by_article' ) ) $source_meta['markers']['summarized_by_article'] = true;
+					}
+					if ( isset( $source_meta['markers']['cash_sales_voucher'], $source_meta['markers']['summarized_by_article'] ) ) $source_meta['format'] = 'CNET_SUMMARIZED_BY_ARTICLE';
+					if ( 3 === $row_number && isset( $values[9] ) ) {
+						$date_text = trim( (string) $values[9] );
+						$date_value = date_create_immutable( $date_text, new DateTimeZone( 'UTC' ) );
+						if ( $date_value && preg_match( '/\b20\d{2}\b/', $date_text ) ) $source_meta['source_date'] = $date_value->format( 'Y-m-d' );
+					}
+					$summary_labels = array( 'sub_total' => 'subtotal', 'subtotal' => 'subtotal', 'add_charge' => 'add_charge', 'discount' => 'discount', 'total_tax' => 'tax', 'grand_total' => 'grand_total' );
+					foreach ( $values as $cell_value ) {
+						$label = $this->norm( $cell_value );
+						if ( isset( $summary_labels[ $label ] ) && isset( $values[10] ) && is_numeric( $values[10] ) ) $source_meta['totals'][ $summary_labels[ $label ] ] = (float) $values[10];
+					}
+				}
+				$buffer[] = $record;
 				if ( null === $header && $row_number <= 10 ) {
-					$candidate = array();
-					$max_index = $values ? max( array_keys( $values ) ) : -1;
-					for ( $i = 0;$i <= $max_index;$i++ ) {
-						$candidate[ $i ] = isset( $values[ $i ] ) ? trim( (string) $values[ $i ] ) : '';
-					}
-					$candidate_headers = $candidate;
-					if ( ! array_filter(
-						$candidate,
-						function ( $v ) {
-							return '' !== $v;
-						}
-					) ) {
-						continue;
-					}
-					$candidate_auto    = $this->auto_map_headers( $candidate_headers, $type );
+					$candidate = array(); $max_index = $values ? max( array_keys( $values ) ) : -1;
+					for ( $i = 0; $i <= $max_index; $i++ ) $candidate[ $i ] = isset( $values[ $i ] ) ? trim( (string) $values[ $i ] ) : '';
+					if ( ! array_filter( $candidate, function ( $v ) { return '' !== $v; } ) ) continue;
+					$candidate_auto = $this->auto_map_headers( $candidate, $type );
 					$candidate_profile = $this->get_profile( $type, $source_system, $candidate_auto['signature'] );
 					$candidate_mapping = $candidate_profile ? $candidate_profile['mapping'] : $candidate_auto['mapping'];
-					$candidate_found   = array(
-						'mapping'   => $candidate_mapping,
-						'headers'   => $candidate_headers,
-						'conflicts' => $candidate_auto['conflicts'] ?? array(),
-					);
-					try {
-						$this->validate_mapping_contract( $candidate_found, $type );
-						$ready = true;
-					} catch ( Throwable $map_error ) {
-						$ready = false;}
+					$candidate_found = array( 'mapping' => $candidate_mapping, 'headers' => $candidate, 'conflicts' => $candidate_auto['conflicts'] ?? array() );
+					try { $this->validate_mapping_contract( $candidate_found, $type ); $ready = true; } catch ( Throwable $map_error ) { $ready = false; }
 					if ( $ready ) {
-						$header  = $row_number;
-						$headers = $candidate_headers;
-						$mapping = $candidate_mapping;
-						$profile = $candidate_profile;
-						$auto    = $candidate_auto;
+						$header = $row_number; $headers = $candidate; $mapping = $candidate_mapping; $profile = $candidate_profile; $auto = $candidate_auto;
 						foreach ( $buffer as $prior ) {
-							if ( (int) $prior['row_number'] <= $header ) {
-								continue;
-							}
-							$r = $this->stream_assoc_row( $prior['values'], $headers );
-							if ( null !== $r ) {
-								$r['__excel_row'] = (int) $prior['row_number'];
-								$out[]            = $r;
-								++$data_rows;}
+							if ( (int) $prior['row_number'] <= $header ) continue;
+							$prior_values = (array) $prior['values'];
+							$prior_values = $this->align_article_summary_values( $prior_values, $headers, $type, $source_meta['format'] );
+							$r = $this->stream_assoc_row( $prior_values, $headers );
+							if ( null !== $r ) { $r['__excel_row'] = (int) $prior['row_number']; $out[] = $r; ++$data_rows; }
 						}
 						$buffer = array();
 					}
 					continue;
 				}
 				if ( null !== $header ) {
-					$r = $this->stream_assoc_row( $values, $headers );
+					$source_values = $values;
+					$source_values = $this->align_article_summary_values( $source_values, $headers, $type, $source_meta['format'] );
+					$r = $this->stream_assoc_row( $source_values, $headers );
 					if ( null !== $r ) {
-						$r['__excel_row'] = $row_number;
-						$out[]            = $r;
-						++$data_rows;
-						if ( $data_rows > self::MAX_IMPORT_ROWS ) {
-							throw new Exception( ( 'PRODUCT_MASTER' === $type ? 'Product Master' : 'Daily POS' ) . ' file exceeds the ' . esc_html( (string) self::MAX_IMPORT_ROWS ) . '-row safety limit. Split the workbook.' );
-						}
+						$r['__excel_row'] = $row_number; $out[] = $r; ++$data_rows;
+						if ( $data_rows > self::MAX_IMPORT_ROWS ) throw new Exception( ( 'PRODUCT_MASTER' === $type ? 'Product Master' : 'Daily POS' ) . ' file exceeds the ' . esc_html( (string) self::MAX_IMPORT_ROWS ) . '-row safety limit. Split the workbook.' );
 					}
 				}
 			}
 			if ( null !== $header ) {
-				$final_found = array(
-					'mapping'   => $mapping,
-					'headers'   => $headers,
-					'conflicts' => $auto['conflicts'] ?? array(),
-				);
-				$this->validate_mapping_contract( $final_found, $type );
-				return array(
-					'sheet'      => $sheet,
-					'header_row' => $header,
-					'rows'       => $out,
-					'headers'    => $headers,
-					'mapping'    => $mapping,
-					'auto'       => $auto,
-					'conflicts'  => $auto['conflicts'] ?? array(),
-					'profile_id' => $profile['id'] ?? null,
-					'signature'  => $auto['signature'],
-				);
+				$this->validate_mapping_contract( array( 'mapping' => $mapping, 'headers' => $headers, 'conflicts' => $auto['conflicts'] ?? array() ), $type );
+				return array( 'sheet' => $sheet, 'header_row' => $header, 'rows' => $out, 'headers' => $headers, 'mapping' => $mapping, 'auto' => $auto, 'conflicts' => $auto['conflicts'] ?? array(), 'profile_id' => $profile['id'] ?? null, 'signature' => $auto['signature'], 'source_meta' => $source_meta );
 			}
 		}
 		throw new Exception( 'PRODUCT_MASTER' === $type ? 'No Product Master worksheet could be mapped automatically. Required columns include Code/SKU and Name/Product Name.' : 'No daily POS worksheet could be mapped automatically. Required columns include SKU/product code and selling price or line total.' );
+	}
+
+	/**
+	 * Aligns the actual Article Code value from column B beneath the merged A8:B8 label.
+	 *
+	 * This one helper is used for buffered and streaming rows so both parser paths
+	 * apply exactly the same source-layout rule.
+	 *
+	 * @param array  $values Original worksheet row values, zero-indexed by column.
+	 * @param array  $headers Detected source headers, zero-indexed by column.
+	 * @param string $type Import job type.
+	 * @param string $format Detected report format.
+	 * @return array Row values with the Article Code value aligned to its label.
+	 */
+	private function align_article_summary_values( $values, $headers, $type, $format ) {
+		$values = (array) $values;
+		if (
+			'DAILY_SALES' === $type
+			&& 'CNET_SUMMARIZED_BY_ARTICLE' === $format
+			&& isset( $headers[0], $headers[1] )
+			&& 'article_code' === $this->norm( $headers[0] )
+			&& '' === trim( (string) $headers[1] )
+			&& empty( $values[0] )
+			&& ! empty( $values[1] )
+			&& ! empty( $values[2] )
+			&& isset( $values[4] )
+			&& is_numeric( $values[4] )
+		) {
+			$values[0] = $values[1];
+		}
+		return $values;
+	}
+
+	/**
+	 * Runs a deterministic, side-effect-free check of the supported third-party article-summary layout.
+	 *
+	 * Deep System Health calls this check so route/table-only checks cannot pass
+	 * while the exact supplier column mapping has regressed.
+	 *
+	 * @return array<string,mixed> Layout contract result.
+	 */
+	public static function article_summary_layout_self_test() {
+		try {
+			$controller = ( new ReflectionClass( __CLASS__ ) )->newInstanceWithoutConstructor();
+			$headers    = array(
+				0  => 'Article Code',
+				1  => '',
+				2  => 'Article Name',
+				3  => '',
+				4  => 'Quantity',
+				5  => '',
+				6  => '',
+				7  => '',
+				8  => 'Avg. Amount',
+				9  => '',
+				10 => '',
+				11 => 'Total Amount',
+			);
+			$source_values = array(
+				1  => 'STK-TEST-001',
+				2  => 'TEST ITEM',
+				4  => '2',
+				8  => '12.50',
+				11 => '25.00',
+			);
+			$aligned = $controller->align_article_summary_values( $source_values, $headers, 'DAILY_SALES', 'CNET_SUMMARIZED_BY_ARTICLE' );
+			$row     = $controller->stream_assoc_row( $aligned, $headers );
+			$auto    = $controller->auto_map_headers( $headers, 'DAILY_SALES' );
+			$mapping = (array) ( $auto['mapping'] ?? array() );
+			$checks  = array(
+				'article_code_header_to_column_b' => ( $aligned[0] ?? null ) === 'STK-TEST-001' && ( $headers[0] ?? null ) === 'Article Code',
+				'article_name_remains_column_c'   => ( $row['Article Name'] ?? null ) === 'TEST ITEM',
+				'quantity_remains_column_e'       => ( $row['Quantity'] ?? null ) === '2',
+				'average_amount_remains_column_i' => ( $row['Avg. Amount'] ?? null ) === '12.50',
+				'total_amount_remains_column_l'   => ( $row['Total Amount'] ?? null ) === '25.00',
+				'sku_uses_article_code'            => ( $mapping['sku'] ?? null ) === 'Article Code' && ( $row['Article Code'] ?? null ) === 'STK-TEST-001',
+				'quantity_uses_column_e'           => ( $mapping['qty'] ?? null ) === 'Quantity',
+				'average_uses_column_i'             => ( $mapping['selling_price'] ?? null ) === 'Avg. Amount',
+				'total_uses_column_l'               => ( $mapping['line_total'] ?? null ) === 'Total Amount',
+			);
+			return array(
+				'ok'              => ! in_array( false, $checks, true ),
+				'format'          => 'CNET_SUMMARIZED_BY_ARTICLE',
+				'checks'          => $checks,
+				'checked_columns' => array( 'Article Code: A label to B value', 'Article Name: C', 'Quantity: E', 'Avg. Amount: I', 'Total Amount: L' ),
+			);
+		} catch ( Throwable $error ) {
+			return array(
+				'ok'    => false,
+				'error' => substr( str_replace( array( "\r", "\n" ), ' ', $error->getMessage() ), 0, 240 ),
+			);
+		}
+	}
+
+	/**
+	 * Compares source values using a bounded cents-level rounding tolerance.
+	 *
+	 * @param mixed $left Left amount.
+	 * @param mixed $right Right amount.
+	 * @param int $minor_units Tolerance in cents.
+	 * @return bool Whether the amounts match.
+	 */
+	private function daily_money_matches( $left, $right, $minor_units = 0 ) {
+		return abs( (float) $left - (float) $right ) <= ( max( 0, (int) $minor_units ) / 100 ) + 0.0001;
+	}
+
+	/**
+	 * Reconciles source daily report totals with ERP-calculated totals.
+	 *
+	 * @param array $source_meta Original report metadata.
+	 * @param mixed $net ERP net sales.
+	 * @param mixed $vat ERP VAT.
+	 * @param mixed $gross ERP gross sales.
+	 * @param int $row_count Source article-row count.
+	 * @return array Reconciliation status and amounts.
+	 */
+	private function daily_pos_reconcile_summary( $source_meta, $net, $vat, $gross, $row_count ) {
+		if ( 'CNET_SUMMARIZED_BY_ARTICLE' !== ( $source_meta['format'] ?? '' ) ) return array( 'status' => 'NOT_APPLICABLE' );
+		$totals = is_array( $source_meta['totals'] ?? null ) ? $source_meta['totals'] : array();
+		foreach ( array( 'subtotal', 'tax', 'grand_total' ) as $required ) {
+			if ( ! array_key_exists( $required, $totals ) ) return array( 'status' => 'REVIEW', 'reason' => 'The original POS report is missing its ' . $required . ' control total.' );
+		}
+		$subtotal = (float) $totals['subtotal']; $charge = (float) ( $totals['add_charge'] ?? 0 ); $discount = (float) ( $totals['discount'] ?? 0 ); $source_tax = (float) $totals['tax']; $source_grand = (float) $totals['grand_total'];
+		$erp_net = (float) $net; $erp_vat = (float) $vat; $erp_gross = (float) $gross;
+		$tolerance = max( 0.01, (int) $row_count * 0.01 );
+		$variance = array( 'subtotal' => round( $erp_net - $subtotal, 3 ), 'tax' => round( $erp_vat - $source_tax, 3 ), 'grand' => round( $erp_gross - $source_grand, 3 ), 'formula' => round( $source_grand - ( $subtotal + $charge - $discount + $source_tax ), 3 ) );
+		$matched = abs( $variance['subtotal'] ) <= $tolerance && abs( $variance['tax'] ) <= $tolerance && abs( $variance['grand'] ) <= $tolerance && abs( $variance['formula'] ) <= 0.001;
+		return array( 'status' => $matched ? 'MATCH' : 'REVIEW', 'source' => array( 'subtotal' => $subtotal, 'add_charge' => $charge, 'discount' => $discount, 'tax' => $source_tax, 'grand_total' => $source_grand ), 'erp' => array( 'subtotal' => round( $erp_net, 2 ), 'tax' => round( $erp_vat, 2 ), 'grand_total' => round( $erp_gross, 2 ) ), 'variance' => $variance, 'tolerance' => round( $tolerance, 2 ), 'message' => $matched ? 'Source report totals reconcile within the documented line-rounding tolerance.' : 'Source report totals differ from ERP calculations. Branch Manager review is required before release.' );
 	}
 
 	/**
@@ -1024,29 +1120,29 @@ class Stockland_REST_Import_V16 {
 	public function daily_preview( WP_REST_Request $r ) {
 		global $wpdb;
 		try {
-			$file                    = $this->uploaded_file( 'file', true );
-			$requested_business_date = $r->get_param( 'business_date' );
-			$business_date           = sanitize_text_field( $requested_business_date ? $requested_business_date : current_time( 'Y-m-d' ) );
-			if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $business_date ) ) {
-				throw new Exception( 'Business date must be YYYY-MM-DD.' );
-			}
+			$file = $this->uploaded_file( 'file', true );
 			$branch = $this->branch_for_user( $r->get_param( 'branch_location_id' ) );
 			$this->ensure_branch( $branch );
-			Stockland_Business_Calendar::assert_business_day( $business_date );
-			if ( Stockland_DB::is_day_closed( $branch, $business_date ) ) {
-				throw new Exception( 'This branch day is already closed.' );
-			}$hash      = hash_file( 'sha256', $file['path'] );
+			$hash = hash_file( 'sha256', $file['path'] );
+			$xlsx = ( 'csv' === ( $file['extension'] ?? '' ) ) ? new Stockland_CSV( $file['path'] ) : new Stockland_XLSX( $file['path'] );
+			$found = $this->scan_workbook( $xlsx, 'DAILY_SALES', 'THIRD_PARTY_POS' );
+			$source_meta = is_array( $found['source_meta'] ?? null ) ? $found['source_meta'] : array();
+			$requested_business_date = sanitize_text_field( (string) $r->get_param( 'business_date' ) );
+			$source_business_date = sanitize_text_field( (string) ( $source_meta['source_date'] ?? '' ) );
+			if ( '' !== $source_business_date && '' !== $requested_business_date && $source_business_date !== $requested_business_date ) throw new Exception( 'The workbook report date is ' . $source_business_date . ' but the selected business date is ' . $requested_business_date . '. Correct the date selection or upload the matching branch report.' );
+			$business_date = '' !== $source_business_date ? $source_business_date : ( '' !== $requested_business_date ? $requested_business_date : current_time( 'Y-m-d' ) );
+			if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $business_date ) ) throw new Exception( 'Business date must be YYYY-MM-DD.' );
 			$import_key = hash( 'sha256', 'DAILY_POS|' . $branch . '|' . $business_date . '|' . $hash );
-			$old        = Stockland_DB::read_row( $wpdb->prepare( 'SELECT * FROM %i WHERE import_key=%s LIMIT 1', Stockland_DB::table( 'import_jobs' ), $import_key ), ARRAY_A );
-			if ( $old && 'CANCELLED' !== $old['status'] ) {
-				throw new Exception( 'This exact POS file for this branch/date was already staged/imported as job #' . $old['id'] . '. Reuse that job instead of uploading it again.' );
+			$old = Stockland_DB::read_row( $wpdb->prepare( 'SELECT * FROM %i WHERE import_key=%s LIMIT 1', Stockland_DB::table( 'import_jobs' ), $import_key ), ARRAY_A );
+			if ( $old ) {
+				if ( 'CANCELLED' === (string) $old['status'] ) throw new Exception( 'This exact source file was previously cancelled as job #' . (int) $old['id'] . '. Export a fresh report before trying again; cancelled jobs remain in the audit history.' );
+				return rest_ensure_response( array( 'job_id' => (int) $old['id'], 'status' => (string) $old['status'], 'existing_job' => true, 'message' => 'This exact file is already in the ERP queue. Open the existing job instead of uploading it again.' ) );
 			}
 			$cross = Stockland_DB::read_row( $wpdb->prepare( "SELECT id,branch_location_id,business_date,status FROM %i WHERE source_sha256=%s AND import_type='DAILY_SALES' AND status<>'CANCELLED' ORDER BY id DESC LIMIT 1", Stockland_DB::table( 'import_jobs' ), $hash ), ARRAY_A );
-			if ( $cross && ( (int) $cross['branch_location_id'] !== $branch || (string) $cross['business_date'] !== $business_date ) ) {
-				throw new Exception( 'This POS file hash is already associated with another branch/date (job #' . $cross['id'] . '). Verify the source file before reusing it.' );
-			}
-			$xlsx     = ( 'csv' === ( $file['extension'] ?? '' ) ) ? new Stockland_CSV( $file['path'] ) : new Stockland_XLSX( $file['path'] );
-			$found    = $this->scan_workbook( $xlsx, 'DAILY_SALES', 'THIRD_PARTY_POS' );
+			if ( $cross && ( (int) $cross['branch_location_id'] !== $branch || (string) $cross['business_date'] !== $business_date ) ) throw new Exception( 'This POS file hash is already associated with another branch/date (job #' . $cross['id'] . '). Verify the source file before reusing it.' );
+			Stockland_Business_Calendar::assert_business_day( $business_date );
+			if ( Stockland_DB::is_day_closed( $branch, $business_date ) ) throw new Exception( 'This branch day is already closed.' );
+			$source_system = 'CNET_SUMMARIZED_BY_ARTICLE' === ( $source_meta['format'] ?? '' ) ? 'THIRD_PARTY_POS_SUMMARY' : 'THIRD_PARTY_POS';
 			$all_rows = $found['rows'];
 			$rows     = array();
 			foreach ( $all_rows as $src ) {
@@ -1060,6 +1156,9 @@ class Stockland_REST_Import_V16 {
 			$has_qty       = ! empty( $map['qty'] );
 			$vat_rate      = Stockland_DB::get_vat_rate();
 			$basis         = Stockland_DB::get_vat_basis();
+			$source_totals = is_array( $source_meta['totals'] ?? null ) ? $source_meta['totals'] : array();
+			$source_tax_separate = 'CNET_SUMMARIZED_BY_ARTICLE' === ( $source_meta['format'] ?? '' ) && isset( $source_totals['subtotal'], $source_totals['tax'], $source_totals['grand_total'] ) && abs( (float) $source_totals['grand_total'] - ( (float) $source_totals['subtotal'] + (float) ( $source_totals['add_charge'] ?? 0 ) - (float) ( $source_totals['discount'] ?? 0 ) + (float) $source_totals['tax'] ) ) <= 0.001;
+			if ( $source_tax_separate ) $basis = 'EXCLUSIVE';
 			$valid         = 0;
 			$errors        = 0;
 			$warnings      = array();
@@ -1072,6 +1171,7 @@ class Stockland_REST_Import_V16 {
 			$seen           = array();
 			$units          = 0;
 			$gross          = 0;
+			$net            = 0;
 			$vat            = 0;
 			$mapped_count   = 0;
 			$unmapped_count = 0;
@@ -1119,10 +1219,9 @@ class Stockland_REST_Import_V16 {
 					$row_errors[] = 'Actual selling price/line total is missing; ERP will not invent a sale price.';
 				}
 				$raw_vat_mode = sanitize_text_field( (string) $this->mapped_value( $src, $map, 'vat_mode' ) );
-				$mode         = $this->map_vat_mode( $raw_vat_mode, $basis );
-				if ( '' === $raw_vat_mode ) {
-					$warnings[] = 'POS VAT mode was not supplied; company VAT basis/rate was used for row ' . $rn . '.';
-				}
+				if ( '' === $raw_vat_mode && $source_tax_separate ) $raw_vat_mode = 'WITHOUT_VAT';
+				elseif ( '' === $raw_vat_mode ) $warnings[] = 'POS VAT mode was not supplied; company VAT basis/rate was used for row ' . $rn . '.';
+				$mode = $this->map_vat_mode( $raw_vat_mode, $basis );
 				$calc = null;
 				if ( ! $row_errors && null !== $price && null !== $qty && $qty > 0 ) {
 					try {
@@ -1138,9 +1237,9 @@ class Stockland_REST_Import_V16 {
 					}
 					if ( null !== $line_total ) {
 						$expected_line_price = $calc['line_price_excl_vat'];
-						if ( 'VAT_INCLUDED' === $mode && ! Stockland_Sale_Math::same_money( $line_total, $calc['sales_total'] ) ) {
+						if ( 'VAT_INCLUDED' === $mode && ! $this->daily_money_matches( $line_total, $calc['sales_total'], 'CNET_SUMMARIZED_BY_ARTICLE' === ( $source_meta['format'] ?? '' ) ? 1 : 0 ) ) {
 							$row_errors[] = 'Source line total does not match quantity × VAT-inclusive selling price.';
-						} elseif ( 'WITHOUT_VAT' === $mode && ! Stockland_Sale_Math::same_money( $line_total, $expected_line_price ) ) {
+						} elseif ( 'WITHOUT_VAT' === $mode && ! $this->daily_money_matches( $line_total, $expected_line_price, 'CNET_SUMMARIZED_BY_ARTICLE' === ( $source_meta['format'] ?? '' ) ? 1 : 0 ) ) {
 							$row_errors[] = 'Source line total does not match quantity × VAT-exclusive selling price.';
 						}
 					}
@@ -1168,6 +1267,7 @@ class Stockland_REST_Import_V16 {
 					$status = 'VALID';
 					$units += $qty;
 					$gross  = Stockland_Money::add( $gross, $calc['sales_total'] );
+					$net    = Stockland_Money::add( $net, $calc['net_sales'] );
 					$vat    = Stockland_Money::add( $vat, $calc['vat_amount'] );}
 					$staged[] = array(
 						'row_number'          => $rn,
@@ -1187,11 +1287,15 @@ class Stockland_REST_Import_V16 {
 						'cost_basis'          => $product ? Stockland_Money::decimal( Stockland_Money::minor( $product['purchase_cost'] ) ) : null,
 						'cost_basis_source'   => 'PRODUCT_MASTER_PREVIEW',
 						'source_key'          => $source_key,
-						'payload'             => wp_json_encode( $src ),
+						'payload'             => wp_json_encode( array_merge( $src, array( '__stockland_source_meta' => $source_meta ) ) ),
 						'status'              => $status,
 						'error_message'       => implode( ' ', $row_errors ),
 					);
 			}
+			$reconciliation = $this->daily_pos_reconcile_summary( $source_meta, $net, $vat, $gross, count( $rows ) );
+			$summary_blocked = 'REVIEW' === ( $reconciliation['status'] ?? '' );
+			if ( $summary_blocked ) $warnings[] = $reconciliation['message'] ?? 'Source report totals require Branch Manager review.';
+			$job_status = ( $errors > 0 || $summary_blocked ) ? 'REVIEW' : 'READY';
 			$profile_id = $found['profile_id'];
 			if ( false === Stockland_DB::execute_query( 'START TRANSACTION' ) ) {
 				throw new Exception( 'Could not start Daily POS preview transaction.' );
@@ -1206,10 +1310,10 @@ class Stockland_REST_Import_V16 {
 					'business_date'      => $business_date,
 					'source_filename'    => $file['name'],
 					'source_sha256'      => $hash,
-					'source_system'      => 'THIRD_PARTY_POS',
+					'source_system'      => $source_system,
 					'mapping_profile_id' => $profile_id,
 					'mapping_signature'  => $found['signature'],
-					'status'             => $errors ? 'REVIEW' : 'READY',
+					'status'             => $job_status,
 					'total_rows'         => count( $staged ),
 					'valid_rows'         => $valid,
 					'error_rows'         => $errors,
@@ -1227,7 +1331,7 @@ class Stockland_REST_Import_V16 {
 			return rest_ensure_response(
 				array(
 					'job_id'         => $job_id,
-					'status'         => $errors ? 'REVIEW' : 'READY',
+					'status'         => $job_status,
 					'sheet'          => $found['sheet'],
 					'header_row'     => $found['header_row'],
 					'mapping'        => array(
@@ -1238,6 +1342,8 @@ class Stockland_REST_Import_V16 {
 						'mapped_rows'   => $mapped_count,
 						'unmapped_rows' => $unmapped_count,
 					),
+					'source'          => array( 'format' => $source_meta['format'] ?? 'GENERIC', 'business_date' => $source_meta['source_date'] ?? $business_date, 'summary_totals' => $source_meta['totals'] ?? array() ),
+					'reconciliation' => $reconciliation,
 					'summary'        => array(
 						'total_rows'              => count( $staged ),
 						'valid_rows'              => $valid,
@@ -1252,10 +1358,10 @@ class Stockland_REST_Import_V16 {
 					'control_layers' => array(
 						'layer_1_file_integrity'      => 'PASS',
 						'layer_2_identity_mapping'    => $found['profile_id'] ? 'PASS_REMEMBERED_PROFILE' : 'PASS_AUTO_MAPPED',
-						'layer_3_business_validation' => $errors ? 'BLOCKED_ERRORS_FOUND' : 'PASS',
+						'layer_3_business_validation' => $errors ? 'BLOCKED_ERRORS_FOUND' : ( $summary_blocked ? 'BLOCKED_SOURCE_RECONCILIATION' : 'PASS' ),
 						'layer_4_staging_commit_gate' => 'STAGED_ONLY_NO_AUTO_POST',
 					),
-					'message'        => $errors ? 'Resolve mapping/validation errors before posting.' : 'Mapping recognized. File staged and ready for Branch Manager posting in bounded chunks.',
+					'message'        => $errors ? 'Resolve mapping/validation errors before posting.' : ( $summary_blocked ? 'Source report totals require Branch Manager review. No ERP posting has occurred.' : 'Mapping recognized. File staged and ready for Branch Manager posting in bounded chunks.' ),
 				)
 			);
 		} catch ( Throwable $e ) {
@@ -1349,6 +1455,7 @@ class Stockland_REST_Import_V16 {
 				)
 			);
 		}
+		if ( ! in_array( (string) $job['status'], array( 'READY', 'PARTIAL' ), true ) ) return $this->deny( 'job_not_ready', 'Only a READY/PARTIAL Daily POS job can be released. Reconcile all source totals first.', 409 );
 		if ( (int) $job['error_rows'] > 0 ) {
 			return $this->deny( 'job_not_ready', 'Resolve preview errors before committing this daily sales file.', 409 );
 		}
@@ -1411,6 +1518,23 @@ class Stockland_REST_Import_V16 {
 						'message'        => 'POSTED' === $locked_job['status'] ? 'Daily sales import is already complete.' : 'Daily sales import was cancelled.',
 					)
 				);
+			}
+			if ( ! in_array( (string) $locked_job['status'], array( 'READY', 'PARTIAL' ), true ) ) throw new Exception( 'Only a READY/PARTIAL Daily POS job can be released. Reconcile all source totals first.' );
+			// A branch/day can have only one released Daily POS source. This protects
+			// against re-exported workbooks with a changed file hash and prevents a
+			// second summary from duplicating already-posted sales in the same day.
+			$other_job = Stockland_DB::read_row(
+				$wpdb->prepare(
+					"SELECT id,status,processed_rows FROM %i WHERE id<>%d AND import_type='DAILY_SALES' AND branch_location_id=%d AND business_date=%s AND (processed_rows>0 OR status IN ('PARTIAL','POSTED')) ORDER BY id DESC LIMIT 1 FOR UPDATE",
+					$jobs,
+					$id,
+					(int) $locked_job['branch_location_id'],
+					(string) $locked_job['business_date']
+				),
+				ARRAY_A
+			);
+			if ( $other_job ) {
+				throw new Exception( 'This branch/date already has a released or partially released Daily POS job #' . (int) $other_job['id'] . '. Continue that job; do not release a second workbook for the same branch/day.' );
 			}
 			if ( (int) $locked_job['error_rows'] > 0 ) {
 				throw new Exception( 'Resolve preview errors before committing this daily sales file.' );
@@ -1492,9 +1616,9 @@ class Stockland_REST_Import_V16 {
 
 				$cogs             = Stockland_Money::multiply( $q, $cost_basis );
 				$profit           = Stockland_Money::subtract( $calc['net_sales'], $cogs );
-				$external_receipt = (string) ( $row['external_receipt_no'] ?? '' );
-				$receipt          = '' !== $external_receipt ? $external_receipt : 'ROW-' . $row['row_number'];
-				$receipt_key      = hash( 'sha256', 'THIRD_PARTY_POS|' . $job['branch_location_id'] . '|' . $job['business_date'] . '|' . $receipt );
+				$external_receipt = trim( (string) ( $row['external_receipt_no'] ?? '' ) );
+				$receipt = '' !== $external_receipt ? $external_receipt : 'DAILY-UNREFERENCED';
+				$receipt_key = hash( 'sha256', (string) $job['source_system'] . '|' . $job['branch_location_id'] . '|' . $job['business_date'] . '|' . $receipt );
 				if ( '' !== $external_receipt ) {
 					$cross_job_batch = Stockland_DB::read_row(
 						$wpdb->prepare(
@@ -1502,7 +1626,7 @@ class Stockland_REST_Import_V16 {
 							$batches,
 							(int) $job['branch_location_id'],
 							$job['business_date'],
-							'THIRD_PARTY_POS',
+							(string) $job['source_system'],
 							$external_receipt
 						),
 						ARRAY_A
@@ -1520,9 +1644,10 @@ class Stockland_REST_Import_V16 {
 							'branch_location_id'  => $job['branch_location_id'],
 							'business_date'       => $job['business_date'],
 							'source_filename'     => $job['source_filename'],
-							'external_receipt_no' => $row['external_receipt_no'] ? $row['external_receipt_no'] : null,
+							'external_receipt_no' => '' !== $external_receipt ? $external_receipt : null,
 							'receipt_key'         => $receipt_key,
-							'source_system'       => 'THIRD_PARTY_POS',
+							'source_system'       => (string) $job['source_system'],
+							'receipt_count'       => '' !== $external_receipt ? 1 : 0,
 							'status'              => 'POSTING',
 							'posted_by'           => get_current_user_id(),
 						)
@@ -1723,14 +1848,13 @@ class Stockland_REST_Import_V16 {
 			if ( ! $job ) {
 				throw new Exception( 'Import job not found.' );
 			}
-			if ( 'DAILY_SALES' !== $job['import_type'] ) {
-				throw new Exception( 'This is not a Daily POS job.' );
-			}
+			if ( 'DAILY_SALES' !== $job['import_type'] ) throw new Exception( 'This is not a Daily POS job.' );
+			if ( ! Stockland_Authority::can_daily_commit() ) throw new Exception( 'Only the assigned Branch Manager may edit and release the staged Daily POS job.' );
 			Stockland_Business_Calendar::assert_business_day( $job['business_date'] );
 			if ( ! Stockland_Authority::company_scope() && ! in_array( (int) $job['branch_location_id'], array_map( 'intval', Stockland_Authority::location_ids() ), true ) ) {
 				throw new Exception( 'Import job is outside your authorized branch scope.' );
 			}
-			if ( ! in_array( $job['status'], array( 'READY', 'PARTIAL' ), true ) || (int) $job['processed_rows'] > 0 ) {
+			if ( ! in_array( $job['status'], array( 'READY', 'PARTIAL', 'REVIEW' ), true ) || (int) $job['processed_rows'] > 0 ) {
 				throw new Exception( 'Only unreleased Daily POS rows can be edited.' );
 			}
 			$row = Stockland_DB::read_row( $wpdb->prepare( 'SELECT * FROM %i WHERE id=%d AND job_id=%d LIMIT 1', 'import_rows', $row_id, $job_id ), ARRAY_A );
@@ -1753,8 +1877,6 @@ class Stockland_REST_Import_V16 {
 				throw new Exception( 'Quantity must be greater than zero.' );
 			}if ( null === $price || $price <= 0 ) {
 				throw new Exception( 'Selling price must be greater than zero.' );
-			}if ( '' === $receipt ) {
-				throw new Exception( 'Receipt / transaction reference is required.' );
 			}if ( ! in_array( $vat_mode, array( 'VAT_INCLUDED', 'WITHOUT_VAT' ), true ) ) {
 				throw new Exception( 'Select a valid VAT mode.' );
 			}
@@ -1763,7 +1885,7 @@ class Stockland_REST_Import_V16 {
 			$vat_amount  = $calc['vat_amount'];
 			$sales_total = $calc['sales_total'];
 			$upd         = array(
-				'external_receipt_no' => $receipt,
+				'external_receipt_no' => '' !== $receipt ? $receipt : null,
 				'quantity'            => $qty,
 				'selling_price'       => $price,
 				'vat_mode'            => $vat_mode,
@@ -1785,13 +1907,19 @@ class Stockland_REST_Import_V16 {
 				throw new Exception( $wpdb->last_error ? $wpdb->last_error : 'Could not save the staged row edit.' );
 			}
 			$agg = Stockland_DB::read_row( $wpdb->prepare( 'SELECT COUNT(*) total_rows,SUM(status=\'VALID\') valid_rows,SUM(status=\'ERROR\') error_rows,SUM(COALESCE(quantity,0)) units,COALESCE(SUM(CASE WHEN status=\'VALID\' THEN sales_total ELSE 0 END),0) gross,COALESCE(SUM(CASE WHEN status=\'VALID\' THEN vat_amount ELSE 0 END),0) vat FROM %i WHERE job_id=%d', 'import_rows', $job_id ), ARRAY_A );
+			$edited_payload = json_decode( (string) ( $row['payload'] ?? '' ), true );
+			$edited_source_meta = is_array( $edited_payload['__stockland_source_meta'] ?? null ) ? $edited_payload['__stockland_source_meta'] : array();
+			$edited_net = Stockland_Money::subtract( (string) $agg['gross'], (string) $agg['vat'] );
+			$edited_reconciliation = $this->daily_pos_reconcile_summary( $edited_source_meta, $edited_net, (string) $agg['vat'], (string) $agg['gross'], (int) $agg['valid_rows'] );
+			$edited_status = ( (int) $agg['error_rows'] > 0 || 'REVIEW' === ( $edited_reconciliation['status'] ?? '' ) ) ? 'REVIEW' : 'READY';
 			if ( false === Stockland_DB::update_record(
 				Stockland_DB::table( 'import_jobs' ),
 				array(
 					'total_rows' => (int) $agg['total_rows'],
 					'valid_rows' => (int) $agg['valid_rows'],
 					'error_rows' => (int) $agg['error_rows'],
-					'message'    => 'Staged Daily POS row edited. Branch Manager must RELEASE TO ERP.',
+					'status'     => $edited_status,
+					'message'    => 'Staged row edited. Source reconciliation: ' . (string) ( $edited_reconciliation['status'] ?? 'NOT_APPLICABLE' ) . '. Release is enabled only when READY.',
 				),
 				array( 'id' => $job_id )
 			) ) {
@@ -1804,7 +1932,7 @@ class Stockland_REST_Import_V16 {
 				array(
 					'job_id'  => $job_id,
 					'row_id'  => $row_id,
-					'status'  => 'READY',
+					'status'  => $edited_status,
 					'summary' => $agg,
 					'message' => 'Staged row saved. Nothing has posted. RELEASE TO ERP when the Branch Manager has completed review.',
 				)

@@ -8,8 +8,9 @@ if (!root || !fs.existsSync(root)) throw new Error('Pass extracted stockland-erp
 const assets = path.join(root, 'assets');
 const manifest = JSON.parse(fs.readFileSync(path.join(assets, 'css/modules.json'), 'utf8'));
 const releaseManifest = JSON.parse(fs.readFileSync(path.join(root, 'RELEASE_MANIFEST.json'), 'utf8'));
-const expectedModuleCount = ['16.2.0', '16.2.1', '16.2.2', '16.2.3', '16.2.4', '16.2.5', '16.2.6', '16.2.7', '16.2.9'].includes(releaseManifest.release) ? 12 : 6;
-if (!releaseManifest.release || manifest.release !== releaseManifest.release ||
+const release = releaseManifest.application?.version || releaseManifest.release || null;
+const expectedModuleCount = release === '16.2.18' ? 14 : (['16.2.0', '16.2.1', '16.2.2', '16.2.3', '16.2.4', '16.2.5', '16.2.6', '16.2.7', '16.2.9'].includes(release) ? 12 : 6);
+if (!release || manifest.release !== release ||
     !Array.isArray(manifest.modules) || manifest.modules.length !== expectedModuleCount ||
     new Set(manifest.modules).size !== expectedModuleCount) {
   throw new Error('CSS source-module count, uniqueness, or release marker is invalid');
@@ -67,6 +68,27 @@ function minifyCssPreservingSemantics(source) {
   if (quote !== null) throw new Error('Unterminated CSS quoted string.');
   return out.trim();
 }
+
+function cssSemanticFingerprint(source) {
+  const rootNode = postcss.parse(source);
+  const normalize = value => String(value || '').trim().replace(/\s+/g, ' ');
+  const visit = node => {
+    if (node.type === 'comment') return '';
+    if (node.type === 'root') return (node.nodes || []).map(visit).join('');
+    if (node.type === 'rule') return 'R:' + normalize(node.selector) + '{' + (node.nodes || []).map(visit).join('') + '}';
+    if (node.type === 'atrule') {
+      const prefix = 'A:' + node.name + ':' + normalize(node.params);
+      return prefix + (node.nodes ? '{' + node.nodes.map(visit).join('') + '}' : ';');
+    }
+    if (node.type === 'decl') return 'D:' + normalize(node.prop) + ':' + normalize(node.value) + (node.important ? '!important' : '') + ';';
+    throw new Error('Unsupported PostCSS node in semantic parity test: ' + node.type);
+  };
+  return visit(rootNode);
+}
+
+if (cssSemanticFingerprint('body.example,\nbody.other{color:red}') !== cssSemanticFingerprint('body.example, body.other{color:red}')) {
+  throw new Error('CSS semantic normalizer must treat selector line breaks as whitespace');
+}
 const fixture = '.desc :hover{content:"ratio: 9 : 16";width:calc(100% - 2rem)} /* test */ .next{color:red}';
 const fixtureMin = minifyCssPreservingSemantics(fixture);
 if (!fixtureMin.includes('.desc :hover') ||
@@ -76,8 +98,15 @@ if (!fixtureMin.includes('.desc :hover') ||
   throw new Error('CSS minifier semantic safety fixture failed');
 }
 if (built !== appCss) throw new Error('app.css differs from ordered CSS source modules');
-if (['16.2.0', '16.2.1', '16.2.2', '16.2.3', '16.2.4', '16.2.5', '16.2.6', '16.2.7', '16.2.9'].includes(releaseManifest.release)) {
-  const expectedTail = [
+if (['16.2.0', '16.2.1', '16.2.2', '16.2.3', '16.2.4', '16.2.5', '16.2.6', '16.2.7', '16.2.9'].includes(release)) {
+  const expectedTail = release === '16.2.18' ? [
+    '09-command-center-theme.css',
+    '10-bootstrap-desktop-search.css',
+    '11-operational-workflows.css',
+    '12-hr-payroll-lifecycle.css',
+    '13-enterprise-saas-system.css',
+    '14-table-holders-legacy-colors.css'
+  ] : [
     '07-dashboard-operations.css',
     '08-reporting-worksheet.css',
     '09-command-center-theme.css',
@@ -91,6 +120,22 @@ if (['16.2.0', '16.2.1', '16.2.2', '16.2.3', '16.2.4', '16.2.5', '16.2.6', '16.2
   if (minifyCssPreservingSemantics(built) !== appMin) {
     throw new Error('app.min.css differs from semantics-safe minification of source modules');
   }
+} else if (release === '16.2.18') {
+  if (minifyCssPreservingSemantics(built) !== appMin) {
+    throw new Error('app.min.css differs from semantics-safe minification of the ordered 16.2.18 source modules');
+  }
+  const sourceFingerprint = cssSemanticFingerprint(built);
+  const minFingerprint = cssSemanticFingerprint(appMin);
+  if (sourceFingerprint !== minFingerprint) {
+    let offset = 0;
+    while (offset < sourceFingerprint.length && offset < minFingerprint.length &&
+      sourceFingerprint[offset] === minFingerprint[offset]) offset += 1;
+    throw new Error('app.min.css semantic diff at offset ' + offset +
+      '; source=' + JSON.stringify(sourceFingerprint.slice(Math.max(0, offset - 90), offset + 180)) +
+      '; min=' + JSON.stringify(minFingerprint.slice(Math.max(0, offset - 90), offset + 180)) +
+      '; source_chars=' + sourceFingerprint.length + '; min_chars=' + minFingerprint.length);
+  }
+  console.log('PASS 16.2.18 exact generated app.min.css and PostCSS semantic parity');
 } else {
   // Keep historical release artifacts reproducible; the new builder uses the
   // safer minifier on 16.2.0+ candidate builds.
@@ -100,7 +145,7 @@ if (['16.2.0', '16.2.1', '16.2.2', '16.2.3', '16.2.4', '16.2.5', '16.2.6', '16.2
     throw new Error('Historical app.min.css differs from its release-era normalizer');
   }
 }
-if (['16.2.0', '16.2.1', '16.2.2', '16.2.3', '16.2.4', '16.2.5', '16.2.6', '16.2.7', '16.2.9'].includes(releaseManifest.release)) {
+if (['16.2.0', '16.2.1', '16.2.2', '16.2.3', '16.2.4', '16.2.5', '16.2.6', '16.2.7', '16.2.9', '16.2.18'].includes(release)) {
   const bootstrap = fs.readFileSync(path.join(assets, 'bootstrap.min.css'));
   const header = bootstrap.toString('utf8', 0, 220);
   const digest = crypto.createHash('sha256').update(bootstrap).digest('hex');
@@ -115,6 +160,38 @@ if (['16.2.0', '16.2.1', '16.2.2', '16.2.3', '16.2.4', '16.2.5', '16.2.6', '16.2
 for (const file of ['app.css', 'app.min.css', 'bootstrap.min.css']) {
   postcss.parse(fs.readFileSync(path.join(assets, file), 'utf8'), { from: file });
   console.log('PASS PostCSS parse ' + file);
+}
+if (release === '16.2.18') {
+  const expectedModules = [
+    '01-foundation.css',
+    '02-shell-navigation.css',
+    '03-content-data-components.css',
+    '04-overlays-workflows.css',
+    '05-responsive-layout.css',
+    '06-operational-guards.css',
+    '07-dashboard-operations.css',
+    '08-reporting-worksheet.css',
+    '09-command-center-theme.css',
+    '10-bootstrap-desktop-search.css',
+    '11-operational-workflows.css',
+    '12-hr-payroll-lifecycle.css',
+    '13-enterprise-saas-system.css',
+    '14-table-holders-legacy-colors.css'
+  ];
+  if (JSON.stringify(manifest.modules) !== JSON.stringify(expectedModules)) {
+    throw new Error('16.2.18 fourteen-module cascade order differs from the approved sequence');
+  }
+  const expectedTail = ['13-enterprise-saas-system.css', '14-table-holders-legacy-colors.css'];
+  if (JSON.stringify(manifest.modules.slice(-2)) !== JSON.stringify(expectedTail)) {
+    throw new Error('16.2.18 enterprise and legacy-browser modules are not last in the cascade');
+  }
+  const legacy = chunks[chunks.length - 1];
+  if (!legacy.includes('@supports not (--a:0)') ||
+      !legacy.includes('@supports not (display:grid)') ||
+      !legacy.includes('.sl-table-tools')) {
+    throw new Error('16.2.18 table-holder or old-browser fallback rules are missing');
+  }
+  console.log('PASS 16.2.18 fourteen-module cascade and old-browser fallback source');
 }
 const source = chunks.join('\n');
 const cliArgs = process.argv.slice(3);
