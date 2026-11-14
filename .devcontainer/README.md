@@ -95,7 +95,7 @@ docker compose --project-directory .devcontainer -f .devcontainer/docker-compose
 bash scripts/codespaces/verify_approved_16_2_18.sh all
 ```
 
-The helper validates both the outer Actions artifact digest and the inner installer SHA, its 16.2.18 manifest, 124 file hashes, ZIP paths and CRC. It then installs that exact ZIP in the disposable MariaDB 10.11 and MySQL 8.0.46 WordPress Compose sites and runs the existing synthetic ERP workflow suites. It does not connect to the live company database, rebuild the plugin, or alter the original approved package.
+The helper validates both the outer Actions artifact digest and the inner installer SHA, its 16.2.18 manifest, 124 file hashes, ZIP paths and CRC. It then installs that exact ZIP in the disposable MariaDB 10.11 and MySQL 8.0.46 WordPress Compose sites and runs the existing synthetic ERP workflow suites. It does not connect to the live company database, rebuild the plugin, or alter the original approved package. The canonical `scripts/release/verify_master_installer.sh` and the existing package-build/release workflow are left unchanged; the Compose-specific host check and installation sequence live only in `scripts/codespaces/verify_approved_16_2_18.sh`.
 
 ## Cloudflare Free plan
 
