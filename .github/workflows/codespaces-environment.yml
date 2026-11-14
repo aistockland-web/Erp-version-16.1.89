@@ -20,6 +20,9 @@ on:
       - '.devcontainer/**'
       - '.gitignore'
       - 'scripts/codespaces/**'
+      - 'ci/codespaces/**'
+      - 'scripts/release/verify_master_installer.sh'
+      - 'scripts/release/e2e/**'
       - '.github/workflows/codespaces-environment.yml'
   workflow_dispatch:
 
