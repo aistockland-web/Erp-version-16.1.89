@@ -12,6 +12,10 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 RUN_ID=43570216177
 ARTIFACT_ID=14104031868
+# The approved ZIP was built from this exact source commit. Its baseline E2E
+# suite must remain pinned here so later candidate tests never run against the
+# immutable approved package and create false failures.
+BASELINE_SOURCE_COMMIT=387c193c7999840c731d37acd854ec920f134507
 EXPECTED_SHA=de7b087906e82185de1782af1125f3194c6904785afb5338e0c828c743d38a08
 EXPECTED_OUTER_SHA=ff58626d39c63980eba7f3de5cf8e2ee7c5788952e746731791fdd20b434d133
 ARTIFACT_DIR="$(mktemp -d /tmp/stockland-approved-16218.XXXXXX)"
@@ -49,6 +53,21 @@ grep -Eq "^$EXPECTED_SHA[[:space:]]+STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTA
   echo "The Actions sidecar does not match the pinned approved installer." >&2; exit 1;
 }
 python3 ci/codespaces/verify_approved_16_2_18_zip.py "$ZIP"
+
+# Extract the exact release's own test harness, not the evolving candidate
+# suite from the current feature branch. Candidate source is tested separately
+# by master-installer-wordpress-verify.yml, which builds from that exact HEAD.
+BASELINE_SOURCE_DIR="$ARTIFACT_DIR/baseline-source"
+mkdir -p "$BASELINE_SOURCE_DIR"
+if ! git cat-file -e "$BASELINE_SOURCE_COMMIT^{commit}" 2>/dev/null; then
+  git fetch --quiet --no-tags --depth=1 origin "$BASELINE_SOURCE_COMMIT"
+fi
+git cat-file -e "$BASELINE_SOURCE_COMMIT^{commit}"
+git archive --format=tar "$BASELINE_SOURCE_COMMIT" scripts/release | tar -xf - -C "$BASELINE_SOURCE_DIR"
+BASELINE_RELEASE_DIR="$BASELINE_SOURCE_DIR/scripts/release"
+[[ -s "$BASELINE_RELEASE_DIR/complete_baseline.php" && -s "$BASELINE_RELEASE_DIR/verify_master_installer.php" && -s "$BASELINE_RELEASE_DIR/e2e/run_all.sh" ]] || {
+  echo "Pinned 16.2.18 baseline acceptance suite is incomplete." >&2; exit 1;
+}
 
 # WP-CLI is a QA tool only. Download it to the temporary folder and verify its upstream checksum.
 if ! command -v wp >/dev/null 2>&1; then
@@ -109,14 +128,14 @@ verify_site() {
   unset qa_password
   sudo -u www-data rm -rf "$wp_path/wp-content/plugins/stockland-erp-app"
   wp_as_www --user=admin plugin install "$ZIP" --activate
-  wp_as_www --user=admin eval-file scripts/release/complete_baseline.php
-  wp_as_www --user=admin eval-file scripts/release/verify_master_installer.php
+  wp_as_www --user=admin eval-file "$BASELINE_RELEASE_DIR/complete_baseline.php"
+  wp_as_www --user=admin eval-file "$BASELINE_RELEASE_DIR/verify_master_installer.php"
 
   sudo -u www-data env HOME=/tmp PATH="$PATH" \
     WORDPRESS_DB_HOST="$db_host" WORDPRESS_DB_NAME="$db_name" \
     WORDPRESS_DB_USER="$STOCKLAND_DEV_DB_USER" WORDPRESS_DB_PASSWORD="$STOCKLAND_DEV_DB_PASSWORD" \
     STOCKLAND_DISPOSABLE_SITE=yes \
-    bash scripts/release/e2e/run_all.sh "$wp_path"
+    bash "$BASELINE_RELEASE_DIR/e2e/run_all.sh" "$wp_path"
 
   echo "PASS $label — exact approved 16.2.18 artifact, ZIP SHA $EXPECTED_SHA"
 }
