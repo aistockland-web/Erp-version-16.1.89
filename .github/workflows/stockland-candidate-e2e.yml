@@ -153,7 +153,7 @@ jobs:
       - name: Install WP-CLI, bootstrap and smoke-test WordPress
         run: |
           set -euo pipefail
-          docker compose --project-directory .devcontainer -f .devcontainer/docker-compose.yml exec -T workspace env STOCKLAND_DEV_16215_PACKAGE_PATH=/workspaces/stockland-erp/artifacts/codespaces/STOCKLAND_ERP_16.2.15_REPAIRED_CANDIDATE_WORDPRESS_INSTALLER.zip STOCKLAND_DEV_CANDIDATE_LOCK_PATH=artifacts/codespaces/repaired-candidate-lock.json bash .devcontainer/post-create.sh
+          docker compose --project-directory .devcontainer -f .devcontainer/docker-compose.yml exec -T workspace env STOCKLAND_ALLOW_LOCAL_SOURCE_MODIFICATIONS=1 STOCKLAND_DEV_16215_PACKAGE_PATH=/workspaces/stockland-erp/artifacts/codespaces/STOCKLAND_ERP_16.2.15_REPAIRED_CANDIDATE_WORDPRESS_INSTALLER.zip STOCKLAND_DEV_CANDIDATE_LOCK_PATH=artifacts/codespaces/repaired-candidate-lock.json bash .devcontainer/post-create.sh
           docker compose --project-directory .devcontainer -f .devcontainer/docker-compose.yml exec -T workspace env STOCKLAND_DEV_16215_PACKAGE_PATH=/workspaces/stockland-erp/artifacts/codespaces/STOCKLAND_ERP_16.2.15_REPAIRED_CANDIDATE_WORDPRESS_INSTALLER.zip bash scripts/codespaces/bootstrap_mysql8_site.sh
           docker compose --project-directory .devcontainer -f .devcontainer/docker-compose.yml exec -T workspace bash scripts/codespaces/smoke_test_sites.sh
 

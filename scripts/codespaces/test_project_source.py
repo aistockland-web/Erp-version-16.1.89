@@ -129,13 +129,13 @@ class SourceBootstrapTests(unittest.TestCase):
         self.import_source()
         self.assertFalse(self.import_source())
 
-    def test_marked_source_drift_fails_closed_without_deleting_local_changes(self):
+    def test_marked_source_drift_fails_closed_by_default_and_ignores_legacy_soft_flag(self):
         self.import_source()
         changed = self.dest / "includes" / "fixture-00.php"
         changed.write_text("<?php\n// engineer change\n", encoding="utf-8")
 
-        with patch.dict("os.environ", {"STOCKLAND_SOURCE_STRICT": "1"}):
-            with self.assertRaisesRegex(RuntimeError, "drifted from the exact .13 intake manifest"):
+        with patch.dict("os.environ", {"STOCKLAND_SOURCE_STRICT": "0"}):
+            with self.assertRaisesRegex(RuntimeError, "FAIL-CLOSED"):
                 self.import_source()
 
         self.assertIn("engineer change", changed.read_text(encoding="utf-8"))
@@ -147,15 +147,19 @@ class SourceBootstrapTests(unittest.TestCase):
         changed.write_text("<?php\n// engineer change\n", encoding="utf-8")
         original_marker = self.marker.read_bytes()
 
-        self.assertFalse(
-            materialize(
-                self.stage,
-                self.report,
-                self.dest,
-                self.marker,
-                allow_local_modifications=True,
+        import contextlib, io
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            self.assertFalse(
+                materialize(
+                    self.stage,
+                    self.report,
+                    self.dest,
+                    self.marker,
+                    allow_local_modifications=True,
+                )
             )
-        )
+        self.assertIn("NOT byte-identical", output.getvalue())
         self.assertIn("engineer change", changed.read_text(encoding="utf-8"))
         self.assertEqual(self.marker.read_bytes(), original_marker)
 
@@ -168,7 +172,13 @@ class SourceBootstrapTests(unittest.TestCase):
         before = keep.read_bytes()
 
         with self.assertRaisesRegex(RuntimeError, "file_manifest_sha256"):
-            self.import_source()
+            materialize(
+                self.stage,
+                self.report,
+                self.dest,
+                self.marker,
+                allow_local_modifications=True,
+            )
 
         self.assertEqual(keep.read_bytes(), before)
 
@@ -256,18 +266,6 @@ class SourceBootstrapTests(unittest.TestCase):
 
         self.assertFalse(self.dest.exists())
         self.assertFalse(self.marker.exists())
-
-    def test_drift_is_reported_and_strict_mode_fails(self):
-        import contextlib, io, os
-        materialize(self.stage, self.report, self.dest, self.marker)
-        (self.dest / "includes" / "fixture-00.php").write_text("<?php\n// drifted\n", encoding="utf-8")
-        out = io.StringIO()
-        with contextlib.redirect_stdout(out):
-            self.assertFalse(materialize(self.stage, self.report, self.dest, self.marker))
-        self.assertIn("WARNING: editable source differs", out.getvalue())
-        with patch.dict(os.environ, {"STOCKLAND_SOURCE_STRICT": "1"}):
-            with self.assertRaisesRegex(RuntimeError, "drifted"):
-                materialize(self.stage, self.report, self.dest, self.marker)
 
     def test_marker_is_not_left_behind_when_the_move_fails(self):
         from unittest import mock
