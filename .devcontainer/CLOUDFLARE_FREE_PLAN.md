@@ -68,7 +68,23 @@ Official limits and setup references:
 - [Free-plan WAF / DDoS / Bot Fight Mode notes](https://developers.cloudflare.com/waf/feature-interoperability/)
 - [Turnstile server-side validation](https://developers.cloudflare.com/turnstile/get-started/server-side-validation/)
 
-## 4. Recommended runtime topology
+## 4. GitHub Codespaces Free budget and default profile
+
+The devcontainer requests the smallest currently listed machine profile: **2 cores, 8 GB RAM, 32 GB disk**. For personal GitHub Free accounts, the published included allowance is **120 core-hours and 15 GB-month of storage**. A 2-core machine consumes 2 core-hours for each active hour, so 60 active hours is the theoretical monthly maximum only when the full compute allowance remains unused. Storage is a separate GB-hour/GB-month meter; custom devcontainer images, files, extensions and persisted workspace data can consume it. Existing Codespaces usage on the account reduces the remaining balance.
+
+- Keep one Codespace only; no repository prebuild is configured.
+- Stop the Codespace when not actively working; set a short personal idle timeout (15–30 minutes) in GitHub Codespaces settings.
+- Check current remaining usage in GitHub **Settings → Billing and licensing → Usage** before starting it. Do not enable paid overage or create a second Codespace if the allowance is exhausted.
+- This repository's custom PHP/Node Docker image may count toward storage; monitor actual GB-hour usage rather than assuming the 32 GB disk is free.
+- Docker Compose's MariaDB/WordPress/MySQL test volumes are throwaway QA only and should be removed after test runs.
+
+Official GitHub references:
+- [Included plan usage: GitHub Free Codespaces 120 core-hours / 15 GB-month](https://docs.github.com/en/billing/reference/product-usage-included)
+- [Codespaces billing and usage meters](https://docs.github.com/en/billing/concepts/product-billing/github-codespaces)
+- [Free included usage and idle stopping guidance](https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-included-usage)
+- [2-core / 8 GB / 32 GB machine configuration](https://docs.github.com/en/codespaces/about-codespaces/what-are-codespaces)
+
+## 5. Recommended runtime topology
 
 1. **ERP application:** unchanged 16.2.18 WordPress plugin installed on the existing WordPress/PHP/MySQL production host.
 2. **Cloudflare edge:** when the company supplies a controllable domain and delegates a zone, proxy the WordPress host through Cloudflare Free. Configure SSL/TLS for the actual origin capability, DDoS defaults, Free WAF baseline, Bot Fight Mode, and cache only public static assets.
@@ -84,7 +100,7 @@ Official limits and setup references:
 - Turnstile must be validated server-side with Siteverify. A front-end widget by itself is not an authentication control.
 - Never put database credentials, WordPress salts, Turnstile secrets, or private HR encryption keys in Worker source, public environment variables, static assets, or Git.
 
-## 5. Exact approved installer verification in Codespaces
+## 6. Exact approved installer verification in Codespaces
 
 The new helper `scripts/codespaces/verify_approved_16_2_18.sh` is designed to retrieve and test the already-approved artifact, not rebuild it:
 
@@ -104,14 +120,14 @@ The helper:
 
 It does not connect to the production WordPress host, change production tables, rebuild the plugin ZIP, or publish a new release.
 
-## 6. Remaining external prerequisites
+## 7. Remaining external prerequisites
 
 - The current Cloudflare account has no DNS zone. Therefore production DNS proxying, zone-level WAF/cache rules and SSL settings cannot be applied until the Owner supplies a domain that the account controls and completes the required nameserver delegation.
 - R2 requires one-time Dashboard activation before it can be used; it is not currently provisioned.
 - The Owner's live Codespace terminal is not exposed through the available GitHub repository connector. The same Docker Compose verification is therefore wired into GitHub Actions for a reproducible hosted check; the account owner can also run the command above in the interactive Codespace.
 - No Cloudflare Container instance, paid Workers plan, D1 database, KV namespace, Queue, Durable Object, Pages project, production DB connection, or origin-domain change was created by this target.
 
-## 7. Evidence and change boundaries
+## 8. Evidence and change boundaries
 
 - Canonical application source branch/HEAD used as the integration base: `delivery/stockland-full-erp-completion-2026-11-11` / `e163f3fac0324c19f0d7fa19201b0f7f40d8263c`.
 - Approved release artifact source: GitHub Actions run 43570216177, artifact 14104031868.
