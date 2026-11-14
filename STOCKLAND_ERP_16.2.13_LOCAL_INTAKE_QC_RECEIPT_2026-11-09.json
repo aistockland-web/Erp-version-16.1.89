@@ -1,0 +1,61 @@
+{
+  "receipt_type": "local_source_intake_qc_not_release_certificate",
+  "assessment_date": "2026-11-09",
+  "repository": "aistockland-web/Erp-version-16.1.89",
+  "package": {
+    "filename": "STOCKLAND_ERP_16.2.13_WORDPRESS_INSTALLER.zip",
+    "version": "16.2.13",
+    "sha256": "74e3205d0b42151997dc356c29b09204688accee817c17a013a70cf90be04c13",
+    "size_bytes": 2188684,
+    "archive_entries": 113,
+    "php_files": 80,
+    "javascript_files": 2,
+    "plugin_root": "stockland-erp-app/",
+    "zip_integrity": "PASS",
+    "duplicate_paths": 0,
+    "unsafe_absolute_or_parent_paths": 0
+  },
+  "toolchain": {
+    "php": "8.4.24",
+    "node": "22.16.0",
+    "npm": "10.9.2",
+    "postcss": "available"
+  },
+  "checks": {
+    "sha256_recomputed_and_matches_archaeology_record": "PASS",
+    "php_syntax": {"status": "PASS", "passed": 80, "total": 80, "runtime": "PHP 8.4.24"},
+    "javascript_syntax": {"status": "PASS", "passed": 2, "total": 2},
+    "json_manifests": {"status": "PASS", "passed": 3, "total": 3},
+    "css_postcss_parse": {"status": "PASS", "assets": ["assets/app.css", "assets/app.min.css", "assets/bootstrap.min.css", "assets/css/12-hr-payroll-lifecycle.css", "assets/css/13-enterprise-saas-system.css"]},
+    "css_module_source_parity": {
+      "status": "PASS",
+      "module_count": 13,
+      "concatenation_matches_app_css_byte_for_byte": true,
+      "sha256": "17c576459f60ec9d8878efc5191dc35ef4a206a17c6cc33e0aa12a11a027ed69"
+    },
+    "embedded_sop_docx_payloads": {"status": "PASS", "verified": 24, "total": 24, "sha256_byte_count_and_zip_crc": "PASS", "manifest_approval_status": "DRAFT_NOT_APPROVED"}
+  },
+  "not_run": [
+    "PHP 8.3 local lint",
+    "PHPCS/WPCS",
+    "Semgrep/CodeQL/secret/dependency-license scans on this exact package",
+    "WordPress clean install/activation/update/REST end-to-end",
+    "MariaDB/MySQL migration/index/foreign-key/transaction/concurrency tests",
+    "authenticated role and branch/location positive/negative acceptance",
+    "full POS/inventory/warehouse/procurement/AP/AR/GL/PLEDGER reconciliation",
+    "two payroll periods, payout/remittance/final-settlement and qualified Ethiopian statutory review",
+    "private HR document encryption/access and encrypted backup/restore",
+    "backup/restore/rollback rehearsal",
+    "browser/device/PWA acceptance",
+    "Owner/Operations/HR/Finance/Legal approval"
+  ],
+  "release_metadata_gap": {
+    "root_readme_present": false,
+    "release_manifest_json_present": false,
+    "exact_commit_build_receipt_present": false
+  },
+  "disposition": "PACKAGE_IDENTITY_AND_LOCAL_STATIC_INTAKE_QC_PASS; NOT A PRODUCTION_RELEASE_CERTIFICATE",
+  "production_ready": false,
+  "live_database_touched": false,
+  "live_wordpress_touched": false
+}
