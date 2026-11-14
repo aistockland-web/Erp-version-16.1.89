@@ -92,6 +92,9 @@ final class Stockland_REST_HR_Payroll_Cycle extends Stockland_REST_Base {
 		if ( ! Stockland_HR_Lifecycle::has_qualified_legal_review( $rules ) ) {
 			return $this->bad( 'hr_legal_review_required', 'No independently reviewed rule bundle is approved for this exact pay period. Payroll is blocked.', 409 );
 		}
+		if ( ! Stockland_HR_Lifecycle::has_payroll_calculator_contract( $rules ) ) {
+			return $this->bad( 'hr_rule_contract_mismatch', 'The signed payroll rule does not match both legacy and frozen-run calculator schemas. Reconcile band limits/rates, tax-base method mapping, pension rates, component treatments and reviewer-approved parameters.', 409 );
+		}
 		$parameters = $review['approved_parameters'] ?? array();
 		foreach ( array( 'paye_bands','paye_tax_base_method','pensionable_base_method','employee_pension_rate','employer_pension_rate','component_treatments','rounding_method' ) as $required ) {
 			if ( ! is_array( $parameters ) || ! in_array( $required, $parameters, true ) ) {
