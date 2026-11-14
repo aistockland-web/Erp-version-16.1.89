@@ -132,26 +132,6 @@ jobs:
           STOCKLAND_DISPOSABLE_DB_HOST: "127.0.0.1"
         run: bash scripts/release/verify_master_installer.sh /tmp/wp "$PWD/STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTALLER.zip"
 
-      - name: Business workflow regression (procurement to ledger)
-        env:
-          STOCKLAND_DISPOSABLE_SITE: "yes"
-        run: |
-          set -o pipefail
-          bash scripts/release/e2e/run_all.sh /tmp/wp | tee /tmp/e2e.log
-          grep -q "GL unbalanced journals: 0" /tmp/e2e.log
-          grep -q "RESULT PASS" /tmp/e2e.log
-
-      - name: Backup and restore drill (dump, restore to a scratch database, checksum every table)
-        env:
-          STOCKLAND_DISPOSABLE_SITE: "yes"
-          STOCKLAND_DISPOSABLE_DB_NAME: "wp"
-          STOCKLAND_DISPOSABLE_DB_HOST: "127.0.0.1"
-          MYSQL_ADMIN_ARGS: "-uroot -proot"
-        run: |
-          set -euo pipefail
-          bash scripts/release/backup_restore_check.sh /tmp/wp /tmp/backup-drill | tee /tmp/backup-drill.log
-          grep -q "RESULT: PASS" /tmp/backup-drill.log
-
       - name: Set up Node.js for browser acceptance
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -207,6 +187,26 @@ jobs:
             echo "Browser acceptance failed: ui_smoke=$UI_SMOKE_STATUS admin_launcher=$ADMIN_LAUNCHER_STATUS"
             exit 1
           fi
+
+      - name: Business workflow regression (procurement to ledger)
+        env:
+          STOCKLAND_DISPOSABLE_SITE: "yes"
+        run: |
+          set -o pipefail
+          bash scripts/release/e2e/run_all.sh /tmp/wp | tee /tmp/e2e.log
+          grep -q "GL unbalanced journals: 0" /tmp/e2e.log
+          grep -q "RESULT PASS" /tmp/e2e.log
+
+      - name: Backup and restore drill (dump, restore to a scratch database, checksum every table)
+        env:
+          STOCKLAND_DISPOSABLE_SITE: "yes"
+          STOCKLAND_DISPOSABLE_DB_NAME: "wp"
+          STOCKLAND_DISPOSABLE_DB_HOST: "127.0.0.1"
+          MYSQL_ADMIN_ARGS: "-uroot -proot"
+        run: |
+          set -euo pipefail
+          bash scripts/release/backup_restore_check.sh /tmp/wp /tmp/backup-drill | tee /tmp/backup-drill.log
+          grep -q "RESULT: PASS" /tmp/backup-drill.log
 
       - name: Upgrade-path acceptance (16.2.13 baseline, wizard batches, in-place upgrade, gated HR migration, snapshot comparison, resilience drills)
         env:
