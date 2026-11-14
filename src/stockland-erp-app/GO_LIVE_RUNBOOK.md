@@ -5,9 +5,9 @@
 2. Confirm PHP 8.3/8.4, HTTPS, and upload limits of at least 8 MB. Deactivate any older Stockland plugin copy first; do not delete data.
 
 ## Install
-1. Upload the ZIP (Plugins → Add New → Upload) and activate. Fresh sites finish in one step (86/86 tables).
-2. Existing partial site (for example 20/29 Core, no Accounting/HR): activation completes Core and Accounting; open **Stockland → System Control**, enter the HR approval reason, tick the backup confirmation, press **Install / complete everything now**.
-3. Confirm System Control shows complete. Nothing is dropped, truncated, renamed or reseeded.
+1. Upload the ZIP (Plugins → Add New → Upload) and activate. Fresh sites create and verify the 49-table operational baseline (29 Core/Operations, 16 Accounting/Procurement, four legacy HR/payroll tables). The 37-table HR lifecycle extension is separate and remains pending by default.
+2. For an existing partial site, activation/setup completes the missing operational-baseline tables additively. If HR lifecycle creation or a legacy-HR column migration is required, the active Stockland Owner must review the exact schema version/fingerprint, confirm a restorable backup, and submit the required written reason through the Owner-only System Control approval path before the HR DDL runs. No HR lifecycle DDL is attempted without that approval.
+3. Confirm System Control reports the operational baseline and HR lifecycle states separately. Nothing is dropped, truncated, renamed or reseeded by the documented add-only setup path.
 
 ## Configure (your data; the app does not invent it)
 - Create WordPress users and assign Stockland roles and branch locations (Owner, Management, Warehouse, Branch Manager, Sales, Finance preparer/approver, HR).
@@ -16,7 +16,7 @@
 - Process owners review the 24 SOP documents.
 
 ## Authorize
-Owner: **System Control → Authorize live operation** (written reason). Then run the deep integrity scan from the System Health screen (52 checks) and confirm LIVE READY.
+Owner: **System Control → Authorize live operation** (written reason) only after the operational baseline is complete and its integrity checks pass. Review the HR lifecycle readiness separately: operational readiness does not mean HR lifecycle DDL is approved or complete. Before enabling that extension, use the separate Owner-only approval tied to the exact schema fingerprint. Run the deep integrity scan from System Health (52 checks) and retain the result with the exact source/package evidence.
 
 ## Roll back
 Restore the backup. Deactivating the plugin leaves all data in place.
