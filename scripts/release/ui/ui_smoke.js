@@ -283,6 +283,8 @@ const isLocal = (url) => {
     const cssText = await page.evaluate(async () => { const l = [...document.querySelectorAll('link[rel=stylesheet]')].map(x => x.href).find(h => /app(\.min)?\.css/.test(h)); return l ? (await (await fetch(l)).text()) : ''; });
     if (!cssText.includes('@supports not (--a:0)')) fail('legacy-browser colour fallbacks missing from the CSS bundle');
     else note('legacy-browser colour fallbacks present in the CSS bundle');
+    if (!cssText.includes('#hrPage{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))')) fail('HR & Payroll two-block row layout missing from the CSS bundle');
+    else note('HR & Payroll two-block row layout present in the CSS bundle');
 
     await context.close();
   } catch (error) {
