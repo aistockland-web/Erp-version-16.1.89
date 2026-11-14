@@ -821,6 +821,70 @@ final class Stockland_HR_Lifecycle {
 			&& in_array( 'rounding_method', $params, true );
 	}
 
+	/** Validate the persisted legacy and frozen-run payroll schemas before activation. */
+	private static function payroll_rate_micro_contract( $value ) {
+		if ( ! is_string( $value ) || 1 !== preg_match( '/^(0|1)(\.[0-9]{1,6})?$/D', $value ) ) { return null; }
+		$parts = explode( '.', $value, 2 );
+		$fraction = isset( $parts[1] ) ? str_pad( $parts[1], 6, '0' ) : '000000';
+		$rate = ( (int) $parts[0] * 1000000 ) + (int) $fraction;
+		return $rate <= 1000000 ? $rate : null;
+	}
+
+	public static function has_payroll_calculator_contract( $rules ) {
+		if ( ! is_array( $rules ) ) { return false; }
+		$review = $rules['qualified_legal_review'] ?? array();
+		$approved = is_array( $review ) ? ( $review['approved_parameters'] ?? array() ) : array();
+		if ( ! is_array( $approved ) || ! in_array( 'monthly_tax_bands', $approved, true ) || ! in_array( 'tax_base_method', $approved, true ) ) { return false; }
+
+		$base_map = array(
+			'TAXABLE_GROSS' => 'TAXABLE_EARNINGS',
+			'TAXABLE_GROSS_LESS_EMPLOYEE_PENSION' => 'TAXABLE_EARNINGS_LESS_EMPLOYEE_PENSION',
+		);
+		$legacy_base = strtoupper( (string) ( $rules['tax_base_method'] ?? '' ) );
+		$engine_base = strtoupper( (string) ( $rules['paye_tax_base_method'] ?? '' ) );
+		if ( ! isset( $base_map[ $legacy_base ] ) || $base_map[ $legacy_base ] !== $engine_base ) { return false; }
+		if ( 'SUM_PENSIONABLE_ITEMS' !== ( $rules['pensionable_base_method'] ?? null ) || 'HALF_UP_MINOR_UNIT' !== ( $rules['rounding_method'] ?? null ) ) { return false; }
+		if ( null === self::payroll_rate_micro_contract( $rules['employee_pension_rate'] ?? null ) || null === self::payroll_rate_micro_contract( $rules['employer_pension_rate'] ?? null ) ) { return false; }
+
+		$legacy = $rules['monthly_tax_bands'] ?? null;
+		$engine = $rules['paye_bands'] ?? null;
+		if ( ! is_array( $legacy ) || ! is_array( $engine ) || ! $legacy || count( $legacy ) !== count( $engine ) ) { return false; }
+		$legacy = array_values( $legacy );
+		$engine = array_values( $engine );
+		$previous = -1;
+		$unbounded = false;
+		foreach ( $legacy as $i => $band ) {
+			$calc_band = $engine[ $i ] ?? null;
+			if ( ! is_array( $band ) || ! is_array( $calc_band ) || ! array_key_exists( 'up_to', $band ) || ! array_key_exists( 'up_to', $calc_band ) || ! isset( $band['rate'], $band['credit'], $calc_band['rate'] ) || ! is_numeric( $band['credit'] ) ) { return false; }
+			try {
+				$credit = Stockland_Money::minor( $band['credit'] );
+				$legacy_cap = null === $band['up_to'] ? null : Stockland_Money::minor( $band['up_to'] );
+				$engine_cap = null === $calc_band['up_to'] ? null : Stockland_Money::minor( $calc_band['up_to'] );
+			} catch ( Throwable $e ) { return false; }
+			if ( $credit < 0 || $legacy_cap !== $engine_cap ) { return false; }
+			$legacy_rate = self::payroll_rate_micro_contract( (string) $band['rate'] );
+			$engine_rate = self::payroll_rate_micro_contract( $calc_band['rate'] );
+			if ( null === $legacy_rate || null === $engine_rate || $legacy_rate !== $engine_rate ) { return false; }
+			if ( null === $legacy_cap ) {
+				if ( $i !== count( $legacy ) - 1 ) { return false; }
+				$unbounded = true;
+			} else {
+				if ( $legacy_cap < 0 || $legacy_cap <= $previous ) { return false; }
+				$previous = $legacy_cap;
+			}
+		}
+		if ( ! $unbounded ) { return false; }
+
+		$treatments = $rules['component_treatments'] ?? null;
+		if ( ! is_array( $treatments ) || ! $treatments ) { return false; }
+		foreach ( $treatments as $code => $treatment ) {
+			if ( ! is_string( $code ) || '' === $code || ! is_array( $treatment ) || ! isset( $treatment['kind'], $treatment['taxable'], $treatment['pensionable'] ) ) { return false; }
+			if ( ! in_array( $treatment['kind'], array( 'EARNING', 'DEDUCTION', 'REIMBURSEMENT', 'EMPLOYER_COST' ), true ) || ! is_bool( $treatment['taxable'] ) || ! is_bool( $treatment['pensionable'] ) ) { return false; }
+			if ( 'EARNING' !== $treatment['kind'] && ( true === $treatment['taxable'] || true === $treatment['pensionable'] ) ) { return false; }
+		}
+		return true;
+	}
+
 	/** The PAYE rules are not guessed: payroll is blocked unless one approved rule version covers the entire month. */
 	public static function payroll_rules_for_period( $start_date, $end_date ) {
 		global $wpdb;
