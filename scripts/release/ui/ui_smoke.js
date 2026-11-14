@@ -7,6 +7,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { chromium } = require('playwright');
+const AxeBuilder = require('@axe-core/playwright').default;
 
 const [baseArg, user, password, screenshotDir = '.'] = process.argv.slice(2);
 if (!baseArg || !user || !password) {
@@ -155,6 +156,43 @@ const isLocal = (url) => {
           const renderState = await page.locator('#stockland-app').innerText().catch(() => '(no app root text)');
           throw new Error(viewport.label + ' ERP dashboard did not hydrate within 45 seconds. Render state: ' + renderState.slice(0, 1200) + '. ' + error.message);
         }
+        // Advisory accessibility audit of the actual authenticated ERP shell.
+        // Keep the first baseline report non-blocking so existing findings are
+        // recorded and remediated deliberately; scanner failures still fail the smoke.
+        const axeResults = await new AxeBuilder({ page })
+          .include('#stockland-app')
+          .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+          .analyze();
+        const axeReport = {
+          page: name,
+          viewport: viewport.label,
+          engine: 'axe-core',
+          tags: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'],
+          violation_count: axeResults.violations.length,
+          violations: axeResults.violations.map((violation) => ({
+            id: violation.id,
+            impact: violation.impact,
+            description: violation.description,
+            help: violation.help,
+            helpUrl: violation.helpUrl,
+            node_count: violation.nodes.length,
+            examples: violation.nodes.slice(0, 3).map((node) => ({
+              target: node.target,
+              failureSummary: node.failureSummary,
+            })),
+          })),
+        };
+        fs.writeFileSync(
+          path.join(screenshots, name + '-' + viewport.label + '-axe.json'),
+          JSON.stringify(axeReport, null, 2) + '\\n'
+        );
+        if (axeResults.violations.length) {
+          const summary = axeResults.violations.map((v) => v.id + ':' + v.impact + '(' + v.nodes.length + ')').join(', ');
+          console.log('A11Y ADVISORY ' + name + ' ' + viewport.label + ': ' + summary);
+        } else {
+          note(name + ' ' + viewport.label + ' axe accessibility scan: 0 WCAG 2.1 A/AA violations');
+        }
+
         const hrNavigationCount = await page.locator('.sl-nav-hr').count();
         if (hrNavigationCount !== 0) fail(name + ' ' + viewport.label + ' exposed HR navigation before active-Owner schema approval');
         await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
