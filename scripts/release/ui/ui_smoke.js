@@ -316,12 +316,46 @@ const isLocal = (url) => {
       fail('table holder dynamic refresh failed: ' + JSON.stringify(holder));
     } else note('table holder: search, dropdowns, suggestions, append and row replacement PASS (' + holder.updatedCount + ')');
 
+    // Report tables with fewer than five rows must still receive the same accessible search/filter holder.
+    const shortReportHolder = await page.evaluate(async () => {
+      const app = document.getElementById('stockland-app');
+      if (!app) return { error: 'no app root' };
+      const wrap = document.createElement('div');
+      wrap.className = 'sl-table-wrap';
+      wrap.setAttribute('data-sl-force-filter', '');
+      wrap.innerHTML = '<table class="sl-table"><thead><tr><th>Item</th><th>Status</th></tr></thead><tbody>' +
+        ['alpha:OPEN', 'bravo:OPEN', 'charlie:CLOSED'].map(x => { const [a, b] = x.split(':'); return '<tr><td>' + a + '</td><td>' + b + '</td></tr>'; }).join('') +
+        '</tbody></table>';
+      app.appendChild(wrap);
+      await new Promise(r => setTimeout(r, 400));
+      const bar = wrap.previousElementSibling;
+      if (!bar || !bar.classList.contains('sl-table-tools')) { wrap.remove(); return { error: 'short report toolbar missing' }; }
+      const q = bar.querySelector('input[type=search]');
+      if (!q) { wrap.remove(); bar.remove(); return { error: 'short report search missing' }; }
+      q.value = 'bravo'; q.dispatchEvent(new Event('input', { bubbles: true }));
+      const searchCount = wrap.querySelectorAll('tbody tr:not(.sl-row-filtered)').length;
+      q.value = ''; q.dispatchEvent(new Event('input', { bubbles: true }));
+      const status = bar.querySelector('select[data-col="1"]');
+      if (!status) { wrap.remove(); bar.remove(); return { error: 'short report dropdown missing' }; }
+      status.value = 'CLOSED'; status.dispatchEvent(new Event('change', { bubbles: true }));
+      const filterCount = wrap.querySelectorAll('tbody tr:not(.sl-row-filtered)').length;
+      const count = bar.querySelector('.sl-table-count')?.textContent || '';
+      wrap.remove(); bar.remove();
+      return { searchCount, filterCount, count };
+    });
+    if (shortReportHolder.error) fail('short report table holder: ' + shortReportHolder.error);
+    else if (shortReportHolder.searchCount !== 1 || shortReportHolder.filterCount !== 1 || shortReportHolder.count !== '1 of 3 rows') {
+      fail('short report table search/dropdown failed: ' + JSON.stringify(shortReportHolder));
+    } else note('short report table (3 rows): search suggestions and column dropdown PASS');
+
     const jsText = await page.evaluate(async () => {
       const l = [...document.querySelectorAll('script[src]')].map(x => x.src).find(h => /app\.js/.test(h));
       return l ? (await (await fetch(l)).text()) : '';
     });
     if (!jsText || jsText.includes('Owner-approved additive HR/Payroll schema migration after backup and source review')) fail('HR schema approval prompt contains a prefilled approval statement');
     else note('HR schema approval prompt requires an unprefilled Owner decision');
+    if (!jsText.includes('data-sl-force-filter')) fail('Reports Explorer does not force table tools for short result sets');
+    else note('Reports Explorer marks short result tables for search/filter tools');
 
     const cssText = await page.evaluate(async () => { const l = [...document.querySelectorAll('link[rel=stylesheet]')].map(x => x.href).find(h => /app(\.min)?\.css/.test(h)); return l ? (await (await fetch(l)).text()) : ''; });
     if (!cssText.includes('@supports not (--a:0)')) fail('legacy-browser colour fallbacks missing from the CSS bundle');
