@@ -354,6 +354,8 @@ const isLocal = (url) => {
     });
     if (!jsText || jsText.includes('Owner-approved additive HR/Payroll schema migration after backup and source review')) fail('HR schema approval prompt contains a prefilled approval statement');
     else note('HR schema approval prompt requires an unprefilled Owner decision');
+    if (!jsText.includes('both monthly_tax_bands (legacy) and paye_bands (frozen runs)')) fail('HR payroll rule form does not explain the dual calculator schedule contract');
+    else note('HR payroll rule form explains the dual calculator contract');
     const legalReviewFields = ['Independent legal review decision','Reviewer independent of rule preparation','Independent reviewer full name','Reviewer professional registration / licence ID','Professional qualification / licence basis','Review date','Signed opinion reference / document ID','Signed opinion document SHA-256','Legal clauses reviewed (one per line)','Approved parameter keys (comma-separated)'];
     if (!legalReviewFields.every(label => jsText.includes(label)) || !jsText.includes('qualified_legal_review') || !jsText.includes('clauses_reviewed') || !jsText.includes('approved_parameters')) fail('HR statutory rule form is missing structured legal-review evidence capture');
     else note('HR statutory rule form captures independent reviewer, signed opinion hash, clauses and approved parameter scope');
