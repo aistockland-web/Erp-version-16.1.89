@@ -797,28 +797,61 @@ final class Stockland_HR_Lifecycle {
 	}
 
 	/** Require independent, evidence-backed professional review before any statutory rule can be used. */
-	public static function has_qualified_legal_review( $payload ) {
+	private static function has_qualified_review_evidence( $payload, $required_parameters ) {
 		if ( ! is_array( $payload ) || ! isset( $payload['qualified_legal_review'] ) || ! is_array( $payload['qualified_legal_review'] ) ) { return false; }
 		$q = $payload['qualified_legal_review'];
 		$sha = strtolower( (string) ( $q['opinion_sha256'] ?? '' ) );
 		$clauses = $q['clauses_reviewed'] ?? array();
 		$params = $q['approved_parameters'] ?? array();
-		return strtoupper( (string) ( $q['decision'] ?? '' ) ) === 'APPROVED'
-			&& ! empty( $q['independence_confirmed'] )
-			&& strlen( trim( (string) ( $q['reviewer_name'] ?? '' ) ) ) >= 3
-			&& strlen( trim( (string) ( $q['reviewer_id'] ?? '' ) ) ) >= 3
-			&& strlen( trim( (string) ( $q['professional_basis'] ?? '' ) ) ) >= 8
-			&& preg_match( '/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/D', (string) ( $q['review_date'] ?? '' ) )
-			&& strlen( trim( (string) ( $q['opinion_reference'] ?? '' ) ) ) >= 6
-			&& preg_match( '/^[a-f0-9]{64}$/', $sha )
-			&& is_array( $clauses ) && count( $clauses ) > 0
-			&& is_array( $params ) && in_array( 'paye_bands', $params, true )
-			&& in_array( 'paye_tax_base_method', $params, true )
-			&& in_array( 'pensionable_base_method', $params, true )
-			&& in_array( 'employee_pension_rate', $params, true )
-			&& in_array( 'employer_pension_rate', $params, true )
-			&& in_array( 'component_treatments', $params, true )
-			&& in_array( 'rounding_method', $params, true );
+		if (
+			strtoupper( (string) ( $q['decision'] ?? '' ) ) !== 'APPROVED'
+			|| empty( $q['independence_confirmed'] )
+			|| strlen( trim( (string) ( $q['reviewer_name'] ?? '' ) ) ) < 3
+			|| strlen( trim( (string) ( $q['reviewer_id'] ?? '' ) ) ) < 3
+			|| strlen( trim( (string) ( $q['professional_basis'] ?? '' ) ) ) < 8
+			|| ! preg_match( '/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/D', (string) ( $q['review_date'] ?? '' ) )
+			|| strlen( trim( (string) ( $q['opinion_reference'] ?? '' ) ) ) < 6
+			|| ! preg_match( '/^[a-f0-9]{64}$/', $sha )
+			|| ! is_array( $clauses ) || ! $clauses
+			|| ! is_array( $params )
+		) {
+			return false;
+		}
+		foreach ( $required_parameters as $parameter ) {
+			if ( ! in_array( $parameter, $params, true ) ) { return false; }
+		}
+		return true;
+	}
+
+	/** Independent review scope used by the newer frozen payroll-cycle calculator. */
+	public static function has_qualified_legal_review( $payload ) {
+		return self::has_qualified_review_evidence(
+			$payload,
+			array( 'paye_bands', 'paye_tax_base_method', 'pensionable_base_method', 'employee_pension_rate', 'employer_pension_rate', 'component_treatments', 'rounding_method' )
+		);
+	}
+
+	/** Signed review scope for allowance-component classification and caps. */
+	public static function has_qualified_allowance_review( $payload ) {
+		return self::has_qualified_review_evidence(
+			$payload,
+			array( 'allowance_tax_treatment', 'allowance_exemption_cap', 'allowance_pensionable_treatment', 'allowance_pensionable_cap' )
+		);
+	}
+
+	/** Signed review scope for final-settlement component rules; PAYE/pension is governed by the shared PAYROLL rule. */
+	public static function has_qualified_final_settlement_review( $payload ) {
+		return self::has_qualified_review_evidence( $payload, array( 'component_rules' ) );
+	}
+
+	/** Signed review scope for individual payee withholding, not employee payroll. */
+	public static function has_qualified_individual_payee_review( $payload ) {
+		if ( ! is_array( $payload ) ) { return false; }
+		$method = strtoupper( (string) ( $payload['withholding_method'] ?? '' ) );
+		if ( ! in_array( $method, array( 'RATE_ON_GROSS_CASH', 'RATE_ON_CASH_PLUS_IN_KIND', 'NO_WITHHOLDING' ), true ) ) { return false; }
+		$required = array( 'withholding_method', 'cash_in_kind_tax_basis' );
+		if ( 'NO_WITHHOLDING' !== $method ) { $required[] = 'withholding_rate'; }
+		return self::has_qualified_review_evidence( $payload, $required );
 	}
 
 	/** Validate the persisted legacy and frozen-run payroll schemas before activation. */
@@ -953,7 +986,7 @@ final class Stockland_HR_Lifecycle {
 		if ( ! is_array( $sets ) || ! $sets ) { return array(); }
 		$active = $sets[0];
 		$payload = json_decode( (string) $active['rules_json'], true );
-		if ( ! self::has_qualified_legal_review( $payload ) ) { return array(); }
+		if ( ! self::has_qualified_allowance_review( $payload ) ) { return array(); }
 		$rows = Stockland_DB::read_results( $wpdb->prepare( 'SELECT * FROM %i WHERE rule_set_id=%d ORDER BY category', Stockland_DB::table( 'hr_rule_components' ), (int) $active['id'] ), ARRAY_A );
 		$rules = array();
 		foreach ( (array) $rows as $row ) {
