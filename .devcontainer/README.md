@@ -64,18 +64,7 @@ The current Dev Container sets `STOCKLAND_DEV_RELEASE_MODE=approved-16.2.18`. On
 
 Use the original approved Actions artifact verification command below for disposable MariaDB 10.11 and MySQL 8.0.46 WordPress installs. The older candidate-source and .13/.15 routines remain in the repository for historical/explicit legacy testing only; they are not the default Codespaces startup workflow.
 
-The canonical editable runtime source is `src/stockland-erp-app/`, not the disposable WordPress site or an extracted /tmp candidate. On first Codespaces post-create the environment verifies the exact .13/.15 original ZIP identities, creates or reuses a distinct repaired .15 QA candidate, verifies the .13 per-file manifest, and materializes the real .13 source plus `src/.stockland-erp-app.source.json`. A marked source tree is preserved on rebuild; an unmarked existing folder is never overwritten.
-
-Check source intake:
-
-```bash
-test -f src/.stockland-erp-app.source.json
-test -f src/stockland-erp-app/stockland-inventory.php
-python3 scripts/codespaces/test_project_source.py
-git status --short --branch
-```
-
-The repaired .15 QA artifact is distinct from the original candidate ZIP. Do not rename its digest to the original digest. The first post-create uses the repaired artifact for disposable WordPress activation/update; the original .13 archive remains the operational baseline.
+The canonical editable application source remains under `src/stockland-erp-app/` for repository maintenance, but the **approved 16.2.18 Codespaces startup does not materialize or activate historical .13/.15 candidates**. It prepares the engineering toolchain and exits cleanly. The exact approved production package is fetched from GitHub Actions only when the dedicated verifier is run. Legacy source-intake and .13/.15 candidate commands remain in the repository for historical research but are not part of the default profile.
 
 The ERP's installed/approved release baseline is 16.2.18. Continue operational development and testing against this release without rebuilding a replacement installer or changing production data. The pinned installer and SHA are recorded below; future application-version changes require a separate Owner decision. The standard WordPress plugin-upload interface remains the installation interface.
 
