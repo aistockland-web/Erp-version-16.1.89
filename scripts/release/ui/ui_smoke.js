@@ -399,8 +399,8 @@ const isLocal = (url) => {
     });
     if (!jsText || jsText.includes('Owner-approved additive HR/Payroll schema migration after backup and source review')) fail('HR schema approval prompt contains a prefilled approval statement');
     else note('HR schema approval prompt requires an unprefilled Owner decision');
-    if (!jsText.includes('aria-label="ALERTS — Open operational alerts"') || !jsText.includes('function syncNotificationAccessibleLabel') || !jsText.includes("' ('+count+' unread)'")) fail('notification button accessible name does not track its visible label and unread badge count');
-    else note('notification button accessible name tracks its visible ALERTS label and dynamic unread count');
+    if (!jsText.includes('aria-label="ALERTS — Open operational alerts"') || !jsText.includes('function syncNotificationAccessibleLabel') || !jsText.includes("' ('+count+' unread)'") || !jsText.includes('class="sl-notification-label" aria-hidden="true"') || !jsText.includes('id="notificationCount" aria-hidden="true" hidden')) fail('notification accessible name, hidden decorative label or hidden zero badge is incomplete');
+    else note('notification accessible name exposes one dynamic label; visual label/count are decorative and avoid duplicate speech');
     if (!jsText.includes('both monthly_tax_bands (legacy) and paye_bands (frozen runs)')) fail('HR payroll rule form does not explain the dual calculator schedule contract');
     else note('HR payroll rule form explains the dual calculator contract');
     const legalReviewFields = ['Independent legal review decision','Reviewer independent of rule preparation','Independent reviewer full name','Reviewer professional registration / licence ID','Professional qualification / licence basis','Review date','Signed opinion reference / document ID','Signed opinion document SHA-256','Legal clauses reviewed (one per line)','Approved parameter keys (comma-separated)'];
