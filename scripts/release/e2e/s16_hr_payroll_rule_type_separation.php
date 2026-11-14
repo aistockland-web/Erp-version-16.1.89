@@ -34,5 +34,34 @@ $check( 'legacy PAYROLL review cannot authorize PAYROLL_CYCLE', ! Stockland_HR_L
 $check( 'PAYROLL_CYCLE review accepts the frozen-cycle parameter scope', Stockland_HR_Lifecycle::has_qualified_legal_review( $cycle ) );
 $check( 'PAYROLL_CYCLE review cannot authorize legacy PAYROLL', ! Stockland_HR_Lifecycle::has_qualified_legacy_payroll_review( $cycle ) );
 
+$allowance = array( 'qualified_legal_review' => $common + array(
+	'approved_parameters' => array( 'allowance_tax_treatment', 'allowance_exemption_cap', 'allowance_pensionable_treatment', 'allowance_pensionable_cap' ),
+) );
+$settlement = array( 'qualified_legal_review' => $common + array(
+	'approved_parameters' => array( 'component_rules' ),
+) );
+$payee = array(
+	'withholding_method' => 'RATE_ON_GROSS_CASH',
+	'qualified_legal_review' => $common + array(
+		'approved_parameters' => array( 'withholding_method', 'cash_in_kind_tax_basis', 'withholding_rate' ),
+	),
+);
+$no_withholding_payee = array(
+	'withholding_method' => 'NO_WITHHOLDING',
+	'qualified_legal_review' => $common + array(
+		'approved_parameters' => array( 'withholding_method', 'cash_in_kind_tax_basis' ),
+	),
+);
+$check( 'ALLOWANCE review accepts allowance component parameter scope', Stockland_HR_Lifecycle::has_qualified_allowance_review( $allowance ) );
+$check( 'ALLOWANCE review cannot authorize PAYROLL_CYCLE', ! Stockland_HR_Lifecycle::has_qualified_legal_review( $allowance ) );
+$check( 'FINAL_SETTLEMENT review accepts component-rule scope', Stockland_HR_Lifecycle::has_qualified_final_settlement_review( $settlement ) );
+$check( 'FINAL_SETTLEMENT review cannot authorize PAYROLL_CYCLE', ! Stockland_HR_Lifecycle::has_qualified_legal_review( $settlement ) );
+$check( 'INDIVIDUAL_PAYEE review accepts withholding and cash/in-kind scope', Stockland_HR_Lifecycle::has_qualified_individual_payee_review( $payee ) );
+$check( 'INDIVIDUAL_PAYEE requires signed rate when withholding applies', ! Stockland_HR_Lifecycle::has_qualified_individual_payee_review( array(
+	'withholding_method' => 'RATE_ON_GROSS_CASH',
+	'qualified_legal_review' => $common + array( 'approved_parameters' => array( 'withholding_method', 'cash_in_kind_tax_basis' ) ),
+) ) );
+$check( 'NO_WITHHOLDING review does not require a rate', Stockland_HR_Lifecycle::has_qualified_individual_payee_review( $no_withholding_payee ) );
+
 echo $fail ? "RESULT FAIL ($fail)\n" : "RESULT PASS\n";
 exit( $fail ? 1 : 0 );
