@@ -82,3 +82,21 @@ After the smoke tests, the next target is the resumable ERP setup wizard and phy
 ## 16.2.18 master installer verification
 
 `bash .devcontainer/verify-master-installer.sh [mariadb|mysql8|all]` builds `STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTALLER.zip` from `src/stockland-erp-app/`, resets the disposable WordPress databases, installs the ZIP through WordPress, activates once, verifies all 86 tables, setup state and the business-workflow regression scripts. Use the MySQL 8 profile (`docker compose --profile mysql8 up -d`) for the `mysql8` target. Synthetic data only; the script refuses to run without `STOCKLAND_DISPOSABLE_SITE=yes`.
+
+## Exact approved 16.2.18 artifact — no rebuild
+
+The Owner-designated 16.2.18 production installer is the existing GitHub Actions artifact [run 43570216177 / artifact 14104031868](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/43570216177). The canonical inner installer SHA-256 is `de7b087906e82185de1782af1125f3194c6904785afb5338e0c828c743d38a08`.
+
+Do not run `.devcontainer/verify-master-installer.sh` for this exact-artifact check: that older helper rebuilds the installer from source. Use the new helper below; it downloads the pinned GitHub Actions artifact and verifies the exact approved ZIP without rebuilding or changing its bytes.
+
+```bash
+bash .devcontainer/initialize-host.sh
+docker compose --project-directory .devcontainer -f .devcontainer/docker-compose.yml --profile mysql8 up -d --build
+bash scripts/codespaces/verify_approved_16_2_18.sh all
+```
+
+The helper validates both the outer Actions artifact digest and the inner installer SHA, its 16.2.18 manifest, 124 file hashes, ZIP paths and CRC. It then installs that exact ZIP in the disposable MariaDB 10.11 and MySQL 8.0.46 WordPress Compose sites and runs the existing synthetic ERP workflow suites. It does not connect to the live company database, rebuild the plugin, or alter the original approved package. The canonical `scripts/release/verify_master_installer.sh` and the existing package-build/release workflow are left unchanged; the Compose-specific host check and installation sequence live only in `scripts/codespaces/verify_approved_16_2_18.sh`.
+
+## Cloudflare Free plan
+
+See [Cloudflare Free-plan architecture and account inventory](CLOUDFLARE_FREE_PLAN.md). The connected account currently has one asset-only Worker named `erp`, with no bindings, custom domains, DNS zones, Pages projects, D1, KV, Queues or Durable Objects. R2 is not enabled yet. A production domain/zone must be added and delegated to this account before DNS proxy, zone-level WAF, cache or SSL settings can be configured for the live WordPress host. Keep WordPress/PHP/MySQL as the ERP transaction system of record; do not replace it with D1 or a Worker.
