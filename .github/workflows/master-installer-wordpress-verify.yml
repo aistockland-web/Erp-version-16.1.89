@@ -84,6 +84,7 @@ jobs:
           node --check scripts/release/ui/ui_smoke.js
           node --check scripts/release/ui/admin_launcher_smoke.js
           node --check scripts/release/ui/rule_builder_unit.js
+          node --check scripts/release/ui/share_dialog_unit.js
           node scripts/release/tests/daily_pos_ui_contract.js
           npm ci --prefix ci/cssqa --ignore-scripts --no-audit --no-fund
           NODE_PATH="$PWD/ci/cssqa/node_modules" node ci/qa/check-css-postcss.js "$PWD/src/stockland-erp-app" --scope baseline
@@ -184,10 +185,12 @@ jobs:
           ADMIN_LAUNCHER_STATUS=${PIPESTATUS[0]}
           NODE_PATH=/tmp/stockland-playwright/node_modules node scripts/release/ui/rule_builder_unit.js 2>&1 | tee /tmp/rule-builder-unit.log
           RULE_BUILDER_STATUS=${PIPESTATUS[0]}
+          NODE_PATH=/tmp/stockland-playwright/node_modules node scripts/release/ui/share_dialog_unit.js 2>&1 | tee /tmp/share-dialog-unit.log
+          SHARE_DIALOG_STATUS=${PIPESTATUS[0]}
           unset QA_PASSWORD
           set -e
-          if [[ "$UI_SMOKE_STATUS" -ne 0 || "$ADMIN_LAUNCHER_STATUS" -ne 0 || "$RULE_BUILDER_STATUS" -ne 0 ]]; then
-            echo "Browser acceptance failed: ui_smoke=$UI_SMOKE_STATUS admin_launcher=$ADMIN_LAUNCHER_STATUS rule_builder=$RULE_BUILDER_STATUS"
+          if [[ "$UI_SMOKE_STATUS" -ne 0 || "$ADMIN_LAUNCHER_STATUS" -ne 0 || "$RULE_BUILDER_STATUS" -ne 0 || "$SHARE_DIALOG_STATUS" -ne 0 ]]; then
+            echo "Browser acceptance failed: ui_smoke=$UI_SMOKE_STATUS admin_launcher=$ADMIN_LAUNCHER_STATUS rule_builder=$RULE_BUILDER_STATUS share_dialog=$SHARE_DIALOG_STATUS"
             exit 1
           fi
 

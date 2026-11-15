@@ -295,12 +295,49 @@ final class Stockland_HR_Private_Vault {
 		if ( ! in_array( $mime, $types[ $ext ], true ) ) {
 			return self::error( 'hr_upload_mime_mismatch', 'The uploaded content does not match its file type.', 415 );
 		}
-		$keyring = self::key_material();
-		if ( is_wp_error( $keyring ) ) { return $keyring; }
 		$plain = file_get_contents( $file['tmp_name'] );
 		if ( ! is_string( $plain ) || strlen( $plain ) !== $size ) {
 			return self::error( 'hr_upload_read_failed', 'The uploaded file could not be read completely.', 500 );
 		}
+		return self::persist( $plain, $ext, $original, $mime );
+	}
+
+	/**
+	 * Encrypts and stores generated document content (for example an edited text version) in the private vault.
+	 *
+	 * @param string $plain Document bytes.
+	 * @param string $file_name Target file name; its extension (docx or txt) decides the stored type.
+	 * @return array|WP_Error Stored-file descriptor or error.
+	 */
+	public static function store_content( $plain, $file_name ) {
+		$original = sanitize_file_name( (string) $file_name );
+		$ext      = strtolower( pathinfo( $original, PATHINFO_EXTENSION ) );
+		$types    = self::allowed_types();
+		if ( ! is_string( $plain ) || strlen( $plain ) < 1 || strlen( $plain ) > self::MAX_BYTES || ! in_array( $ext, array( 'docx', 'txt' ), true ) || ! isset( $types[ $ext ] ) ) {
+			return self::error( 'hr_content_invalid', 'Edited content must be 1 byte to 10 MiB and stored as a DOCX or TXT document.', 400 );
+		}
+		if ( ! class_exists( 'finfo' ) ) {
+			return self::error( 'hr_upload_mime_verification_unavailable', 'Server MIME verification is unavailable; saving is disabled.', 503 );
+		}
+		$mime = (string) ( new finfo( FILEINFO_MIME_TYPE ) )->buffer( $plain );
+		if ( ! in_array( $mime, $types[ $ext ], true ) ) {
+			return self::error( 'hr_upload_mime_mismatch', 'The generated content does not match its file type.', 415 );
+		}
+		return self::persist( $plain, $ext, $original, $mime );
+	}
+
+	/**
+	 * Encrypts bytes and writes them atomically into the owner-only vault directory.
+	 *
+	 * @param string $plain Document bytes.
+	 * @param string $ext Verified extension.
+	 * @param string $original Sanitised original file name.
+	 * @param string $mime Verified MIME type.
+	 * @return array|WP_Error Stored-file descriptor or error.
+	 */
+	private static function persist( $plain, $ext, $original, $mime ) {
+		$keyring = self::key_material();
+		if ( is_wp_error( $keyring ) ) { return $keyring; }
 		$reference = 'hrv_' . bin2hex( random_bytes( 24 ) );
 		$encrypted = self::encrypt_payload( $plain, $reference, $ext, $keyring );
 		if ( is_wp_error( $encrypted ) ) { return $encrypted; }
