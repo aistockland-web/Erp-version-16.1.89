@@ -67,10 +67,10 @@ final class Stockland_REST_POS_Integrations extends Stockland_REST_Base {
 	 */
 	public function can_read() {
 		$role = Stockland_Authority::role();
-		if ( Stockland_Authority::is_management() || 'branch_manager' === $role ) {
+		if ( Stockland_Authority::is_management() || 'branch_manager' === $role || Stockland_Authority::can_daily_import() ) {
 			return true;
 		}
-		return new WP_Error( 'pos_integrations_forbidden', 'POS integration registry is available to Owner, Management and Branch Managers.', array( 'status' => 403 ) );
+		return new WP_Error( 'pos_integrations_forbidden', 'POS integration registry is available to Owner, Management and assigned Daily POS operators within their branch scope.', array( 'status' => 403 ) );
 	}
 
 	/**
