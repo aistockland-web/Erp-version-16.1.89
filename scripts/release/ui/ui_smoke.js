@@ -254,6 +254,80 @@ const isLocal = (url) => {
       page.off('request', captureManagementRequest);
     }
 
+    // Exercise the 16.2.18 Universal POS Integration Hub in the actual
+    // standalone ERP shell, not only through static source and REST tests.
+    const salesGroupToggle = page.locator('[data-nav-toggle="sales"]').first();
+    if (await salesGroupToggle.count() < 1) {
+      fail('Sales & POS navigation group is missing for the Owner');
+    } else {
+      await salesGroupToggle.click();
+      const posIntegrationNav = page.locator('[data-view="integrations"]').first();
+      if (await posIntegrationNav.count() < 1) {
+        fail('Owner navigation does not expose POS Integrations');
+      } else {
+        const integrationRequests = [];
+        const captureIntegrationRequest = (request) => {
+          const url = request.url();
+          if (url.includes('/pos-integrations/')) integrationRequests.push(url);
+        };
+        page.on('request', captureIntegrationRequest);
+        await posIntegrationNav.click();
+        await page.waitForSelector('#posDeviceRegisterForm', { timeout: 15000 })
+          .catch(() => fail('Universal POS Integration registration form did not render'));
+        await page.waitForFunction(() => {
+          const catalog = document.getElementById('posAdapterCatalog');
+          const devices = document.getElementById('posDevicesList');
+          const text = (catalog?.innerText || '') + ' ' + (devices?.innerText || '');
+          return text.includes('Vendor REST API') && text.includes('File Exchange');
+        }, null, { timeout: 15000 }).catch(() => fail('POS adapter catalogue or device registry did not load'));
+        const formState = await page.evaluate(() => {
+          const form = document.getElementById('posDeviceRegisterForm');
+          const catalog = document.getElementById('posAdapterCatalog')?.innerText || '';
+          const devices = document.getElementById('posDevicesList')?.innerText || '';
+          return {
+            form: !!form,
+            fields: form ? [...form.querySelectorAll('input,select')].map(x => x.name || x.id) : [],
+            hasPassword: !!form?.querySelector('input[type="password"]'),
+            hasSecret: !!form?.querySelector('input[name*="secret"],input[name*="token"],input[name*="api_key"]'),
+            catalog,
+            devices,
+          };
+        });
+        if (!formState.form) fail('POS Integration registration form is unavailable');
+        if (formState.hasPassword || formState.hasSecret) fail('POS Integration registration must not expose provider credential inputs');
+        if (!['vendor','device_name','model','connection_type','branch_location_id'].every(x => formState.fields.includes(x))) {
+          fail('POS Integration registration is missing a required device metadata field: ' + JSON.stringify(formState.fields));
+        }
+        const requestedCatalog = integrationRequests.some(url => url.includes('/pos-integrations/adapters'));
+        const requestedDevices = integrationRequests.some(url => url.includes('/pos-integrations/devices'));
+        if (!requestedCatalog || !requestedDevices) {
+          fail('POS Integration page did not request both adapter catalogue and device registry endpoints');
+        }
+        if (!/NOT_CONNECTED|NOT CONNECTED/.test(formState.catalog + ' ' + formState.devices)) {
+          fail('POS Integration page does not clearly disclose that unverified devices are not connected');
+        }
+        if (formState.form && requestedCatalog && requestedDevices && !formState.hasPassword && !formState.hasSecret) {
+          note('Universal POS Integration Hub rendered the connector catalogue, branch device form and no-secret boundary');
+        }
+        for (const viewport of [
+          { label: 'phone-390', width: 390 },
+          { label: 'tablet-768', width: 768 },
+          { label: 'desktop-1366', width: 1366 },
+        ]) {
+          await page.setViewportSize({ width: viewport.width, height: viewport.width < 500 ? 844 : 900 });
+          await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+          const dimensions = await page.evaluate(() => ({
+            viewport: window.innerWidth,
+            document: document.documentElement.scrollWidth,
+            body: document.body.scrollWidth,
+          }));
+          const overflow = Math.max(dimensions.document, dimensions.body) - dimensions.viewport;
+          if (overflow > 4) fail('POS Integrations ' + viewport.label + ' horizontal overflow ' + overflow + 'px');
+          else note('POS Integrations ' + viewport.label + ' layout (horizontal overflow ' + overflow + 'px)');
+        }
+        page.off('request', captureIntegrationRequest);
+      }
+    }
 
     // Table holders: verify first enhancement, filters, row appends, row replacement and search suggestions.
     const holder = await page.evaluate(async () => {
