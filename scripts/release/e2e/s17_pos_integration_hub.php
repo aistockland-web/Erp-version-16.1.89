@@ -43,6 +43,7 @@ if ( $branch_id < 1 || $other_branch_id < 1 ) {
 	exit( 1 );
 }
 
+$branch_manager_id = mkuser( 'pos-hub-branch-manager', 'subscriber', 'branch_manager', $branch_id );
 $branch_manager_user = new WP_User( $branch_manager_id );
 $branch_manager_user->set_role( Stockland_Roles::ROLE_BRANCH_MANAGER );
 $management_user = new WP_User( $management_id );
@@ -55,6 +56,10 @@ $auditor_id = mkuser( 'pos-hub-auditor', 'subscriber', 'auditor' );
 $auditor_user = new WP_User( $auditor_id );
 $auditor_user->set_role( Stockland_Roles::ROLE_AUDITOR );
 
+$adapter_catalog = call( 'GET', '/pos-integrations/adapters', array(), $management_id );
+$catalog_rows = is_array( $adapter_catalog[1] ) ? ( $adapter_catalog[1]['connection_patterns'] ?? array() ) : array();
+$catalog_codes = array_column( (array) $catalog_rows, 'code' );
+$check( 'Management can read the universal connector pattern catalogue', 200 === $adapter_catalog[0] && in_array( 'REST_API', $catalog_codes, true ) && in_array( 'WEBHOOK', $catalog_codes, true ) && in_array( 'LOCAL_GATEWAY', $catalog_codes, true ) && in_array( 'DEVICE_SDK', $catalog_codes, true ) && in_array( 'FILE_EXCHANGE', $catalog_codes, true ) );
 $settings_table = Stockland_DB::table( 'settings' );
 $audit_table = Stockland_DB::table( 'audit_logs' );
 $check( 'existing Core settings and immutable audit stores are available', Stockland_DB::table_exists( $settings_table ) && Stockland_DB::table_exists( $audit_table ) );
