@@ -20,7 +20,7 @@ function section(source, startText, endText) {
   return source.slice(start, end);
 }
 
-const nav = section(app, "group('sales','Sales & POS'", "\ngroup('inventory'");
+const nav = section(app, 'function nav(){', 'function bindNavGroups(scope){');
 assert(nav.includes("['integrations','POS Integrations',['owner','management','branch_manager'].includes(u.role)]"), 'POS Integrations menu must be available to Owner, Management and Branch Managers.');
 const page = section(app, 'function posIntegrationsPage(){', '\nfunction productImportPage(){');
 assert(page.includes('Universal POS Integration Hub'), 'Universal integration workspace must be present.');
