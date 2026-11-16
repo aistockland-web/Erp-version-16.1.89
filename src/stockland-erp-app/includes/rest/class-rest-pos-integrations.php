@@ -370,6 +370,46 @@ final class Stockland_REST_POS_Integrations extends Stockland_REST_Base {
 	}
 
 	/**
+	 * Resolve a registered POS device to its source-system namespace for one branch import.
+	 *
+	 * The request still must pass the existing Daily POS REST capability and branch
+	 * authorization checks. This lookup only selects the product-code mapping namespace;
+	 * it does not authenticate a device or change its NOT_CONNECTED status.
+	 *
+	 * @param string $device_id Registered device ID.
+	 * @param int    $branch_id Authorized branch ID.
+	 * @return array|WP_Error Registered device metadata or a fail-closed error.
+	 */
+	public static function resolve_device_for_import( $device_id, $branch_id ) {
+		global $wpdb;
+		$device_id = strtoupper( sanitize_text_field( (string) $device_id ) );
+		$branch_id = (int) $branch_id;
+		if ( ! preg_match( '/^[A-F0-9]{16}$/', $device_id ) || $branch_id <= 0 ) {
+			return new WP_Error( 'pos_device_reference_invalid', 'The selected POS device reference is invalid.', array( 'status' => 400 ) );
+		}
+		$table = Stockland_DB::table( 'settings' );
+		if ( ! Stockland_DB::table_exists( $table ) ) {
+			return new WP_Error( 'pos_device_registry_unavailable', 'The POS device registry is unavailable.', array( 'status' => 503 ) );
+		}
+		$key = self::DEVICE_PREFIX . strtolower( $device_id );
+		$json = Stockland_DB::read_var(
+			$wpdb->prepare( 'SELECT setting_value FROM %i WHERE setting_key=%s LIMIT 1', $table, $key )
+		);
+		$device = json_decode( (string) $json, true );
+		if ( ! is_array( $device ) || JSON_ERROR_NONE !== json_last_error() || strtoupper( (string) ( $device['device_id'] ?? '' ) ) !== $device_id ) {
+			return new WP_Error( 'pos_device_not_registered', 'The selected POS device is not registered in Stockland ERP.', array( 'status' => 404 ) );
+		}
+		if ( (int) ( $device['branch_location_id'] ?? 0 ) !== $branch_id ) {
+			return new WP_Error( 'pos_device_branch_mismatch', 'The selected POS device is registered to a different branch. Select a device registered to this branch.', array( 'status' => 403 ) );
+		}
+		$source_system = (string) ( $device['source_system'] ?? '' );
+		if ( ! preg_match( '/^POS_[a-f0-9]{16}$/', $source_system ) ) {
+			return new WP_Error( 'pos_device_source_invalid', 'The selected POS device has an invalid source-system mapping namespace.', array( 'status' => 409 ) );
+		}
+		return $device;
+	}
+
+	/**
 	 * Return only non-secret device fields.
 	 *
 	 * @param array $device Stored device data.
