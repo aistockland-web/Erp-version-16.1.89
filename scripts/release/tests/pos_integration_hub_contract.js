@@ -58,6 +58,8 @@ assert(importer.includes('/import/daily-sales/preview') && importer.includes('/i
 
 assert(runner.includes('s17_pos_integration_hub'), 'The database-backed integration registry test must run in the full synthetic E2E sequence.');
 assert(e2e.includes('Branch Manager cannot register a device for another branch'), 'E2E must test branch boundary.');
+assert(e2e.includes("call(\n\t'POST',\n\t'/products'") && e2e.includes('Synthetic POS Mapping Product A') && e2e.includes('Synthetic POS Mapping Product B'), 'E2E must create disposable Product Master variants through the authorized REST service rather than assume pre-seeded SKUs.');
+assert(e2e.includes("delete_record( Stockland_DB::table( 'product_code_maps' )") && e2e.includes("delete_record( Stockland_DB::table( 'products' )"), 'E2E must clean up synthetic product and mapping records in its disposable database.');
 assert(e2e.includes('device registration rejects inline API credentials'), 'E2E must test credential rejection.');
 assert(e2e.includes('no sales, inventory-ledger or GL records'), 'E2E must test that device registration has no financial or stock side effects.');
 assert(e2e.includes('/import/code-maps'), 'E2E must exercise the real Management product-code mapping route for registered device sources.');
