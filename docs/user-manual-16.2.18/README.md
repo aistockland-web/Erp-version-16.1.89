@@ -1,3 +1,5 @@
+![Stockland Ethiopia ERP User Manual — blue and orange edition](assets/stockland-erp-manual-cover.svg)
+
 ---
 description: Practical operating instructions for Stockland Ethiopia ERP 16.2.18.
 ---
@@ -9,6 +11,17 @@ description: Practical operating instructions for Stockland Ethiopia ERP 16.2.18
 **Audience:** Owner, Management, Branch Managers, Sales Employees, Warehouse Managers, Warehouse Employees, Finance users and Auditors.
 
 This manual explains the actual Stockland ERP 16.2.18 application. It is based on the canonical source and the 16.2.18 application interface, not on a generic ERP template or later development versions.
+
+## Visual guide
+
+The manual uses a simple two-color reading system:
+
+| Marker | Meaning |
+|---|---|
+| 🔵 **Blue — guidance** | Normal navigation, explanations and routine operating steps |
+| 🟠 **Orange — attention** | Important checks, approval points and actions that require care |
+
+Blue is the primary reading color; orange is reserved for meaningful action and caution cues. The cover artwork follows the same palette.
 
 ## Read this first
 
