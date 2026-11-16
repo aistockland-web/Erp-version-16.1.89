@@ -8,6 +8,8 @@ const registry = fs.readFileSync(path.join(root, 'src/stockland-erp-app/includes
 const importer = fs.readFileSync(path.join(root, 'src/stockland-erp-app/includes/rest/class-rest-import-v16.php'), 'utf8');
 const bootstrap = fs.readFileSync(path.join(root, 'src/stockland-erp-app/stockland-inventory.php'), 'utf8');
 const e2e = fs.readFileSync(path.join(root, 'scripts/release/e2e/s17_pos_integration_hub.php'), 'utf8');
+const folderAgent = fs.readFileSync(path.join(root, 'tools/stockland-pos-folder-agent/Run-StocklandPosFolderAgent.ps1'), 'utf8');
+const folderAgentTests = fs.readFileSync(path.join(root, 'tools/stockland-pos-folder-agent/tests/Test-StocklandPosFolderAgent.ps1'), 'utf8');
 const runner = fs.readFileSync(path.join(root, 'scripts/release/e2e/run_all.sh'), 'utf8');
 
 function assert(ok, message) {
@@ -60,5 +62,10 @@ assert(e2e.includes('no sales, inventory-ledger or GL records'), 'E2E must test 
 assert(e2e.includes('/import/code-maps'), 'E2E must exercise the real Management product-code mapping route for registered device sources.');
 assert(e2e.includes('same external PLU resolves to device A Product Master SKU only in device A namespace') && e2e.includes('same external PLU resolves to device B Product Master SKU only in device B namespace'), 'E2E must prove overlapping PLU codes resolve independently for two POS devices.');
 assert(importer.includes("$mapping_source_system = $registered_device ? (string) $registered_device['source_system'] : 'THIRD_PARTY_POS';"), 'Device imports must use per-device mapping namespaces while generic imports retain legacy mappings.');
+
+assert(folderAgent.includes("PosDeviceId") && folderAgent.includes("formData['pos_device_id']"), 'Windows folder agent must support optional per-device mapping identity.');
+assert(folderAgent.includes("^[A-F0-9]{16}$") && folderAgent.includes('cannot override'), 'Folder agent must validate device ID and retain its no-branch-override boundary.');
+assert(!folderAgent.includes("import/daily-sales/commit"), 'Folder agent must never release or post sales.');
+assert(folderAgentTests.includes('Malformed registered POS device IDs must be rejected.') && folderAgentTests.includes('Registered device ID must be included in the Daily POS preview form.'), 'Windows tests must cover invalid, configured and generic device identity modes.');
 
 console.log('RESULT PASS: universal connector catalogue, Branch Manager registry UI, branch/source isolation, no-secret/no-schema boundary, shared Daily POS staging and E2E coverage.');
