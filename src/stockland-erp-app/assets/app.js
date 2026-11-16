@@ -2385,7 +2385,7 @@ function bindExtended(){
     if($('#paymentFinanceForm')){const pf=$('#paymentFinanceForm');pf.onsubmit=financeSubmit;const pt=$('#paymentType');const ps=$('#paymentSupplier');const pc=$('#paymentCustomer');const refreshAllocations=()=>loadPaymentAllocations();const sync=()=>{const sup=pt?.value==='SUPPLIER';if(ps)ps.disabled=!sup;if(pc)pc.disabled=sup;refreshAllocations();};pt?.addEventListener('change',sync);ps?.addEventListener('change',refreshAllocations);pc?.addEventListener('change',refreshAllocations);pf.elements.amount?.addEventListener('input',()=>updatePaymentAllocationSummary(pf));sync();}if($('#expenseFinanceForm'))$('#expenseFinanceForm').onsubmit=financeSubmit;
     if($('#branchOpsPage'))loadBranchOperations();
     if($('#financePage')&&!state.financeLoaded)loadFinance();if($('#refreshFinance'))$('#refreshFinance').onclick=()=>loadFinance(true);if($('#financeApprovalQueue'))loadFinanceApprovals();if($('#refreshFinanceApprovals'))$('#refreshFinanceApprovals').onclick=loadFinanceApprovals;if($('#financeGL'))loadFinanceGL();if($('#poActionQueue'))loadPurchaseOrders();if($('#refreshPOQueue'))$('#refreshPOQueue').onclick=loadPurchaseOrders;
-    if($('#dailyPosImportForm'))$('#dailyPosImportForm').onsubmit=previewDailyImport;
+    if($('#dailyPosImportForm'))$('#dailyPosImportForm').onsubmit=previewDailyImport;if($('#dailyPosDevice'))loadDailyPosDeviceOptions();
     if($('#posDeviceRegisterForm'))$('#posDeviceRegisterForm').onsubmit=registerPosDevice;
     if($('#posDevicesList'))loadPosIntegrations();
     if($('#refreshPosIntegrations'))$('#refreshPosIntegrations').onclick=loadPosIntegrations;
@@ -2853,7 +2853,7 @@ function dailyImportPage(){
         '<div class="sl-purpose-card"><b>2 • AUTOMATIC FOLDER PICKUP</b><span>Optional Windows branch-PC agent watches the agreed Incoming folder and securely submits new reports. It stages only; it never releases sales. Setup guide: <a href="'+folderGuide+'" target="_blank" rel="noopener">Branch folder agent</a>.</span><em>FOLDER → SAME STAGING ROUTE</em></div>'+
         '<div class="sl-purpose-card"><b>3 • FUTURE POS API</b><span>Reserved for the supplier’s official API. No vendor API is connected today. This option remains disabled until the supplier provides authenticated API documentation and owner approval.</span><em>NOT CONNECTED • AWAITING VENDOR</em></div>'+
       '</div>'+
-      '<div class="sl-panel sl-upload-callout"><div class="sl-eyebrow">OPTION 1 • ORIGINAL THIRD-PARTY POS SOURCE</div><h3>Upload Daily POS Report</h3><p>Choose the same Excel/CSV report exported by the branch POS. The ERP detects supported report dates and validates article codes, quantity, average amount, line totals, VAT and report totals. Upload creates a staged job only; it does not post sales, inventory or finance.</p><form id="dailyPosImportForm" class="sl-form"><div class="sl-field"><label>Business date <span class="sl-sub">(detected from supported POS reports)</span></label><input id="dailyPosBusinessDate" name="business_date" type="date" placeholder="Detected from file; enter only if absent"></div><div class="sl-field"><label>Branch</label>'+branchField+'</div><div class="sl-field full"><label>Original Daily POS Excel or CSV (.xlsx / .csv)</label><div class="sl-file-picker" data-file-picker><input id="dailyPosFile" name="file" type="file" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required><label class="sl-file-button" for="dailyPosFile"><span class="sl-file-button-main">Choose original POS file</span><span class="sl-file-name" data-file-name>No file selected</span></label></div></div><div class="sl-field full"><button class="sl-btn primary" type="submit">VALIDATE & STAGE</button></div></form><div id="dailyImportPreview" style="margin-top:14px"></div></div>'+
+      '<div class="sl-panel sl-upload-callout"><div class="sl-eyebrow">OPTION 1 • ORIGINAL THIRD-PARTY POS SOURCE</div><h3>Upload Daily POS Report</h3><p>Choose the same Excel/CSV report exported by the branch POS. The ERP detects supported report dates and validates article codes, quantity, average amount, line totals, VAT and report totals. Upload creates a staged job only; it does not post sales, inventory or finance.</p><form id="dailyPosImportForm" class="sl-form"><div class="sl-field"><label>Business date <span class="sl-sub">(detected from supported POS reports)</span></label><input id="dailyPosBusinessDate" name="business_date" type="date" placeholder="Detected from file; enter only if absent"></div><div class="sl-field"><label>Branch</label>'+branchField+'</div><div class="sl-field"><label>POS source / registered device</label><select id="dailyPosDevice" name="pos_device_id"><option value="">Generic / unregistered POS source</option></select><span class="sl-sub">Select a registered device to use its separate external product-code mapping namespace. Device connectivity remains independently unverified.</span></div><div class="sl-field full"><label>Original Daily POS Excel or CSV (.xlsx / .csv)</label><div class="sl-file-picker" data-file-picker><input id="dailyPosFile" name="file" type="file" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required><label class="sl-file-button" for="dailyPosFile"><span class="sl-file-button-main">Choose original POS file</span><span class="sl-file-name" data-file-name>No file selected</span></label></div></div><div class="sl-field full"><button class="sl-btn primary" type="submit">VALIDATE & STAGE</button></div></form><div id="dailyImportPreview" style="margin-top:14px"></div></div>'+
       '<div class="sl-panel"><div class="sl-block-head"><div><div class="sl-eyebrow">BRANCH MANAGER RELEASE CONTROL</div><h3>Daily POS staged queue</h3></div><small>Sales Employee: upload/stage • Branch Manager: review/edit/reconcile/release.</small></div><div id="dailyImportQueue"><div class="sl-empty">Loading staged Daily POS jobs…</div></div></div>'+
       '<div class="sl-panel sl-upload-callout"><div class="sl-eyebrow">INVENTORY CONTROL</div><h3>Daily Inventory Control</h3><p>After a Branch Manager releases a reconciled Daily POS job, verify the authoritative ledger-driven Daily Inventory report.</p><button class="sl-btn" type="button" data-view="dailyreport">OPEN DAILY INVENTORY</button></div>'+
       '<div class="sl-panel"><div class="sl-notice sl-warning-block"><b>Non-negotiable control:</b> Sales Employee uploads and stages only. Branch Manager reviews/reconciles and explicitly releases. Product Master remains separate; a Product Master upload never changes stock quantity. No source file is silently converted into invented receipts.</div></div>';
@@ -2921,6 +2921,35 @@ async function loadPosIntegrations(){
   }
 }
 
+async function loadDailyPosDeviceOptions(){
+  const select=document.getElementById('dailyPosDevice');
+  const form=document.getElementById('dailyPosImportForm');
+  if(!select||!form)return;
+  const current=select.value;
+  try{
+    const result=await api('/pos-integrations/devices');
+    const branch=form.querySelector('[name=branch_location_id]');
+    const branchId=Number(branch?.value||0);
+    const devices=(result.devices||[]).filter(d=>!branchId||Number(d.branch_location_id)===branchId);
+    select.innerHTML='<option value="">Generic / unregistered POS source</option>'+devices.map(d=>
+      '<option value="'+esc(d.device_id)+'">'+esc(d.vendor)+' • '+esc(d.device_name)+' • '+esc(d.connection_status)+'</option>'
+    ).join('');
+    if(current&&devices.some(d=>d.device_id===current))select.value=current;
+    if(branch&&!branch.dataset.posDeviceFilterBound){
+      branch.dataset.posDeviceFilterBound='1';
+      branch.addEventListener('change',()=>loadDailyPosDeviceOptions());
+    }
+  }catch(error){
+    select.innerHTML='<option value="">Generic / unregistered POS source</option>';
+    const parent=select.closest('.sl-field');
+    if(parent&&!parent.querySelector('[data-pos-device-warning]')){
+      const note=document.createElement('span');note.className='sl-sub';note.dataset.posDeviceWarning='1';
+      note.textContent='Registered device list unavailable; use the generic import source or refresh the page.';
+      parent.appendChild(note);
+    }
+  }
+}
+
 async function registerPosDevice(e){
   e.preventDefault();
   const form=e.currentTarget,button=form.querySelector('button[type="submit"]');
@@ -2949,7 +2978,7 @@ async function previewDailyImport(e){
     e.preventDefault();const f=e.currentTarget,file=document.getElementById('dailyPosFile')?.files[0],box=document.getElementById('dailyImportPreview'),submit=f?.querySelector('button[type=submit]');
     if(!file){toast('Choose the branch POS Excel/CSV file first.',true);return} if(submit?.dataset.busy==='1')return;
     if(submit){submit.dataset.busy='1';submit.disabled=true;submit.textContent='VALIDATING…'}
-    const fd=new FormData();fd.append('file',file);const bf=f.querySelector('[name=branch_location_id]');if(bf&&bf.value)fd.append('branch_location_id',bf.value);const df=f.querySelector('[name=business_date]');if(df?.value)fd.append('business_date',df.value);
+    const fd=new FormData();fd.append('file',file);const bf=f.querySelector('[name=branch_location_id]');if(bf&&bf.value)fd.append('branch_location_id',bf.value);const df=f.querySelector('[name=business_date]');if(df?.value)fd.append('business_date',df.value);const pf=f.querySelector('[name=pos_device_id]');if(pf?.value)fd.append('pos_device_id',pf.value);
     box.innerHTML='<div class="sl-notice">Reading the original POS report, checking its date and totals, then staging it securely…</div>';
     try{
       const d=await api16('/import/daily-sales/preview',{method:'POST',body:fd});
