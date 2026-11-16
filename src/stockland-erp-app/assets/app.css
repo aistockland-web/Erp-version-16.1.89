@@ -2970,3 +2970,5 @@ body[data-sl-theme],body[data-sl-theme="sapphire"]{
 #stockland-app #slActivityFeed>.sl-empty{color:#536981}
 #stockland-app .sl-dashboard-page .sl-link-btn{color:#336da8}
 #stockland-app .sl-notification-badge[hidden]{display:none!important}
+/* WCAG 2.1 AA: dashboard trend empty-state copy must remain readable on the light chart surface. */
+#stockland-app #slDashboardSalesTrend > .sl-empty{color:#536981}
