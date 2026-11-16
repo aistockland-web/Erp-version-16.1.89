@@ -182,7 +182,7 @@ jobs:
       - name: Install isolated Playwright browser tooling
         run: |
           set -euo pipefail
-          npm install --prefix /tmp/stockland-playwright --no-save --no-audit --no-fund playwright@1.57.0
+          npm install --prefix /tmp/stockland-playwright --no-save --no-audit --no-fund playwright@1.57.0 @axe-core/playwright@4.14.0
           /tmp/stockland-playwright/node_modules/.bin/playwright install --with-deps chromium
 
       - name: Standalone ERP browser smoke — disposable site only
@@ -321,6 +321,7 @@ jobs:
             /tmp/ui-smoke.log
             /tmp/admin-launcher-smoke.log
             /tmp/stockland-ui-smoke/*.png
+            /tmp/stockland-ui-smoke/*-axe.json
             /tmp/stockland-runtime-check.json
             /tmp/stockland-php-server.log
             STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTALLER.zip.sha256
