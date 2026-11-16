@@ -99,7 +99,10 @@ function Invoke-StocklandFolderAgent {
     if ($Config.ContainsKey('PosDeviceId')) {
         $deviceId = ([string]$Config.PosDeviceId).Trim().ToUpperInvariant()
     }
-    if ($deviceId -ne '' -and ($deviceId.Length -ne 16 -or $deviceId -notmatch '^[A-F0-9]+
+    if ($deviceId -ne '' -and ($deviceId.Length -ne 16 -or $deviceId -match '[^A-F0-9]')) {
+        throw 'Configured POS device ID must be a 16-character hexadecimal ID copied from the Stockland POS Integration Registry.'
+    }
+
     try {
         $rawAuth = [System.Text.Encoding]::UTF8.GetBytes(([string]$Config.UserName) + ':' + $password)
         $headers = @{ Authorization = 'Basic ' + [Convert]::ToBase64String($rawAuth) }
