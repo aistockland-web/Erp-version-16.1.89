@@ -73,7 +73,7 @@ jobs:
           MARIADB_DATABASE: wp
         ports: ['3306:3306']
         options: >-
-          --health-cmd="\${{ matrix.db == 'mariadb114' && 'healthcheck.sh --connect --innodb_initialized' || 'mysqladmin ping -h 127.0.0.1 -proot' }}"
+          --health-cmd="${{ matrix.db == 'mariadb114' && 'healthcheck.sh --connect --innodb_initialized' || 'mysqladmin ping -h 127.0.0.1 -proot' }}"
           --health-start-period=15s --health-interval=5s --health-timeout=5s --health-retries=20
     steps:
       - name: Check out exact source
@@ -231,12 +231,13 @@ jobs:
           done
           curl --fail --silent http://127.0.0.1:8080/wp-login.php >/dev/null
           curl --fail --silent http://127.0.0.1:8080/stockland-runtime-check.php > /tmp/stockland-runtime-check.json
-          EXPECTED_PHP="\${{ matrix.expected_php }}" php -r '
+          EXPECTED_PHP="${{ matrix.expected_php }}" php -r '
           $actual = json_decode( file_get_contents( "/tmp/stockland-runtime-check.json" ), true );
           $expected = getenv( "EXPECTED_PHP" );
-          if ( ! is_array( $actual ) || ! preg_match( "/^" . preg_quote( $expected, "/" ) . "(?:\\\\.|$)/", $actual["php_version"] ?? "" ) ||
-              "16M" !== ( $actual["upload_max_filesize"] ?? "" ) ||
-              "20M" !== ( $actual["post_max_size"] ?? "" ) ||
+          $actual_version = is_array( $actual ) ? (string) ( $actual["php_version"] ?? "" ) : "";
+          $version_matches = $actual_version === $expected || 0 === strpos( $actual_version, $expected . "." );
+          if ( ! is_array( $actual ) || ! $version_matches ||
+              "16M" !== ( $actual["upload_max_filesize"] ?? "" ) ||              "20M" !== ( $actual["post_max_size"] ?? "" ) ||
               "512M" !== ( $actual["memory_limit"] ?? "" ) ||
               "60" !== (string) ( $actual["max_execution_time"] ?? "" ) ||
               "cli-server" !== ( $actual["sapi"] ?? "" ) ) {
