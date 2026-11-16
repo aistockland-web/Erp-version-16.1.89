@@ -164,15 +164,62 @@ $management_source_id = (string) ( $management_device['source_system'] ?? '' );
 $check( 'Management may register a POS device for another active branch', 200 === $management_registration[0] );
 $check( 'different devices never share the same source-system mapping namespace', '' !== $management_source_id && $management_source_id !== $branch_source_id );
 
+$sku_suffix = strtoupper( substr( hash( 'sha256', $branch_device_id . '|' . $management_source_id ), 0, 8 ) );
+$product_a_sku = 'STK-POS-A-' . $sku_suffix;
+$product_b_sku = 'STK-POS-B-' . $sku_suffix;
+$product_a_create = call(
+	'POST',
+	'/products',
+	array(
+		'sku' => $product_a_sku,
+		'product_name' => 'Synthetic POS Mapping Product A',
+		'category' => 'E2E Integration Fixture',
+		'unit' => 'PCS',
+		'product_type' => 'SIMPLE',
+		'purchase_cost' => '10.00',
+		'retail_price' => '20.00',
+		'wholesale_price' => '15.00',
+	),
+	$management_id
+);
+$product_b_create = call(
+	'POST',
+	'/products',
+	array(
+		'sku' => $product_b_sku,
+		'product_name' => 'Synthetic POS Mapping Product B',
+		'category' => 'E2E Integration Fixture',
+		'unit' => 'PCS',
+		'product_type' => 'SIMPLE',
+		'purchase_cost' => '12.00',
+		'retail_price' => '24.00',
+		'wholesale_price' => '18.00',
+	),
+	$management_id
+);
+$check( 'Management creates synthetic Product Master SKU fixture A', 200 === $product_a_create[0], 'HTTP ' . $product_a_create[0] );
+$check( 'Management creates synthetic Product Master SKU fixture B', 200 === $product_b_create[0], 'HTTP ' . $product_b_create[0] );
 $products_for_maps = Stockland_DB::read_results(
 	$wpdb->prepare(
-		'SELECT sku FROM %i WHERE is_active=1 ORDER BY variant_id ASC LIMIT 2',
-		Stockland_DB::table( 'products' )
+		'SELECT sku,variant_id FROM %i WHERE sku IN(%s,%s) AND is_active=1 ORDER BY sku ASC',
+		Stockland_DB::table( 'products' ),
+		$product_a_sku,
+		$product_b_sku
 	),
 	ARRAY_A
 );
-$check( 'two active Product Master SKUs are available for source-mapping isolation', count( (array) $products_for_maps ) >= 2 );
-if ( count( (array) $products_for_maps ) >= 2 ) {
+$products_for_maps = is_array( $products_for_maps ) ? $products_for_maps : array();
+$products_by_sku = array();
+foreach ( $products_for_maps as $product_for_map ) {
+	$products_by_sku[ (string) $product_for_map['sku'] ] = $product_for_map;
+}
+$products_for_maps = array(
+	$products_by_sku[ $product_a_sku ] ?? array(),
+	$products_by_sku[ $product_b_sku ] ?? array(),
+);
+$fixtures_ready = ! empty( $products_for_maps[0]['variant_id'] ) && ! empty( $products_for_maps[1]['variant_id'] );
+$check( 'two synthetic active Product Master variants exist for source-mapping isolation', $fixtures_ready );
+if ( $fixtures_ready ) {
 	$shared_external_code = 'POS-HUB-OVERLAP-' . strtoupper( substr( hash( 'sha256', $branch_device_id . '|' . ( $management_device['device_id'] ?? '' ) ), 0, 8 ) );
 	$map_device_a = call(
 		'POST',
@@ -180,7 +227,7 @@ if ( count( (array) $products_for_maps ) >= 2 ) {
 		array(
 			'source_system' => $branch_source_id,
 			'external_code' => $shared_external_code,
-			'live_sku' => (string) $products_for_maps[0]['sku'],
+			'live_sku' => $product_a_sku,
 			'source_name' => 'Synthetic POS Device A',
 			'mapping_note' => 's17 disposable integration source-isolation test',
 		),
@@ -192,7 +239,7 @@ if ( count( (array) $products_for_maps ) >= 2 ) {
 		array(
 			'source_system' => $management_source_id,
 			'external_code' => $shared_external_code,
-			'live_sku' => (string) $products_for_maps[1]['sku'],
+			'live_sku' => $product_b_sku,
 			'source_name' => 'Synthetic POS Device B',
 			'mapping_note' => 's17 disposable integration source-isolation test',
 		),
@@ -205,8 +252,8 @@ if ( count( (array) $products_for_maps ) >= 2 ) {
 	$import_controller = ( new ReflectionClass( Stockland_REST_Import_V16::class ) )->newInstanceWithoutConstructor();
 	$resolved_device_a = $reflection->invoke( $import_controller, array( $shared_external_code ), '2026-11-16', $branch_source_id );
 	$resolved_device_b = $reflection->invoke( $import_controller, array( $shared_external_code ), '2026-11-16', $management_source_id );
-	$check( 'same external PLU resolves to device A Product Master SKU only in device A namespace', (string) $products_for_maps[0]['sku'] === (string) ( $resolved_device_a['map'][ $shared_external_code ][0] ?? '' ) );
-	$check( 'same external PLU resolves to device B Product Master SKU only in device B namespace', (string) $products_for_maps[1]['sku'] === (string) ( $resolved_device_b['map'][ $shared_external_code ][0] ?? '' ) );
+	$check( 'same external PLU resolves to device A Product Master SKU only in device A namespace', $product_a_sku === (string) ( $resolved_device_a['map'][ $shared_external_code ][0] ?? '' ) );
+	$check( 'same external PLU resolves to device B Product Master SKU only in device B namespace', $product_b_sku === (string) ( $resolved_device_b['map'][ $shared_external_code ][0] ?? '' ) );
 } else {
 	$check( 'per-device product-code mapping isolation has two active SKU fixtures', false, 'The disposable Product Master fixture must provide two active SKUs.' );
 	$check( 'POS device A mapping route remains independently testable', false, 'Missing Product Master fixtures.' );
@@ -229,6 +276,12 @@ $audit_row = '' !== $branch_device_id ? Stockland_DB::read_row(
 $check( 'device record persists in existing Core settings storage', is_array( $stored_record ) && $branch_device_id === ( $stored_record['device_id'] ?? '' ) );
 $check( 'device registration has a matching immutable audit pointer', is_array( $audit_row ) && $audit_pointer === (string) $audit_row['new_value'] && (int) $audit_row['branch_location_id'] === $branch_id );
 $check( 'no raw API key or password is stored in device metadata', is_array( $stored_record ) && ! isset( $stored_record['api_key'], $stored_record['password'], $stored_record['secret'], $stored_record['access_token'] ) );
+
+if ( ! empty( $shared_external_code ) ) {
+	Stockland_DB::delete_record( Stockland_DB::table( 'product_code_maps' ), array( 'external_code' => $shared_external_code ) );
+}
+Stockland_DB::delete_record( Stockland_DB::table( 'products' ), array( 'sku' => $product_a_sku ) );
+Stockland_DB::delete_record( Stockland_DB::table( 'products' ), array( 'sku' => $product_b_sku ) );
 
 $application_tables_after = Stockland_DB::read_col( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $wpdb->prefix . 'stock_' ) . '%' ) );
 $check( 'integration registry adds no database tables or schema changes', count( (array) $application_tables_before ) === count( (array) $application_tables_after ) );
