@@ -1123,9 +1123,19 @@ class Stockland_REST_Import_V16 {
 			$file = $this->uploaded_file( 'file', true );
 			$branch = $this->branch_for_user( $r->get_param( 'branch_location_id' ) );
 			$this->ensure_branch( $branch );
+			$device_id = sanitize_text_field( (string) $r->get_param( 'pos_device_id' ) );
+			$registered_device = null;
+			$scan_source_system = 'THIRD_PARTY_POS';
+			if ( '' !== $device_id ) {
+				$registered_device = Stockland_REST_POS_Integrations::resolve_device_for_import( $device_id, (int) $branch );
+				if ( is_wp_error( $registered_device ) ) {
+					return $registered_device;
+				}
+				$scan_source_system = (string) $registered_device['source_system'];
+			}
 			$hash = hash_file( 'sha256', $file['path'] );
 			$xlsx = ( 'csv' === ( $file['extension'] ?? '' ) ) ? new Stockland_CSV( $file['path'] ) : new Stockland_XLSX( $file['path'] );
-			$found = $this->scan_workbook( $xlsx, 'DAILY_SALES', 'THIRD_PARTY_POS' );
+			$found = $this->scan_workbook( $xlsx, 'DAILY_SALES', $scan_source_system );
 			$source_meta = is_array( $found['source_meta'] ?? null ) ? $found['source_meta'] : array();
 			$requested_business_date = sanitize_text_field( (string) $r->get_param( 'business_date' ) );
 			$source_business_date = sanitize_text_field( (string) ( $source_meta['source_date'] ?? '' ) );
@@ -1142,7 +1152,8 @@ class Stockland_REST_Import_V16 {
 			if ( $cross && ( (int) $cross['branch_location_id'] !== $branch || (string) $cross['business_date'] !== $business_date ) ) throw new Exception( 'This POS file hash is already associated with another branch/date (job #' . $cross['id'] . '). Verify the source file before reusing it.' );
 			Stockland_Business_Calendar::assert_business_day( $business_date );
 			if ( Stockland_DB::is_day_closed( $branch, $business_date ) ) throw new Exception( 'This branch day is already closed.' );
-			$source_system = 'CNET_SUMMARIZED_BY_ARTICLE' === ( $source_meta['format'] ?? '' ) ? 'THIRD_PARTY_POS_SUMMARY' : 'THIRD_PARTY_POS';
+			$source_system = $registered_device ? (string) $registered_device['source_system'] : ( 'CNET_SUMMARIZED_BY_ARTICLE' === ( $source_meta['format'] ?? '' ) ? 'THIRD_PARTY_POS_SUMMARY' : 'THIRD_PARTY_POS' );
+			$mapping_source_system = $registered_device ? (string) $registered_device['source_system'] : 'THIRD_PARTY_POS';
 			$all_rows = $found['rows'];
 			$rows     = array();
 			foreach ( $all_rows as $src ) {
@@ -1179,7 +1190,7 @@ class Stockland_REST_Import_V16 {
 			foreach ( $rows as $src ) {
 				$external_codes[] = sanitize_text_field( (string) $this->mapped_value( $src, $map, 'sku' ) );
 			}
-			$bulk_resolution = $this->daily_resolution_bulk( $external_codes, $business_date );
+			$bulk_resolution = $this->daily_resolution_bulk( $external_codes, $business_date, $mapping_source_system );
 			$resolve_map     = $bulk_resolution['map'];
 			$product_cache   = $bulk_resolution['products'];
 			foreach ( $rows as $i => $src ) {
@@ -1342,7 +1353,7 @@ class Stockland_REST_Import_V16 {
 						'mapped_rows'   => $mapped_count,
 						'unmapped_rows' => $unmapped_count,
 					),
-					'source'          => array( 'format' => $source_meta['format'] ?? 'GENERIC', 'business_date' => $source_meta['source_date'] ?? $business_date, 'summary_totals' => $source_meta['totals'] ?? array() ),
+					'source'          => array( 'format' => $source_meta['format'] ?? 'GENERIC', 'business_date' => $source_meta['source_date'] ?? $business_date, 'summary_totals' => $source_meta['totals'] ?? array(), 'source_system' => $source_system, 'device_id' => $registered_device['device_id'] ?? null, 'device_name' => $registered_device['device_name'] ?? null ),
 					'reconciliation' => $reconciliation,
 					'summary'        => array(
 						'total_rows'              => count( $staged ),
@@ -1987,7 +1998,7 @@ class Stockland_REST_Import_V16 {
 	 * @param string $business_date Branch business date for the POS import.
 	 * @throws Exception When validation, migration or transaction processing fails.
 	 */
-	private function daily_resolution_bulk( $codes, $business_date ) {
+	private function daily_resolution_bulk( $codes, $business_date, $source_system = 'THIRD_PARTY_POS' ) {
 		global $wpdb;
 		$codes       = array_values(
 			array_unique(
@@ -2012,7 +2023,7 @@ class Stockland_REST_Import_V16 {
 				continue;
 			}
 			$ph   = implode( ',', array_fill( 0, count( $chunk ), '%s' ) );
-			$args = array( $maps, 'THIRD_PARTY_POS' );
+			$args = array( $maps, sanitize_text_field( (string) $source_system ) );
 			foreach ( $chunk as $c ) {
 				$args[] = $c;
 			}$args[] = $business_date;
