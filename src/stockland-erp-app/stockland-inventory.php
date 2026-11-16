@@ -56,6 +56,7 @@ require_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-sequence.php';
 require_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-money.php';
 require_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-hr-payroll-calculator.php';
 require_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-hr-private-vault.php';
+require_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-hr-document-text.php';
 require_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-hr-lifecycle.php';
 require_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-payroll-statutory.php';
 require_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-sale-math.php';

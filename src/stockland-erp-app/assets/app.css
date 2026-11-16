@@ -2935,3 +2935,21 @@ body[data-sl-theme],body[data-sl-theme="sapphire"]{
 .sl-import-purpose-grid.sl-daily-pos-intake-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
 @media(max-width:991.98px){.sl-import-purpose-grid.sl-daily-pos-intake-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:575.98px){.sl-import-purpose-grid.sl-daily-pos-intake-grid{grid-template-columns:1fr}}
+
+/* Payroll rule builder: form fields instead of JSON. */
+.sl-rule-builder{grid-column:1/-1}
+.sl-rule-builder h4{margin:12px 0 6px;font-size:15px}
+.sl-rule-builder [hidden]{display:none}
+.sl-rule-builder .sl-table input,.sl-rule-builder .sl-table select{width:100%;min-width:90px}
+.sl-rule-builder .sl-notice-bad{border-color:#c0392b;color:#8a1f12}
+
+/* Share dialog and HR document editor */
+.sl-share .sl-share-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:12px 0}
+.sl-share .sl-share-btn{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 10px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#0f172a;font:inherit;cursor:pointer;text-align:left}
+.sl-share .sl-share-btn:hover:not(:disabled){border-color:var(--tone,#334155)}
+.sl-share .sl-share-btn:focus-visible{outline:3px solid #1d4ed8;outline-offset:2px}
+.sl-share .sl-share-btn:disabled{opacity:.5;cursor:not-allowed}
+.sl-share .sl-share-btn small{flex-basis:100%;color:#475569;font-size:11px}
+.sl-share .sl-share-badge{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:var(--tone,#334155);color:#fff;font-weight:700;font-size:13px}
+.sl-share .sl-share-badge.dark{color:#111}
+.sl-editor{max-width:900px;width:96vw}

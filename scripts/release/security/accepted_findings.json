@@ -2,6 +2,12 @@
   "_note": "Reviewed 2026-11-13 on exact master 16.2.18. Any finding NOT listed here fails the gate. Each entry states why it is accepted.",
   "semgrep": [
     {
+      "file": "includes/class-stockland-hr-document-text.php",
+      "rule": "unlink-use",
+      "max": 2,
+      "why": "unlink only on the temp file this class just created with tempnam() while building a Word package; no user-supplied path is ever deleted"
+    },
+    {
       "file": "includes/class-stockland-hr-private-vault.php",
       "rule": "unlink-use",
       "max": 6,

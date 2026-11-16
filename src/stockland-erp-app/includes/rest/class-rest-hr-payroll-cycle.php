@@ -75,6 +75,7 @@ final class Stockland_REST_HR_Payroll_Cycle extends Stockland_REST_Base {
 			array( 'methods'=>'POST', 'callback'=>array( $this, 'upload_resource' ), 'permission_callback'=>function(){ return Stockland_Authority::can_manage_hr(); } ),
 		) );
 		register_rest_route( $ns, '/hr/resources/(?P<id>\d+)/approve', array( 'methods'=>'POST', 'callback'=>array( $this, 'approve_resource' ), 'permission_callback'=>function(){ return Stockland_Authority::can_approve_payroll(); } ) );
+		register_rest_route( $ns, '/hr/resources/(?P<id>\d+)/content', array( 'methods'=>'GET', 'callback'=>array( $this, 'resource_content' ), 'permission_callback'=>function(){ return Stockland_Authority::can_manage_hr(); } ) );
 		register_rest_route( $ns, '/hr/resources/(?P<id>\\d+)/revise', array( 'methods'=>'POST', 'callback'=>array( $this, 'revise_resource' ), 'permission_callback'=>function(){ return Stockland_Authority::can_manage_hr(); } ) );
 		register_rest_route( $ns, '/hr/resources/(?P<id>\d+)/download', array( 'methods'=>'GET', 'callback'=>array( $this, 'download_resource' ), 'permission_callback'=>function(){ return Stockland_Authority::can_view_hr(); } ) );
 
@@ -611,7 +612,11 @@ final class Stockland_REST_HR_Payroll_Cycle extends Stockland_REST_Base {
 		}
 		$files = $req->get_file_params();
 		$file = is_array( $files ) && isset( $files['file'] ) ? $files['file'] : null;
-		$stored = Stockland_HR_Private_Vault::store_upload( $file );
+		if ( null === $file && isset( $p['content'] ) && is_string( $p['content'] ) ) {
+			$stored = $this->store_edited_content( $parent, $p['content'] );
+		} else {
+			$stored = Stockland_HR_Private_Vault::store_upload( $file );
+		}
 		if ( is_wp_error( $stored ) ) { return $stored; }
 		$code = sanitize_text_field( (string) ( $p['resource_code'] ?? ( substr( (string) $parent['resource_code'], 0, 35 ) . '-R' . gmdate( 'ymdHis' ) . strtoupper( bin2hex( random_bytes( 2 ) ) ) ) ) );
 		$row = array(
@@ -631,6 +636,59 @@ final class Stockland_REST_HR_Payroll_Cycle extends Stockland_REST_Base {
 			return $this->bad( 'hr_resource_revision_audit_failed', 'Revision draft saved but audit event failed; do not approve it.', 500 );
 		}
 		return rest_ensure_response( array( 'id' => $newId, 'supersedes_resource_id' => $id, 'status' => 'DRAFT', 'version_label' => $version, 'file_sha256' => $stored['file_sha256'], 'message' => 'New private draft saved. The previously approved document stays current until independent approval.' ) );
+	}
+
+	/**
+	 * Returns the editable text of an approved or draft private document so it can be edited inside the ERP.
+	 *
+	 * @param WP_REST_Request $req Request carrying the resource id.
+	 * @return WP_REST_Response|WP_Error Editable text or the reason it cannot be edited.
+	 */
+	public function resource_content( WP_REST_Request $req ) {
+		$id = (int) $req['id'];
+		$r  = $this->row( 'hr_resources', $id );
+		if ( ! $r || ! in_array( $r['status'], array( 'APPROVED', 'DRAFT' ), true ) ) {
+			return $this->bad( 'hr_resource_not_available', 'Only approved or draft documents can be opened for editing.', 404 );
+		}
+		$ext = strtolower( pathinfo( (string) $r['file_name'], PATHINFO_EXTENSION ) );
+		$f   = Stockland_HR_Private_Vault::resolve( $r['private_file_ref'], $r['file_sha256'] );
+		if ( is_wp_error( $f ) ) { return $f; }
+		$doc = Stockland_HR_Document_Text::extract( $f['path'], $ext );
+		// Fail closed: private HR content is never shown unless the access event is recorded.
+		if ( ! $this->event( 'hr-resource', $id, 'RESOURCE_CONTENT_OPENED', (string) $r['status'], (string) $r['status'], array( 'actor_id' => get_current_user_id(), 'file_sha256' => $r['file_sha256'], 'editable' => $doc['editable'] ) ) ) {
+			return $this->bad( 'hr_resource_audit_failed', 'The document was not opened because the security audit event could not be recorded.', 500 );
+		}
+		return rest_ensure_response( array(
+			'id' => $id, 'title' => $r['title'], 'file_name' => $r['file_name'], 'version_label' => $r['version_label'], 'status' => $r['status'],
+			'format' => $ext, 'editable' => $doc['editable'], 'text' => $doc['text'], 'note' => $doc['note'],
+		) );
+	}
+	/**
+	 * Builds and stores an edited version of an approved document from submitted text.
+	 *
+	 * @param array  $parent Approved parent resource row.
+	 * @param string $content Edited document text.
+	 * @return array|WP_Error Stored-file descriptor or error.
+	 */
+	private function store_edited_content( $parent, $content ) {
+		$text = Stockland_HR_Document_Text::normalise( $content );
+		$len  = function_exists( 'mb_strlen' ) ? mb_strlen( $text, 'UTF-8' ) : strlen( $text );
+		if ( '' === trim( $text ) || $len > Stockland_HR_Document_Text::MAX_CHARS ) {
+			return $this->bad( 'hr_resource_content_invalid', 'Document text must not be empty and may not exceed ' . number_format_i18n( Stockland_HR_Document_Text::MAX_CHARS ) . ' characters.', 400 );
+		}
+		$ext = strtolower( pathinfo( (string) $parent['file_name'], PATHINFO_EXTENSION ) );
+		if ( ! in_array( $ext, array( 'docx', 'txt' ), true ) ) {
+			return $this->bad( 'hr_resource_edit_unsupported', 'This file type cannot be edited as text. Replace it with a new file instead.', 415 );
+		}
+		$f = Stockland_HR_Private_Vault::resolve( $parent['private_file_ref'], $parent['file_sha256'] );
+		if ( is_wp_error( $f ) ) { return $f; }
+		$current = Stockland_HR_Document_Text::extract( $f['path'], $ext );
+		if ( $current['editable'] && Stockland_HR_Document_Text::normalise( $current['text'] ) === $text ) {
+			return $this->bad( 'hr_resource_no_changes', 'The text is identical to the approved version; change something before saving a new version.', 409 );
+		}
+		$bytes = 'txt' === $ext ? $text . "\n" : Stockland_HR_Document_Text::build_docx( $text );
+		if ( is_wp_error( $bytes ) ) { return $bytes; }
+		return Stockland_HR_Private_Vault::store_content( $bytes, (string) $parent['file_name'] );
 	}
 
 	public function approve_resource( WP_REST_Request $req ) {
