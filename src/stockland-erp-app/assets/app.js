@@ -188,7 +188,7 @@ const group=(key,label,icon,items)=>{
 };
 return '<div class="sl-nav-section">WORKSPACE</div>'+button('dashboard','Dashboard',true)+
  group('sales','Sales & POS','cash',[
- ['pos','Retail POS',!!c.sale],['daily','Daily POS Import',canDailyPos],['returns','Returns & Adjustments',!!c.return],['closing','Daily Closing',!!c.close]
+ ['pos','Retail POS',!!c.sale],['daily','Daily POS Import',canDailyPos],['integrations','POS Integrations',['owner','management','branch_manager'].includes(u.role)],['returns','Returns & Adjustments',!!c.return],['closing','Daily Closing',!!c.close]
  ])+
  group('inventory','Inventory','box',[
  ['dailyreport','Daily Inventory',true],['inventory','Inventory Control',true],['reorder','Reorder Alerts',true],['reconcile','Stock Count & Approval',!!(c.request_adjustment||c.settings)]
@@ -461,7 +461,7 @@ document.body.setAttribute('data-sl-view',String(state.view||'dashboard'));
 shell();updateChrome();
 let b='';
 switch(state.view){
-case'finance':b=finance();break;case'branchops':b=branchOperations();break;case'dailyreport':b=dailyInventoryPage();break;case'operate':b=operate();break;case'pos':b=pos();break;case'daily':b=dailyImportPage();break;case'reconcile':b=reconcile();break;case'reorder':b=reorder();break;;case'inventory':b=inventory();break;case'warehouse':b=warehouse();break;
+case'finance':b=finance();break;case'branchops':b=branchOperations();break;case'dailyreport':b=dailyInventoryPage();break;case'operate':b=operate();break;case'pos':b=pos();break;case'daily':b=dailyImportPage();break;case'integrations':b=posIntegrationsPage();break;case'reconcile':b=reconcile();break;case'reorder':b=reorder();break;;case'inventory':b=inventory();break;case'warehouse':b=warehouse();break;
 case'requests':b=requests();break;case'transfers':b=transfers();break;case'wholesale':b=wholesale();break;
 case'returns':b=returns();break;case'closing':b=closing();break;case'reports':b=reports();break;case'intelligence':b=managementIntelligence();break;
 case'products':b=products();break;case'products-import':b=productImportPage();break;case'calendar':b=businessCalendarPage();break;case'users':b=users();break;
@@ -2386,6 +2386,9 @@ function bindExtended(){
     if($('#branchOpsPage'))loadBranchOperations();
     if($('#financePage')&&!state.financeLoaded)loadFinance();if($('#refreshFinance'))$('#refreshFinance').onclick=()=>loadFinance(true);if($('#financeApprovalQueue'))loadFinanceApprovals();if($('#refreshFinanceApprovals'))$('#refreshFinanceApprovals').onclick=loadFinanceApprovals;if($('#financeGL'))loadFinanceGL();if($('#poActionQueue'))loadPurchaseOrders();if($('#refreshPOQueue'))$('#refreshPOQueue').onclick=loadPurchaseOrders;
     if($('#dailyPosImportForm'))$('#dailyPosImportForm').onsubmit=previewDailyImport;
+    if($('#posDeviceRegisterForm'))$('#posDeviceRegisterForm').onsubmit=registerPosDevice;
+    if($('#posDevicesList'))loadPosIntegrations();
+    if($('#refreshPosIntegrations'))$('#refreshPosIntegrations').onclick=loadPosIntegrations;
     if($('#productImportForm'))$('#productImportForm').onsubmit=previewProductImport;if($('#codeMapForm'))$('#codeMapForm').onsubmit=saveCodeMap;if($('#codeMapList'))loadCodeMaps();if($('#dailyImportQueue'))loadDailyImportQueue();if($('#dailyInventoryDate')){const di=document.getElementById('dailyInventoryDate');if(!di.value)di.value=localDate();di.onchange=loadDailyInventoryReport;const rb=document.getElementById('refreshDailyInventory');if(rb&&!rb.__bound){rb.__bound=1;rb.addEventListener('click',loadDailyInventoryReport)}loadDailyInventoryReport();}
     if($('#v16ReqForm')){if(!document.querySelector('#v16ReqItems .sl-req-line'))addReqItemV16();$('#addV16ReqItem').onclick=addReqItemV16;$('#v16ReqForm').onsubmit=createRequisitionV16;const branchSelect=$('#v16ReqForm [name="location_id"]');if(branchSelect&&!branchSelect.dataset.stockPreviewBound){branchSelect.dataset.stockPreviewBound='1';branchSelect.addEventListener('change',refreshAllReqStockPreviews)}}
     if($('#refreshReqs'))$('#refreshReqs').onclick=loadReqs;if($('#reqTable'))loadReqs();if($('#refreshWarehouse'))$('#refreshWarehouse').onclick=()=>{load();};if($('#warehouseReqQueue'))loadWarehouseQueue();if($('#openHeaderNotifications'))$('#openHeaderNotifications').onclick=()=>document.getElementById('notificationBell')?.click();
@@ -2854,6 +2857,84 @@ function dailyImportPage(){
       '<div class="sl-panel"><div class="sl-block-head"><div><div class="sl-eyebrow">BRANCH MANAGER RELEASE CONTROL</div><h3>Daily POS staged queue</h3></div><small>Sales Employee: upload/stage • Branch Manager: review/edit/reconcile/release.</small></div><div id="dailyImportQueue"><div class="sl-empty">Loading staged Daily POS jobs…</div></div></div>'+
       '<div class="sl-panel sl-upload-callout"><div class="sl-eyebrow">INVENTORY CONTROL</div><h3>Daily Inventory Control</h3><p>After a Branch Manager releases a reconciled Daily POS job, verify the authoritative ledger-driven Daily Inventory report.</p><button class="sl-btn" type="button" data-view="dailyreport">OPEN DAILY INVENTORY</button></div>'+
       '<div class="sl-panel"><div class="sl-notice sl-warning-block"><b>Non-negotiable control:</b> Sales Employee uploads and stages only. Branch Manager reviews/reconciles and explicitly releases. Product Master remains separate; a Product Master upload never changes stock quantity. No source file is silently converted into invented receipts.</div></div>';
+}
+
+function posIntegrationsPage(){
+  const user=state.boot?.user||{},role=String(user.role||'');
+  if(!['owner','management','branch_manager'].includes(role)){
+    return title('POS Integrations','The Universal POS Integration Hub is available to Owner, Management and Branch Managers.')+
+      '<div class="sl-panel"><div class="sl-notice sl-warning-block">Access is restricted to authorized ERP roles.</div></div>';
+  }
+  const branches=authorizedBranches();
+  const company=['owner','management'].includes(role);
+  const branchField=company
+    ? '<select name="branch_location_id" required><option value="">Select branch…</option>'+branches.map(l=>'<option value="'+esc(l.id)+'">'+esc(l.location_name)+'</option>').join('')+'</select>'
+    : (branches.length>1
+      ? '<select name="branch_location_id" required>'+branches.map(l=>'<option value="'+esc(l.id)+'">'+esc(l.location_name)+'</option>').join('')+'</select>'
+      : '<div class="sl-readonly-field">'+esc(branches[0]?.location_name||'Assigned branch')+'</div><input type="hidden" name="branch_location_id" value="'+esc(branches[0]?.id||'')+'">');
+  return title('Universal POS Integration Hub','One vendor-neutral registry for branch POS devices and external software. Every future sales connector must use the existing Daily POS validation, staging, reconciliation and Branch Manager release workflow.','<button class="sl-btn" id="refreshPosIntegrations" type="button">REFRESH</button>')+
+    '<div class="sl-grid">'+
+      card('Integration architecture','Universal','REST API • Webhooks • Local gateway • SDK • File exchange')+
+      card('Transaction posting','Single controlled path','Daily POS preview → validate → stage → Manager release')+
+      card('Security boundary','No credentials here','Provider secrets remain outside ERP settings and browser responses')+
+    '</div>'+
+    '<div class="sl-panel"><div class="sl-block-head"><div><div class="sl-eyebrow">SUPPORTED CONNECTION PATTERNS</div><h3>Vendor-neutral adapter catalogue</h3></div><small>Pattern support does not mean a supplier is connected.</small></div><div id="posAdapterCatalog"><div class="sl-empty">Loading adapter catalogue…</div></div></div>'+
+    '<div class="sl-panel"><div class="sl-block-head"><div><div class="sl-eyebrow">BRANCH DEVICE REGISTRY</div><h3>Register a POS device or software source</h3></div><small>Assigned branch scope is enforced on the server.</small></div>'+
+      '<form id="posDeviceRegisterForm" class="sl-form">'+
+        '<div class="sl-field"><label>Branch</label>'+branchField+'</div>'+
+        '<div class="sl-field"><label>Vendor / supplier</label><input name="vendor" maxlength="80" required placeholder="POS manufacturer or software supplier"></div>'+
+        '<div class="sl-field"><label>Device / software name</label><input name="device_name" maxlength="80" required placeholder="Branch POS terminal or system name"></div>'+
+        '<div class="sl-field"><label>Model / software version</label><input name="model" maxlength="80" placeholder="Model or version (optional)"></div>'+
+        '<div class="sl-field"><label>Connection pattern</label><select name="connection_type" required><option value="">Choose connection type…</option><option value="REST_API">Vendor REST API</option><option value="WEBHOOK">Vendor webhook</option><option value="LOCAL_GATEWAY">Branch PC / local gateway</option><option value="DEVICE_SDK">Manufacturer SDK / device service</option><option value="FILE_EXCHANGE">File exchange (CSV / XLSX)</option></select></div>'+
+        '<div class="sl-field full"><button class="sl-btn primary" type="submit">REGISTER DEVICE</button></div>'+
+      '</form>'+
+      '<div class="sl-notice sl-notice-soft"><b>Important:</b> registration creates a device record only. It does not connect the POS, store API keys/passwords, enable automatic synchronization, or post sales. A vendor-specific adapter must pass an authenticated connection and replay/reconciliation test before it can become connected.</div>'+
+    '</div>'+
+    '<div class="sl-panel"><div class="sl-block-head"><div><div class="sl-eyebrow">REGISTERED DEVICES</div><h3>Branch connection status</h3></div><small>NOT CONNECTED until verified</small></div><div id="posDevicesList"><div class="sl-empty">Loading registered devices…</div></div></div>'+
+    '<div class="sl-panel"><div class="sl-notice sl-warning-block"><b>ERP protection:</b> External systems cannot write directly to Stockland sales, inventory balances, fiscal records or the GL. Every inbound sales batch must be normalized, validated, reconciled and staged through Daily POS; the authorized Branch Manager retains release authority.</div></div>';
+}
+
+async function loadPosIntegrations(){
+  const adapters=document.getElementById('posAdapterCatalog');
+  const devices=document.getElementById('posDevicesList');
+  try{
+    const [catalog,registry]=await Promise.all([
+      api('/pos-integrations/adapters'),
+      api('/pos-integrations/devices')
+    ]);
+    if(adapters){
+      adapters.innerHTML='<div class="sl-import-purpose-grid">'+(catalog.connection_patterns||[]).map(x=>
+        '<div class="sl-purpose-card"><b>'+esc(x.label)+'</b><span>'+esc(x.description)+'</span><em>'+esc(x.state)+'</em></div>'
+      ).join('')+'</div><div class="sl-notice sl-notice-soft">'+esc(catalog.notice||'')+'</div>';
+    }
+    if(devices){
+      const rows=registry.devices||[];
+      devices.innerHTML=rows.length
+        ? '<div class="sl-table-wrap"><table class="sl-table sl-responsive-cards"><thead><tr><th>Device</th><th>Vendor / Model</th><th>Branch</th><th>Connection</th><th>Source ID</th><th>Status</th></tr></thead><tbody>'+rows.map(x=>
+            '<tr><td><b>'+esc(x.device_name)+'</b><div class="sl-sub">'+esc(x.device_id)+'</div></td><td>'+esc(x.vendor)+'<div class="sl-sub">'+esc(x.model||'')+'</div></td><td>'+esc(x.branch_name)+'</td><td>'+esc(x.connection_type)+'</td><td><code>'+esc(x.source_system)+'</code></td><td><span class="sl-pill warn">NOT CONNECTED</span><div class="sl-sub">Adapter required</div></td></tr>'
+          ).join('')+'</tbody></table></div>'
+        : '<div class="sl-empty">No POS devices are registered in your authorized branch scope.</div>';
+    }
+  }catch(e){
+    if(adapters)adapters.innerHTML='<div class="sl-notice sl-danger-block">'+esc(e.message)+'</div>';
+    if(devices)devices.innerHTML='<div class="sl-notice sl-danger-block">'+esc(e.message)+'</div>';
+  }
+}
+
+async function registerPosDevice(e){
+  e.preventDefault();
+  const form=e.currentTarget,button=form.querySelector('button[type="submit"]');
+  if(button?.dataset.busy==='1')return;
+  const data=Object.fromEntries(new FormData(form));
+  data.branch_location_id=Number(data.branch_location_id||0);
+  if(button){button.dataset.busy='1';button.disabled=true;button.textContent='REGISTERING…'}
+  try{
+    const result=await api('/pos-integrations/devices',{method:'POST',body:JSON.stringify(data)});
+    toast('Device registered as NOT CONNECTED. Vendor adapter verification is still required.');
+    form.reset();
+    await loadPosIntegrations();
+  }catch(error){toast(error.message,true)}
+  finally{if(button){button.dataset.busy='0';button.disabled=false;button.textContent='REGISTER DEVICE'}}
 }
 
 function productImportPage(){
