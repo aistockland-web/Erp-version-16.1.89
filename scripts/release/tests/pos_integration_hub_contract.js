@@ -31,6 +31,9 @@ assert(page.includes('Universal POS Integration Hub'), 'Universal integration wo
 assert(page.includes('id="posDeviceRegisterForm"'), 'Branch device registration form must be present.');
 assert(page.includes('REST_API') && page.includes('WEBHOOK') && page.includes('LOCAL_GATEWAY') && page.includes('DEVICE_SDK') && page.includes('FILE_EXCHANGE'), 'UI must expose all vendor-neutral connection patterns.');
 assert(page.includes('NOT CONNECTED') && page.includes('No credentials here'), 'UI must not imply live connections or expose credential entry.');
+assert(page.includes('id="posCodeMapForm"') && page.includes('id="posCodeMapSource"'), 'Owner/Management must have a source-specific POS-to-SKU mapping form.');
+assert(page.includes('Central SKU mappings are controlled by Owner / Management'), 'Branch Managers must be told that central SKU mapping is not their authority.');
+assert(app.includes("api16('/import/code-maps?source_system='") && app.includes("api16('/import/code-maps',{method:'POST'"), 'Mapping UI must call the real source-filtered list and audited save routes.');
 assert(app.includes("api('/pos-integrations/adapters')") && app.includes("api('/pos-integrations/devices')"), 'UI must use the actual registry REST endpoints.');
 
 const daily = section(app, 'function dailyImportPage(){', '\nfunction posIntegrationsPage(){');

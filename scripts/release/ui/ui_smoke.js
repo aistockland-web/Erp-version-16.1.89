@@ -306,9 +306,18 @@ const isLocal = (url) => {
         if (!/NOT_CONNECTED|NOT CONNECTED/.test(formState.catalog + ' ' + formState.devices)) {
           fail('POS Integration page does not clearly disclose that unverified devices are not connected');
         }
+        const mappingForm = page.locator('#posCodeMapForm');
+        if (await mappingForm.count() !== 1) fail('Owner / Management source-specific POS-to-SKU mapping form did not render');
+        const mappingFields = await mappingForm.locator('input,select').evaluateAll(nodes => nodes.map(x => x.name || x.id));
+        if (!['source_system','external_code','live_sku','source_name','effective_from','effective_to','mapping_note'].every(x => mappingFields.includes(x))) {
+          fail('POS SKU mapping form is missing required source/code/SKU/effective-date fields: ' + JSON.stringify(mappingFields));
+        }
+        await page.waitForFunction(() => !!document.getElementById('codeMapList'), null, { timeout: 10000 })
+          .catch(() => fail('POS SKU mapping list did not render'));
         if (formState.form && requestedCatalog && requestedDevices && !formState.hasPassword && !formState.hasSecret) {
           note('Universal POS Integration Hub rendered the connector catalogue, branch device form and no-secret boundary');
         }
+        if (await mappingForm.count() === 1) note('Owner / Management POS mapping form rendered with source namespace and effective-date controls');
         for (const viewport of [
           { label: 'phone-390', width: 390 },
           { label: 'tablet-768', width: 768 },
