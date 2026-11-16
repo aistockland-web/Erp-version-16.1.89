@@ -48,3 +48,6 @@
 - Social media analysis (official platform sign-in, campaigns, export snapshots) moved out of HR & Payroll into Management Intelligence; HR & Payroll keeps only a link. Credentials, tokens and posting APIs are still never stored.
 - Theme colour is now set by the server (`data-sl-theme="sapphire"` on the standalone body; manifest and meta `theme-color` unified to #295ff3), so the Sapphire colours no longer depend on JavaScript running first.
 - Manual `watch_time_minutes` snapshots are validated and stored as decimal minutes, not passed through ETB monetary normalization; the snapshot table labels the value in minutes.
+
+## Unreleased
+- Payroll: ships the Owner-approved Ethiopian rule set ET-2025-AMEND-1395 (2025 PAYE schedule, 7% / 11% pension) so payroll needs no rule configuration. Approval basis is recorded as an Owner declaration. See docs/hr/PAYROLL_RELEASE_RULES.md.

@@ -104,10 +104,11 @@ final class Stockland_REST_HR_Payroll_Cycle extends Stockland_REST_Base {
 		}
 		$bundle = $rules;
 		$bundle['status'] = 'APPROVED';
-		$bundle['reviewer_id'] = (string) ( $review['reviewer_id'] ?? '' );
+		$owner_basis = 'OWNER_DECLARATION' === strtoupper( (string) ( $review['basis'] ?? '' ) );
+		$bundle['reviewer_id'] = (string) ( $review['reviewer_id'] ?? ( $owner_basis ? 'OWNER-DECLARATION' : '' ) );
 		$bundle['approved_at'] = (string) ( $rules['approved_at'] ?? '' );
 		$bundle['official_source_url'] = (string) ( $rules['source_url'] ?? '' );
-		$bundle['approval_evidence_ref'] = (string) ( $review['opinion_reference'] ?? '' );
+		$bundle['approval_evidence_ref'] = (string) ( $review['opinion_reference'] ?? ( $owner_basis ? 'OWNER-DECLARATION-' . (string) ( $review['approved_on'] ?? '' ) : '' ) );
 		$bundle['source_sha256'] = strtolower( (string) ( $rules['source_sha256'] ?? '' ) );
 		$bundle['paye_tax_base_method'] = $rules['paye_tax_base_method'] ?? null;
 		if ( ! in_array( $bundle['paye_tax_base_method'], array( 'TAXABLE_EARNINGS', 'TAXABLE_EARNINGS_LESS_EMPLOYEE_PENSION' ), true ) ) {

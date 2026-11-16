@@ -100,6 +100,8 @@ $GLOBALS['wp_rest_server'] = null; // rebuild the REST server so the now-eligibl
 $ok( 'HR payroll routes registered', (bool) rest_get_server()->get_routes()['/stockland/v16/hr/payroll-runs'] );
 
 /* ---- 2. fail-closed before any approved rule set ---- */
+// The product ships an Owner-approved rule set (s20). This script proves the fail-closed mechanism and uses SYNTHETIC rules, so remove the shipped row on this disposable site first.
+$GLOBALS['wpdb']->query( 'DELETE FROM ' . Stockland_DB::table( 'hr_rule_sets' ) . " WHERE rule_code='et-payroll'" );
 $run1 = $need( 'run P1 created (Management)', call( 'POST', '/hr/payroll-runs', array( 'idempotency_key' => 'syn-cycle-p1-2026-09-001', 'period_key' => '2026-09', 'start_date' => '2026-09-01', 'end_date' => '2026-09-30' ), $mg ) );
 $run1_id = (int) $run1['id'];
 $r = call( 'POST', "/hr/payroll-runs/$run1_id/generate", array(), $mg );

@@ -92,6 +92,7 @@ require_once STOCKLAND_PLUGIN_DIR . 'includes/rest/class-rest-locations.php';
 require_once STOCKLAND_PLUGIN_DIR . 'includes/rest/class-rest-requisition-v16.php';
 require_once STOCKLAND_PLUGIN_DIR . 'includes/rest/class-rest-hr.php';
 require_once STOCKLAND_PLUGIN_DIR . 'includes/rest/class-rest-hr-lifecycle.php';
+require_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-payroll-release-rules.php';
 require_once STOCKLAND_PLUGIN_DIR . 'includes/rest/class-rest-hr-payroll-cycle.php';
 require_once STOCKLAND_PLUGIN_DIR . 'includes/rest/class-rest-sop-library.php';
 
@@ -244,6 +245,7 @@ function stockland_init_plugin() {
 		new Stockland_REST_HR();
 		new Stockland_REST_HR_Lifecycle();
 		new Stockland_REST_HR_Payroll_Cycle();
+		add_action( 'init', array( 'Stockland_Payroll_Release_Rules', 'ensure' ), 30 );
 		new Stockland_REST_SOP_Library();
 		new Stockland_REST_Wholesale();
 		add_action( 'rest_api_init', array( 'Stockland_Release_Authorization', 'register_routes' ) );
