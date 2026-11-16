@@ -4,6 +4,8 @@ import json
 import sys
 
 APPEND_ONLY_TABLES = {"stock_audit_logs", "stock_audit_chain", "stock_workflow_events"}
+# Rows the product itself ships after the Owner-approved HR schema exists: the Owner-approved payroll rule set (ET-2025-AMEND-1395) and its audit event. At most this many may be added.
+SHIPPED_ROW_ALLOWANCE = {"stock_hr_rule_sets": 1, "stock_hr_payroll_events": 1}
 APPROVED_HR_RATE_DEFAULTS = {
     ("stock_payroll_lines", "income_tax_rate"),
     ("stock_payroll_lines", "employee_pension_rate"),
@@ -30,6 +32,8 @@ def compare(before, after):
         append_only = table in APPEND_ONLY_TABLES
         if new_rows < old_rows:
             failures.append(f"{table}: rows shrank {old_rows} -> {new_rows}")
+        elif table in SHIPPED_ROW_ALLOWANCE and 0 < new_rows - old_rows <= SHIPPED_ROW_ALLOWANCE[table]:
+            notices.append(f"{table}: shipped Owner-approved payroll rule rows added {old_rows} -> {new_rows}")
         elif not append_only and new_rows != old_rows:
             failures.append(f"{table}: unexpected row-count change {old_rows} -> {new_rows}")
         elif append_only and new_rows > old_rows:
