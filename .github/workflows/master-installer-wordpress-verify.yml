@@ -30,17 +30,42 @@ concurrency:
 
 jobs:
   verify:
-    name: WordPress + ${{ matrix.db }} + PHP ${{ matrix.php }}
+    name: WordPress + ${{ matrix.db }} + PHP ${{ matrix.expected_php }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
-        db: [mariadb, mysql8]
-        php: ['8.3', '8.4']
+        include:
+          - db: mariadb
+            image: mariadb:10.11
+            php: '8.3'
+            expected_php: '8.3'
+            expected_db: '10.11'
+          - db: mysql8
+            image: mysql:8.0
+            php: '8.3'
+            expected_php: '8.3'
+            expected_db: '8.0'
+          - db: mariadb
+            image: mariadb:10.11
+            php: '8.4'
+            expected_php: '8.4'
+            expected_db: '10.11'
+          - db: mysql8
+            image: mysql:8.0
+            php: '8.4'
+            expected_php: '8.4'
+            expected_db: '8.0'
+          - db: mariadb114
+            image: mariadb:11.4.13
+            php: '8.4'
+            expected_php: '8.4.27'
+            expected_db: '11.4.13'
+            update_php: true
     services:
       mariadb:
-        image: ${{ matrix.db == 'mariadb' && 'mariadb:10.11' || 'mysql:8.0' }}
+        image: ${{ matrix.image }}
         env:
           MYSQL_ROOT_PASSWORD: root
           MARIADB_ROOT_PASSWORD: root
@@ -64,12 +89,30 @@ jobs:
         with:
           php-version: ${{ matrix.php }}
           extensions: mysqli, mbstring, xml, zip, curl, gd
-          ini-values: upload_max_filesize=16M, post_max_size=20M, memory_limit=512M
+          ini-values: upload_max_filesize=16M, post_max_size=20M, memory_limit=512M, max_execution_time=60
+        env:
+          update: ${{ matrix.update_php && 'true' || 'false' }}
 
-      - name: Report database server and PHP limits
+      - name: Assert exact runtime and report PHP limits
+        env:
+          EXPECTED_PHP: ${{ matrix.expected_php }}
+          EXPECTED_DB: ${{ matrix.expected_db }}
         run: |
-          mysql -h 127.0.0.1 -uroot -proot -e "SELECT VERSION() AS db_version, @@sql_mode AS sql_mode" wp
-          php -r 'echo "PHP ", PHP_VERSION, " upload=", ini_get("upload_max_filesize"), " post=", ini_get("post_max_size"), PHP_EOL;'
+          set -euo pipefail
+          db_version="$(mysql -h 127.0.0.1 -uroot -proot -Nse 'SELECT VERSION()')"
+          php_version="$(php -r 'echo PHP_VERSION;')"
+          echo "Database: $db_version"
+          echo "PHP: $php_version upload=$(php -r 'echo ini_get("upload_max_filesize");') post=$(php -r 'echo ini_get("post_max_size");') memory=$(php -r 'echo ini_get("memory_limit");') max_execution_time=$(php -r 'echo ini_get("max_execution_time");')"
+          case "$db_version" in
+            "$EXPECTED_DB"*) ;;
+            *) echo "Expected database $EXPECTED_DB, received $db_version"; exit 1 ;;
+          esac
+          case "$php_version" in
+            "$EXPECTED_PHP"|"$EXPECTED_PHP".*) ;;
+            *) echo "Expected PHP $EXPECTED_PHP, received $php_version"; exit 1 ;;
+          esac
+          test "$(php -r 'echo ini_get("memory_limit");')" = "512M"
+          test "$(php -r 'echo ini_get("max_execution_time");')" = "60"
 
       - name: Static syntax and disposable-database safety checks
         run: |
