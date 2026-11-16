@@ -1145,6 +1145,30 @@
             }
           }
         }
+      },
+      "get": {
+        "tags": [
+          "System & Diagnostics"
+        ],
+        "summary": "Retrieve app settings",
+        "operationId": "get_app_settings",
+        "description": "Retrieve application settings. This operation is restricted by the stockland_manage_settings capability and remains subject to the authenticated user's ERP permissions.",
+        "security": [
+          {
+            "wordpressSessionNonce": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation. The JSON response shape is endpoint-specific."
+          },
+          "401": {
+            "description": "Authentication is required."
+          },
+          "403": {
+            "description": "The signed-in account lacks the required settings permission."
+          }
+        }
       }
     },
     "/app/reconciliation/{id}/decision": {
