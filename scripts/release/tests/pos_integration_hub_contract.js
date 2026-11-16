@@ -57,5 +57,8 @@ assert(runner.includes('s17_pos_integration_hub'), 'The database-backed integrat
 assert(e2e.includes('Branch Manager cannot register a device for another branch'), 'E2E must test branch boundary.');
 assert(e2e.includes('device registration rejects inline API credentials'), 'E2E must test credential rejection.');
 assert(e2e.includes('no sales, inventory-ledger or GL records'), 'E2E must test that device registration has no financial or stock side effects.');
+assert(e2e.includes('/import/code-maps'), 'E2E must exercise the real Management product-code mapping route for registered device sources.');
+assert(e2e.includes('same external PLU resolves to device A Product Master SKU only in device A namespace') && e2e.includes('same external PLU resolves to device B Product Master SKU only in device B namespace'), 'E2E must prove overlapping PLU codes resolve independently for two POS devices.');
+assert(importer.includes("$mapping_source_system = $registered_device ? (string) $registered_device['source_system'] : 'THIRD_PARTY_POS';"), 'Device imports must use per-device mapping namespaces while generic imports retain legacy mappings.');
 
 console.log('RESULT PASS: universal connector catalogue, Branch Manager registry UI, branch/source isolation, no-secret/no-schema boundary, shared Daily POS staging and E2E coverage.');
