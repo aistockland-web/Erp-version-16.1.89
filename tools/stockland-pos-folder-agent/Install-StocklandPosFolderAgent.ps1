@@ -18,7 +18,10 @@ if (-not $site.IsAbsoluteUri -or $site.Scheme -ne 'https') {
     throw 'Enter the HTTPS address of the Stockland ERP website.'
 }
 $PosDeviceId = $PosDeviceId.Trim().ToUpperInvariant()
-if ($PosDeviceId -ne '' -and $PosDeviceId -notmatch '^[A-F0-9]{16}
+if ($PosDeviceId -ne '' -and ($PosDeviceId.Length -ne 16 -or $PosDeviceId -match '[^A-F0-9]')) {
+    throw 'Use the 16-character POS device ID copied from the Stockland POS Integrations registry, or leave it blank for generic POS imports.'
+}
+
 $root = Join-Path $env:LOCALAPPDATA 'StocklandPOS'
 $agentFolder = Join-Path $root 'Agent'
 $folders = @{
