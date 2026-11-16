@@ -7,6 +7,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { chromium } = require('playwright');
+const AxeBuilder = require('@axe-core/playwright').default;
 
 const [baseArg, user, password, screenshotDir = '.'] = process.argv.slice(2);
 if (!baseArg || !user || !password) {
@@ -155,6 +156,30 @@ const isLocal = (url) => {
           const renderState = await page.locator('#stockland-app').innerText().catch(() => '(no app root text)');
           throw new Error(viewport.label + ' ERP dashboard did not hydrate within 45 seconds. Render state: ' + renderState.slice(0, 1200) + '. ' + error.message);
         }
+        // Automated WCAG 2.1 A/AA audit of the authenticated ERP shell at each viewport.
+        const axeResults = await new AxeBuilder({ page })
+          .include('#stockland-app')
+          .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+          .analyze();
+        const axeReport = {
+          page: name,
+          viewport: viewport.label,
+          engine: 'axe-core',
+          tags: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'],
+          violation_count: axeResults.violations.length,
+          violations: axeResults.violations.map((v) => ({
+            id: v.id, impact: v.impact, description: v.description, help: v.help,
+            helpUrl: v.helpUrl, node_count: v.nodes.length,
+            examples: v.nodes.slice(0, 3).map((node) => ({target: node.target, failureSummary: node.failureSummary})),
+          })),
+        };
+        fs.writeFileSync(path.join(screenshots, name + '-' + viewport.label + '-axe.json'), JSON.stringify(axeReport, null, 2) + '\n');
+        const blockingAxeViolations = axeResults.violations.filter((v) => ['serious', 'critical'].includes(v.impact));
+        if (blockingAxeViolations.length) {
+          fail(name + ' ' + viewport.label + ' serious/critical accessibility violations: ' +
+            blockingAxeViolations.map((v) => v.id + ':' + v.impact + '(' + v.nodes.length + ')').join(', '));
+        }
+        if (!axeResults.violations.length) note(name + ' ' + viewport.label + ' axe WCAG 2.1 A/AA: 0 violations');
         const hrNavigationCount = await page.locator('.sl-nav-hr').count();
         if (hrNavigationCount !== 0) fail(name + ' ' + viewport.label + ' exposed HR navigation before active-Owner schema approval');
         await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
@@ -437,6 +462,8 @@ const isLocal = (url) => {
     });
     if (!jsText || jsText.includes('Owner-approved additive HR/Payroll schema migration after backup and source review')) fail('HR schema approval prompt contains a prefilled approval statement');
     else note('HR schema approval prompt requires an unprefilled Owner decision');
+    if (!jsText.includes('aria-label="ALERTS — Open operational alerts"') || !jsText.includes('function syncNotificationAccessibleLabel') || !jsText.includes('aria-hidden="true" hidden>0</span>')) fail('notification accessible name and decorative unread badge are incomplete');
+    else note('notification control has one dynamic accessible name and hides decorative label/count');
     if (!jsText.includes('both monthly_tax_bands (legacy) and paye_bands (frozen runs)')) fail('HR payroll rule form does not explain the dual calculator schedule contract');
     else note('HR payroll rule form explains the dual calculator contract');
     const legalReviewFields = ['Independent legal review decision','Reviewer independent of rule preparation','Independent reviewer full name','Reviewer professional registration / licence ID','Professional qualification / licence basis','Review date','Signed opinion reference / document ID','Signed opinion document SHA-256','Legal clauses reviewed (one per line)','Approved parameter keys (comma-separated)'];

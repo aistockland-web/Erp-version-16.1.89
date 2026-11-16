@@ -46,3 +46,20 @@
 .sl-share .sl-share-badge{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:var(--tone,#334155);color:#fff;font-weight:700;font-size:13px}
 .sl-share .sl-share-badge.dark{color:#111}
 .sl-editor{max-width:900px;width:96vw}
+/* WCAG 2.1 AA: readable muted labels on the light ERP canvas.
+ * Keep the Stockland neutral palette; use a deeper muted blue-grey for small text.
+ */
+#stockland-app .sl-top-brand small,
+#stockland-app .sl-user-copy small,
+#stockland-app .sl-global-search-control kbd,
+#stockland-app .sl-dashboard-page .sl-dashboard-kpi-copy .meta,
+#stockland-app .sl-dashboard-trend .sl-block-head small,
+#stockland-app .sl-dashboard-category .sl-block-head small,
+#stockland-app .sl-dashboard-card .sl-block-head small,
+#stockland-app #slDashboardCategories .sl-empty,
+#stockland-app .sl-dashboard-action small,
+#stockland-app .sl-dashboard-empty-state>div>small,
+#stockland-app .sl-dashboard-branch-table-head>span,
+#stockland-app #slActivityFeed>.sl-empty{color:#536981}
+#stockland-app .sl-dashboard-page .sl-link-btn{color:#336da8}
+#stockland-app .sl-notification-badge[hidden]{display:none!important}
