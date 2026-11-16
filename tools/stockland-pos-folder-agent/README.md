@@ -20,11 +20,12 @@ This is Option 2 for the Daily POS workflow. It is a **branch-PC agent**, not a 
 
    ```powershell
    Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
-   .\Install-StocklandPosFolderAgent.ps1 -SiteUrl "https://YOUR-ERP-DOMAIN"
+   .\Install-StocklandPosFolderAgent.ps1 -SiteUrl "https://YOUR-ERP-DOMAIN" -PosDeviceId "0123456789ABCDEF"
    ```
 
 4. Enter the dedicated branch account name and Application Password when prompted.
-5. Put original branch POS reports into:
+5. For a registered POS source, copy its 16-character Device ID from Sales & POS → POS Integrations and supply it with `-PosDeviceId`. The ERP verifies that the registered device belongs to the authenticated user's branch and uses its separate SKU/PLU mapping namespace. Leave the parameter blank for the legacy generic POS source.
+6. Put original branch POS reports into:
 
    ```text
    %LOCALAPPDATA%\StocklandPOS\Incoming
@@ -44,6 +45,7 @@ Do not rename or edit the source report to force acceptance. Preserve the POS ex
 ## Limits
 
 - HTTPS is mandatory.
+- Optional `PosDeviceId` is a non-secret device reference only. It does not authenticate a terminal or activate a vendor API. The existing Sales Employee account remains the authenticated uploader; the agent still stages only and the Branch Manager still releases sales.
 - Maximum file size enforced by this agent is 15 MB. The ERP remains the final upload validator.
 - This agent requires an interactive Windows session and is not an InfinityFree-hosted background service.
 - The future supplier API option remains unconnected until the POS supplier provides official API documentation, authentication details, test credentials and owner approval.
