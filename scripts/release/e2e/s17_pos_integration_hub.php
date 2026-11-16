@@ -162,6 +162,56 @@ $management_source_id = (string) ( $management_device['source_system'] ?? '' );
 $check( 'Management may register a POS device for another active branch', 200 === $management_registration[0] );
 $check( 'different devices never share the same source-system mapping namespace', '' !== $management_source_id && $management_source_id !== $branch_source_id );
 
+$products_for_maps = Stockland_DB::read_results(
+	$wpdb->prepare(
+		'SELECT sku FROM %i WHERE is_active=1 ORDER BY variant_id ASC LIMIT 2',
+		Stockland_DB::table( 'products' )
+	),
+	ARRAY_A
+);
+$check( 'two active Product Master SKUs are available for source-mapping isolation', count( (array) $products_for_maps ) >= 2 );
+if ( count( (array) $products_for_maps ) >= 2 ) {
+	$shared_external_code = 'POS-HUB-OVERLAP-' . strtoupper( substr( hash( 'sha256', $branch_device_id . '|' . ( $management_device['device_id'] ?? '' ) ), 0, 8 ) );
+	$map_device_a = call(
+		'POST',
+		'/import/code-maps',
+		array(
+			'source_system' => $branch_source_id,
+			'external_code' => $shared_external_code,
+			'live_sku' => (string) $products_for_maps[0]['sku'],
+			'source_name' => 'Synthetic POS Device A',
+			'mapping_note' => 's17 disposable integration source-isolation test',
+		),
+		$management_id
+	);
+	$map_device_b = call(
+		'POST',
+		'/import/code-maps',
+		array(
+			'source_system' => $management_source_id,
+			'external_code' => $shared_external_code,
+			'live_sku' => (string) $products_for_maps[1]['sku'],
+			'source_name' => 'Synthetic POS Device B',
+			'mapping_note' => 's17 disposable integration source-isolation test',
+		),
+		$management_id
+	);
+	$check( 'Management may map the same external PLU independently for POS device A', 200 === $map_device_a[0], 'HTTP ' . $map_device_a[0] );
+	$check( 'Management may map the same external PLU independently for POS device B', 200 === $map_device_b[0], 'HTTP ' . $map_device_b[0] );
+	$reflection = new ReflectionMethod( Stockland_REST_Import_V16::class, 'daily_resolution_bulk' );
+	$reflection->setAccessible( true );
+	$import_controller = ( new ReflectionClass( Stockland_REST_Import_V16::class ) )->newInstanceWithoutConstructor();
+	$resolved_device_a = $reflection->invoke( $import_controller, array( $shared_external_code ), '2026-11-16', $branch_source_id );
+	$resolved_device_b = $reflection->invoke( $import_controller, array( $shared_external_code ), '2026-11-16', $management_source_id );
+	$check( 'same external PLU resolves to device A Product Master SKU only in device A namespace', (string) $products_for_maps[0]['sku'] === (string) ( $resolved_device_a['map'][ $shared_external_code ][0] ?? '' ) );
+	$check( 'same external PLU resolves to device B Product Master SKU only in device B namespace', (string) $products_for_maps[1]['sku'] === (string) ( $resolved_device_b['map'][ $shared_external_code ][0] ?? '' ) );
+} else {
+	$check( 'per-device product-code mapping isolation has two active SKU fixtures', false, 'The disposable Product Master fixture must provide two active SKUs.' );
+	$check( 'POS device A mapping route remains independently testable', false, 'Missing Product Master fixtures.' );
+	$check( 'POS device B mapping route remains independently testable', false, 'Missing Product Master fixtures.' );
+	$check( 'POS device A source namespace resolution remains independently testable', false, 'Missing Product Master fixtures.' );
+	$check( 'POS device B source namespace resolution remains independently testable', false, 'Missing Product Master fixtures.' );
+}
 $resolved = Stockland_REST_POS_Integrations::resolve_device_for_import( $branch_device_id, $branch_id );
 $wrong_branch_resolution = Stockland_REST_POS_Integrations::resolve_device_for_import( $branch_device_id, $other_branch_id );
 $check( 'registered device resolves to its own branch/source namespace', is_array( $resolved ) && $branch_source_id === ( $resolved['source_system'] ?? '' ) );
@@ -188,5 +238,5 @@ foreach ( $ledger_before as $key => $before_count ) {
 }
 $check( 'device registration creates no sales, inventory-ledger or GL records', $ledger_before === $ledger_after );
 
-echo "RESULT " . ( $fail ? 'FAIL' : 'PASS' ) . " (" . ( 22 - $fail ) . "/22 checks)\n";
+echo "RESULT " . ( $fail ? 'FAIL' : 'PASS' ) . " (" . ( 32 - $fail ) . "/32 checks)\n";
 exit( $fail ? 1 : 0 );
