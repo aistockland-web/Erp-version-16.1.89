@@ -7,7 +7,9 @@ require __DIR__ . '/lib.php';
 global $wpdb;
 
 $fail = 0;
-$check = static function ( $label, $condition, $detail = '' ) use ( &$fail ) {
+$checks = 0;
+$check = static function ( $label, $condition, $detail = '' ) use ( &$fail, &$checks ) {
+	++$checks;
 	echo ( $condition ? 'PASS ' : 'FAIL ' ) . $label . ( $condition ? '' : ' :: ' . $detail ) . "\n";
 	if ( ! $condition ) {
 		++$fail;
@@ -238,5 +240,5 @@ foreach ( $ledger_before as $key => $before_count ) {
 }
 $check( 'device registration creates no sales, inventory-ledger or GL records', $ledger_before === $ledger_after );
 
-echo "RESULT " . ( $fail ? 'FAIL' : 'PASS' ) . " (" . ( 32 - $fail ) . "/32 checks)\n";
+echo "RESULT " . ( $fail ? 'FAIL' : 'PASS' ) . " (" . ( $checks - $fail ) . "/" . $checks . " checks)\n";
 exit( $fail ? 1 : 0 );
