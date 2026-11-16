@@ -86,6 +86,7 @@ require_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-notifications.php'
 require_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-requisition-service.php';
 require_once STOCKLAND_PLUGIN_DIR . 'includes/class-stockland-sourcing.php';
 require_once STOCKLAND_PLUGIN_DIR . 'includes/rest/class-rest-import-v16.php';
+require_once STOCKLAND_PLUGIN_DIR . 'includes/rest/class-rest-pos-integrations.php';
 require_once STOCKLAND_PLUGIN_DIR . 'includes/rest/class-rest-inventory-report-v16.php';
 require_once STOCKLAND_PLUGIN_DIR . 'includes/rest/class-rest-locations.php';
 require_once STOCKLAND_PLUGIN_DIR . 'includes/rest/class-rest-requisition-v16.php';
@@ -236,6 +237,7 @@ function stockland_init_plugin() {
 		new Stockland_REST_App();
 		new Stockland_REST_Accounting();
 		new Stockland_REST_Import_V16();
+		new Stockland_REST_POS_Integrations();
 		new Stockland_REST_Inventory_Report_V16();
 		new Stockland_REST_Locations();
 		new Stockland_REST_Requisition_V16();

@@ -30,17 +30,41 @@ concurrency:
 
 jobs:
   verify:
-    name: WordPress + ${{ matrix.db }} + PHP ${{ matrix.php }}
+    name: WordPress + ${{ matrix.db }} + PHP ${{ matrix.expected_php }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
-        db: [mariadb, mysql8]
-        php: ['8.3', '8.4']
+        include:
+          - db: mariadb
+            image: mariadb:10.11
+            php: '8.3'
+            expected_php: '8.3'
+            expected_db: '10.11'
+          - db: mysql8
+            image: mysql:8.0
+            php: '8.3'
+            expected_php: '8.3'
+            expected_db: '8.0'
+          - db: mariadb
+            image: mariadb:10.11
+            php: '8.4'
+            expected_php: '8.4'
+            expected_db: '10.11'
+          - db: mysql8
+            image: mysql:8.0
+            php: '8.4'
+            expected_php: '8.4'
+            expected_db: '8.0'
+          - db: mariadb114
+            image: mariadb:11.4.13
+            php: '8.4.27'
+            expected_php: '8.4.27'
+            expected_db: '11.4.13'
     services:
       mariadb:
-        image: ${{ matrix.db == 'mariadb' && 'mariadb:10.11' || 'mysql:8.0' }}
+        image: ${{ matrix.image }}
         env:
           MYSQL_ROOT_PASSWORD: root
           MARIADB_ROOT_PASSWORD: root
@@ -48,8 +72,8 @@ jobs:
           MARIADB_DATABASE: wp
         ports: ['3306:3306']
         options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
-          --health-interval=5s --health-timeout=5s --health-retries=20
+          --health-cmd="${{ matrix.db == 'mariadb114' && 'healthcheck.sh --connect --innodb_initialized' || 'mysqladmin ping -h 127.0.0.1 -proot' }}"
+          --health-start-period=15s --health-interval=5s --health-timeout=5s --health-retries=20
     steps:
       - name: Check out exact source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -64,12 +88,27 @@ jobs:
         with:
           php-version: ${{ matrix.php }}
           extensions: mysqli, mbstring, xml, zip, curl, gd
-          ini-values: upload_max_filesize=16M, post_max_size=20M, memory_limit=512M
+          ini-values: upload_max_filesize=16M, post_max_size=20M, memory_limit=512M, max_execution_time=60
 
-      - name: Report database server and PHP limits
+      - name: Assert exact runtime and report PHP limits
+        env:
+          EXPECTED_PHP: ${{ matrix.expected_php }}
+          EXPECTED_DB: ${{ matrix.expected_db }}
         run: |
-          mysql -h 127.0.0.1 -uroot -proot -e "SELECT VERSION() AS db_version, @@sql_mode AS sql_mode" wp
-          php -r 'echo "PHP ", PHP_VERSION, " upload=", ini_get("upload_max_filesize"), " post=", ini_get("post_max_size"), PHP_EOL;'
+          set -euo pipefail
+          db_version="$(mysql -h 127.0.0.1 -uroot -proot -Nse 'SELECT VERSION()')"
+          php_version="$(php -r 'echo PHP_VERSION;')"
+          echo "Database: $db_version"
+          echo "PHP: $php_version upload=$(php -r 'echo ini_get("upload_max_filesize");') post=$(php -r 'echo ini_get("post_max_size");') memory=$(php -r 'echo ini_get("memory_limit");') max_execution_time=$(php -r 'echo ini_get("max_execution_time");')"
+          case "$db_version" in
+            "$EXPECTED_DB"*) ;;
+            *) echo "Expected database $EXPECTED_DB, received $db_version"; exit 1 ;;
+          esac
+          case "$php_version" in
+            "$EXPECTED_PHP"|"$EXPECTED_PHP".*) ;;
+            *) echo "Expected PHP $EXPECTED_PHP, received $php_version"; exit 1 ;;
+          esac
+          test "$(php -r 'echo ini_get("memory_limit");')" = "512M"
 
       - name: Static syntax and disposable-database safety checks
         run: |
@@ -86,6 +125,7 @@ jobs:
           node --check scripts/release/ui/rule_builder_unit.js
           node --check scripts/release/ui/share_dialog_unit.js
           node scripts/release/tests/daily_pos_ui_contract.js
+          node scripts/release/tests/pos_integration_hub_contract.js
           npm ci --prefix ci/cssqa --ignore-scripts --no-audit --no-fund
           NODE_PATH="$PWD/ci/cssqa/node_modules" node ci/qa/check-css-postcss.js "$PWD/src/stockland-erp-app" --scope baseline
 
@@ -168,7 +208,21 @@ jobs:
           PHP
 
           mkdir -p /tmp/stockland-ui-smoke
-          php -S 127.0.0.1:8080 -t /tmp/wp /tmp/wp/router.php > /tmp/stockland-php-server.log 2>&1 &
+          cat > /tmp/wp/stockland-runtime-check.php <<'PHP'
+          <?php
+          header( 'Content-Type: application/json' );
+          echo json_encode(
+              array(
+                  'php_version' => PHP_VERSION,
+                  'sapi' => PHP_SAPI,
+                  'upload_max_filesize' => ini_get( 'upload_max_filesize' ),
+                  'post_max_size' => ini_get( 'post_max_size' ),
+                  'memory_limit' => ini_get( 'memory_limit' ),
+                  'max_execution_time' => ini_get( 'max_execution_time' ),
+              )
+          );
+          PHP
+          php -d max_execution_time=60 -S 127.0.0.1:8080 -t /tmp/wp /tmp/wp/router.php > /tmp/stockland-php-server.log 2>&1 &
           SERVER_PID=$!
           trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
           for attempt in $(seq 1 30); do
@@ -176,6 +230,22 @@ jobs:
             sleep 1
           done
           curl --fail --silent http://127.0.0.1:8080/wp-login.php >/dev/null
+          curl --fail --silent http://127.0.0.1:8080/stockland-runtime-check.php > /tmp/stockland-runtime-check.json
+          EXPECTED_PHP="${{ matrix.expected_php }}" php -r '
+          $actual = json_decode( file_get_contents( "/tmp/stockland-runtime-check.json" ), true );
+          $expected = getenv( "EXPECTED_PHP" );
+          $actual_version = is_array( $actual ) ? (string) ( $actual["php_version"] ?? "" ) : "";
+          $version_matches = $actual_version === $expected || 0 === strpos( $actual_version, $expected . "." );
+          if ( ! is_array( $actual ) || ! $version_matches ||
+              "16M" !== ( $actual["upload_max_filesize"] ?? "" ) ||              "20M" !== ( $actual["post_max_size"] ?? "" ) ||
+              "512M" !== ( $actual["memory_limit"] ?? "" ) ||
+              "60" !== (string) ( $actual["max_execution_time"] ?? "" ) ||
+              "cli-server" !== ( $actual["sapi"] ?? "" ) ) {
+              fwrite( STDERR, "Web PHP runtime mismatch: " . json_encode( $actual ) . PHP_EOL );
+              exit( 1 );
+          }
+          echo "PASS exact web PHP runtime " . json_encode( $actual ) . PHP_EOL;
+          '
           set +e
           NODE_PATH=/tmp/stockland-playwright/node_modules node scripts/release/ui/ui_smoke.js \
             http://127.0.0.1:8080 admin "$QA_PASSWORD" /tmp/stockland-ui-smoke 2>&1 | tee /tmp/ui-smoke.log
@@ -251,6 +321,7 @@ jobs:
             /tmp/ui-smoke.log
             /tmp/admin-launcher-smoke.log
             /tmp/stockland-ui-smoke/*.png
+            /tmp/stockland-runtime-check.json
             /tmp/stockland-php-server.log
             STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTALLER.zip.sha256
           if-no-files-found: warn

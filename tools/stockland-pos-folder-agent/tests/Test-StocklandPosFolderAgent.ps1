@@ -53,6 +53,15 @@ try {
         Assert-True $rejected "Unsafe ERP URL must be rejected before credentials are sent: $invalidUrl"
     }
 
+    $badDeviceConfig = $config.Clone()
+    $badDeviceConfig.PosDeviceId = 'not-a-device-id'
+    $script:LastUri = $null
+    $invalidDeviceRejected = $false
+    try { $null = Invoke-StocklandFolderAgent -Config $badDeviceConfig }
+    catch { $invalidDeviceRejected = $_.Exception.Message -match '16-character' }
+    Assert-True $invalidDeviceRejected 'Malformed registered POS device IDs must be rejected.'
+    Assert-True ($null -eq $script:LastUri) 'Malformed device IDs must be rejected before any ERP request is sent.'
+
     $writingPath = Join-Path $folders.Incoming 'still-writing.xlsx'
     Set-Content -LiteralPath $writingPath -Value 'fixture' -Encoding UTF8
     $waiting = Invoke-StocklandFolderAgent -Config $config
@@ -75,6 +84,16 @@ try {
     Assert-True ($script:LastAuthorization.StartsWith('Basic ')) 'Application Password must be sent over HTTPS Basic authentication.'
     Assert-True ($script:LastUri -eq 'https://erp.example.test/wp-json/stockland/v16/import/daily-sales/preview') 'Validated base URL must be used for the fixed ERP staging endpoint.'
     Assert-True (@(Get-ChildItem -LiteralPath $folders.Submitted -File).Count -eq 1) 'Submitted report must be retained in its evidence folder.'
+    Assert-True (-not $script:LastForm.ContainsKey('pos_device_id')) 'Legacy generic folder pickup must not add an empty or invented device ID.'
+
+    $deviceConfig = $config.Clone()
+    $deviceConfig.PosDeviceId = '0123456789ABCDEF'
+    Set-Content -LiteralPath (Join-Path $folders.Incoming 'registered-device.xlsx') -Value 'fixture' -Encoding UTF8
+    [System.IO.File]::SetLastWriteTimeUtc((Join-Path $folders.Incoming 'registered-device.xlsx'), [DateTime]::UtcNow.AddSeconds(-10))
+    $deviceResult = Invoke-StocklandFolderAgent -Config $deviceConfig
+    Assert-True ($deviceResult.Submitted -eq 1) 'Folder pickup with a registered device ID must still stage successfully.'
+    Assert-True ($script:LastForm.ContainsKey('pos_device_id')) 'Registered device ID must be included in the Daily POS preview form.'
+    Assert-True ($script:LastForm['pos_device_id'] -eq '0123456789ABCDEF') 'The configured registered device ID must be transmitted unchanged.'
 
     $script:MockResult = @{ job_id = 502; status = 'REVIEW'; existing_job = $false }
     Set-Content -LiteralPath (Join-Path $folders.Incoming 'review.xlsx') -Value 'fixture' -Encoding UTF8
@@ -99,7 +118,7 @@ try {
     Assert-True ($attention.Attention -eq 1) 'Permanent HTTP 403 must be escalated, not retried forever.'
     Assert-True (@(Get-ChildItem -LiteralPath $folders.NeedsAttention -File).Count -eq 1) 'Forbidden file must move to NeedsAttention.'
 
-    Write-Output 'RESULT PASS: READY staging, REVIEW routing, HTTPS endpoint, no branch/date override, retry retention and permanent-error handling.'
+    Write-Output 'RESULT PASS: READY staging, REVIEW routing, HTTPS endpoint, branch-scoped optional device ID, generic fallback, no branch/date override, retry retention and permanent-error handling.'
 }
 finally {
     Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue

@@ -188,7 +188,7 @@ const group=(key,label,icon,items)=>{
 };
 return '<div class="sl-nav-section">WORKSPACE</div>'+button('dashboard','Dashboard',true)+
  group('sales','Sales & POS','cash',[
- ['pos','Retail POS',!!c.sale],['daily','Daily POS Import',canDailyPos],['returns','Returns & Adjustments',!!c.return],['closing','Daily Closing',!!c.close]
+ ['pos','Retail POS',!!c.sale],['daily','Daily POS Import',canDailyPos],['integrations','POS Integrations',['owner','management','branch_manager'].includes(u.role)],['returns','Returns & Adjustments',!!c.return],['closing','Daily Closing',!!c.close]
  ])+
  group('inventory','Inventory','box',[
  ['dailyreport','Daily Inventory',true],['inventory','Inventory Control',true],['reorder','Reorder Alerts',true],['reconcile','Stock Count & Approval',!!(c.request_adjustment||c.settings)]
@@ -461,7 +461,7 @@ document.body.setAttribute('data-sl-view',String(state.view||'dashboard'));
 shell();updateChrome();
 let b='';
 switch(state.view){
-case'finance':b=finance();break;case'branchops':b=branchOperations();break;case'dailyreport':b=dailyInventoryPage();break;case'operate':b=operate();break;case'pos':b=pos();break;case'daily':b=dailyImportPage();break;case'reconcile':b=reconcile();break;case'reorder':b=reorder();break;;case'inventory':b=inventory();break;case'warehouse':b=warehouse();break;
+case'finance':b=finance();break;case'branchops':b=branchOperations();break;case'dailyreport':b=dailyInventoryPage();break;case'operate':b=operate();break;case'pos':b=pos();break;case'daily':b=dailyImportPage();break;case'integrations':b=posIntegrationsPage();break;case'reconcile':b=reconcile();break;case'reorder':b=reorder();break;;case'inventory':b=inventory();break;case'warehouse':b=warehouse();break;
 case'requests':b=requests();break;case'transfers':b=transfers();break;case'wholesale':b=wholesale();break;
 case'returns':b=returns();break;case'closing':b=closing();break;case'reports':b=reports();break;case'intelligence':b=managementIntelligence();break;
 case'products':b=products();break;case'products-import':b=productImportPage();break;case'calendar':b=businessCalendarPage();break;case'users':b=users();break;
@@ -2558,8 +2558,11 @@ function bindExtended(){
     if($('#paymentFinanceForm')){const pf=$('#paymentFinanceForm');pf.onsubmit=financeSubmit;const pt=$('#paymentType');const ps=$('#paymentSupplier');const pc=$('#paymentCustomer');const refreshAllocations=()=>loadPaymentAllocations();const sync=()=>{const sup=pt?.value==='SUPPLIER';if(ps)ps.disabled=!sup;if(pc)pc.disabled=sup;refreshAllocations();};pt?.addEventListener('change',sync);ps?.addEventListener('change',refreshAllocations);pc?.addEventListener('change',refreshAllocations);pf.elements.amount?.addEventListener('input',()=>updatePaymentAllocationSummary(pf));sync();}if($('#expenseFinanceForm'))$('#expenseFinanceForm').onsubmit=financeSubmit;
     if($('#branchOpsPage'))loadBranchOperations();
     if($('#financePage')&&!state.financeLoaded)loadFinance();if($('#refreshFinance'))$('#refreshFinance').onclick=()=>loadFinance(true);if($('#financeApprovalQueue'))loadFinanceApprovals();if($('#refreshFinanceApprovals'))$('#refreshFinanceApprovals').onclick=loadFinanceApprovals;if($('#financeGL'))loadFinanceGL();if($('#poActionQueue'))loadPurchaseOrders();if($('#refreshPOQueue'))$('#refreshPOQueue').onclick=loadPurchaseOrders;
-    if($('#dailyPosImportForm'))$('#dailyPosImportForm').onsubmit=previewDailyImport;
-    if($('#productImportForm'))$('#productImportForm').onsubmit=previewProductImport;if($('#codeMapForm'))$('#codeMapForm').onsubmit=saveCodeMap;if($('#codeMapList'))loadCodeMaps();if($('#dailyImportQueue'))loadDailyImportQueue();if($('#dailyInventoryDate')){const di=document.getElementById('dailyInventoryDate');if(!di.value)di.value=localDate();di.onchange=loadDailyInventoryReport;const rb=document.getElementById('refreshDailyInventory');if(rb&&!rb.__bound){rb.__bound=1;rb.addEventListener('click',loadDailyInventoryReport)}loadDailyInventoryReport();}
+    if($('#dailyPosImportForm'))$('#dailyPosImportForm').onsubmit=previewDailyImport;if($('#dailyPosDevice'))loadDailyPosDeviceOptions();
+    if($('#posDeviceRegisterForm'))$('#posDeviceRegisterForm').onsubmit=registerPosDevice;
+    if($('#posDevicesList'))loadPosIntegrations();
+    if($('#refreshPosIntegrations'))$('#refreshPosIntegrations').onclick=loadPosIntegrations;
+    if($('#productImportForm'))$('#productImportForm').onsubmit=previewProductImport;if($('#posCodeMapForm'))$('#posCodeMapForm').onsubmit=saveCodeMap;if($('#posCodeMapSource'))$('#posCodeMapSource').onchange=loadCodeMaps;if($('#codeMapList')&&!$('#posCodeMapSource'))loadCodeMaps();if($('#dailyImportQueue'))loadDailyImportQueue();if($('#dailyInventoryDate')){const di=document.getElementById('dailyInventoryDate');if(!di.value)di.value=localDate();di.onchange=loadDailyInventoryReport;const rb=document.getElementById('refreshDailyInventory');if(rb&&!rb.__bound){rb.__bound=1;rb.addEventListener('click',loadDailyInventoryReport)}loadDailyInventoryReport();}
     if($('#v16ReqForm')){if(!document.querySelector('#v16ReqItems .sl-req-line'))addReqItemV16();$('#addV16ReqItem').onclick=addReqItemV16;$('#v16ReqForm').onsubmit=createRequisitionV16;const branchSelect=$('#v16ReqForm [name="location_id"]');if(branchSelect&&!branchSelect.dataset.stockPreviewBound){branchSelect.dataset.stockPreviewBound='1';branchSelect.addEventListener('change',refreshAllReqStockPreviews)}}
     if($('#refreshReqs'))$('#refreshReqs').onclick=loadReqs;if($('#reqTable'))loadReqs();if($('#refreshWarehouse'))$('#refreshWarehouse').onclick=()=>{load();};if($('#warehouseReqQueue'))loadWarehouseQueue();if($('#openHeaderNotifications'))$('#openHeaderNotifications').onclick=()=>document.getElementById('notificationBell')?.click();
     if($('#usersTable')){loadUsers();loadAvailableWPUsers();}if($('#locationsRegistry'))loadLocationsRegistry();if($('#hrPage')&&!state.hrLifecycleLoaded&&!state.hrLifecycleLoading)loadHRLifecycle();if($('#refreshHR'))$('#refreshHR').onclick=()=>{if(!state.hrLifecycleLoading)loadHRLifecycle();};bindHRLifecycleForms();bindHRPayrollCycleForms();
@@ -3031,10 +3034,128 @@ function dailyImportPage(){
         '<div class="sl-purpose-card"><b>2 • AUTOMATIC FOLDER PICKUP</b><span>Optional Windows branch-PC agent watches the agreed Incoming folder and securely submits new reports. It stages only; it never releases sales. Setup guide: <a href="'+folderGuide+'" target="_blank" rel="noopener">Branch folder agent</a>.</span><em>FOLDER → SAME STAGING ROUTE</em></div>'+
         '<div class="sl-purpose-card"><b>3 • FUTURE POS API</b><span>Reserved for the supplier’s official API. No vendor API is connected today. This option remains disabled until the supplier provides authenticated API documentation and owner approval.</span><em>NOT CONNECTED • AWAITING VENDOR</em></div>'+
       '</div>'+
-      '<div class="sl-panel sl-upload-callout"><div class="sl-eyebrow">OPTION 1 • ORIGINAL THIRD-PARTY POS SOURCE</div><h3>Upload Daily POS Report</h3><p>Choose the same Excel/CSV report exported by the branch POS. The ERP detects supported report dates and validates article codes, quantity, average amount, line totals, VAT and report totals. Upload creates a staged job only; it does not post sales, inventory or finance.</p><form id="dailyPosImportForm" class="sl-form"><div class="sl-field"><label>Business date <span class="sl-sub">(detected from supported POS reports)</span></label><input id="dailyPosBusinessDate" name="business_date" type="date" placeholder="Detected from file; enter only if absent"></div><div class="sl-field"><label>Branch</label>'+branchField+'</div><div class="sl-field full"><label>Original Daily POS Excel or CSV (.xlsx / .csv)</label><div class="sl-file-picker" data-file-picker><input id="dailyPosFile" name="file" type="file" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required><label class="sl-file-button" for="dailyPosFile"><span class="sl-file-button-main">Choose original POS file</span><span class="sl-file-name" data-file-name>No file selected</span></label></div></div><div class="sl-field full"><button class="sl-btn primary" type="submit">VALIDATE & STAGE</button></div></form><div id="dailyImportPreview" style="margin-top:14px"></div></div>'+
+      '<div class="sl-panel sl-upload-callout"><div class="sl-eyebrow">OPTION 1 • ORIGINAL THIRD-PARTY POS SOURCE</div><h3>Upload Daily POS Report</h3><p>Choose the same Excel/CSV report exported by the branch POS. The ERP detects supported report dates and validates article codes, quantity, average amount, line totals, VAT and report totals. Upload creates a staged job only; it does not post sales, inventory or finance.</p><form id="dailyPosImportForm" class="sl-form"><div class="sl-field"><label>Business date <span class="sl-sub">(detected from supported POS reports)</span></label><input id="dailyPosBusinessDate" name="business_date" type="date" placeholder="Detected from file; enter only if absent"></div><div class="sl-field"><label>Branch</label>'+branchField+'</div><div class="sl-field"><label>POS source / registered device</label><select id="dailyPosDevice" name="pos_device_id"><option value="">Generic / unregistered POS source</option></select><span class="sl-sub">Select a registered device to use its separate external product-code mapping namespace. Device connectivity remains independently unverified.</span></div><div class="sl-field full"><label>Original Daily POS Excel or CSV (.xlsx / .csv)</label><div class="sl-file-picker" data-file-picker><input id="dailyPosFile" name="file" type="file" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required><label class="sl-file-button" for="dailyPosFile"><span class="sl-file-button-main">Choose original POS file</span><span class="sl-file-name" data-file-name>No file selected</span></label></div></div><div class="sl-field full"><button class="sl-btn primary" type="submit">VALIDATE & STAGE</button></div></form><div id="dailyImportPreview" style="margin-top:14px"></div></div>'+
       '<div class="sl-panel"><div class="sl-block-head"><div><div class="sl-eyebrow">BRANCH MANAGER RELEASE CONTROL</div><h3>Daily POS staged queue</h3></div><small>Sales Employee: upload/stage • Branch Manager: review/edit/reconcile/release.</small></div><div id="dailyImportQueue"><div class="sl-empty">Loading staged Daily POS jobs…</div></div></div>'+
       '<div class="sl-panel sl-upload-callout"><div class="sl-eyebrow">INVENTORY CONTROL</div><h3>Daily Inventory Control</h3><p>After a Branch Manager releases a reconciled Daily POS job, verify the authoritative ledger-driven Daily Inventory report.</p><button class="sl-btn" type="button" data-view="dailyreport">OPEN DAILY INVENTORY</button></div>'+
       '<div class="sl-panel"><div class="sl-notice sl-warning-block"><b>Non-negotiable control:</b> Sales Employee uploads and stages only. Branch Manager reviews/reconciles and explicitly releases. Product Master remains separate; a Product Master upload never changes stock quantity. No source file is silently converted into invented receipts.</div></div>';
+}
+
+function posIntegrationsPage(){
+  const user=state.boot?.user||{},role=String(user.role||'');
+  if(!['owner','management','branch_manager'].includes(role)){
+    return title('POS Integrations','The Universal POS Integration Hub is available to Owner, Management and Branch Managers.')+
+      '<div class="sl-panel"><div class="sl-notice sl-warning-block">Access is restricted to authorized ERP roles.</div></div>';
+  }
+  const branches=authorizedBranches();
+  const company=['owner','management'].includes(role);
+  const branchField=company
+    ? '<select name="branch_location_id" required><option value="">Select branch…</option>'+branches.map(l=>'<option value="'+esc(l.id)+'">'+esc(l.location_name)+'</option>').join('')+'</select>'
+    : (branches.length>1
+      ? '<select name="branch_location_id" required>'+branches.map(l=>'<option value="'+esc(l.id)+'">'+esc(l.location_name)+'</option>').join('')+'</select>'
+      : '<div class="sl-readonly-field">'+esc(branches[0]?.location_name||'Assigned branch')+'</div><input type="hidden" name="branch_location_id" value="'+esc(branches[0]?.id||'')+'">');
+  return title('Universal POS Integration Hub','One vendor-neutral registry for branch POS devices and external software. Every future sales connector must use the existing Daily POS validation, staging, reconciliation and Branch Manager release workflow.','<button class="sl-btn" id="refreshPosIntegrations" type="button">REFRESH</button>')+
+    '<div class="sl-grid">'+
+      card('Integration architecture','Universal','REST API • Webhooks • Local gateway • SDK • File exchange')+
+      card('Transaction posting','Single controlled path','Daily POS preview → validate → stage → Manager release')+
+      card('Security boundary','No credentials here','Provider secrets remain outside ERP settings and browser responses')+
+    '</div>'+
+    '<div class="sl-panel"><div class="sl-block-head"><div><div class="sl-eyebrow">SUPPORTED CONNECTION PATTERNS</div><h3>Vendor-neutral adapter catalogue</h3></div><small>Pattern support does not mean a supplier is connected.</small></div><div id="posAdapterCatalog"><div class="sl-empty">Loading adapter catalogue…</div></div></div>'+
+    '<div class="sl-panel"><div class="sl-block-head"><div><div class="sl-eyebrow">BRANCH DEVICE REGISTRY</div><h3>Register a POS device or software source</h3></div><small>Assigned branch scope is enforced on the server.</small></div>'+
+      '<form id="posDeviceRegisterForm" class="sl-form">'+
+        '<div class="sl-field"><label>Branch</label>'+branchField+'</div>'+
+        '<div class="sl-field"><label>Vendor / supplier</label><input name="vendor" maxlength="80" required placeholder="POS manufacturer or software supplier"></div>'+
+        '<div class="sl-field"><label>Device / software name</label><input name="device_name" maxlength="80" required placeholder="Branch POS terminal or system name"></div>'+
+        '<div class="sl-field"><label>Model / software version</label><input name="model" maxlength="80" placeholder="Model or version (optional)"></div>'+
+        '<div class="sl-field"><label>Connection pattern</label><select name="connection_type" required><option value="">Choose connection type…</option><option value="REST_API">Vendor REST API</option><option value="WEBHOOK">Vendor webhook</option><option value="LOCAL_GATEWAY">Branch PC / local gateway</option><option value="DEVICE_SDK">Manufacturer SDK / device service</option><option value="FILE_EXCHANGE">File exchange (CSV / XLSX)</option></select></div>'+
+        '<div class="sl-field full"><button class="sl-btn primary" type="submit">REGISTER DEVICE</button></div>'+
+      '</form>'+
+      '<div class="sl-notice sl-notice-soft"><b>Important:</b> registration creates a device record only. It does not connect the POS, store API keys/passwords, enable automatic synchronization, or post sales. A vendor-specific adapter must pass an authenticated connection and replay/reconciliation test before it can become connected.</div>'+
+    '</div>'+
+    '<div class="sl-panel"><div class="sl-block-head"><div><div class="sl-eyebrow">REGISTERED DEVICES</div><h3>Branch connection status</h3></div><small>NOT CONNECTED until verified</small></div><div id="posDevicesList"><div class="sl-empty">Loading registered devices…</div></div></div>'+
+    (company
+      ? '<div class="sl-panel"><div class="sl-block-head"><div><div class="sl-eyebrow">OWNER / MANAGEMENT CONTROL</div><h3>External POS code → Stockland SKU mapping</h3></div><small>Versioned, source-specific and audited</small></div><p class="sl-sub">Map each supplier PLU / article code to an existing active Stockland SKU. The same external code may map differently for different registered devices. Branch Managers cannot change central product-code mappings.</p><form id="posCodeMapForm" class="sl-form"><div class="sl-field"><label>POS source namespace</label><select id="posCodeMapSource" name="source_system" required><option value="THIRD_PARTY_POS">Generic / legacy POS</option></select></div><div class="sl-field"><label>External PLU / article code</label><input name="external_code" maxlength="120" required></div><div class="sl-field"><label>Stockland live SKU</label><input name="live_sku" maxlength="80" required placeholder="Exact active Stockland SKU"></div><div class="sl-field"><label>Source name</label><input name="source_name" maxlength="120" placeholder="POS supplier / register name"></div><div class="sl-field"><label>Effective from</label><input name="effective_from" type="date"></div><div class="sl-field"><label>Effective to</label><input name="effective_to" type="date"></div><div class="sl-field full"><label>Mapping note</label><input name="mapping_note" maxlength="255" placeholder="Optional reason / supplier code detail"></div><div class="sl-field full"><button class="sl-btn primary" type="submit">SAVE SKU MAPPING</button></div></form><div id="codeMapList"><div class="sl-empty">Loading source-specific SKU mappings…</div></div></div>'
+      : '<div class="sl-panel"><div class="sl-notice sl-notice-soft"><b>Product-code mapping authority:</b> Central SKU mappings are controlled by Owner / Management. You can register and use devices in your assigned branch, submit Daily POS files, and send unknown PLU codes to Management for mapping. You cannot change the company product-code master.</div></div>')+
+    '<div class="sl-panel"><div class="sl-notice sl-warning-block"><b>ERP protection:</b> External systems cannot write directly to Stockland sales, inventory balances, fiscal records or the GL. Every inbound sales batch must be normalized, validated, reconciled and staged through Daily POS; the authorized Branch Manager retains release authority.</div></div>';
+}
+
+async function loadPosIntegrations(){
+  const adapters=document.getElementById('posAdapterCatalog');
+  const devices=document.getElementById('posDevicesList');
+  try{
+    const [catalog,registry]=await Promise.all([
+      api('/pos-integrations/adapters'),
+      api('/pos-integrations/devices')
+    ]);
+    if(adapters){
+      adapters.innerHTML='<div class="sl-import-purpose-grid">'+(catalog.connection_patterns||[]).map(x=>
+        '<div class="sl-purpose-card"><b>'+esc(x.label)+'</b><span>'+esc(x.description)+'</span><em>'+esc(x.state)+'</em></div>'
+      ).join('')+'</div><div class="sl-notice sl-notice-soft">'+esc(catalog.notice||'')+'</div>';
+    }
+    if(devices){
+      const rows=registry.devices||[];
+      devices.innerHTML=rows.length
+        ? '<div class="sl-table-wrap"><table class="sl-table sl-responsive-cards"><thead><tr><th>Device</th><th>Vendor / Model</th><th>Branch</th><th>Connection</th><th>Source ID</th><th>Status</th></tr></thead><tbody>'+rows.map(x=>
+            '<tr><td><b>'+esc(x.device_name)+'</b><div class="sl-sub">'+esc(x.device_id)+'</div></td><td>'+esc(x.vendor)+'<div class="sl-sub">'+esc(x.model||'')+'</div></td><td>'+esc(x.branch_name)+'</td><td>'+esc(x.connection_type)+'</td><td><code>'+esc(x.source_system)+'</code></td><td><span class="sl-pill warn">NOT CONNECTED</span><div class="sl-sub">Adapter required</div></td></tr>'
+          ).join('')+'</tbody></table></div>'
+        : '<div class="sl-empty">No POS devices are registered in your authorized branch scope.</div>';
+    }
+    const mapSource=document.getElementById('posCodeMapSource');
+    if(mapSource){
+      const selected=mapSource.value||'THIRD_PARTY_POS';
+      const options=[{value:'THIRD_PARTY_POS',label:'Generic / legacy POS'}].concat((registry.devices||[]).map(d=>({value:d.source_system,label:(d.vendor||'POS')+' • '+(d.device_name||d.device_id)+' • '+(d.branch_name||'')})));
+      mapSource.innerHTML=options.map(x=>'<option value="'+esc(x.value)+'">'+esc(x.label)+'</option>').join('');
+      if(options.some(x=>x.value===selected))mapSource.value=selected;
+      await loadCodeMaps();
+    }
+  }catch(e){
+    if(adapters)adapters.innerHTML='<div class="sl-notice sl-danger-block">'+esc(e.message)+'</div>';
+    if(devices)devices.innerHTML='<div class="sl-notice sl-danger-block">'+esc(e.message)+'</div>';
+  }
+}
+
+async function loadDailyPosDeviceOptions(){
+  const select=document.getElementById('dailyPosDevice');
+  const form=document.getElementById('dailyPosImportForm');
+  if(!select||!form)return;
+  const current=select.value;
+  try{
+    const result=await api('/pos-integrations/devices');
+    const branch=form.querySelector('[name=branch_location_id]');
+    const branchId=Number(branch?.value||0);
+    const devices=(result.devices||[]).filter(d=>!branchId||Number(d.branch_location_id)===branchId);
+    select.innerHTML='<option value="">Generic / unregistered POS source</option>'+devices.map(d=>
+      '<option value="'+esc(d.device_id)+'">'+esc(d.vendor)+' • '+esc(d.device_name)+' • '+esc(d.connection_status)+'</option>'
+    ).join('');
+    if(current&&devices.some(d=>d.device_id===current))select.value=current;
+    if(branch&&!branch.dataset.posDeviceFilterBound){
+      branch.dataset.posDeviceFilterBound='1';
+      branch.addEventListener('change',()=>loadDailyPosDeviceOptions());
+    }
+  }catch(error){
+    select.innerHTML='<option value="">Generic / unregistered POS source</option>';
+    const parent=select.closest('.sl-field');
+    if(parent&&!parent.querySelector('[data-pos-device-warning]')){
+      const note=document.createElement('span');note.className='sl-sub';note.dataset.posDeviceWarning='1';
+      note.textContent='Registered device list unavailable; use the generic import source or refresh the page.';
+      parent.appendChild(note);
+    }
+  }
+}
+
+async function registerPosDevice(e){
+  e.preventDefault();
+  const form=e.currentTarget,button=form.querySelector('button[type="submit"]');
+  if(button?.dataset.busy==='1')return;
+  const data=Object.fromEntries(new FormData(form));
+  data.branch_location_id=Number(data.branch_location_id||0);
+  if(button){button.dataset.busy='1';button.disabled=true;button.textContent='REGISTERING…'}
+  try{
+    const result=await api('/pos-integrations/devices',{method:'POST',body:JSON.stringify(data)});
+    toast('Device registered as NOT CONNECTED. Vendor adapter verification is still required.');
+    form.reset();
+    await loadPosIntegrations();
+  }catch(error){toast(error.message,true)}
+  finally{if(button){button.dataset.busy='0';button.disabled=false;button.textContent='REGISTER DEVICE'}}
 }
 
 function productImportPage(){
@@ -3049,7 +3170,7 @@ async function previewDailyImport(e){
     e.preventDefault();const f=e.currentTarget,file=document.getElementById('dailyPosFile')?.files[0],box=document.getElementById('dailyImportPreview'),submit=f?.querySelector('button[type=submit]');
     if(!file){toast('Choose the branch POS Excel/CSV file first.',true);return} if(submit?.dataset.busy==='1')return;
     if(submit){submit.dataset.busy='1';submit.disabled=true;submit.textContent='VALIDATING…'}
-    const fd=new FormData();fd.append('file',file);const bf=f.querySelector('[name=branch_location_id]');if(bf&&bf.value)fd.append('branch_location_id',bf.value);const df=f.querySelector('[name=business_date]');if(df?.value)fd.append('business_date',df.value);
+    const fd=new FormData();fd.append('file',file);const bf=f.querySelector('[name=branch_location_id]');if(bf&&bf.value)fd.append('branch_location_id',bf.value);const df=f.querySelector('[name=business_date]');if(df?.value)fd.append('business_date',df.value);const pf=f.querySelector('[name=pos_device_id]');if(pf?.value)fd.append('pos_device_id',pf.value);
     box.innerHTML='<div class="sl-notice">Reading the original POS report, checking its date and totals, then staging it securely…</div>';
     try{
       const d=await api16('/import/daily-sales/preview',{method:'POST',body:fd});
@@ -3110,9 +3231,9 @@ async function previewProductImport(e){
 
 async function loadDailyInventoryReport(){const el=document.getElementById('dailyInventoryReport');if(!el)return;const date=document.getElementById('dailyInventoryDate')?.value||localDate();el.innerHTML='<div class="sl-notice">Loading authoritative inventory evidence…</div>';try{const id=Number(document.getElementById('dailyInventoryLocation')?.value||state.dailyInventoryLocation||(!state.boot.user.can_all?(state.boot.user.location_ids?.[0]||state.boot.user.branch_location_id||0):0));state.dailyInventoryLocation=id;const qs='?business_date='+encodeURIComponent(date)+(id?'&location_id='+id:'')+'&detail_limit=500';const d=await api16('/reports/daily-inventory'+qs);const s=d.summary||{};const statusClass=x=>x==='OK'?'ok':x==='SHORTFALL'?'bad':'warn';const rows=(d.rows||[]).filter(x=>Number(x.closing)!==0||Number(x.sales)!==0||Number(x.reorder_qty)!==0||Number(x.receipts)!==0);const q=d.finance_data_quality||{};const quality=(Number(q.cost_missing_sale_lines||0)||Number(q.master_price_missing_sale_lines||0))?'<div class="sl-notice sl-danger-block"><b>Finance data quality notice:</b> '+esc(q.cost_missing_sale_lines||0)+' imported sale lines have no authoritative purchase cost and '+esc(q.master_price_missing_sale_lines||0)+' have no authoritative Master Price. No values were invented; complete Product Master data before relying on those finance fields.</div>':'';const trunc=d.rows_truncated?'<div class="sl-notice sl-notice-soft"><b>Detail rows bounded for production performance.</b> Showing '+esc(rows.length)+' of '+esc(d.total_matching_rows||rows.length)+' matching rows. KPI totals above cover the full selected scope.</div>':'';el.innerHTML=quality+trunc+'<div class="sl-grid sl-grid-compact">'+card('Opening',s.opening_units||0,'Units at start of business date')+card('Sales',s.sales||0,'Units posted from external POS')+card('Closing',s.closing_units||0,'Ledger-derived closing balance')+card('Available',s.available_units||0,'After active reservations')+card('Reorder',s.reorder_alerts||0,'Items below reorder level')+card('Shortfall',s.warehouse_shortfall||0,'Units unavailable in Warehouse')+'</div><div class="sl-grid sl-grid-compact">'+card('Sales Value',money(s.sales_gross||0),'Imported gross sales')+card('Net Sales',money(s.sales_net||0),'Excluding VAT')+card('VAT',money(s.sales_vat||0),'Imported VAT')+card('COGS',money(s.sales_cogs||0),'Cost of imported sales')+card('Gross Profit',money(s.sales_gross_profit||0),'Imported sales GP')+card('Sale Lines',s.sales_lines||0,'Posted source rows')+'</div><div class="sl-table-wrap"><table class="sl-table sl-responsive-cards"><thead><tr><th>Location</th><th>SKU</th><th>Opening</th><th>Receipts</th><th>In</th><th>Out</th><th>Sales Units</th><th>Sales Value</th><th>Closing</th><th>Reserved</th><th>Available</th><th>Reorder</th><th>Warehouse (current)</th><th>Status</th></tr></thead><tbody>'+(rows.length?rows.map(x=>'<tr><td data-label="Location"><b>'+esc(x.location_name)+'</b></td><td data-label="SKU"><b>'+esc(x.sku)+'</b><div class="sl-sub">'+esc(x.product_name)+'</div></td><td data-label="Opening">'+esc(x.opening)+'</td><td data-label="Receipts">'+esc(x.receipts)+'</td><td data-label="In">'+esc(x.transfer_in)+'</td><td data-label="Out">'+esc(x.transfer_out)+'</td><td data-label="Sales Units">'+esc(x.sales)+'</td><td data-label="Sales Value" class="sl-report-finance-cell">'+money(x.sales_gross||0)+'</td><td data-label="Closing"><b>'+esc(x.closing)+'</b></td><td data-label="Reserved">'+esc(x.reserved)+'</td><td data-label="Available"><b>'+esc(x.available)+'</b></td><td data-label="Reorder">'+esc(x.reorder_qty)+' / '+esc(x.reorder_level)+'</td><td data-label="Warehouse (current)">'+esc(x.warehouse_available)+' avail • '+esc(x.warehouse_fulfillable)+' fillable</td><td data-label="Status"><span class="sl-pill '+statusClass(x.reorder_status)+'">'+esc(x.reorder_status)+'</span></td></tr>').join(''):'<tr><td colspan="14"><div class="sl-empty">No movement / reorder rows for the selected date.</div></td></tr>')+'</tbody></table></div>';const ld=document.getElementById('dailyInventoryLocation');if(ld){ld.value=String(state.dailyInventoryLocation||id||0);ld.onchange=()=>{state.dailyInventoryLocation=Number(ld.value||0);loadDailyInventoryReport()}}}catch(e){const msg=String(e?.message||'ERP server did not return a usable Daily Inventory report.');el.innerHTML='<div class="sl-notice sl-danger-block"><b>Daily Inventory could not be loaded safely.</b><div style="margin-top:5px">'+esc(msg)+'</div><div class="sl-sub" style="margin-top:5px">No inventory data was changed by this report. Open System Health and inspect the exact server error before retrying.</div><button class="sl-btn primary sl-btn-sm" type="button" id="retryDailyInventory" style="margin-top:10px">RETRY</button></div>';document.getElementById('retryDailyInventory')?.addEventListener('click',loadDailyInventoryReport)}}
 
-async function loadCodeMaps(){const el=document.getElementById('codeMapList');if(!el)return;try{const rows=await api16('/import/code-maps');el.innerHTML=rows.length?'<div class="sl-table-wrap"><table class="sl-table sl-responsive-cards"><thead><tr><th>External code</th><th>Live SKU</th><th>Source</th><th>Effective</th><th>Note</th><th></th></tr></thead><tbody>'+rows.map(x=>'<tr><td data-label="External code"><b>'+esc(x.external_code)+'</b></td><td data-label="Live SKU"><b>'+esc(x.live_sku)+'</b></td><td data-label="Source">'+esc(x.source_system)+'</td><td data-label="Effective">'+esc(x.effective_from||'open')+' → '+esc(x.effective_to||'open')+'</td><td data-label="Note">'+esc(x.mapping_note||'')+'</td><td data-label="Action"><button class="sl-btn sl-btn-sm" data-delete-code-map="'+esc(x.id)+'">Deactivate</button></td></tr>').join('')+'</tbody></table></div>':'<div class="sl-empty">No external POS-code mappings have been added yet.</div>';document.querySelectorAll('[data-delete-code-map]').forEach(btn=>btn.onclick=async()=>{btn.disabled=true;try{await api16('/import/code-maps/'+encodeURIComponent(btn.dataset.deleteCodeMap),{method:'DELETE'});await loadCodeMaps();toast('Code mapping deactivated')}catch(e){toast(e.message,true);btn.disabled=false}})}catch(e){el.innerHTML='<div class="sl-notice sl-danger-block">'+esc(e.message)+'</div>'}}
+async function loadCodeMaps(){const el=document.getElementById('codeMapList');if(!el)return;try{const source=document.getElementById('posCodeMapSource')?.value||'THIRD_PARTY_POS';const rows=await api16('/import/code-maps?source_system='+encodeURIComponent(source));el.innerHTML=rows.length?'<div class="sl-table-wrap"><table class="sl-table sl-responsive-cards"><thead><tr><th>External code</th><th>Live SKU</th><th>Source</th><th>Effective</th><th>Note</th><th></th></tr></thead><tbody>'+rows.map(x=>'<tr><td data-label="External code"><b>'+esc(x.external_code)+'</b></td><td data-label="Live SKU"><b>'+esc(x.live_sku)+'</b></td><td data-label="Source">'+esc(x.source_system)+'</td><td data-label="Effective">'+esc(x.effective_from||'open')+' → '+esc(x.effective_to||'open')+'</td><td data-label="Note">'+esc(x.mapping_note||'')+'</td><td data-label="Action"><button class="sl-btn sl-btn-sm" data-delete-code-map="'+esc(x.id)+'">Deactivate</button></td></tr>').join('')+'</tbody></table></div>':'<div class="sl-empty">No external POS-code mappings have been added yet.</div>';document.querySelectorAll('[data-delete-code-map]').forEach(btn=>btn.onclick=async()=>{btn.disabled=true;try{await api16('/import/code-maps/'+encodeURIComponent(btn.dataset.deleteCodeMap),{method:'DELETE'});await loadCodeMaps();toast('Code mapping deactivated')}catch(e){toast(e.message,true);btn.disabled=false}})}catch(e){el.innerHTML='<div class="sl-notice sl-danger-block">'+esc(e.message)+'</div>'}}
 
-async function saveCodeMap(e){e.preventDefault();const f=e.currentTarget;if(f.dataset.busy==='1')return;f.dataset.busy='1';const btn=f.querySelector('button[type="submit"]');const original=btn?btn.textContent:'';if(btn){btn.disabled=true;btn.setAttribute('aria-busy','true');btn.textContent='SAVING…'}const d=Object.fromEntries(new FormData(f));try{const out=await api16('/import/code-maps',{method:'POST',body:JSON.stringify(d)});f.reset();await loadCodeMaps();toast(out?.message||'External POS code mapping saved')}catch(e){toast(e.message,true)}finally{f.dataset.busy='0';if(btn){btn.disabled=false;btn.removeAttribute('aria-busy');btn.textContent=original||'SAVE SKU MAPPING'}}}
+async function saveCodeMap(e){e.preventDefault();const f=e.currentTarget;if(f.dataset.busy==='1')return;f.dataset.busy='1';const btn=f.querySelector('button[type="submit"]');const original=btn?btn.textContent:'';const source=f.querySelector('[name="source_system"]')?.value||'THIRD_PARTY_POS';if(btn){btn.disabled=true;btn.setAttribute('aria-busy','true');btn.textContent='SAVING…'}const d=Object.fromEntries(new FormData(f));try{const out=await api16('/import/code-maps',{method:'POST',body:JSON.stringify(d)});f.reset();const sourceField=f.querySelector('[name="source_system"]');if(sourceField)sourceField.value=source;await loadCodeMaps();toast(out?.message||'External POS code mapping saved')}catch(e){toast(e.message,true)}finally{f.dataset.busy='0';if(btn){btn.disabled=false;btn.removeAttribute('aria-busy');btn.textContent=original||'SAVE SKU MAPPING'}}}
 
 function requests(){const c=state.boot.user.capabilities||{};const canCreate=!!c.request;return title('Requisitions','Requested → Reviewed → Approved → Reserved → Picked → Received. Requisitions do not use an In Transit state.','<button class="sl-btn" id="refreshReqs">Refresh</button>')+(canCreate?'<div class="sl-panel sl-request-create-panel"><div class="sl-block-head"><div><div class="sl-eyebrow">BRANCH REQUEST</div><h3>Seek Stock — System Sourcing</h3><small>The ERP compares Central Warehouse first and eligible peer-branch stock second. It only advises; approval, reservation and transfer remain in the existing SOP workflow.</small></div><span class="sl-workflow-chip">EXTERNAL POS REMAINS SEPARATE</span></div><form id="v16ReqForm" class="sl-form"><div class="sl-field full"><label>Requesting branch</label><select name="location_id">'+((state.boot.user.can_all?((state.boot.locations||[]).filter(l=>l.location_type==='Branch'&&Number(l.is_active)!==0)):(state.boot.locations||[]).filter(l=>l.location_type==='Branch'&&(state.boot.user.location_ids||[]).map(Number).includes(Number(l.id))))).map(l=>'<option value="'+l.id+'" '+(Number(l.id)===Number(state.boot.user.location_ids?.[0]||state.boot.user.branch_location_id||0)?'selected':'')+'>'+esc(l.location_name)+'</option>').join('')+'</select><small class="sl-sub">Only your authorized branch scope is available.</small></div><div id="v16ReqItems"></div><div class="sl-field full"><button class="sl-btn" type="button" id="addV16ReqItem">+ Add item</button></div><div class="sl-field full"><label>Request note</label><textarea name="notes" rows="3" placeholder="Customer demand, priority or operational reason"></textarea></div><div class="sl-field full"><button class="sl-btn primary" type="submit">SUBMIT BRANCH REQUISITION</button></div></form></div>':'')+'<div class="sl-panel"><div class="sl-block-head"><div><div class="sl-eyebrow">ORDER CONTROL</div><h3>Requisition queue</h3></div><small>Role, workflow state and live inventory availability are enforced by the ERP.</small></div><div id="reqTable"><div class="sl-empty">Loading requisitions…</div></div></div>'}
 
