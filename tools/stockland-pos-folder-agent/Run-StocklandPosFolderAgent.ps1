@@ -95,6 +95,101 @@ function Invoke-StocklandFolderAgent {
     $base = $site.AbsoluteUri.TrimEnd('/')
     $endpoint = $base + '/wp-json/stockland/v16/import/daily-sales/preview'
 
+    $deviceId = ''
+    if ($Config.ContainsKey('PosDeviceId')) {
+        $deviceId = ([string]$Config.PosDeviceId).Trim().ToUpperInvariant()
+    }
+    if ($deviceId -ne '' -and $deviceId -notmatch '^[A-F0-9]{16}
+    $rawAuth = [byte[]]@()
+    try {
+        $rawAuth = [System.Text.Encoding]::UTF8.GetBytes(([string]$Config.UserName) + ':' + $password)
+        $headers = @{ Authorization = 'Basic ' + [Convert]::ToBase64String($rawAuth) }
+    }
+    finally {
+        $password = $null
+        if ($rawAuth) { [Array]::Clear($rawAuth, 0, $rawAuth.Length) }
+    }
+
+    $counts = @{ Submitted = 0; Review = 0; Attention = 0; RetainedForRetry = 0 }
+    $files = @(Get-ChildItem -LiteralPath $folders.Incoming -File | Where-Object { $_.Extension.ToLowerInvariant() -in @('.xlsx', '.csv') } | Sort-Object LastWriteTimeUtc, Name)
+    $stableSeconds = if ($null -ne $Config.StableSeconds) { [Math]::Max(0, [int]$Config.StableSeconds) } else { 5 }
+    foreach ($file in $files) {
+        try {
+            if ($stableSeconds -gt 0 -and $file.LastWriteTimeUtc -gt [DateTime]::UtcNow.AddSeconds(-$stableSeconds)) {
+                Write-StocklandAgentLog -Path $logPath -Message "Waiting for source file to finish writing: $($file.Name)."
+                continue
+            }
+            if ($file.Length -gt 15MB) {
+                Write-StocklandAgentLog -Path $logPath -Message "NeedsAttention: $($file.Name) exceeds the 15 MB agent safety limit."
+                Move-StocklandAgentFile -File $file -DestinationFolder $folders.NeedsAttention
+                $counts.Attention++
+                continue
+            }
+            # The server derives the branch from this dedicated user's assigned branch
+            # and detects the business date from supported POS reports. This agent never
+            # sends a branch override and never calls the commit/release endpoint.
+            $formData = @{ file = $file }
+            if ($deviceId -ne '') {
+                # Device ID selects only the per-device product-code map namespace.
+                # The ERP still verifies branch ownership and controls staging/release.
+                $formData['pos_device_id'] = $deviceId
+            }
+            $response = Invoke-RestMethod -Uri $endpoint -Method Post -Headers $headers -Form $formData -TimeoutSec 120 -MaximumRedirection 0
+            $status = [string]$response.status
+            $isExistingJob = $false
+            if ($response -is [System.Collections.IDictionary]) {
+                $isExistingJob = $response.Contains('existing_job') -and [bool]$response['existing_job']
+            }
+            elseif ($null -ne $response -and $null -ne $response.PSObject.Properties['existing_job']) {
+                $isExistingJob = [bool]$response.existing_job
+            }
+            if ($isExistingJob -or $status -in @('READY', 'PARTIAL', 'POSTED')) {
+                Write-StocklandAgentLog -Path $logPath -Message "Submitted/staged: $($file.Name); job #$($response.job_id); status $status."
+                Move-StocklandAgentFile -File $file -DestinationFolder $folders.Submitted
+                $counts.Submitted++
+            }
+            elseif ($status -eq 'REVIEW') {
+                Write-StocklandAgentLog -Path $logPath -Message "NeedsReview: $($file.Name); job #$($response.job_id). Manager review is required; nothing was released."
+                Move-StocklandAgentFile -File $file -DestinationFolder $folders.NeedsReview
+                $counts.Review++
+            }
+            else {
+                Write-StocklandAgentLog -Path $logPath -Message "NeedsAttention: $($file.Name); unexpected ERP response status '$status'."
+                Move-StocklandAgentFile -File $file -DestinationFolder $folders.NeedsAttention
+                $counts.Attention++
+            }
+        }
+        catch {
+            $httpCode = Get-StocklandHttpStatusCode -ErrorRecord $_
+            if ($httpCode -ge 400 -and $httpCode -lt 500) {
+                Write-StocklandAgentLog -Path $logPath -Message "NeedsAttention: $($file.Name); ERP HTTP $httpCode. Check user role, branch assignment, file format or closed business day."
+                Move-StocklandAgentFile -File $file -DestinationFolder $folders.NeedsAttention
+                $counts.Attention++
+            }
+            else {
+                # Transient network/5xx errors leave the file in Incoming for the next
+                # scheduled pass. The server's source hash prevents duplicate posting.
+                Write-StocklandAgentLog -Path $logPath -Message "Retry later: $($file.Name); transport/ERP error. File retained in Incoming."
+                $counts.RetainedForRetry++
+            }
+        }
+    }
+    return [pscustomobject]$counts
+}
+
+if ($MyInvocation.InvocationName -ne '.') {
+    if (-not (Test-Path -LiteralPath $ConfigPath)) {
+        throw "Agent configuration was not found at $ConfigPath. Run Install-StocklandPosFolderAgent.ps1 first."
+    }
+    $configuration = Get-Content -LiteralPath $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json -AsHashtable
+    $result = Invoke-StocklandFolderAgent -Config $configuration
+    if ($result.RetainedForRetry -gt 0) { exit 2 }
+    exit 0
+}
+) {
+        throw 'Configured POS device ID must be the 16-character ID copied from the Stockland POS Integration Registry.'
+    }
+
     $password = Get-StocklandAgentPassword -EncryptedPassword ([string]$Config.PasswordBlob)
     $rawAuth = [byte[]]@()
     try {
