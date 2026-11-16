@@ -1153,6 +1153,7 @@ class Stockland_REST_Import_V16 {
 			Stockland_Business_Calendar::assert_business_day( $business_date );
 			if ( Stockland_DB::is_day_closed( $branch, $business_date ) ) throw new Exception( 'This branch day is already closed.' );
 			$source_system = $registered_device ? (string) $registered_device['source_system'] : ( 'CNET_SUMMARIZED_BY_ARTICLE' === ( $source_meta['format'] ?? '' ) ? 'THIRD_PARTY_POS_SUMMARY' : 'THIRD_PARTY_POS' );
+			$mapping_source_system = $registered_device ? (string) $registered_device['source_system'] : 'THIRD_PARTY_POS';
 			$all_rows = $found['rows'];
 			$rows     = array();
 			foreach ( $all_rows as $src ) {
@@ -1189,7 +1190,7 @@ class Stockland_REST_Import_V16 {
 			foreach ( $rows as $src ) {
 				$external_codes[] = sanitize_text_field( (string) $this->mapped_value( $src, $map, 'sku' ) );
 			}
-			$bulk_resolution = $this->daily_resolution_bulk( $external_codes, $business_date, $source_system );
+			$bulk_resolution = $this->daily_resolution_bulk( $external_codes, $business_date, $mapping_source_system );
 			$resolve_map     = $bulk_resolution['map'];
 			$product_cache   = $bulk_resolution['products'];
 			foreach ( $rows as $i => $src ) {
