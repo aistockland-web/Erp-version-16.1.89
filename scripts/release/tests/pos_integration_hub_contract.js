@@ -12,6 +12,7 @@ const folderAgent = fs.readFileSync(path.join(root, 'tools/stockland-pos-folder-
 const folderAgentTests = fs.readFileSync(path.join(root, 'tools/stockland-pos-folder-agent/tests/Test-StocklandPosFolderAgent.ps1'), 'utf8');
 const folderInstaller = fs.readFileSync(path.join(root, 'tools/stockland-pos-folder-agent/Install-StocklandPosFolderAgent.ps1'), 'utf8');
 const runner = fs.readFileSync(path.join(root, 'scripts/release/e2e/run_all.sh'), 'utf8');
+const browserSmoke = fs.readFileSync(path.join(root, 'scripts/release/ui/ui_smoke.js'), 'utf8');
 
 function assert(ok, message) {
   if (!ok) throw new Error('Universal POS integration contract failed: ' + message);
@@ -57,6 +58,9 @@ assert(importer.includes(": 'THIRD_PARTY_POS';"), 'Existing generic POS mappings
 assert(importer.includes('/import/daily-sales/preview') && importer.includes('/import/daily-sales/commit'), 'All intake still uses the established preview/release routes.');
 
 assert(runner.includes('s17_pos_integration_hub'), 'The database-backed integration registry test must run in the full synthetic E2E sequence.');
+assert(browserSmoke.includes("[data-nav-toggle=\"sales\"]") && browserSmoke.includes("[data-view=\"integrations\"]"), 'Browser acceptance must open POS Integrations from the actual Sales & POS navigation.');
+assert(browserSmoke.includes('#posDeviceRegisterForm') && browserSmoke.includes('/pos-integrations/adapters') && browserSmoke.includes('/pos-integrations/devices'), 'Browser acceptance must verify the rendered integration form and both live registry endpoints.');
+assert(browserSmoke.includes("POS Integrations ' + viewport.label + ' layout"), 'Browser acceptance must measure POS Integrations at phone, tablet and desktop sizes.');
 assert(e2e.includes('Branch Manager cannot register a device for another branch'), 'E2E must test branch boundary.');
 assert(e2e.includes("call(\n\t'POST',\n\t'/products'") && e2e.includes('Synthetic POS Mapping Product A') && e2e.includes('Synthetic POS Mapping Product B'), 'E2E must create disposable Product Master variants through the authorized REST service rather than assume pre-seeded SKUs.');
 assert(e2e.includes("delete_record( Stockland_DB::table( 'product_code_maps' )") && e2e.includes("delete_record( Stockland_DB::table( 'products' )"), 'E2E must clean up synthetic product and mapping records in its disposable database.');
