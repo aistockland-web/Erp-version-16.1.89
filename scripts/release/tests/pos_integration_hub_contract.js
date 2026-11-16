@@ -10,6 +10,7 @@ const bootstrap = fs.readFileSync(path.join(root, 'src/stockland-erp-app/stockla
 const e2e = fs.readFileSync(path.join(root, 'scripts/release/e2e/s17_pos_integration_hub.php'), 'utf8');
 const folderAgent = fs.readFileSync(path.join(root, 'tools/stockland-pos-folder-agent/Run-StocklandPosFolderAgent.ps1'), 'utf8');
 const folderAgentTests = fs.readFileSync(path.join(root, 'tools/stockland-pos-folder-agent/tests/Test-StocklandPosFolderAgent.ps1'), 'utf8');
+const folderInstaller = fs.readFileSync(path.join(root, 'tools/stockland-pos-folder-agent/Install-StocklandPosFolderAgent.ps1'), 'utf8');
 const runner = fs.readFileSync(path.join(root, 'scripts/release/e2e/run_all.sh'), 'utf8');
 
 function assert(ok, message) {
@@ -64,7 +65,9 @@ assert(e2e.includes('same external PLU resolves to device A Product Master SKU o
 assert(importer.includes("$mapping_source_system = $registered_device ? (string) $registered_device['source_system'] : 'THIRD_PARTY_POS';"), 'Device imports must use per-device mapping namespaces while generic imports retain legacy mappings.');
 
 assert(folderAgent.includes("PosDeviceId") && folderAgent.includes("formData['pos_device_id']"), 'Windows folder agent must support optional per-device mapping identity.');
-assert(folderAgent.includes("^[A-F0-9]{16}$") && folderAgent.includes('never sends a branch override'), 'Folder agent must validate device ID and retain its no-branch-override boundary.');
+assert(folderAgent.includes('$deviceId.Length -ne 16') && folderAgent.includes("match '[^A-F0-9]'"), 'Folder agent must validate the exact device ID length and hexadecimal characters.');
+assert(folderAgent.includes('never sends a branch override'), 'Folder agent must retain its no-branch-override boundary.');
+assert(folderInstaller.includes('[string]$PosDeviceId =') && folderInstaller.includes('$PosDeviceId.Length -ne 16'), 'Windows installer must validate and persist an optional registered device ID.');
 assert(!folderAgent.includes("import/daily-sales/commit"), 'Folder agent must never release or post sales.');
 assert(folderAgentTests.includes('Malformed registered POS device IDs must be rejected.') && folderAgentTests.includes('Registered device ID must be included in the Daily POS preview form.'), 'Windows tests must cover invalid, configured and generic device identity modes.');
 
