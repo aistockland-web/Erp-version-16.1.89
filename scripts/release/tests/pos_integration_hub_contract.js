@@ -64,7 +64,7 @@ assert(e2e.includes('same external PLU resolves to device A Product Master SKU o
 assert(importer.includes("$mapping_source_system = $registered_device ? (string) $registered_device['source_system'] : 'THIRD_PARTY_POS';"), 'Device imports must use per-device mapping namespaces while generic imports retain legacy mappings.');
 
 assert(folderAgent.includes("PosDeviceId") && folderAgent.includes("formData['pos_device_id']"), 'Windows folder agent must support optional per-device mapping identity.');
-assert(folderAgent.includes("^[A-F0-9]{16}$") && folderAgent.includes('cannot override'), 'Folder agent must validate device ID and retain its no-branch-override boundary.');
+assert(folderAgent.includes("^[A-F0-9]{16}$") && folderAgent.includes('never sends a branch override'), 'Folder agent must validate device ID and retain its no-branch-override boundary.');
 assert(!folderAgent.includes("import/daily-sales/commit"), 'Folder agent must never release or post sales.');
 assert(folderAgentTests.includes('Malformed registered POS device IDs must be rejected.') && folderAgentTests.includes('Registered device ID must be included in the Daily POS preview form.'), 'Windows tests must cover invalid, configured and generic device identity modes.');
 
