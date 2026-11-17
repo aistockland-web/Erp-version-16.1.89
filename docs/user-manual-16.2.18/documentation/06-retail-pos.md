@@ -50,6 +50,26 @@ Confirm the sale in authorized sales history and check the stock movement in Inv
 {% endstep %}
 {% endstepper %}
 
+## Figure 1 — Direct retail checkout
+
+```mermaid
+flowchart TD
+    A["Open Retail POS"] --> B["Confirm business date and assigned branch"]
+    B --> C["Choose VAT mode"]
+    C --> D["Search active Product Master SKU"]
+    D --> E["Add variant to cart"]
+    E --> F{"More items?"}
+    F -->|Yes| D
+    F -->|No| G["Review SKU, size, color, quantities and totals"]
+    G --> H{"Stock and server checks pass?"}
+    H -->|No| I["Stop; review availability with Branch Manager"]
+    H -->|Yes| J["POST COMPLETE CART once"]
+    J --> K["Record sale reference"]
+    K --> L["Verify sales history and inventory movement"]
+```
+
+*Figure 1: direct Retail POS posts a complete cart. Do not also import the same sale through Daily POS Import. If the result is uncertain, check the existing transaction before retrying.*
+
 ## VAT mode
 
 The POS offers VAT included and Without VAT. The preview is not the final authority: Product Master price, VAT configuration, stock availability and ledger validation are checked by the server when posting.
