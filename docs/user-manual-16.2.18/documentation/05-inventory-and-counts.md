@@ -38,6 +38,27 @@ If the report cannot load, stop and report the error. Do not estimate stock from
 
 Use Reorder Alerts to identify items needing replenishment. Check branch/warehouse, SKU and availability before creating a requisition. An alert is a signal for review, not a stock transaction.
 
+## Figure 1 — Physical count approval path
+
+```mermaid
+flowchart TD
+    A["Download current Stockland count template"] --> B["Count actual items at one location"]
+    B --> C["Record one row per SKU / size / color"]
+    C --> D["Upload workbook to Stock Count & Approval"]
+    D --> E["PREVIEW WORKBOOK"]
+    E --> F{"Validation correct?"}
+    F -->|No| G["Correct workbook and preview again"]
+    G --> D
+    F -->|Yes| H["Commit validated count batch"]
+    H --> I["Compare System Qty, Counted Qty and Variance"]
+    I --> J{"Authorized approver decision"}
+    J -->|Reject| K["REJECT COUNT with reason"]
+    J -->|Approve| L["APPROVE & POST FINAL INVENTORY"]
+    L --> M["Verify updated stock and audit reference"]
+```
+
+*Figure 1: previewing or committing a batch is not the same as posting final inventory. Only the authorized approval action completes the inventory correction.*
+
 ## Physical count workbook
 
 The ERP provides a Stockland Physical Count Excel template. Use the current template rather than inventing column headings. The workbook requires a PHYSICAL COUNT worksheet and, at minimum, count date, location, product identity (SKU or Brand + Product Name + Size + Color) and Quantity Found.
