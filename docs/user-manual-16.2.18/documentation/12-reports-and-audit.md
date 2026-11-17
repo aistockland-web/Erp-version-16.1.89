@@ -35,6 +35,26 @@ Use PRINT / SAVE PDF for a printable report or DOWNLOAD SELECTED CSV for the sel
 {% endstep %}
 {% endstepper %}
 
+## Figure 1 — Report and audit review
+
+```mermaid
+flowchart TD
+    A["Open Reports & Analytics"] --> B["Choose report type"]
+    B --> C["Set date range"]
+    C --> D["Choose authorized location scope"]
+    D --> E["RUN REPORT"]
+    E --> F["Review result and filters"]
+    F --> G{"Need a copy?"}
+    G -->|Print / PDF| H["PRINT / SAVE PDF"]
+    G -->|Data file| I["DOWNLOAD SELECTED CSV"]
+    H --> J["Retain report with date and scope"]
+    I --> J
+    J --> K["For an event trace, open Audit Log"]
+    K --> L["Match actor, record, event and timestamp"]
+```
+
+*Figure 1: reports are read-only analysis. Audit Log is the trace of recorded events; neither is an edit path for correcting transactions.*
+
 ## Daily Inventory versus Reports
 
 Daily Inventory is a read-only ledger-derived stock movement view. Reports & Analytics is a report builder for performance, availability, transfers, counts and returns. Neither screen is a stock-entry function.
