@@ -37,6 +37,25 @@ Select RECORD MOVEMENT if your account is authorized. Confirm the resulting reco
 {% endstep %}
 {% endstepper %}
 
+## Figure 1 — Controlled return, damage or adjustment
+
+```mermaid
+flowchart TD
+    A["Open Returns & Adjustments"] --> B["Select authorized location"]
+    B --> C["Choose Return / Damage / Adjustment"]
+    C --> D["Select exact Product Master SKU"]
+    D --> E["Enter actual quantity"]
+    E --> F["Enter factual reason and source reference"]
+    F --> G["Submit RECORD MOVEMENT"]
+    G --> H{"Approval required?"}
+    H -->|Yes| I["Wait for authorized approver decision"]
+    H -->|No| J["Verify transaction reference"]
+    I --> J
+    J --> K["Check resulting stock / ledger movement"]
+```
+
+*Figure 1: a controlled movement is tied to a real item, location, quantity and reason. It must never be used to disguise an unrecorded sale or supplier receipt.*
+
 ## Control rules
 
 - Do not use an adjustment to disguise an unrecorded receipt or sale.
