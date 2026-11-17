@@ -14,6 +14,33 @@ Daily POS Import reconciles completed sales from an external branch POS into Sto
 - Branch Manager: review, edit, reconcile and RELEASE TO ERP.
 - A staged import does not post sales, inventory or finance.
 
+## Figure 1 — Daily POS import: staging is not release
+
+```mermaid
+flowchart TD
+    A["Completed external branch POS report"] --> B{"Intake method"}
+    B -->|Manual XLSX / CSV| C["Sales Employee uploads original report"]
+    B -->|Optional Windows folder agent| D["Agent picks up approved Incoming-folder file"]
+    C --> E["VALIDATE & STAGE"]
+    D --> E
+    E --> F{"Duplicate file?"}
+    F -->|Yes| G["Open existing staged job — do not upload again"]
+    F -->|No| H["Review date, branch, SKU mapping and totals"]
+    H --> I{"Blocking errors or mismatch?"}
+    I -->|Yes| J["Correct source / mapping; validate again"]
+    J --> E
+    I -->|No| K["Open staged job"]
+    G --> L["Branch Manager reviews staged queue"]
+    K --> L
+    L --> M["Inspect lines, warnings and reconciliation"]
+    M --> N{"Manager satisfied?"}
+    N -->|No| J
+    N -->|Yes| O["RELEASE TO ERP"]
+    O --> P["Verify sales, inventory and reports"]
+```
+
+*Figure 1: both supported intake methods feed the same staging queue. The Windows agent does not release sales. Only the Branch Manager review-and-release step posts the approved staged sales into ERP.*
+
 ## Manual upload and staging
 
 {% stepper %}
