@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="560" viewBox="0 0 1600 560" role="img" aria-labelledby="title desc">
+  <title id="title">Stockland Ethiopia ERP User Manual, release 16.2.18</title>
+  <desc id="desc">A professional navy and blue cover with orange accents for the Stockland Ethiopia ERP user manual.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#08284B"/>
+      <stop offset="0.58" stop-color="#104B83"/>
+      <stop offset="1" stop-color="#1767A8"/>
+    </linearGradient>
+    <linearGradient id="orange" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFB04A"/>
+      <stop offset="1" stop-color="#F07820"/>
+    </linearGradient>
+    <pattern id="grid" width="44" height="44" patternUnits="userSpaceOnUse">
+      <path d="M44 0H0V44" fill="none" stroke="#FFFFFF" stroke-opacity=".075" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="1600" height="560" rx="28" fill="url(#bg)"/>
+  <rect width="1600" height="560" rx="28" fill="url(#grid)"/>
+  <circle cx="1370" cy="120" r="280" fill="#FFFFFF" opacity=".045"/>
+  <circle cx="1440" cy="420" r="220" fill="#0A2441" opacity=".22"/>
+  <path d="M1110 0h490v560h-250c-80-104-115-213-124-313-6-82-43-164-116-247z" fill="#FFFFFF" opacity=".045"/>
+  <path d="M1190 0h410v28h-410z" fill="url(#orange)"/>
+  <path d="M1280 560c76-86 120-170 137-254 20-99 66-190 142-268h41v522z" fill="#F28C28" opacity=".92"/>
+  <path d="M1302 560c55-74 86-148 100-224 16-86 52-165 110-236" fill="none" stroke="#FFD09A" stroke-width="3" opacity=".8"/>
+  <rect x="104" y="104" width="9" height="70" rx="4.5" fill="url(#orange)"/>
+  <text x="142" y="142" fill="#FFD09A" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" letter-spacing="4">STOCKLAND ETHIOPIA</text>
+  <text x="140" y="252" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="66" font-weight="700" letter-spacing="-1.5">ERP USER MANUAL</text>
+  <text x="144" y="314" fill="#E6F0FA" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="400">Practical guide to daily operations</text>
+  <rect x="144" y="372" width="248" height="58" rx="29" fill="#F28C28"/>
+  <text x="268" y="410" fill="#142D45" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" letter-spacing="1.5">RELEASE 16.2.18</text>
+  <text x="144" y="492" fill="#D9E8F5" font-family="Arial, Helvetica, sans-serif" font-size="18" letter-spacing="1.6">PRODUCTION OPERATIONS  •  STAFF REFERENCE</text>
+  <path d="M106 520h470" stroke="#F28C28" stroke-width="3" stroke-linecap="round"/>
+</svg>
