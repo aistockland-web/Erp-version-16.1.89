@@ -2,7 +2,7 @@
 description: Practical operating instructions for Stockland Ethiopia ERP 16.2.18.
 ---
 
-![Stockland Ethiopia ERP User Manual — blue and orange edition](assets/stockland-erp-manual-cover.svg)
+![Stockland Ethiopia ERP User Manual — blue and orange edition](https://raw.githubusercontent.com/aistockland-web/Erp-version-16.1.89/docs/stockland-erp-user-manual-16.2.18/docs/user-manual-16.2.18/documentation/assets/stockland-erp-manual-cover.svg)
 
 # Stockland Ethiopia ERP — User Manual
 
