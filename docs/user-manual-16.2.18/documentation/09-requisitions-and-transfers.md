@@ -1,5 +1,42 @@
 # 9. Requisitions and transfers
 
+## Figure 1 — Requisition lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> Requested
+    Requested --> Reviewed
+    Reviewed --> Approved
+    Approved --> Reserved
+    Reserved --> Picked
+    Picked --> Received
+    Received --> Completed
+    Reviewed --> Rejected
+    Approved --> Rejected
+    Rejected --> [*]
+    Completed --> [*]
+```
+
+*Figure 1 illustrates the normal branch-demand lifecycle. A transfer has its own location-to-location controls and dispatch/receipt evidence; a Picked status is not the same as destination receipt.*
+
+## Figure 2 — Transfer dispatch and receipt
+
+```mermaid
+flowchart TD
+    A["Create transfer request"] --> B["Authorize source, destination, SKU and quantity"]
+    B --> C["Reserve stock"]
+    C --> D["Pick and prepare dispatch"]
+    D --> E["Mark In Transit"]
+    E --> F["Destination checks actual received quantity"]
+    F --> G{"Received quantity reconciles?"}
+    G -->|No| H["Record and resolve variance through controlled workflow"]
+    G -->|Yes| I["Confirm Received / Completed"]
+    H --> I
+    I --> J["Verify source and destination balances"]
+```
+
+*Figure 2: dispatch is not receipt. Destination staff must confirm the actual goods received before the transfer is treated as complete.*
+
 ## Create a requisition
 
 {% stepper %}
