@@ -817,7 +817,7 @@ return '<div class="sl-dashboard-page">'+
  '<section class="sl-block sl-dashboard-card sl-dashboard-trend"><div class="sl-block-head"><div><h3>Sales Overview</h3><small>Last 7 days · ETB</small></div><small>Authorized sales</small></div><div id="slDashboardSalesTrend" class="sl-dashboard-chart-body"><div class="sl-empty">Loading posted sales trend…</div></div></section>'+
  '<section class="sl-block sl-dashboard-card sl-dashboard-category"><div class="sl-block-head"><div><h3>Sales by Category</h3></div><small>Current month</small></div><div id="slDashboardCategories" class="sl-dashboard-chart-body"><div class="sl-empty">Loading category totals…</div></div></section>'+
  '</div>'+
- '<section class="sl-block sl-dashboard-card sl-dashboard-quick"><div class="sl-block-head"><div><h3>Quick Actions</h3><small>Access the most used features</small></div></div><div class="sl-dashboard-quick-grid">'+actions.map(x=>'<button class="sl-dashboard-action" type="button" data-view="'+x[0]+'"><span class="sl-dashboard-action-icon">'+uiIcon(x[4])+'</span><span><b>'+esc(x[1])+'</b><small>'+esc(x[2])+'</small></span><span class="sl-control-arrow">›</span></button>').join('')+'</div></section>'+
+ '<section class="sl-block sl-dashboard-card sl-dashboard-quick"><div class="sl-block-head"><div><h3>Quick Actions</h3><small>Access the most used features</small></div></div><div class="sl-dashboard-quick-grid">'+actions.map(x=>'<button class="sl-dashboard-action" type="button" data-view="'+x[0]+'"'+(x[0]==='products'?' data-open-product="1"':'')+'><span class="sl-dashboard-action-icon">'+uiIcon(x[4])+'</span><span><b>'+esc(x[1])+'</b><small>'+esc(x[2])+'</small></span><span class="sl-control-arrow">›</span></button>').join('')+'</div></section>'+
  '<section class="sl-block sl-dashboard-card sl-dashboard-transactions"><div class="sl-block-head"><div><h3>Recent Transactions</h3><small>Latest posted retail sales</small></div><div class="sl-dashboard-head-actions"><small id="slDashboardInsightsStatus">'+esc(dashboardStatus)+'</small><button type="button" class="sl-btn sl-btn-sm" data-view="reports">View all transactions</button></div></div><div id="slDashboardTransactions"><div class="sl-empty">Loading recent posted transactions…</div></div></section>'+
  '</div><aside class="sl-dashboard-side">'+
  '<section class="sl-block sl-dashboard-card sl-dashboard-low-stock"><div class="sl-block-head"><div><h3>Low Stock Alert</h3></div><button class="sl-link-btn" type="button" data-view="reorder">View all</button></div><div class="sl-dashboard-low-list">'+lowStockList+'</div></section>'+
@@ -1054,7 +1054,7 @@ const branchReorder=productFieldValue(p,'branch_reorder_level',2); const central
 const purchase=productFieldValue(p,'purchase_cost',''); const retail=productFieldValue(p,'retail_price',''); const wholesale=productFieldValue(p,'wholesale_price','');
 return '<div class="sl-drawer"><div class="sl-page-title"><div><h2 style="font-size:21px">'+(editing?'Edit Product / Variant':'New Product / Variant')+'</h2><p>Product Master controls catalog identity only. Inventory quantity enters through Warehouse Receiving, not this form.</p></div><button class="sl-btn" id="closeProduct" type="button">Close</button></div><form id="productForm" class="sl-form" novalidate>'+
 '<div class="sl-field"><label>Product type</label><select name="product_type"><option '+(type==='SIMPLE'?'selected':'')+'>SIMPLE</option><option '+(type==='STYLE'?'selected':'')+'>STYLE</option><option '+(type==='VARIANT'?'selected':'')+'>VARIANT</option></select></div>'+ 
-'<div class="sl-field"><label data-product-sku-label>'+(type==='STYLE'?'Style SKU':(type==='VARIANT'?'Variant SKU':'Product SKU'))+'</label><input name="sku" value="'+esc(p.sku)+'" pattern="[A-Za-z0-9][A-Za-z0-9._-]{0,63}" title="Use 1–64 letters, numbers, dot, hyphens or underscores." '+(editing?'readonly':'required')+'></div>'+ 
+'<div class="sl-field"><label data-product-sku-label>'+(type==='STYLE'?'Style SKU':(type==='VARIANT'?'Variant SKU':'Product SKU'))+'</label><input name="sku" value="'+esc(p.sku||'STK-')+'" pattern="STK-[A-Za-z0-9_\\-]{1,60}" maxlength="64" autocapitalize="characters" title="Start with STK- then letters, numbers, hyphens or underscores (64 characters at most)." '+(editing?'readonly':'required')+'><small>Must start with STK- (example: STK-SHIRT-BLK-M).</small></div>'+ 
 '<div class="sl-field full"><label>Product name</label><input name="product_name" value="'+esc(p.product_name||'')+'" required></div>'+ 
 '<div class="sl-field"><label>Parent / style SKU</label><input name="parent_sku" value="'+esc(p.parent_sku||'')+'"></div><div class="sl-field"><label>Style code</label><input name="style_code" value="'+esc(p.style_code||'')+'"></div>'+ 
 '<div class="sl-field"><label>Brand</label><input name="brand" value="'+esc(p.brand||'')+'"></div><div class="sl-field"><label>Department</label><input name="department" value="'+esc(p.department||'')+'"></div>'+ 
@@ -1071,6 +1071,7 @@ return '<div class="sl-drawer"><div class="sl-page-title"><div><h2 style="font-s
 '<div class="sl-field full"><label>Notes</label><textarea name="notes">'+esc(p.notes||'')+'</textarea></div>'+ 
 '<div class="sl-field full"><button type="submit" class="sl-btn primary" id="productSaveButton">'+(editing?'SAVE PRODUCT':'CREATE PRODUCT')+'</button></div>'+(editing&&type==='STYLE'?'<div class="sl-field full"><button type="button" class="sl-btn gold" id="generateMatrix">GENERATE COLOR × SIZE MATRIX</button><small class="sl-sub">Creates only missing VARIANT SKUs from this STYLE. Existing variants are never overwritten.</small></div>':'')+'</form></div>';
 }
+function productFormError(form,msg){let e=form.querySelector('#productFormError');if(!e){e=document.createElement('p');e.id='productFormError';e.setAttribute('role','alert');e.style.cssText='color:#b42318;font-weight:600;margin:8px 0';form.insertBefore(e,form.firstChild)}e.textContent=msg||'';e.hidden=!msg;if(msg)e.scrollIntoView({block:'nearest'})}
 async function openProductEditor(sku){
 let ov=null;
 try{
@@ -1099,7 +1100,7 @@ try{
 form.onsubmit=async e=>{
 e.preventDefault();if(form.dataset.busy==='1')return;syncProductFormRules(form);
 const type=String(form.querySelector('[name="product_type"]')?.value||'SIMPLE').toUpperCase();const skuValue=String(form.querySelector('[name="sku"]')?.value||'').trim();
-if(!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(skuValue)){toast('SKU must use 1–64 letters, numbers, hyphens or underscores.',true);return}
+if(!/^STK-[A-Za-z0-9_-]{1,60}$/.test(skuValue)){productFormError(form,'SKU must start with STK- and use letters, numbers, hyphens or underscores (64 characters at most). Example: STK-SHIRT-BLK-M.');form.querySelector('[name="sku"]')?.focus();return}productFormError(form,'')
 if(!form.checkValidity()){form.reportValidity();return}
 if(type==='VARIANT'){
  const parent=String(form.querySelector('[name="parent_sku"]')?.value||'').trim(),color=String(form.querySelector('[name="color"]')?.value||'').trim(),size=String(form.querySelector('[name="size"]')?.value||'').trim();
@@ -1120,7 +1121,7 @@ try{
  if(!saved||!saved.sku)throw new Error('ERP saved the request but returned no Product Master record.');
  ov.remove();state.productQuery=String(saved.sku);state.catalog=null;state.catalogQuery=null;
  toast((sku?'Product updated: ':'Product created: ')+saved.sku);
-}catch(err){toast(err.message,true);form.dataset.busy='0';if(submitBtn){submitBtn.disabled=false;submitBtn.removeAttribute('aria-busy');submitBtn.textContent=originalText|| (sku?'SAVE PRODUCT':'CREATE PRODUCT')}return}
+}catch(err){productFormError(form,err.message);toast(err.message,true);form.dataset.busy='0';if(submitBtn){submitBtn.disabled=false;submitBtn.removeAttribute('aria-busy');submitBtn.textContent=originalText|| (sku?'SAVE PRODUCT':'CREATE PRODUCT')}return}
 try{await load();}catch(refreshErr){toast('Product saved and verified by the Product Master response, but the ERP screen could not refresh. Reopen Product Master to search '+String(saved.sku)+'.',true)}
 try{await loadNotifications()}catch(_e){}
 toast((sku?'Product updated and verified: ':'Product created and verified: ')+saved.sku);
@@ -1173,6 +1174,14 @@ if($('#saleSku'))$('#saleSku').onchange=e=>{const p=state.boot.products.find(x=>
 if($('#refresh'))$('#refresh').onclick=()=>load();document.querySelectorAll('.sl-nav [data-view]').forEach(b=>{b.onclick=()=>{state.view=b.dataset.view==='dailyInventory'?'dailyreport':b.dataset.view;render()}});document.querySelectorAll('[data-view]').forEach(b=>{if(!b.closest('.sl-nav'))b.onclick=()=>{state.view=b.dataset.view==='dailyInventory'?'dailyreport':b.dataset.view;render()}});
 if($('#openProductImport'))$('#openProductImport').onclick=()=>{state.view='products-import';render()};
 if($('#refreshUsers'))$('#refreshUsers').onclick=()=>{loadUsers();loadAvailableWPUsers()};if($('#systemControlPage'))loadSystemControl();
+if(!document.__slQuickAddProductBound){
+  document.__slQuickAddProductBound=true;
+  document.addEventListener('click',function(e){
+    const q=e.target instanceof Element?e.target.closest('[data-open-product]'):null;
+    if(!q||!document.getElementById('stockland-app')?.contains(q))return;
+    let tries=0;const timer=setInterval(()=>{if(document.getElementById('newProduct')){clearInterval(timer);openProductEditor(null)}else if(++tries>50)clearInterval(timer)},100);
+  },true);
+}
 if(!document.__slNewProductCaptureBound){
   document.__slNewProductCaptureBound=true;
   document.addEventListener('click',function(e){
