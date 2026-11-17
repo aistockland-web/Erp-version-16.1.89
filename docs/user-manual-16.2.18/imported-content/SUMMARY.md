@@ -1,1 +1,18 @@
 # Table of contents
+
+* [product](README.md)
+  * [apparel-supply-chain](product/apparel-supply-chain/README.md)
+    * [commit-plan](product/apparel-supply-chain/commit-plan/README.md)
+      * [CHANGESET\_INDEX](product/apparel-supply-chain/commit-plan/changeset_index.md)
+      * [PR\_TEMPLATE](product/apparel-supply-chain/commit-plan/pr_template.md)
+      * [README](product/apparel-supply-chain/commit-plan/readme.md)
+    * [codespaces](product/apparel-supply-chain/codespaces/README.md)
+      * [README](product/apparel-supply-chain/codespaces/readme.md)
+    * [AGENTS](product/apparel-supply-chain/agents.md)
+    * [contracts](product/apparel-supply-chain/contracts/README.md)
+      * [README](product/apparel-supply-chain/contracts/readme.md)
+    * [docs](product/apparel-supply-chain/docs/README.md)
+      * [AI\_MODEL\_EVALUATION](product/apparel-supply-chain/docs/ai_model_evaluation.md)
+      * [ACCEPTANCE\_AND\_REGRESSION\_MATRIX](product/apparel-supply-chain/docs/acceptance_and_regression_matrix.md)
+      * [API\_AND\_COMMAND\_CONTRACTS](product/apparel-supply-chain/docs/api_and_command_contracts.md)
+    * [README](product/apparel-supply-chain/readme.md)
