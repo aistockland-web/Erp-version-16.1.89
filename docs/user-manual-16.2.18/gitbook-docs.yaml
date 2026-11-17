@@ -16,3 +16,10 @@ site:
       draft: true
       content:
         directory: null
+    - type: space
+      key: space-3
+      title: Imported content
+      path: imported-content-1
+      draft: true
+      content:
+        directory: ./imported-content-1
