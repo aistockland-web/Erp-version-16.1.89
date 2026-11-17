@@ -2,6 +2,28 @@
 
 Central Warehouse manages approved branch demand, reservation, picking and pickup readiness. External supplier goods enter inventory through the controlled purchase-order receiving workflow.
 
+## Figure 1 — Central Warehouse operating paths
+
+```mermaid
+flowchart TD
+    subgraph BranchDemand["Branch demand"]
+      A["Branch submits requisition"] --> B["Management / Owner approves"]
+      B --> C["Central Warehouse queue"]
+      C --> D["Warehouse Manager reserves and assigns pickup"]
+      D --> E["Warehouse picks and marks READY"]
+      E --> F["Branch receives and confirms"]
+    end
+    subgraph SupplierStock["Supplier purchase"]
+      G["Management creates purchase order"] --> H["Owner approves stock purchase"]
+      H --> I["Approved PO appears in receiving queue"]
+      I --> J["Warehouse checks original PO lines vs delivery"]
+      J --> K["Submit PO-linked receipt"]
+      K --> L["Verify Central Warehouse stock and receipt"]
+    end
+```
+
+*Figure 1 separates branch fulfillment from supplier receiving. A branch requisition is not a supplier PO, and supplier stock must be received against an approved PO. Free-form manual receipts do not post inventory in 16.2.18.*
+
 ## Warehouse requisition queue
 
 {% stepper %}
