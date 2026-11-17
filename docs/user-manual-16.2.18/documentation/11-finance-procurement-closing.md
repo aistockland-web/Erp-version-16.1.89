@@ -2,6 +2,22 @@
 
 Finance & Accounting is role-sensitive. Management has the main corporate supplier/customer, purchase-order, payment and expense controls. Branch Managers and Warehouse Managers may see a location-scoped expense workspace. Owner/Management controls corporate expenses and approval authority.
 
+## Figure 1 — Purchase order to stock receipt
+
+```mermaid
+flowchart TD
+    A["Management verifies supplier and purchase details"] --> B["Create purchase order"]
+    B --> C["Owner stock-purchase approval"]
+    C --> D{"Approved?"}
+    D -->|No| E["Stop; resolve approval"]
+    D -->|Yes| F["Central Warehouse opens approved PO"]
+    F --> G["Compare original lines and actual delivery"]
+    G --> H["Record PO-linked receipt"]
+    H --> I["Verify receipt and stock balance"]
+```
+
+*Figure 1: PO creation and stock-purchase approval are separate from warehouse receiving. Record only goods actually delivered against the approved PO lines.*
+
 ## Purchase orders and supplier receiving
 
 {% stepper %}
@@ -55,6 +71,22 @@ Enter the actual expense date, category, description, amount, tax information an
 ## General Ledger and PLEDGER
 
 Use ledger views for review and reconciliation. Posted journal entries should balance. Do not edit historical journal rows or correct them through direct database changes. Report discrepancies with the transaction reference.
+
+## Figure 2 — Daily close sequence
+
+```mermaid
+flowchart TD
+    A["Confirm business date"] --> B["Confirm assigned branch"]
+    B --> C["Reconcile sales and POS imports"]
+    C --> D["Review stock movements, returns and exceptions"]
+    D --> E["Check cash / tender and finance records"]
+    E --> F["Enter factual handover notes"]
+    F --> G["CLOSE DAY"]
+    G --> H["Verify closing record in history"]
+    H --> I["Any correction follows authorized reversal / adjustment"]
+```
+
+*Figure 2: complete the operational checks before closing. The closed record is locked; never rewrite history to correct a mistake.*
 
 ## Daily Closing
 
