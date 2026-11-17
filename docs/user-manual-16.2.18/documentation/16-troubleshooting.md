@@ -1,5 +1,30 @@
 # 16. Troubleshooting
 
+## Figure 1 — Safe issue triage
+
+```mermaid
+flowchart TD
+    A["A page, action or result looks wrong"] --> B["Record module, local time and ERP version"]
+    B --> C["Check your own role and assigned location"]
+    C --> D{"Known situation?"}
+    D -->|Duplicate import| E["Open existing staged job"]
+    D -->|POS timeout| F["Check sale / pending cart before retry"]
+    D -->|Stock shortfall| G["Verify SKU and available quantity; contact manager"]
+    D -->|Transfer in transit| H["Ask destination to confirm actual receipt"]
+    D -->|Count not posted| I["Check committed batch and approver decision"]
+    D -->|HR / payroll blocked| J["Stop and contact Owner / Management"]
+    D -->|Other / unresolved| K["Capture sanitized error and workflow steps"]
+    E --> L["Verify existing record and status"]
+    F --> L
+    G --> L
+    H --> L
+    I --> L
+    J --> M["Do not bypass the gate"]
+    K --> N["Send safe support request with reference"]
+```
+
+*Figure 1: confirm the existing record before retrying. Never bypass role, approval, stock, accounting or HR controls to make an error disappear.*
+
 ## The ERP page does not open
 
 1. Confirm that you are using the official production URL supplied by Stockland.
