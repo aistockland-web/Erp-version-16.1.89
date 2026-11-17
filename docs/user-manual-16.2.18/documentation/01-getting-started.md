@@ -25,6 +25,25 @@ The ERP shell identifies the running build. This manual applies to the approved 
 {% endstep %}
 {% endstepper %}
 
+## Figure 1 — First sign-in and navigation
+
+```mermaid
+flowchart TD
+    A["Open approved HTTPS ERP address"] --> B["Enter your own assigned credentials"]
+    B --> C["Check your displayed name"]
+    C --> D["Check assigned branch or warehouse"]
+    D --> E["Confirm version 16.2.18"]
+    E --> F{"Device"}
+    F -->|Phone| G["Open the mobile navigation menu"]
+    F -->|Desktop| H["Use the left navigation"]
+    G --> I["Choose an authorized module"]
+    H --> I
+    I --> J["Complete the task using its manual page"]
+    J --> K["Sign out when finished"]
+```
+
+*Figure 1 shows the sign-in checks and the two navigation layouts. It does not depict an actual captured screen.*
+
 ## Workspace layout
 
 The application has a Stockland-branded shell, left navigation, top header and page content. On phones, open the mobile menu to reach navigation. On desktop, the navigation can be collapsed.
