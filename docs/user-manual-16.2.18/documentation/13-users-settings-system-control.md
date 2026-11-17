@@ -34,6 +34,24 @@ Use the existing WordPress account assignment area to attach ERP role and locati
 
 Only the Owner can assign the Owner role through the user-creation selector. Assign the minimum access required for the employee's work.
 
+## Figure 1 — Access setup and protected system controls
+
+```mermaid
+flowchart TD
+    A["Authorized administrator opens Users & Organization"] --> B["Create / select ERP account"]
+    B --> C["Assign minimum required ERP role"]
+    C --> D["Assign allowed branch / warehouse locations"]
+    D --> E["Save and verify active-user list"]
+    E --> F["User signs in with own account"]
+    F --> G["Server checks role and location on each action"]
+    H["System Health"] --> I["Run intended read-only health check"]
+    J["System Control"] --> K{"Designated Owner / schema authority + backup + exact approval?"}
+    K -->|No| L["Do not run schema continuation"]
+    K -->|Yes| M["Follow the separately approved bounded setup procedure"]
+```
+
+*Figure 1: assigning a role or location is an access-control change. Health checks and protected schema operations have separate authority; ordinary ERP work does not require WordPress Dashboard access.*
+
 ## Business Calendar and Settings
 
 Business Calendar controls operating dates. Closed dates can block posting. Coordinate changes with Management.
