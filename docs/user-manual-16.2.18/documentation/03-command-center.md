@@ -20,6 +20,34 @@ The actual 16.2.18 navigation groups the main functions as follows:
 
 Items may be hidden if your account lacks the required capability.
 
+## Figure 1 — Navigation by work area
+
+```mermaid
+flowchart TD
+    A["Stockland ERP Command Center"] --> B["Sales & POS"]
+    A --> C["Inventory"]
+    A --> D["Warehouse"]
+    A --> E["Product Master"]
+    A --> F["Finance & Accounting"]
+    A --> G["Management"]
+    A --> H["Reports & Analytics"]
+    A --> I["HR & Payroll — gated"]
+    B --> B1["Retail POS"]
+    B --> B2["Daily POS Import"]
+    B --> B3["Returns & Adjustments"]
+    B --> B4["Daily Closing"]
+    C --> C1["Inventory Control / Daily Inventory"]
+    C --> C2["Reorder Alerts"]
+    C --> C3["Stock Count & Approval"]
+    D --> D1["Central Warehouse"]
+    D --> D2["Requisitions"]
+    D --> D3["Transfers"]
+    G --> G1["Users & Organization"]
+    G --> G2["Audit Log / System Health / System Control"]
+```
+
+*Figure 1 is a navigation map. A module appears only when the signed-in account has the required capability and location scope. Selecting a page does not itself authorize an approval or posting action.*
+
 ## Open a module
 
 {% stepper %}
