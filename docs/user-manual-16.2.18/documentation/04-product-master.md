@@ -27,6 +27,25 @@ If your account has Product Master permission, use the available new/edit action
 {% endstep %}
 {% endstepper %}
 
+## Figure 1 — Product identity and stock relationship
+
+```mermaid
+flowchart TD
+    A["Product style / parent"] --> B["Variant 1: own SKU"]
+    A --> C["Variant 2: own SKU"]
+    A --> D["Variant 3: own SKU"]
+    B --> E["Brand + color + size + barcode/GTIN"]
+    C --> F["Brand + color + size + barcode/GTIN"]
+    D --> G["Brand + color + size + barcode/GTIN"]
+    E --> H["Catalog identity"]
+    F --> H
+    G --> H
+    H --> I["POS / inventory transactions use the stockable SKU"]
+    H -.-> J["Product Master bulk update changes catalog only"]
+```
+
+*Figure 1: each stockable color/size variant must resolve to its own SKU. Product Master records identify items; inventory quantities are controlled by receiving, sales, transfers, counts and approved adjustments.*
+
 ## Product and variant identity
 
 The catalog follows a style-to-variant model. A style groups related variants; each stockable variant has its own SKU. Color and size distinguish variants. Barcode and GTIN identify the item where populated. Only active, stockable variants should be selected for normal POS transactions.
