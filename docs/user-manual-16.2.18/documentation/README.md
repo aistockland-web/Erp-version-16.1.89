@@ -10,7 +10,7 @@ description: Practical operating instructions for Stockland Ethiopia ERP 16.2.18
 **Company:** STOCKLAND ETHIOPIA  
 **Audience:** Owner, Management, Branch Managers, Sales Employees, Warehouse Managers, Warehouse Employees, Finance users and Auditors.
 
-This manual explains the actual Stockland ERP 16.2.18 application. It is based on the canonical source and the 16.2.18 application interface, not on a generic ERP template or later development versions.
+This is the source-verified operating manual for Stockland Ethiopia ERP 16.2.18. Its steps and workflow figures are grounded in the 16.2.18 release source and the documented role and approval rules. It is not a generic ERP template and does not borrow screens or behavior from later development versions.
 
 ## Visual guide
 
@@ -22,6 +22,25 @@ The manual uses a simple two-color reading system:
 | 🟠 **Orange — attention** | Important checks, approval points and actions that require care |
 
 Blue is the primary reading color; orange is reserved for meaningful action and caution cues. The cover artwork follows the same palette.
+
+## Figure 1 — The normal operating journey
+
+```mermaid
+flowchart TD
+    A["Open approved Stockland ERP URL"] --> B["Sign in with your own account"]
+    B --> C["Check your profile, assigned location and release"]
+    C --> D["Open an authorized module"]
+    D --> E["Follow the task steps and check source records"]
+    E --> F["Preview or submit the transaction"]
+    F --> G{"Does this task require approval?"}
+    G -->|Yes| H["Authorized manager / Owner reviews"]
+    G -->|No| I["Verify the result and reference"]
+    H --> I
+    I --> J["Check related stock, sales, finance or audit view"]
+    J --> K["Sign out on shared devices"]
+```
+
+*Figure 1 is a workflow map, not a captured application screenshot. The following pages contain numbered step-by-step instructions and role-specific controls.*
 
 ## Read this first
 
@@ -53,12 +72,13 @@ Some functions have separate approval/readiness gates:
 
 ## Evidence and screenshots
 
-The steps and labels are grounded in the 16.2.18 source. An authenticated production browser session was not available during this documentation pass, so this manual does not pretend that screenshots are live captures. The [Screenshot capture checklist](15-screenshot-capture-checklist.md) identifies the real screens to capture before publishing a fully visual guide.
+The numbered instructions and Mermaid figures are source-based workflow illustrations. They are not screenshots of the live website. An authenticated production browser session was not available during this documentation pass, and no genuine application screenshots were found in the documentation, delivery or release-certificate branches. The [Screenshot capture checklist](15-screenshot-capture-checklist.md) lists the real screens still to capture from the installed 16.2.18 application. Do not mistake the Stockland logo, app icons, backgrounds or cover artwork for application screenshots.
 
 ## Release identity
 
-- Canonical source commit: 387c193c7999840c731d37acd854ec920f134507
-- Installer-bound source commit: 1f796f46ad840384e6d1601f307401e98842e1b5
-- Release: 16.2.18
+- Release: 16.2.18 (`MASTER_INSTALLER` in the release manifest)
+- Canonical installer source commit recorded in `RELEASE_MANIFEST.json`: `2b4bcca9bb8205e69224e0886f869a4069424f53`
+- Documentation branch: `docs/stockland-erp-user-manual-16.2.18`
+- GitBook-synced project directory: `docs/user-manual-16.2.18/documentation/`
 
 This documentation is isolated on a documentation branch. It does not modify the production application, installer or certified release branch.
