@@ -42,24 +42,41 @@ const check = (ok, m) => ok ? pass(m) : fail(m);
     await page.waitForSelector('.sl-dashboard-side');
     pass('ERP Command Center loaded');
 
+    const domEvidence = await page.evaluate(() => ({
+      dashboardLinkCount: document.querySelectorAll('#slDashboardUserManualLink').length,
+      profileLinkCount: document.querySelectorAll('#slUserManualLink').length,
+      dashboardManualHeading: Array.from(document.querySelectorAll('.sl-dashboard-side h3')).map(x => x.textContent.trim()).slice(0, 8),
+      sideHtml: (document.querySelector('.sl-dashboard-side')?.innerHTML || '').slice(0, 2600),
+      profileMenuHtml: (document.querySelector('#slProfileMenu')?.innerHTML || '').slice(0, 1600)
+    }));
+    console.log('GUIDE DOM EVIDENCE ' + JSON.stringify(domEvidence));
+
     const card = page.locator('#slDashboardUserManualLink');
-    const cardData = await card.evaluate((a) => ({ href: a.href, target: a.target, rel: a.rel }));
-    check(cardData.href === manualUrl && cardData.target === '_blank' &&
+    const cardCount = await card.count();
+    let cardData = null;
+    if (cardCount === 1) cardData = await card.evaluate((a) => ({ href: a.href, target: a.target, rel: a.rel }));
+    check(cardData && cardData.href === manualUrl && cardData.target === '_blank' &&
       cardData.rel.includes('noopener') && cardData.rel.includes('noreferrer'),
       'dashboard guide card links to the published 16.2.18 GitBook manual');
 
     const profileLink = page.locator('#slUserManualLink');
-    const profileData = await profileLink.evaluate((a) => ({ href: a.href, target: a.target, rel: a.rel }));
-    check(profileData.href === manualUrl && profileData.target === '_blank' &&
+    const profileCount = await profileLink.count();
+    let profileData = null;
+    if (profileCount === 1) profileData = await profileLink.evaluate((a) => ({ href: a.href, target: a.target, rel: a.rel }));
+    check(profileData && profileData.href === manualUrl && profileData.target === '_blank' &&
       profileData.rel.includes('noopener') && profileData.rel.includes('noreferrer'),
       'profile menu uses the same real GitBook manual link');
 
-    const popupPromise = context.waitForEvent('page');
-    await card.click();
-    const popup = await popupPromise;
-    await popup.waitForURL((url) => url.href === manualUrl, { timeout: 10000 });
-    check(popup.url() === manualUrl, 'clicking the dashboard guide card opens the real GitBook site');
-    await popup.close();
+    if (cardCount === 1) {
+      const popupPromise = context.waitForEvent('page');
+      await card.click();
+      const popup = await popupPromise;
+      await popup.waitForURL((url) => url.href === manualUrl, { timeout: 10000 });
+      check(popup.url() === manualUrl, 'clicking the dashboard guide card opens the real GitBook site');
+      await popup.close();
+    } else {
+      fail('dashboard manual anchor was not rendered; see GUIDE DOM EVIDENCE above');
+    }
 
     const quickAdd = page.locator('.sl-dashboard-action[data-open-product="1"]');
     check(await quickAdd.count() === 1, 'dashboard Add Product shortcut is present');
