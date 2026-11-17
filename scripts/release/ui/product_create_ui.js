@@ -71,8 +71,13 @@ const check = (ok, m) => ok ? pass(m) : fail(m);
       const popupPromise = context.waitForEvent('page');
       await card.click();
       const popup = await popupPromise;
-      await popup.waitForURL((url) => url.href === manualUrl, { timeout: 10000 });
-      check(popup.url() === manualUrl, 'clicking the dashboard guide card opens the real GitBook site');
+      await popup.waitForURL((url) =>
+        url.hostname === 'stockland-one-member-plc.gitbook.io' &&
+        url.pathname.startsWith('/docs-user-manual-16.2.18'), { timeout: 10000 });
+      const opened = new URL(popup.url());
+      check(opened.hostname === 'stockland-one-member-plc.gitbook.io' &&
+        opened.pathname.startsWith('/docs-user-manual-16.2.18'),
+        'clicking the dashboard guide card opens the real 16.2.18 GitBook manual');
       await popup.close();
     } else {
       fail('dashboard manual anchor was not rendered; see GUIDE DOM EVIDENCE above');
