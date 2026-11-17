@@ -16,6 +16,29 @@ Access depends on the signed-in ERP profile, capabilities and assigned location 
 
 Your account may see only a subset of modules. This is intentional.
 
+## Figure 1 — Role, location and approval boundaries
+
+```mermaid
+flowchart TD
+    A["User signs in"] --> B["Server checks role / capability"]
+    B --> C["Server checks assigned location"]
+    C --> D["Only authorized modules and records are shown"]
+    D --> E{"Work type"}
+    E -->|Retail sale| F["Sales Employee posts direct POS sale"]
+    E -->|External POS report| G["Sales Employee stages import"]
+    G --> H["Branch Manager reviews and releases"]
+    E -->|Branch demand| I["Management / Owner approves requisition"]
+    I --> J["Warehouse Manager reserves and picks"]
+    J --> K["Branch recipient confirms receipt"]
+    E -->|Review only| L["Auditor reads records and traces audit"]
+    F --> M["Server validates and records the action"]
+    H --> M
+    K --> M
+    L --> N["No edit / posting authority from read access"]
+```
+
+*Figure 1: users can see different pages and actions according to their role and assigned location. Approval responsibility is separate from data entry or staging.*
+
 ## Stockland locations
 
 The 16.2.18 Stockland installation is seeded for one company and these locations:
