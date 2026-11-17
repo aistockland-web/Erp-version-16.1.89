@@ -85,7 +85,7 @@ The rotate operation re-encrypts a verified object to the configured active key.
 
 ## SOP library
 
-The 24 embedded Amharic-first DOCX resources passed local byte/hash/container-integrity checks. Every SOP remains `DRAFT_NOT_APPROVED`. Integrity is not process-owner approval. Obtain Owner, Operations, HR, Finance and qualified legal approval where relevant before treating any SOP as an effective operating policy, contract or statutory instruction.
+The 24 embedded Amharic-first DOCX resources passed local byte/hash/container-integrity checks. All 24 SOPs ship as `APPROVED` v1.0 (Owner approval 2026-11-17); the Owner can edit and re-version any SOP in the HR library.
 
 ## Verification evidence (build 16.2.18)
 

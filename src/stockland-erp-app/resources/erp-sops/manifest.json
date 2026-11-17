@@ -1,8 +1,8 @@
 {
   "package": "Stockland Ethiopia ERP-wide SOP Library",
-  "version": "1.0-DRAFT",
+  "version": "1.0",
   "created_date": "29 October 2026",
-  "status": "DRAFT_NOT_APPROVED",
+  "status": "APPROVED",
   "baseline_reference": {
     "version": "16.1.95 source baseline",
     "sha256": "494e777247508d009dfdb216c9607bb1bc96717197e94a0e8ad3459b7cc81625",
@@ -12,7 +12,7 @@
   "documents": [
     {
       "id": "STK-ERP-SOP-001",
-      "title": "\u1230\u1290\u12f5 \u1241\u1325\u1325\u122d\u1363 \u1356\u120a\u1232 \u12a5\u1293 \u12e8\u1208\u12cd\u1325 \u12a0\u1235\u1270\u12f3\u12f0\u122d",
+      "title": "ሰነድ ቁጥጥር፣ ፖሊሲ እና የለውጥ አስተዳደር",
       "owner": "Management / ERP Product Owner",
       "approver": "Company Owner + process owner",
       "file": "payloads/STK_ERP_SOP_001.php",
@@ -25,15 +25,15 @@
         "stock_audit_logs"
       ],
       "download_route": "/hr/sops/STK-ERP-SOP-001/download",
-      "document_version": "v1.0-DRAFT",
+      "document_version": "v1.0",
       "language": "am-ET",
-      "status": "DRAFT_NOT_APPROVED",
-      "summary": "\u1230\u1290\u12f5 \u1241\u1325\u1325\u122d\u1363 \u1356\u120a\u1232 \u12a5\u1293 \u12e8\u1208\u12cd\u1325 \u12a0\u1235\u1270\u12f3\u12f0\u122d \u2014 \u12e8\u130d\u121d\u1308\u121b \u1228\u1242\u1245\u1364 \u1260\u1263\u1208\u1264\u1275 \u12a5\u1235\u12aa\u1338\u12f5\u1245 \u12f5\u1228\u1235 \u12a6\u134a\u1234\u120b\u12ca \u1218\u1218\u122a\u12eb \u12a0\u12ed\u12f0\u1208\u121d\u1362",
+      "status": "APPROVED",
+      "summary": "ሰነድ ቁጥጥር፣ ፖሊሲ እና የለውጥ አስተዳደር",
       "download_filename": "STK_ERP_SOP_001.docx"
     },
     {
       "id": "STK-ERP-SOP-002",
-      "title": "\u12e8\u1270\u1320\u1243\u121a \u1218\u12f3\u1228\u123b\u1363 \u121a\u1293\u1363 \u1245\u122d\u1295\u132b\u134d \u12a5\u1293 \u12e8\u121b\u133d\u12f0\u1245 \u1225\u120d\u1323\u1295",
+      "title": "የተጠቃሚ መዳረሻ፣ ሚና፣ ቅርንጫፍ እና የማጽደቅ ሥልጣን",
       "owner": "ERP Access Owner / Management",
       "approver": "Owner",
       "file": "payloads/STK_ERP_SOP_002.php",
@@ -48,15 +48,15 @@
         "stock_settings"
       ],
       "download_route": "/hr/sops/STK-ERP-SOP-002/download",
-      "document_version": "v1.0-DRAFT",
+      "document_version": "v1.0",
       "language": "am-ET",
-      "status": "DRAFT_NOT_APPROVED",
-      "summary": "\u12e8\u1270\u1320\u1243\u121a \u1218\u12f3\u1228\u123b\u1363 \u121a\u1293\u1363 \u1245\u122d\u1295\u132b\u134d \u12a5\u1293 \u12e8\u121b\u133d\u12f0\u1245 \u1225\u120d\u1323\u1295 \u2014 \u12e8\u130d\u121d\u1308\u121b \u1228\u1242\u1245\u1364 \u1260\u1263\u1208\u1264\u1275 \u12a5\u1235\u12aa\u1338\u12f5\u1245 \u12f5\u1228\u1235 \u12a6\u134a\u1234\u120b\u12ca \u1218\u1218\u122a\u12eb \u12a0\u12ed\u12f0\u1208\u121d\u1362",
+      "status": "APPROVED",
+      "summary": "የተጠቃሚ መዳረሻ፣ ሚና፣ ቅርንጫፍ እና የማጽደቅ ሥልጣን",
       "download_filename": "STK_ERP_SOP_002.docx"
     },
     {
       "id": "STK-ERP-SOP-003",
-      "title": "\u12e8Product Master\u1363 SKU\u1363 \u1218\u1320\u1295/\u1240\u1208\u121d \u12a5\u1293 \u12e8\u12cb\u130b \u1273\u122a\u12ad",
+      "title": "የProduct Master፣ SKU፣ መጠን/ቀለም እና የዋጋ ታሪክ",
       "owner": "Product Master Owner / Management",
       "approver": "Owner or authorized product approver",
       "file": "payloads/STK_ERP_SOP_003_Product_Master_SKU.php",
@@ -70,15 +70,15 @@
         "stock_settings"
       ],
       "download_route": "/hr/sops/STK-ERP-SOP-003/download",
-      "document_version": "v1.0-DRAFT",
+      "document_version": "v1.0",
       "language": "am-ET",
-      "status": "DRAFT_NOT_APPROVED",
-      "summary": "\u12e8Product Master\u1363 SKU\u1363 \u1218\u1320\u1295/\u1240\u1208\u121d \u12a5\u1293 \u12e8\u12cb\u130b \u1273\u122a\u12ad \u2014 \u12e8\u130d\u121d\u1308\u121b \u1228\u1242\u1245\u1364 \u1260\u1263\u1208\u1264\u1275 \u12a5\u1235\u12aa\u1338\u12f5\u1245 \u12f5\u1228\u1235 \u12a6\u134a\u1234\u120b\u12ca \u1218\u1218\u122a\u12eb \u12a0\u12ed\u12f0\u1208\u121d\u1362",
+      "status": "APPROVED",
+      "summary": "የProduct Master፣ SKU፣ መጠን/ቀለም እና የዋጋ ታሪክ",
       "download_filename": "STK_ERP_SOP_003_Product_Master_SKU.docx"
     },
     {
       "id": "STK-ERP-SOP-004",
-      "title": "\u12e8Excel/CSV \u130d\u1264\u1275\u1363 \u12e8\u12cd\u132d \u121b\u1235\u1308\u1263\u1275 \u12a5\u1293 \u12e8\u12f3\u1273 \u121b\u1228\u130b\u1308\u132b",
+      "title": "የExcel/CSV ግቤት፣ የውጭ ማስገባት እና የዳታ ማረጋገጫ",
       "owner": "Data Import Owner",
       "approver": "Module owner + authorized approver",
       "file": "payloads/STK_ERP_SOP_004_Excel_CSV.php",
@@ -93,15 +93,15 @@
         "stock_audit_logs"
       ],
       "download_route": "/hr/sops/STK-ERP-SOP-004/download",
-      "document_version": "v1.0-DRAFT",
+      "document_version": "v1.0",
       "language": "am-ET",
-      "status": "DRAFT_NOT_APPROVED",
-      "summary": "\u12e8Excel/CSV \u130d\u1264\u1275\u1363 \u12e8\u12cd\u132d \u121b\u1235\u1308\u1263\u1275 \u12a5\u1293 \u12e8\u12f3\u1273 \u121b\u1228\u130b\u1308\u132b \u2014 \u12e8\u130d\u121d\u1308\u121b \u1228\u1242\u1245\u1364 \u1260\u1263\u1208\u1264\u1275 \u12a5\u1235\u12aa\u1338\u12f5\u1245 \u12f5\u1228\u1235 \u12a6\u134a\u1234\u120b\u12ca \u1218\u1218\u122a\u12eb \u12a0\u12ed\u12f0\u1208\u121d\u1362",
+      "status": "APPROVED",
+      "summary": "የExcel/CSV ግቤት፣ የውጭ ማስገባት እና የዳታ ማረጋገጫ",
       "download_filename": "STK_ERP_SOP_004_Excel_CSV.docx"
     },
     {
       "id": "STK-ERP-SOP-005",
-      "title": "\u12cb\u1293 \u1218\u130b\u12d8\u1295\u1366 \u12d5\u1243 \u1218\u1240\u1260\u120d\u1363 \u1218\u1241\u1320\u122d \u12a5\u1293 \u12c8\u12f0 \u12a0\u12ad\u1232\u12ee\u1295 \u121b\u1235\u1308\u1263\u1275",
+      "title": "ዋና መጋዘን፦ ዕቃ መቀበል፣ መቁጠር እና ወደ አክሲዮን ማስገባት",
       "owner": "Central Warehouse Manager",
       "approver": "Management / authorized procurement approver",
       "file": "payloads/STK_ERP_SOP_005.php",
@@ -119,15 +119,15 @@
         "stock_workflow_events"
       ],
       "download_route": "/hr/sops/STK-ERP-SOP-005/download",
-      "document_version": "v1.0-DRAFT",
+      "document_version": "v1.0",
       "language": "am-ET",
-      "status": "DRAFT_NOT_APPROVED",
-      "summary": "\u12cb\u1293 \u1218\u130b\u12d8\u1295\u1366 \u12d5\u1243 \u1218\u1240\u1260\u120d\u1363 \u1218\u1241\u1320\u122d \u12a5\u1293 \u12c8\u12f0 \u12a0\u12ad\u1232\u12ee\u1295 \u121b\u1235\u1308\u1263\u1275 \u2014 \u12e8\u130d\u121d\u1308\u121b \u1228\u1242\u1245\u1364 \u1260\u1263\u1208\u1264\u1275 \u12a5\u1235\u12aa\u1338\u12f5\u1245 \u12f5\u1228\u1235 \u12a6\u134a\u1234\u120b\u12ca \u1218\u1218\u122a\u12eb \u12a0\u12ed\u12f0\u1208\u121d\u1362",
+      "status": "APPROVED",
+      "summary": "ዋና መጋዘን፦ ዕቃ መቀበል፣ መቁጠር እና ወደ አክሲዮን ማስገባት",
       "download_filename": "STK_ERP_SOP_005.docx"
     },
     {
       "id": "STK-ERP-SOP-006",
-      "title": "\u12e8\u1218\u130b\u12d8\u1295/\u1245\u122d\u1295\u132b\u134d \u12dd\u12cd\u12cd\u122d\u1363 \u1218\u120b\u12ad \u12a5\u1293 \u1218\u1240\u1260\u120d",
+      "title": "የመጋዘን/ቅርንጫፍ ዝውውር፣ መላክ እና መቀበል",
       "owner": "Warehouse Operations Owner",
       "approver": "Management for variances / authorized transfer approver",
       "file": "payloads/STK_ERP_SOP_006.php",
@@ -142,15 +142,15 @@
         "stock_workflow_events"
       ],
       "download_route": "/hr/sops/STK-ERP-SOP-006/download",
-      "document_version": "v1.0-DRAFT",
+      "document_version": "v1.0",
       "language": "am-ET",
-      "status": "DRAFT_NOT_APPROVED",
-      "summary": "\u12e8\u1218\u130b\u12d8\u1295/\u1245\u122d\u1295\u132b\u134d \u12dd\u12cd\u12cd\u122d\u1363 \u1218\u120b\u12ad \u12a5\u1293 \u1218\u1240\u1260\u120d \u2014 \u12e8\u130d\u121d\u1308\u121b \u1228\u1242\u1245\u1364 \u1260\u1263\u1208\u1264\u1275 \u12a5\u1235\u12aa\u1338\u12f5\u1245 \u12f5\u1228\u1235 \u12a6\u134a\u1234\u120b\u12ca \u1218\u1218\u122a\u12eb \u12a0\u12ed\u12f0\u1208\u121d\u1362",
+      "status": "APPROVED",
+      "summary": "የመጋዘን/ቅርንጫፍ ዝውውር፣ መላክ እና መቀበል",
       "download_filename": "STK_ERP_SOP_006.docx"
     },
     {
       "id": "STK-ERP-SOP-007",
-      "title": "\u12e8\u134d\u120b\u130e\u1275 \u1325\u12eb\u1244\u1363 \u12e8\u12ad\u121d\u127d\u1275 \u121b\u1235\u12eb\u12e3 \u12a5\u1293 \u1218\u1219\u120b\u1275",
+      "title": "የፍላጎት ጥያቄ፣ የክምችት ማስያዣ እና መሙላት",
       "owner": "Requisition/Stock Planning Owner",
       "approver": "Management / authorized approver",
       "file": "payloads/STK_ERP_SOP_007.php",
@@ -166,15 +166,15 @@
         "stock_workflow_events"
       ],
       "download_route": "/hr/sops/STK-ERP-SOP-007/download",
-      "document_version": "v1.0-DRAFT",
+      "document_version": "v1.0",
       "language": "am-ET",
-      "status": "DRAFT_NOT_APPROVED",
-      "summary": "\u12e8\u134d\u120b\u130e\u1275 \u1325\u12eb\u1244\u1363 \u12e8\u12ad\u121d\u127d\u1275 \u121b\u1235\u12eb\u12e3 \u12a5\u1293 \u1218\u1219\u120b\u1275 \u2014 \u12e8\u130d\u121d\u1308\u121b \u1228\u1242\u1245\u1364 \u1260\u1263\u1208\u1264\u1275 \u12a5\u1235\u12aa\u1338\u12f5\u1245 \u12f5\u1228\u1235 \u12a6\u134a\u1234\u120b\u12ca \u1218\u1218\u122a\u12eb \u12a0\u12ed\u12f0\u1208\u121d\u1362",
+      "status": "APPROVED",
+      "summary": "የፍላጎት ጥያቄ፣ የክምችት ማስያዣ እና መሙላት",
       "download_filename": "STK_ERP_SOP_007.docx"
     },
     {
       "id": "STK-ERP-SOP-008",
-      "title": "\u12e8\u12a0\u12ad\u1232\u12ee\u1295 \u12a0\u12ab\u120b\u12ca \u1246\u1320\u122b \u12a5\u1293 \u121b\u1235\u1270\u12ab\u12a8\u12eb",
+      "title": "የአክሲዮን አካላዊ ቆጠራ እና ማስተካከያ",
       "owner": "Inventory Control Owner",
       "approver": "Management + independent count reviewer",
       "file": "payloads/STK_ERP_SOP_008.php",
@@ -190,15 +190,15 @@
         "stock_audit_logs"
       ],
       "download_route": "/hr/sops/STK-ERP-SOP-008/download",
-      "document_version": "v1.0-DRAFT",
+      "document_version": "v1.0",
       "language": "am-ET",
-      "status": "DRAFT_NOT_APPROVED",
-      "summary": "\u12e8\u12a0\u12ad\u1232\u12ee\u1295 \u12a0\u12ab\u120b\u12ca \u1246\u1320\u122b \u12a5\u1293 \u121b\u1235\u1270\u12ab\u12a8\u12eb \u2014 \u12e8\u130d\u121d\u1308\u121b \u1228\u1242\u1245\u1364 \u1260\u1263\u1208\u1264\u1275 \u12a5\u1235\u12aa\u1338\u12f5\u1245 \u12f5\u1228\u1235 \u12a6\u134a\u1234\u120b\u12ca \u1218\u1218\u122a\u12eb \u12a0\u12ed\u12f0\u1208\u121d\u1362",
+      "status": "APPROVED",
+      "summary": "የአክሲዮን አካላዊ ቆጠራ እና ማስተካከያ",
       "download_filename": "STK_ERP_SOP_008.docx"
     },
     {
       "id": "STK-ERP-SOP-009",
-      "title": "\u12e8\u1270\u1260\u120b\u1238 \u12d5\u1243\u1363 \u1218\u1218\u1208\u123b\u1363 \u1309\u12f5\u1208\u1275 \u12a5\u1293 write-off",
+      "title": "የተበላሸ ዕቃ፣ መመለሻ፣ ጉድለት እና write-off",
       "owner": "Inventory Control Owner",
       "approver": "Management + Finance if value impact",
       "file": "payloads/STK_ERP_SOP_009_write_off.php",
@@ -214,15 +214,15 @@
         "stock_audit_logs"
       ],
       "download_route": "/hr/sops/STK-ERP-SOP-009/download",
-      "document_version": "v1.0-DRAFT",
+      "document_version": "v1.0",
       "language": "am-ET",
-      "status": "DRAFT_NOT_APPROVED",
-      "summary": "\u12e8\u1270\u1260\u120b\u1238 \u12d5\u1243\u1363 \u1218\u1218\u1208\u123b\u1363 \u1309\u12f5\u1208\u1275 \u12a5\u1293 write-off \u2014 \u12e8\u130d\u121d\u1308\u121b \u1228\u1242\u1245\u1364 \u1260\u1263\u1208\u1264\u1275 \u12a5\u1235\u12aa\u1338\u12f5\u1245 \u12f5\u1228\u1235 \u12a6\u134a\u1234\u120b\u12ca \u1218\u1218\u122a\u12eb \u12a0\u12ed\u12f0\u1208\u121d\u1362",
+      "status": "APPROVED",
+      "summary": "የተበላሸ ዕቃ፣ መመለሻ፣ ጉድለት እና write-off",
       "download_filename": "STK_ERP_SOP_009_write_off.docx"
     },
     {
       "id": "STK-ERP-SOP-010",
-      "title": "\u127d\u122d\u127b\u122e POS\u1363 \u12e8\u123d\u12eb\u132d \u1218\u12dd\u1308\u1265\u1363 void \u12a5\u1293 refund",
+      "title": "ችርቻሮ POS፣ የሽያጭ መዝገብ፣ void እና refund",
       "owner": "Retail Operations Owner",
       "approver": "Branch Manager / Finance under authority",
       "file": "payloads/STK_ERP_SOP_010_POS_void_refund.php",
@@ -241,15 +241,15 @@
         "stock_daily_closings"
       ],
       "download_route": "/hr/sops/STK-ERP-SOP-010/download",
-      "document_version": "v1.0-DRAFT",
+      "document_version": "v1.0",
       "language": "am-ET",
-      "status": "DRAFT_NOT_APPROVED",
-      "summary": "\u127d\u122d\u127b\u122e POS\u1363 \u12e8\u123d\u12eb\u132d \u1218\u12dd\u1308\u1265\u1363 void \u12a5\u1293 refund \u2014 \u12e8\u130d\u121d\u1308\u121b \u1228\u1242\u1245\u1364 \u1260\u1263\u1208\u1264\u1275 \u12a5\u1235\u12aa\u1338\u12f5\u1245 \u12f5\u1228\u1235 \u12a6\u134a\u1234\u120b\u12ca \u1218\u1218\u122a\u12eb \u12a0\u12ed\u12f0\u1208\u121d\u1362",
+      "status": "APPROVED",
+      "summary": "ችርቻሮ POS፣ የሽያጭ መዝገብ፣ void እና refund",
       "download_filename": "STK_ERP_SOP_010_POS_void_refund.docx"
     },
     {
       "id": "STK-ERP-SOP-011",
-      "title": "\u12e8\u12d5\u1208\u1275 \u1218\u12dd\u130a\u12eb\u1363 \u12e8\u1308\u1295\u12d8\u1265 \u121b\u1235\u1273\u1228\u1245 \u12a5\u1293 \u12e8\u1270\u1240\u1263 \u12ad\u134d\u12eb \u121b\u1235\u1228\u1303",
+      "title": "የዕለት መዝጊያ፣ የገንዘብ ማስታረቅ እና የተቀባ ክፍያ ማስረጃ",
       "owner": "Branch Closing Owner",
       "approver": "Independent Finance reviewer",
       "file": "payloads/STK_ERP_SOP_011.php",
@@ -264,15 +264,15 @@
         "stock_audit_logs"
       ],
       "download_route": "/hr/sops/STK-ERP-SOP-011/download",
-      "document_version": "v1.0-DRAFT",
+      "document_version": "v1.0",
       "language": "am-ET",
-      "status": "DRAFT_NOT_APPROVED",
-      "summary": "\u12e8\u12d5\u1208\u1275 \u1218\u12dd\u130a\u12eb\u1363 \u12e8\u1308\u1295\u12d8\u1265 \u121b\u1235\u1273\u1228\u1245 \u12a5\u1293 \u12e8\u1270\u1240\u1263 \u12ad\u134d\u12eb \u121b\u1235\u1228\u1303 \u2014 \u12e8\u130d\u121d\u1308\u121b \u1228\u1242\u1245\u1364 \u1260\u1263\u1208\u1264\u1275 \u12a5\u1235\u12aa\u1338\u12f5\u1245 \u12f5\u1228\u1235 \u12a6\u134a\u1234\u120b\u12ca \u1218\u1218\u122a\u12eb \u12a0\u12ed\u12f0\u1208\u121d\u1362",
+      "status": "APPROVED",
+      "summary": "የዕለት መዝጊያ፣ የገንዘብ ማስታረቅ እና የተቀባ ክፍያ ማስረጃ",
       "download_filename": "STK_ERP_SOP_011.docx"
     },
     {
       "id": "STK-ERP-SOP-012",
-      "title": "Wholesale \u130d\u12e2/\u123d\u12eb\u132d\u1363 \u12e8\u1270\u12eb\u12d8 \u1275\u12d5\u12db\u12dd\u1363 \u12ad\u122c\u12f2\u1275 \u12a5\u1293 \u121b\u12f5\u1228\u1235",
+      "title": "Wholesale ግዢ/ሽያጭ፣ የተያዘ ትዕዛዝ፣ ክሬዲት እና ማድረስ",
       "owner": "Wholesale Sales Owner",
       "approver": "Management + Finance credit approval",
       "file": "payloads/STK_ERP_SOP_012_Wholesale.php",
@@ -289,15 +289,15 @@
         "stock_transactions"
       ],
       "download_route": "/hr/sops/STK-ERP-SOP-012/download",
-      "document_version": "v1.0-DRAFT",
+      "document_version": "v1.0",
       "language": "am-ET",
-      "status": "DRAFT_NOT_APPROVED",
-      "summary": "Wholesale \u130d\u12e2/\u123d\u12eb\u132d\u1363 \u12e8\u1270\u12eb\u12d8 \u1275\u12d5\u12db\u12dd\u1363 \u12ad\u122c\u12f2\u1275 \u12a5\u1293 \u121b\u12f5\u1228\u1235 \u2014 \u12e8\u130d\u121d\u1308\u121b \u1228\u1242\u1245\u1364 \u1260\u1263\u1208\u1264\u1275 \u12a5\u1235\u12aa\u1338\u12f5\u1245 \u12f5\u1228\u1235 \u12a6\u134a\u1234\u120b\u12ca \u1218\u1218\u122a\u12eb \u12a0\u12ed\u12f0\u1208\u121d\u1362",
+      "status": "APPROVED",
+      "summary": "Wholesale ግዢ/ሽያጭ፣ የተያዘ ትዕዛዝ፣ ክሬዲት እና ማድረስ",
       "download_filename": "STK_ERP_SOP_012_Wholesale.docx"
     },
     {
       "id": "STK-ERP-SOP-013",
-      "title": "Procurement\u1363 \u12e8\u130d\u12e2 \u1275\u12d5\u12db\u12dd \u12a5\u1293 Supplier invoice \u121b\u1235\u121b\u121b\u1275",
+      "title": "Procurement፣ የግዢ ትዕዛዝ እና Supplier invoice ማስማማት",
       "owner": "Procurement Owner",
       "approver": "Owner/Management by approval threshold",
       "file": "payloads/STK_ERP_SOP_013_Procurement_Supplier_invoice.php",
@@ -314,15 +314,15 @@
         "stock_workflow_events"
       ],
       "download_route": "/hr/sops/STK-ERP-SOP-013/download",
-      "document_version": "v1.0-DRAFT",
+      "document_version": "v1.0",
       "language": "am-ET",
-      "status": "DRAFT_NOT_APPROVED",
-      "summary": "Procurement\u1363 \u12e8\u130d\u12e2 \u1275\u12d5\u12db\u12dd \u12a5\u1293 Supplier invoice \u121b\u1235\u121b\u121b\u1275 \u2014 \u12e8\u130d\u121d\u1308\u121b \u1228\u1242\u1245\u1364 \u1260\u1263\u1208\u1264\u1275 \u12a5\u1235\u12aa\u1338\u12f5\u1245 \u12f5\u1228\u1235 \u12a6\u134a\u1234\u120b\u12ca \u1218\u1218\u122a\u12eb \u12a0\u12ed\u12f0\u1208\u121d\u1362",
+      "status": "APPROVED",
+      "summary": "Procurement፣ የግዢ ትዕዛዝ እና Supplier invoice ማስማማት",
       "download_filename": "STK_ERP_SOP_013_Procurement_Supplier_invoice.docx"
     },
     {
       "id": "STK-ERP-SOP-014",
-      "title": "Accounts Payable\u1363 \u12c8\u132a\u12ce\u127d\u1363 \u12ad\u134d\u12eb \u12a5\u1293 Supplier balance",
+      "title": "Accounts Payable፣ ወጪዎች፣ ክፍያ እና Supplier balance",
       "owner": "Finance / AP Owner",
       "approver": "Independent Finance approver / Owner as needed",
       "file": "payloads/STK_ERP_SOP_014_Accounts_Payable_Supplier_balance.php",
@@ -340,15 +340,15 @@
         "stock_audit_logs"
       ],
       "download_route": "/hr/sops/STK-ERP-SOP-014/download",
-      "document_version": "v1.0-DRAFT",
+      "document_version": "v1.0",
       "language": "am-ET",
-      "status": "DRAFT_NOT_APPROVED",
-      "summary": "Accounts Payable\u1363 \u12c8\u132a\u12ce\u127d\u1363 \u12ad\u134d\u12eb \u12a5\u1293 Supplier balance \u2014 \u12e8\u130d\u121d\u1308\u121b \u1228\u1242\u1245\u1364 \u1260\u1263\u1208\u1264\u1275 \u12a5\u1235\u12aa\u1338\u12f5\u1245 \u12f5\u1228\u1235 \u12a6\u134a\u1234\u120b\u12ca \u1218\u1218\u122a\u12eb \u12a0\u12ed\u12f0\u1208\u121d\u1362",
+      "status": "APPROVED",
+      "summary": "Accounts Payable፣ ወጪዎች፣ ክፍያ እና Supplier balance",
       "download_filename": "STK_ERP_SOP_014_Accounts_Payable_Supplier_balance.docx"
     },
     {
       "id": "STK-ERP-SOP-015",
-      "title": "Accounts Receivable\u1363 \u12e8\u12f0\u1295\u1260\u129b \u12ad\u134d\u12eb \u12a5\u1293 \u12d5\u12f3 \u121b\u1235\u1273\u1228\u1245",
+      "title": "Accounts Receivable፣ የደንበኛ ክፍያ እና ዕዳ ማስታረቅ",
       "owner": "Finance / AR Owner",
       "approver": "Independent Finance reviewer",
       "file": "payloads/STK_ERP_SOP_015_Accounts_Receivable.php",
@@ -364,15 +364,15 @@
         "stock_gl_lines"
       ],
       "download_route": "/hr/sops/STK-ERP-SOP-015/download",
-      "document_version": "v1.0-DRAFT",
+      "document_version": "v1.0",
       "language": "am-ET",
-      "status": "DRAFT_NOT_APPROVED",
-      "summary": "Accounts Receivable\u1363 \u12e8\u12f0\u1295\u1260\u129b \u12ad\u134d\u12eb \u12a5\u1293 \u12d5\u12f3 \u121b\u1235\u1273\u1228\u1245 \u2014 \u12e8\u130d\u121d\u1308\u121b \u1228\u1242\u1245\u1364 \u1260\u1263\u1208\u1264\u1275 \u12a5\u1235\u12aa\u1338\u12f5\u1245 \u12f5\u1228\u1235 \u12a6\u134a\u1234\u120b\u12ca \u1218\u1218\u122a\u12eb \u12a0\u12ed\u12f0\u1208\u121d\u1362",
+      "status": "APPROVED",
+      "summary": "Accounts Receivable፣ የደንበኛ ክፍያ እና ዕዳ ማስታረቅ",
       "download_filename": "STK_ERP_SOP_015_Accounts_Receivable.docx"
     },
     {
       "id": "STK-ERP-SOP-016",
-      "title": "General Ledger\u1363 PLEDGER\u1363 \u1306\u122d\u1293\u120d \u12a5\u1293 \u12c8\u122d \u1218\u12dd\u130a\u12eb",
+      "title": "General Ledger፣ PLEDGER፣ ጆርናል እና ወር መዝጊያ",
       "owner": "Finance Controller",
       "approver": "Owner / independent reviewer",
       "file": "payloads/STK_ERP_SOP_016_General_Ledger_PLEDGER.php",
@@ -391,15 +391,15 @@
         "stock_audit_logs"
       ],
       "download_route": "/hr/sops/STK-ERP-SOP-016/download",
-      "document_version": "v1.0-DRAFT",
+      "document_version": "v1.0",
       "language": "am-ET",
-      "status": "DRAFT_NOT_APPROVED",
-      "summary": "General Ledger\u1363 PLEDGER\u1363 \u1306\u122d\u1293\u120d \u12a5\u1293 \u12c8\u122d \u1218\u12dd\u130a\u12eb \u2014 \u12e8\u130d\u121d\u1308\u121b \u1228\u1242\u1245\u1364 \u1260\u1263\u1208\u1264\u1275 \u12a5\u1235\u12aa\u1338\u12f5\u1245 \u12f5\u1228\u1235 \u12a6\u134a\u1234\u120b\u12ca \u1218\u1218\u122a\u12eb \u12a0\u12ed\u12f0\u1208\u121d\u1362",
+      "status": "APPROVED",
+      "summary": "General Ledger፣ PLEDGER፣ ጆርናል እና ወር መዝጊያ",
       "download_filename": "STK_ERP_SOP_016_General_Ledger_PLEDGER.docx"
     },
     {
       "id": "STK-ERP-SOP-017",
-      "title": "\u12e8\u122a\u1356\u122d\u1275\u1363 Management Intelligence \u12a5\u1293 \u12e8\u121b\u1235\u1228\u1303 \u121d\u1295\u132d \u1241\u1325\u1325\u122d",
+      "title": "የሪፖርት፣ Management Intelligence እና የማስረጃ ምንጭ ቁጥጥር",
       "owner": "Management Intelligence Owner",
       "approver": "Management / Owner",
       "file": "payloads/STK_ERP_SOP_017_Management_Intelligence.php",
@@ -418,15 +418,15 @@
         "stock_notifications"
       ],
       "download_route": "/hr/sops/STK-ERP-SOP-017/download",
-      "document_version": "v1.0-DRAFT",
+      "document_version": "v1.0",
       "language": "am-ET",
-      "status": "DRAFT_NOT_APPROVED",
-      "summary": "\u12e8\u122a\u1356\u122d\u1275\u1363 Management Intelligence \u12a5\u1293 \u12e8\u121b\u1235\u1228\u1303 \u121d\u1295\u132d \u1241\u1325\u1325\u122d \u2014 \u12e8\u130d\u121d\u1308\u121b \u1228\u1242\u1245\u1364 \u1260\u1263\u1208\u1264\u1275 \u12a5\u1235\u12aa\u1338\u12f5\u1245 \u12f5\u1228\u1235 \u12a6\u134a\u1234\u120b\u12ca \u1218\u1218\u122a\u12eb \u12a0\u12ed\u12f0\u1208\u121d\u1362",
+      "status": "APPROVED",
+      "summary": "የሪፖርት፣ Management Intelligence እና የማስረጃ ምንጭ ቁጥጥር",
       "download_filename": "STK_ERP_SOP_017_Management_Intelligence.docx"
     },
     {
       "id": "STK-ERP-SOP-018",
-      "title": "\u12e8\u1235\u122d\u12d3\u1275 \u1324\u1293\u1363 \u121d\u1275\u12ac\u1363 \u121b\u1235\u1218\u1208\u1235 \u12a5\u1293 \u12e8\u1235\u122a\u1275 \u1218\u120d\u1240\u1245",
+      "title": "የስርዓት ጤና፣ ምትኬ፣ ማስመለስ እና የስሪት መልቀቅ",
       "owner": "Technical System Owner",
       "approver": "Owner / release approver",
       "file": "payloads/STK_ERP_SOP_018.php",
@@ -439,15 +439,15 @@
         "stock_workflow_events"
       ],
       "download_route": "/hr/sops/STK-ERP-SOP-018/download",
-      "document_version": "v1.0-DRAFT",
+      "document_version": "v1.0",
       "language": "am-ET",
-      "status": "DRAFT_NOT_APPROVED",
-      "summary": "\u12e8\u1235\u122d\u12d3\u1275 \u1324\u1293\u1363 \u121d\u1275\u12ac\u1363 \u121b\u1235\u1218\u1208\u1235 \u12a5\u1293 \u12e8\u1235\u122a\u1275 \u1218\u120d\u1240\u1245 \u2014 \u12e8\u130d\u121d\u1308\u121b \u1228\u1242\u1245\u1364 \u1260\u1263\u1208\u1264\u1275 \u12a5\u1235\u12aa\u1338\u12f5\u1245 \u12f5\u1228\u1235 \u12a6\u134a\u1234\u120b\u12ca \u1218\u1218\u122a\u12eb \u12a0\u12ed\u12f0\u1208\u121d\u1362",
+      "status": "APPROVED",
+      "summary": "የስርዓት ጤና፣ ምትኬ፣ ማስመለስ እና የስሪት መልቀቅ",
       "download_filename": "STK_ERP_SOP_018.docx"
     },
     {
       "id": "STK-ERP-SOP-019",
-      "title": "\u12e8\u1230\u12cd \u1283\u12ed\u120d \u12d5\u1245\u12f5\u1363 \u121d\u120d\u1218\u120b \u12a5\u1293 \u12e8\u12a5\u1329 \u1218\u1228\u1303 \u1325\u1260\u1243",
+      "title": "የሰው ኃይል ዕቅድ፣ ምልመላ እና የእጩ መረጃ ጥበቃ",
       "owner": "HR Owner",
       "approver": "Owner + budget approver",
       "file": "payloads/STK_ERP_SOP_019.php",
@@ -455,15 +455,15 @@
       "bytes": 40600,
       "tables": [],
       "download_route": "/hr/sops/STK-ERP-SOP-019/download",
-      "document_version": "v1.0-DRAFT",
+      "document_version": "v1.0",
       "language": "am-ET",
-      "status": "DRAFT_NOT_APPROVED",
-      "summary": "\u12e8\u1230\u12cd \u1283\u12ed\u120d \u12d5\u1245\u12f5\u1363 \u121d\u120d\u1218\u120b \u12a5\u1293 \u12e8\u12a5\u1329 \u1218\u1228\u1303 \u1325\u1260\u1243 \u2014 \u12e8\u130d\u121d\u1308\u121b \u1228\u1242\u1245\u1364 \u1260\u1263\u1208\u1264\u1275 \u12a5\u1235\u12aa\u1338\u12f5\u1245 \u12f5\u1228\u1235 \u12a6\u134a\u1234\u120b\u12ca \u1218\u1218\u122a\u12eb \u12a0\u12ed\u12f0\u1208\u121d\u1362",
+      "status": "APPROVED",
+      "summary": "የሰው ኃይል ዕቅድ፣ ምልመላ እና የእጩ መረጃ ጥበቃ",
       "download_filename": "STK_ERP_SOP_019.docx"
     },
     {
       "id": "STK-ERP-SOP-020",
-      "title": "\u12e8\u1225\u122b \u12cd\u120d\u1363 \u1218\u130d\u1262\u12eb \u1225\u120d\u1320\u1293\u1363 \u12e8\u1230\u122b\u1270\u129b \u1273\u122a\u12ad \u12a5\u1293 \u1218\u12f3\u1228\u123b",
+      "title": "የሥራ ውል፣ መግቢያ ሥልጠና፣ የሰራተኛ ታሪክ እና መዳረሻ",
       "owner": "HR Owner",
       "approver": "Owner / authorized HR approver",
       "file": "payloads/STK_ERP_SOP_020.php",
@@ -474,15 +474,15 @@
         "stock_user_locations"
       ],
       "download_route": "/hr/sops/STK-ERP-SOP-020/download",
-      "document_version": "v1.0-DRAFT",
+      "document_version": "v1.0",
       "language": "am-ET",
-      "status": "DRAFT_NOT_APPROVED",
-      "summary": "\u12e8\u1225\u122b \u12cd\u120d\u1363 \u1218\u130d\u1262\u12eb \u1225\u120d\u1320\u1293\u1363 \u12e8\u1230\u122b\u1270\u129b \u1273\u122a\u12ad \u12a5\u1293 \u1218\u12f3\u1228\u123b \u2014 \u12e8\u130d\u121d\u1308\u121b \u1228\u1242\u1245\u1364 \u1260\u1263\u1208\u1264\u1275 \u12a5\u1235\u12aa\u1338\u12f5\u1245 \u12f5\u1228\u1235 \u12a6\u134a\u1234\u120b\u12ca \u1218\u1218\u122a\u12eb \u12a0\u12ed\u12f0\u1208\u121d\u1362",
+      "status": "APPROVED",
+      "summary": "የሥራ ውል፣ መግቢያ ሥልጠና፣ የሰራተኛ ታሪክ እና መዳረሻ",
       "download_filename": "STK_ERP_SOP_020.docx"
     },
     {
       "id": "STK-ERP-SOP-021",
-      "title": "Attendance\u1363 shift\u1363 overtime\u1363 \u12e8\u12a5\u1228\u134d\u1275 \u1240\u1295 \u12a5\u1293 leave \u1202\u12f0\u1275",
+      "title": "Attendance፣ shift፣ overtime፣ የእረፍት ቀን እና leave ሂደት",
       "owner": "HR & Line Manager",
       "approver": "Independent HR reviewer / qualified legal gate where relevant",
       "file": "payloads/STK_ERP_SOP_021_Attendance_shift_overtime_leave.php",
@@ -490,15 +490,15 @@
       "bytes": 40660,
       "tables": [],
       "download_route": "/hr/sops/STK-ERP-SOP-021/download",
-      "document_version": "v1.0-DRAFT",
+      "document_version": "v1.0",
       "language": "am-ET",
-      "status": "DRAFT_NOT_APPROVED",
-      "summary": "Attendance\u1363 shift\u1363 overtime\u1363 \u12e8\u12a5\u1228\u134d\u1275 \u1240\u1295 \u12a5\u1293 leave \u1202\u12f0\u1275 \u2014 \u12e8\u130d\u121d\u1308\u121b \u1228\u1242\u1245\u1364 \u1260\u1263\u1208\u1264\u1275 \u12a5\u1235\u12aa\u1338\u12f5\u1245 \u12f5\u1228\u1235 \u12a6\u134a\u1234\u120b\u12ca \u1218\u1218\u122a\u12eb \u12a0\u12ed\u12f0\u1208\u121d\u1362",
+      "status": "APPROVED",
+      "summary": "Attendance፣ shift፣ overtime፣ የእረፍት ቀን እና leave ሂደት",
       "download_filename": "STK_ERP_SOP_021_Attendance_shift_overtime_leave.docx"
     },
     {
       "id": "STK-ERP-SOP-022",
-      "title": "Compensation\u1363 \u12c8\u122d\u1203\u12ca payroll\u1363 PAYE/pension\u1363 payslip \u12a5\u1293 \u12ad\u134d\u12eb",
+      "title": "Compensation፣ ወርሃዊ payroll፣ PAYE/pension፣ payslip እና ክፍያ",
       "owner": "Payroll Owner / Finance",
       "approver": "Independent reviewer then Owner approval",
       "file": "payloads/STK_ERP_SOP_022_Compensation_payroll_PAYE_pension_payslip.php",
@@ -516,15 +516,15 @@
         "stock_payment_allocations"
       ],
       "download_route": "/hr/sops/STK-ERP-SOP-022/download",
-      "document_version": "v1.0-DRAFT",
+      "document_version": "v1.0",
       "language": "am-ET",
-      "status": "DRAFT_NOT_APPROVED",
-      "summary": "Compensation\u1363 \u12c8\u122d\u1203\u12ca payroll\u1363 PAYE/pension\u1363 payslip \u12a5\u1293 \u12ad\u134d\u12eb \u2014 \u12e8\u130d\u121d\u1308\u121b \u1228\u1242\u1245\u1364 \u1260\u1263\u1208\u1264\u1275 \u12a5\u1235\u12aa\u1338\u12f5\u1245 \u12f5\u1228\u1235 \u12a6\u134a\u1234\u120b\u12ca \u1218\u1218\u122a\u12eb \u12a0\u12ed\u12f0\u1208\u121d\u1362",
+      "status": "APPROVED",
+      "summary": "Compensation፣ ወርሃዊ payroll፣ PAYE/pension፣ payslip እና ክፍያ",
       "download_filename": "STK_ERP_SOP_022_Compensation_payroll_PAYE_pension_payslip.docx"
     },
     {
       "id": "STK-ERP-SOP-023",
-      "title": "\u1225\u122b \u1218\u120d\u1240\u1245\u1363 \u12e8\u1218\u1328\u1228\u123b \u12ad\u134d\u12eb \u12a5\u1293 \u12e8\u130d\u1208\u1230\u1265 \u12a0\u1308\u120d\u130d\u120e\u1275 \u12ad\u134d\u12eb",
+      "title": "ሥራ መልቀቅ፣ የመጨረሻ ክፍያ እና የግለሰብ አገልግሎት ክፍያ",
       "owner": "HR + Finance/AP Owner",
       "approver": "Owner + independent reviewer + qualified legal review where required",
       "file": "payloads/STK_ERP_SOP_023.php",
@@ -537,15 +537,15 @@
         "stock_gl_lines"
       ],
       "download_route": "/hr/sops/STK-ERP-SOP-023/download",
-      "document_version": "v1.0-DRAFT",
+      "document_version": "v1.0",
       "language": "am-ET",
-      "status": "DRAFT_NOT_APPROVED",
-      "summary": "\u1225\u122b \u1218\u120d\u1240\u1245\u1363 \u12e8\u1218\u1328\u1228\u123b \u12ad\u134d\u12eb \u12a5\u1293 \u12e8\u130d\u1208\u1230\u1265 \u12a0\u1308\u120d\u130d\u120e\u1275 \u12ad\u134d\u12eb \u2014 \u12e8\u130d\u121d\u1308\u121b \u1228\u1242\u1245\u1364 \u1260\u1263\u1208\u1264\u1275 \u12a5\u1235\u12aa\u1338\u12f5\u1245 \u12f5\u1228\u1235 \u12a6\u134a\u1234\u120b\u12ca \u1218\u1218\u122a\u12eb \u12a0\u12ed\u12f0\u1208\u121d\u1362",
+      "status": "APPROVED",
+      "summary": "ሥራ መልቀቅ፣ የመጨረሻ ክፍያ እና የግለሰብ አገልግሎት ክፍያ",
       "download_filename": "STK_ERP_SOP_023.docx"
     },
     {
       "id": "STK-ERP-SOP-024",
-      "title": "\u12e8\u12cd\u1202\u1265 \u130d\u120b\u12ca\u1290\u1275\u1363 \u12e8\u1230\u1290\u12f5 \u121b\u12a8\u121b\u127b\u1363 audit \u12a5\u1293 \u121b\u1246\u12eb \u130a\u12dc",
+      "title": "የውሂብ ግላዊነት፣ የሰነድ ማከማቻ፣ audit እና ማቆያ ጊዜ",
       "owner": "Data Protection/ERP Owner",
       "approver": "Owner + relevant professional review",
       "file": "payloads/STK_ERP_SOP_024_audit.php",
@@ -558,10 +558,10 @@
         "stock_user_locations"
       ],
       "download_route": "/hr/sops/STK-ERP-SOP-024/download",
-      "document_version": "v1.0-DRAFT",
+      "document_version": "v1.0",
       "language": "am-ET",
-      "status": "DRAFT_NOT_APPROVED",
-      "summary": "\u12e8\u12cd\u1202\u1265 \u130d\u120b\u12ca\u1290\u1275\u1363 \u12e8\u1230\u1290\u12f5 \u121b\u12a8\u121b\u127b\u1363 audit \u12a5\u1293 \u121b\u1246\u12eb \u130a\u12dc \u2014 \u12e8\u130d\u121d\u1308\u121b \u1228\u1242\u1245\u1364 \u1260\u1263\u1208\u1264\u1275 \u12a5\u1235\u12aa\u1338\u12f5\u1245 \u12f5\u1228\u1235 \u12a6\u134a\u1234\u120b\u12ca \u1218\u1218\u122a\u12eb \u12a0\u12ed\u12f0\u1208\u121d\u1362",
+      "status": "APPROVED",
+      "summary": "የውሂብ ግላዊነት፣ የሰነድ ማከማቻ፣ audit እና ማቆያ ጊዜ",
       "download_filename": "STK_ERP_SOP_024_audit.docx"
     }
   ],
@@ -576,5 +576,10 @@
   "baseline_note": "Source base is locked 16.1.95; deployed 16.1.98-HRX-REVIEW-ONLY package hash not recovered. Keep existing HR Process Center resources and add this as a distinct ERP-wide SOP section only after exact source parity, backup, isolated staging, and acceptance.",
   "integration_target": "Stockland ERP 16.2.14",
   "source_note": "Imported from the user-provided 16.1.101 document pack. HRX physical-table references have been replaced with neutral source-map references to avoid mixing separate HR schema architectures.",
-  "physical_schema_policy": "SOPs describe business procedures. Physical database mappings must be taken from the exact active ERP package source map; this library does not define or install an HR schema."
+  "physical_schema_policy": "SOPs describe business procedures. Physical database mappings must be taken from the exact active ERP package source map; this library does not define or install an HR schema.",
+  "approval": {
+    "approved_by_role": "OWNER",
+    "approved_on": "2026-11-17",
+    "basis": "Owner approval of the shipped SOP set for live use; Owner may edit and re-version any SOP in the HR library."
+  }
 }

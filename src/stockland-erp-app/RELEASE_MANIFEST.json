@@ -45,7 +45,7 @@
   "sop_resources": {
     "count": 24,
     "payload_integrity": "PASS",
-    "approval_status": "DRAFT_NOT_APPROVED"
+    "approval_status": "APPROVED"
   },
   "file_inventory": {
     "count": 124,
