@@ -12,6 +12,24 @@ The written instructions are grounded in 16.2.18 source. To make this a fully vi
 - Retain the unmodified original capture securely before adding numbered callouts.
 - Capture desktop and phone views where the workflow is commonly performed on both.
 
+## Figure 1 — From real screen to approved manual image
+
+```mermaid
+flowchart TD
+    A["Use authenticated 16.2.18 production app"] --> B["Sign in with approved training account"]
+    B --> C["Open exact module and workflow screen"]
+    C --> D["Keep menu, page title and build visible"]
+    D --> E["Hide customer / employee / financial personal data"]
+    E --> F["Capture original screen"]
+    F --> G["Preserve the untouched original"]
+    G --> H["Create a numbered callout copy"]
+    H --> I["Review against written steps and 16.2.18"]
+    I --> J["Insert figure with caption and alt text"]
+    J --> K["Review desktop and mobile GitBook layout"]
+```
+
+*Figure 1: screenshots must come from the installed 16.2.18 application and be privacy-reviewed. Mermaid workflow diagrams in this manual are supplementary figures, not substitutes for these captures.*
+
 ## Required capture set
 
 | ID | Real screen to capture | Manual page |
