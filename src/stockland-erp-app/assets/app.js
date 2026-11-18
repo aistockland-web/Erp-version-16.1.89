@@ -2667,6 +2667,7 @@ async function runHealth(mode){
       d=await api16('/system/health');
     }
     const q=d.diagnostics||{};
+    // These flags are consumed by this renderer; classifyERPHealthScope has its own separate local scope.
     const quickOnly=q.health_mode==='quick',setupRequired=q.health_mode==='setup';
     const checks=d.checks||{};
     const ready=!!checks.live_ready;
