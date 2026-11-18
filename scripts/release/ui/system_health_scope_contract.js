@@ -10,7 +10,7 @@ const appPath = path.join(root, 'src', 'stockland-erp-app', 'assets', 'app.js');
 const source = fs.readFileSync(appPath, 'utf8');
 const runStart = source.indexOf('async function runHealth(mode)');
 assert.notEqual(runStart, -1, 'runHealth(mode) must exist');
-const nextFunction = source.slice(runStart + 1).search(/\\n(?:async\\s+)?function\\s/);
+const nextFunction = source.slice(runStart + 1).search(/\n(?:async\s+)?function\s/);
 const runSource = source.slice(runStart, nextFunction < 0 ? source.length : runStart + 1 + nextFunction);
 
 const diagnostics = runSource.indexOf('const q=d.diagnostics||{};');
