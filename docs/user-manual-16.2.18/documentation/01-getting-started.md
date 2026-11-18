@@ -17,6 +17,8 @@ Use the username and password provided by the authorized administrator. Never sh
 ### Confirm your identity and location
 
 After sign-in, check your displayed user/profile identity and assigned branch or warehouse. If the location is incorrect, stop and request an administrator correction before processing transactions.
+
+<figure><img src="assets/screens/S01-landing-dashboard.png" alt="Signed-in Command Center dashboard showing the user name, assigned location and release"><figcaption><p>Signed-in landing screen: user name, assigned location and the Command Center dashboard. Role shown: Branch Manager. Stockland ERP 16.2.18 front end with training sample data.</p></figcaption></figure>
 {% endstep %}
 {% step %}
 ### Confirm the release
@@ -59,3 +61,5 @@ Use the account/profile menu and sign-out action. On a shared computer, close th
 ## Phone and PWA use
 
 The application is responsive and includes PWA support. Use the approved HTTPS ERP URL. If your organization enables installation on a device, use the browser's supported install option. Installing the web app does not grant additional permissions.
+
+<figure><img src="assets/screens/S03-mobile-navigation.png" alt="Mobile navigation drawer open on a phone-sized screen"><figcaption><p>Mobile navigation drawer on a phone-sized screen. Role shown: Sales Employee. Stockland ERP 16.2.18 front end with training sample data.</p></figcaption></figure>

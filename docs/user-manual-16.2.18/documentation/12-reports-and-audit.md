@@ -27,11 +27,15 @@ Choose All authorized locations or a specific authorized branch/warehouse. The s
 ### Run the report
 
 Select RUN REPORT and wait for the live result.
+
+<figure><img src="assets/screens/S26-report-run.png" alt="Reports and Analytics filters with a generated report"><figcaption><p>Report filters and a generated report. Role shown: Owner. Stockland ERP 16.2.18 front end with training sample data.</p></figcaption></figure>
 {% endstep %}
 {% step %}
 ### Print or export
 
 Use PRINT / SAVE PDF for a printable report or DOWNLOAD SELECTED CSV for the selected report data, when enabled.
+
+<figure><img src="assets/screens/S26b-report-print.png" alt="Report in print preview layout"><figcaption><p>Print layout used by PRINT / SAVE PDF. Role shown: Owner. Stockland ERP 16.2.18 front end with training sample data.</p></figcaption></figure>
 {% endstep %}
 {% endstepper %}
 
@@ -62,6 +66,8 @@ Daily Inventory is a read-only ledger-derived stock movement view. Reports & Ana
 ## Audit Log
 
 Use Management → Audit Log when authorized. Inspect the relevant user, record and event. Use transaction reference and timestamp to trace what happened. An audit record is evidence, not an edit control.
+
+<figure><img src="assets/screens/S27-audit-log.png" alt="Audit Log table with user, branch, action, reference and hash"><figcaption><p>Audit Log: time, user, branch, action, reference and hash. Role shown: Owner. Stockland ERP 16.2.18 front end with training sample data.</p></figcaption></figure>
 
 ## Reconciliation checklist
 

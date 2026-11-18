@@ -22,6 +22,8 @@ Choose Sales & POS → Retail POS.
 ### Confirm the sale header
 
 Check Business date, Branch, VAT mode and optional External receipt no. If only one branch is assigned, the branch may be read-only.
+
+<figure><img src="assets/screens/S12-pos-header.png" alt="Retail POS sale header with an empty cart"><figcaption><p>Retail POS sale header and empty cart. Role shown: Sales Employee. Stockland ERP 16.2.18 front end with training sample data.</p></figcaption></figure>
 {% endstep %}
 {% step %}
 ### Add the first item
@@ -37,11 +39,15 @@ Repeat the SKU search and add action. Verify product name, SKU, size, color and 
 ### Check quantities and totals
 
 Review each quantity, master price, any permitted override and line total preview. Check Items, Gross total preview, VAT preview and Net sales preview.
+
+<figure><img src="assets/screens/S13-pos-cart.png" alt="Retail POS cart with two lines and totals"><figcaption><p>Populated cart with line totals, VAT preview and net sales preview. Role shown: Sales Employee. Stockland ERP 16.2.18 front end with training sample data.</p></figcaption></figure>
 {% endstep %}
 {% step %}
 ### Post the complete cart
 
 When all lines are correct, select POST COMPLETE CART once. Wait for the server response and sale reference.
+
+<figure><img src="assets/screens/S14-pos-posted.png" alt="Retail POS confirmation after posting a cart"><figcaption><p>Cart posted and verified, with the sale in today's list. Role shown: Sales Employee. Stockland ERP 16.2.18 front end with training sample data.</p></figcaption></figure>
 {% endstep %}
 {% step %}
 ### Verify the result

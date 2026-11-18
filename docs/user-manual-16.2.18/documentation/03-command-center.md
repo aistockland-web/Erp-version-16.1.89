@@ -60,6 +60,8 @@ On desktop, use the left navigation. On a phone, open the mobile menu.
 ### Expand a group
 
 Select a group such as Sales & POS, Inventory or Warehouse.
+
+<figure><img src="assets/screens/S02-navigation-expanded.png" alt="Desktop navigation with every group expanded"><figcaption><p>Desktop navigation with all groups expanded. Role shown: Owner. Stockland ERP 16.2.18 front end with training sample data.</p></figcaption></figure>
 {% endstep %}
 {% step %}
 ### Select the required page
@@ -71,6 +73,8 @@ Choose Retail POS, Inventory Control, Requisitions or another authorized page. W
 ## Command launcher and search
 
 Use Ctrl + K or Command + K to open the command launcher, type the module name and select an available result. Global search can locate records that your account is permitted to view. Search results do not grant edit or posting permission.
+
+<figure><img src="assets/screens/S04-command-launcher.png" alt="Command launcher listing matching ERP functions"><figcaption><p>Command launcher (Ctrl + K) with matching ERP functions. Role shown: Sales Employee. Stockland ERP 16.2.18 front end with training sample data.</p></figcaption></figure>
 
 ## Notifications
 

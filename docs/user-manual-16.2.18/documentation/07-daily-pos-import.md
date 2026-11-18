@@ -58,6 +58,8 @@ Confirm the assigned branch. Check the date detected from the source file. Enter
 ### Select the original report
 
 Choose the original third-party POS Excel or CSV report (XLSX or CSV). Do not retype it into another template unless the approved source process requires it.
+
+<figure><img src="assets/screens/S15-daily-upload.png" alt="Daily POS Import upload form"><figcaption><p>Daily POS Import: manual upload form. Role shown: Sales Employee. Stockland ERP 16.2.18 front end with training sample data.</p></figcaption></figure>
 {% endstep %}
 {% step %}
 ### Validate and stage
@@ -68,6 +70,8 @@ Select VALIDATE & STAGE. The ERP checks supported report dates, article/product 
 ### Review the preview
 
 Check source format, business date, row summary, field mapping, source-to-ERP reconciliation, warnings and blocking errors. Correct the original workbook if there are blocking errors.
+
+<figure><img src="assets/screens/S16-daily-preview.png" alt="Daily POS validation and mapping preview"><figcaption><p>Validation, mapping and staged-job result. Role shown: Sales Employee. Stockland ERP 16.2.18 front end with training sample data.</p></figcaption></figure>
 {% endstep %}
 {% step %}
 ### Open the staged job
@@ -83,11 +87,15 @@ Select OPEN STAGED JOB and confirm the job number and status. If the ERP reports
 ### Open the staged queue
 
 The Branch Manager opens the Daily POS staged queue for the assigned branch.
+
+<figure><img src="assets/screens/S17-daily-queue.png" alt="Daily POS staged queue with a job pending Branch Manager review"><figcaption><p>Staged queue showing job #33 pending Branch Manager review. Role shown: Branch Manager. Stockland ERP 16.2.18 front end with training sample data.</p></figcaption></figure>
 {% endstep %}
 {% step %}
 ### Open and inspect the job
 
 Review source date, branch, rows, mappings, totals and warnings.
+
+<figure><img src="assets/screens/S17b-daily-review.png" alt="Daily POS release control with editable staged rows"><figcaption><p>Release control: staged rows can be corrected before release. Role shown: Branch Manager. Stockland ERP 16.2.18 front end with training sample data.</p></figcaption></figure>
 {% endstep %}
 {% step %}
 ### Correct exceptions
@@ -103,6 +111,8 @@ Only after review is complete, use RELEASE TO ERP. This is the step that posts a
 ### Verify posting
 
 Confirm final job status and check sales, inventory and reports for the same branch/date. Do not release the same report twice.
+
+<figure><img src="assets/screens/S18-daily-released.png" alt="Daily POS queue after release with status POSTED"><figcaption><p>After RELEASE TO ERP: the job shows POSTED. Role shown: Branch Manager. Stockland ERP 16.2.18 front end with training sample data.</p></figcaption></figure>
 {% endstep %}
 {% endstepper %}
 

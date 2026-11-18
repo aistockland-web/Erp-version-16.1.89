@@ -72,7 +72,9 @@ Some functions have separate approval/readiness gates:
 
 ## Evidence and screenshots
 
-The numbered instructions and Mermaid figures are source-based workflow illustrations. They are not screenshots of the live website. An authenticated production browser session was not available during this documentation pass, and no genuine application screenshots were found in the documentation, delivery or release-certificate branches. The [Screenshot capture checklist](15-screenshot-capture-checklist.md) lists the real screens still to capture from the installed 16.2.18 application. Do not mistake the Stockland logo, app icons, backgrounds or cover artwork for application screenshots.
+Each task page now includes screenshots placed at the step they illustrate (29 of the 30 screens on the [Screenshot capture checklist](15-screenshot-capture-checklist.md), some with an extra variant). They were rendered from the exact 16.2.18 front end (`assets/app.js` and `app.min.css` from the master installer, SHA-256 `be60d564…428a`) using **synthetic training sample data**. They show the real 16.2.18 screens and layout, but they are not captures of the live production website, and the names, SKUs, quantities and amounts in them are not business records. Every figure caption says so and names the role shown.
+
+Two limits remain. S29 (System Health result) is not included. Capturing it exposed a front-end defect in this release: the System Health result screen references an undeclared variable (`quickOnly`) and shows an error instead of a result. Production captures on the installed application are still required by the checklist before this manual can be called fully verified. Mermaid figures are workflow illustrations, not screenshots. Do not mistake the Stockland logo, app icons, backgrounds or cover artwork for application screenshots.
 
 ## Release identity
 

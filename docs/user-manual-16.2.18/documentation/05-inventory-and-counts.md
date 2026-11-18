@@ -12,6 +12,8 @@ Choose Inventory → Inventory Control.
 ### Search the item
 
 Search by SKU, product, color, size, barcode or GTIN.
+
+<figure><img src="assets/screens/S08-inventory-control.png" alt="Inventory Control search results with physical, reserved and available stock"><figcaption><p>Inventory Control search with physical, reserved and available stock. Role shown: Branch Manager. Stockland ERP 16.2.18 front end with training sample data.</p></figcaption></figure>
 {% endstep %}
 {% step %}
 ### Read the location balance
@@ -33,6 +35,8 @@ Daily Inventory is a read-only ledger-derived report. Choose the business date a
 7. Reorder or shortfall indicators.
 
 If the report cannot load, stop and report the error. Do not estimate stock from an old screen or spreadsheet.
+
+<figure><img src="assets/screens/S09-daily-inventory.png" alt="Daily Inventory report scope and opening, sales and closing figures"><figcaption><p>Daily Inventory report scope with opening, sales, closing and available figures. Role shown: Branch Manager. Stockland ERP 16.2.18 front end with training sample data.</p></figcaption></figure>
 
 ## Reorder Alerts
 
@@ -83,6 +87,8 @@ Enter the SKU where known. If using descriptive identity, complete brand, produc
 ### Preview the workbook
 
 Open Inventory → Stock Count & Approval, choose the XLSX workbook and select PREVIEW WORKBOOK. Review validation messages and detected location/date.
+
+<figure><img src="assets/screens/S10-count-preview.png" alt="Physical count workbook preview with variance summary"><figcaption><p>Physical count workbook preview before submission. Role shown: Branch Manager. Stockland ERP 16.2.18 front end with training sample data.</p></figcaption></figure>
 {% endstep %}
 {% step %}
 ### Commit the validated count
@@ -98,6 +104,8 @@ Open the created batch. Compare System Qty, Counted Qty and Variance for each SK
 ### Approver decision
 
 The authorized approver can select APPROVE & POST FINAL INVENTORY or REJECT COUNT. Rejection requires a reason. Approval updates final inventory through the controlled workflow.
+
+<figure><img src="assets/screens/S11-count-approval.png" alt="Count batch detail with approve and reject buttons"><figcaption><p>Count batch variance with the approval and reject controls. Role shown: Owner. Stockland ERP 16.2.18 front end with training sample data.</p></figcaption></figure>
 {% endstep %}
 {% endstepper %}
 

@@ -36,6 +36,8 @@ Choose Warehouse → Central Warehouse.
 ### Review approved requisitions
 
 The queue lists approved requisitions waiting for warehouse action, including branch, approved units, status and pickup date.
+
+<figure><img src="assets/screens/S19-warehouse-queue.png" alt="Central Warehouse approved requisition queue"><figcaption><p>Approved requisition queue with pick and reserve actions. Role shown: Warehouse Manager. Stockland ERP 16.2.18 front end with training sample data.</p></figcaption></figure>
 {% endstep %}
 {% step %}
 ### Reserve and assign pickup
@@ -75,11 +77,15 @@ In Central Warehouse, review the purchase-order action queue and open the approv
 ### Compare delivery with the PO
 
 Check each original PO line, SKU, unit and actual delivered quantity. Record actual quantities against those same lines.
+
+<figure><img src="assets/screens/S20-po-receipt.png" alt="Goods receipt note for a purchase order"><figcaption><p>Goods receipt note: PO lines to compare with the delivery. Role shown: Warehouse Manager. Stockland ERP 16.2.18 front end with training sample data.</p></figcaption></figure>
 {% endstep %}
 {% step %}
 ### Confirm receipt
 
 Submit the PO-linked receipt using the available receiving action. A short balance remains open on the same PO; do not create a second manual receipt to hide a shortage.
+
+<figure><img src="assets/screens/S20b-po-receipt-qty.png" alt="Goods receipt quantities and confirm button"><figcaption><p>Received quantities and CONFIRM RECEIPT & POST STOCK. Role shown: Warehouse Manager. Stockland ERP 16.2.18 front end with training sample data.</p></figcaption></figure>
 {% endstep %}
 {% step %}
 ### Verify inventory

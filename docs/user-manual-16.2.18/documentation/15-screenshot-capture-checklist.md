@@ -65,6 +65,16 @@ flowchart TD
 | S29 | System Health result | Users and settings |
 | S30 | System Control schema status with sensitive details hidden | Users and settings |
 
+## Capture status
+
+| Status | Screens |
+|---|---|
+| Inserted (16.2.18 front end, training sample data) | S01–S28 and S30, with extra variants S17b, S20b and S26b |
+| Not captured | S29 System Health result. The 16.2.18 System Health screen throws `quickOnly is not defined` instead of showing a result. |
+| Still required | A production capture of each screen from the installed 16.2.18 application with an approved training account, privacy-reviewed, to replace the sample-data images. |
+
+The inserted images are real renderings of the shipped 16.2.18 interface fed with synthetic data. They do not satisfy the production-capture rule above, so this checklist stays open.
+
 ## Insert screenshots in GitBook
 
 1. Open the relevant page in GitBook.
