@@ -29,6 +29,8 @@ Select CREATE ERP USER and verify the user in the active-user list.
 ### Assign an existing account
 
 Use the existing WordPress account assignment area to attach ERP role and location scope. Existing WordPress roles are preserved.
+
+<figure><img src="assets/screens/S28-users-access.png" alt="Users and Organization with role and location assignment"><figcaption><p>Assign an existing WordPress account: ERP role, location scope and SAVE ACCESS. Role shown: Owner. Stockland ERP 16.2.18 front end with training sample data.</p></figcaption></figure>
 {% endstep %}
 {% endstepper %}
 
@@ -72,6 +74,8 @@ System Control is a protected ERP foundation page. It is not the normal business
 - Owner go-live authorization is tied to the release version and exact schema fingerprint.
 
 Do not run schema actions unless you are the designated Owner/schema administrator and have completed the required backup and approval steps.
+
+<figure><img src="assets/screens/S30-system-control.png" alt="System Control with schema readiness counts"><figcaption><p>System Control: schema readiness. Role shown: Owner. Stockland ERP 16.2.18 front end with training sample data.</p></figcaption></figure>
 
 ## WordPress administration
 

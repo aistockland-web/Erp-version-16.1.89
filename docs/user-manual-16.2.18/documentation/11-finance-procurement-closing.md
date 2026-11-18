@@ -25,6 +25,8 @@ flowchart TD
 ### Open Finance & Accounting
 
 Choose Purchase & Procurement → Finance & Accounting, or the Finance & Accounting item if displayed separately.
+
+<figure><img src="assets/screens/S24-finance-overview.png" alt="Finance and Procurement overview with approval queues"><figcaption><p>Finance & Procurement overview with the purchase order approval queue. Role shown: Owner. Stockland ERP 16.2.18 front end with training sample data.</p></figcaption></figure>
 {% endstep %}
 {% step %}
 ### Verify supplier and purchase data
@@ -115,6 +117,8 @@ Add factual notes about exceptions, handovers or reconciliations.
 ### Close the day
 
 Select CLOSE DAY only after sales and operational checks are complete.
+
+<figure><img src="assets/screens/S25-daily-closing.png" alt="Daily Closing form after closing the day"><figcaption><p>Daily Closing form after CLOSE DAY. Role shown: Branch Manager. Stockland ERP 16.2.18 front end with training sample data.</p></figcaption></figure>
 {% endstep %}
 {% step %}
 ### Verify the closed history

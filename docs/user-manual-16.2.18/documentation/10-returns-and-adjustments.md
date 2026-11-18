@@ -29,6 +29,8 @@ Choose the live Product Master SKU and enter the actual quantity.
 ### Enter the reason
 
 Provide a clear factual explanation and include the source transaction/reference where applicable.
+
+<figure><img src="assets/screens/S23-returns-form.png" alt="Returns and Adjustments form"><figcaption><p>Returns & Adjustments form: location, type, SKU, quantity and reason. Role shown: Branch Manager. Stockland ERP 16.2.18 front end with training sample data.</p></figcaption></figure>
 {% endstep %}
 {% step %}
 ### Record the movement
