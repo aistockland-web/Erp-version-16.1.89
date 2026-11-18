@@ -31,7 +31,7 @@ concurrency:
 jobs:
   verify:
     name: WordPress + ${{ matrix.db }} + PHP ${{ matrix.expected_php }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     strategy:
       fail-fast: false
@@ -352,7 +352,7 @@ jobs:
     name: Publish downloadable one-pack installer artifact
     needs: [verify, folder-agent-contract]
     if: success()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Check out the exact source
