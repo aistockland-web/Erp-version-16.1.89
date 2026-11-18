@@ -81,3 +81,5 @@ assert(!folderAgent.includes("import/daily-sales/commit"), 'Folder agent must ne
 assert(folderAgentTests.includes('Malformed registered POS device IDs must be rejected.') && folderAgentTests.includes('Registered device ID must be included in the Daily POS preview form.'), 'Windows tests must cover invalid, configured and generic device identity modes.');
 
 console.log('RESULT PASS: universal connector catalogue, Branch Manager registry UI, branch/source isolation, no-secret/no-schema boundary, shared Daily POS staging and E2E coverage.');
+
+assert(registry.includes('AUTOMATIC_VALIDATE_AND_POST') && registry.includes('mark_synced'), 'Registered sources must auto-post and become CONNECTED only after a real import.');

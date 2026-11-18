@@ -3077,15 +3077,15 @@ function posIntegrationsPage(){
         '<div class="sl-field"><label>Device / software name</label><input name="device_name" maxlength="80" required placeholder="Branch POS terminal or system name"></div>'+
         '<div class="sl-field"><label>Model / software version</label><input name="model" maxlength="80" placeholder="Model or version (optional)"></div>'+
         '<div class="sl-field"><label>Connection pattern</label><select name="connection_type" required><option value="">Choose connection type…</option><option value="REST_API">Vendor REST API</option><option value="WEBHOOK">Vendor webhook</option><option value="LOCAL_GATEWAY">Branch PC / local gateway</option><option value="DEVICE_SDK">Manufacturer SDK / device service</option><option value="FILE_EXCHANGE">File exchange (CSV / XLSX)</option></select></div>'+
-        '<div class="sl-field full"><button class="sl-btn primary" type="submit">REGISTER DEVICE</button></div>'+
+        '<div class="sl-field full"><label><input type="checkbox" name="auto_post" checked> Post clean files automatically (no manual release)</label></div>'+'<div class="sl-field full"><button class="sl-btn primary" type="submit">REGISTER DEVICE</button></div>'+
       '</form>'+
-      '<div class="sl-notice sl-notice-soft"><b>Important:</b> registration creates a device record only. It does not connect the POS, store API keys/passwords, enable automatic synchronization, or post sales. A vendor-specific adapter must pass an authenticated connection and replay/reconciliation test before it can become connected.</div>'+
+      '<div class="sl-notice sl-notice-soft"><b>Automatic by default:</b> once registered, every clean daily POS file or feed from this source is validated and posted to the ERP immediately, with no Branch Manager release step. The source turns CONNECTED after its first successful automatic import. Codes that match a Stockland SKU, barcode or saved mapping need no manual SKU mapping; only unmatched codes wait for the SKU mapping section below.</div>'+
     '</div>'+
-    '<div class="sl-panel"><div class="sl-block-head"><div><div class="sl-eyebrow">REGISTERED DEVICES</div><h3>Branch connection status</h3></div><small>NOT CONNECTED until verified</small></div><div id="posDevicesList"><div class="sl-empty">Loading registered devices…</div></div></div>'+
+    '<div class="sl-panel"><div class="sl-block-head"><div><div class="sl-eyebrow">REGISTERED DEVICES</div><h3>Branch connection status</h3></div><small>CONNECTED after the first automatic import</small></div><div id="posDevicesList"><div class="sl-empty">Loading registered devices…</div></div></div>'+
     (company
       ? '<div class="sl-panel"><div class="sl-block-head"><div><div class="sl-eyebrow">OWNER / MANAGEMENT CONTROL</div><h3>External POS code → Stockland SKU mapping</h3></div><small>Versioned, source-specific and audited</small></div><p class="sl-sub">Map each supplier PLU / article code to an existing active Stockland SKU. The same external code may map differently for different registered devices. Branch Managers cannot change central product-code mappings.</p><form id="posCodeMapForm" class="sl-form"><div class="sl-field"><label>POS source namespace</label><select id="posCodeMapSource" name="source_system" required><option value="THIRD_PARTY_POS">Generic / legacy POS</option></select></div><div class="sl-field"><label>External PLU / article code</label><input name="external_code" maxlength="120" required></div><div class="sl-field"><label>Stockland live SKU</label><input name="live_sku" maxlength="80" required placeholder="Exact active Stockland SKU"></div><div class="sl-field"><label>Source name</label><input name="source_name" maxlength="120" placeholder="POS supplier / register name"></div><div class="sl-field"><label>Effective from</label><input name="effective_from" type="date"></div><div class="sl-field"><label>Effective to</label><input name="effective_to" type="date"></div><div class="sl-field full"><label>Mapping note</label><input name="mapping_note" maxlength="255" placeholder="Optional reason / supplier code detail"></div><div class="sl-field full"><button class="sl-btn primary" type="submit">SAVE SKU MAPPING</button></div></form><div id="codeMapList"><div class="sl-empty">Loading source-specific SKU mappings…</div></div></div>'
       : '<div class="sl-panel"><div class="sl-notice sl-notice-soft"><b>Product-code mapping authority:</b> Central SKU mappings are controlled by Owner / Management. You can register and use devices in your assigned branch, submit Daily POS files, and send unknown PLU codes to Management for mapping. You cannot change the company product-code master.</div></div>')+
-    '<div class="sl-panel"><div class="sl-notice sl-warning-block"><b>ERP protection:</b> External systems cannot write directly to Stockland sales, inventory balances, fiscal records or the GL. Every inbound sales batch must be normalized, validated, reconciled and staged through Daily POS; the authorized Branch Manager retains release authority.</div></div>';
+    '<div class="sl-panel"><div class="sl-notice sl-warning-block"><b>Automatic posting:</b> every inbound batch is normalized, validated against the source totals and posted automatically. Files with unmatched codes, quantity or price problems are held with the exact rows to fix; nothing is silently dropped.</div></div>';
 }
 
 async function loadPosIntegrations(){
@@ -3158,10 +3158,11 @@ async function registerPosDevice(e){
   if(button?.dataset.busy==='1')return;
   const data=Object.fromEntries(new FormData(form));
   data.branch_location_id=Number(data.branch_location_id||0);
+  data.auto_post=form.querySelector('[name="auto_post"]')?.checked!==false;
   if(button){button.dataset.busy='1';button.disabled=true;button.textContent='REGISTERING…'}
   try{
     const result=await api('/pos-integrations/devices',{method:'POST',body:JSON.stringify(data)});
-    toast('Device registered as NOT CONNECTED. Vendor adapter verification is still required.');
+    toast(result&&result.message?result.message:'Source registered.');
     form.reset();
     await loadPosIntegrations();
   }catch(error){toast(error.message,true)}

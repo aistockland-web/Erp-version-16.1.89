@@ -227,6 +227,10 @@ final class Stockland_REST_POS_Integrations extends Stockland_REST_Base {
 			return new WP_Error( 'pos_device_transport_invalid', 'Choose a supported connection pattern from the integration registry.', array( 'status' => 400 ) );
 		}
 
+		$auto_post = ! array_key_exists( 'auto_post', $payload ) || filter_var( $payload['auto_post'], FILTER_VALIDATE_BOOLEAN );
+		if ( $auto_post && ! ( Stockland_Authority::is_management() || Stockland_Authority::can_daily_commit() ) ) {
+			$auto_post = false;
+		}
 		$branch_id = absint( $payload['branch_location_id'] ?? 0 );
 		$branch    = $this->active_branch( $branch_id );
 		if ( is_wp_error( $branch ) ) {
@@ -255,8 +259,9 @@ final class Stockland_REST_POS_Integrations extends Stockland_REST_Base {
 				'last_sync_at' => null,
 				'registered_by' => get_current_user_id(),
 				'registered_at' => current_time( 'mysql' ),
-				'posting_path' => 'EXISTING_DAILY_POS_PREVIEW_AND_BRANCH_MANAGER_RELEASE',
-				'notes' => 'Registration records device metadata only. It does not establish a supplier connection or post transactions.',
+				'auto_post' => $auto_post,
+				'posting_path' => $auto_post ? 'AUTOMATIC_VALIDATE_AND_POST' : 'DAILY_POS_PREVIEW_AND_BRANCH_MANAGER_RELEASE',
+				'notes' => $auto_post ? 'Clean daily POS files from this source validate and post automatically. The device becomes CONNECTED after its first successful automatic import.' : 'Daily POS files from this source are staged for Branch Manager release.',
 			);
 		} catch ( Throwable $error ) {
 			return new WP_Error( 'pos_device_id_failed', 'A unique device registration ID could not be generated.', array( 'status' => 500 ) );
@@ -272,7 +277,7 @@ final class Stockland_REST_POS_Integrations extends Stockland_REST_Base {
 			array(
 				'device' => $this->public_device_record( $record ),
 				'status' => 'NOT_CONNECTED',
-				'message' => 'Device registered. A supported vendor adapter and authenticated connection test are still required before data synchronization can be activated.',
+				'message' => $auto_post ? 'Source registered. Send its daily POS file or feed; clean files post automatically and the source turns CONNECTED after the first successful import.' : 'Source registered. Daily POS files will be staged for Branch Manager release.',
 			)
 		);
 	}
@@ -355,7 +360,7 @@ final class Stockland_REST_POS_Integrations extends Stockland_REST_Base {
 			null,
 			null,
 			$audit_pointer,
-			'POS device registered as NOT_CONNECTED; credentials and live endpoint were not stored.',
+			'POS source registered; credentials and live endpoint were not stored.',
 			$record['device_id'],
 			get_current_user_id()
 		);
@@ -410,6 +415,27 @@ final class Stockland_REST_POS_Integrations extends Stockland_REST_Base {
 	}
 
 	/**
+	 * Mark a source CONNECTED after real data was received and posted.
+	 *
+	 * @param array $device Registered device record.
+	 * @param int   $job_id Posted import job.
+	 * @return void
+	 */
+	public static function mark_synced( $device, $job_id ) {
+		global $wpdb;
+		$table = Stockland_DB::table( 'settings' );
+		$key   = self::DEVICE_PREFIX . strtolower( (string) ( $device['device_id'] ?? '' ) );
+		$device['connection_status'] = 'CONNECTED';
+		$device['adapter_state']     = 'ACTIVE';
+		$device['last_sync_at']      = current_time( 'mysql' );
+		$device['last_job_id']       = (int) $job_id;
+		$json = wp_json_encode( $device );
+		if ( is_string( $json ) ) {
+			Stockland_DB::update_record( $table, array( 'setting_value' => $json ), array( 'setting_key' => $key ) );
+		}
+	}
+
+	/**
 	 * Return only non-secret device fields.
 	 *
 	 * @param array $device Stored device data.
@@ -427,12 +453,13 @@ final class Stockland_REST_POS_Integrations extends Stockland_REST_Base {
 			'source_system' => (string) ( $device['source_system'] ?? '' ),
 			'data_direction' => 'INBOUND_POS_SALES',
 			'adapter_state' => (string) ( $device['adapter_state'] ?? 'ADAPTER_REQUIRED' ),
-			'connection_status' => 'NOT_CONNECTED',
+			'connection_status' => (string) ( $device['connection_status'] ?? 'NOT_CONNECTED' ),
 			'credential_status' => 'NOT_CONFIGURED',
-			'last_sync_at' => null,
+			'last_sync_at' => $device['last_sync_at'] ?? null,
 			'registered_by' => (int) ( $device['registered_by'] ?? 0 ),
 			'registered_at' => (string) ( $device['registered_at'] ?? '' ),
-			'posting_path' => 'EXISTING_DAILY_POS_PREVIEW_AND_BRANCH_MANAGER_RELEASE',
+			'auto_post' => ! empty( $device['auto_post'] ),
+			'posting_path' => (string) ( $device['posting_path'] ?? 'DAILY_POS_PREVIEW_AND_BRANCH_MANAGER_RELEASE' ),
 		);
 	}
 }
