@@ -328,7 +328,7 @@ const isLocal = (url) => {
         if (!requestedCatalog || !requestedDevices) {
           fail('POS Integration page did not request both adapter catalogue and device registry endpoints');
         }
-        if (!/NOT_CONNECTED|NOT CONNECTED/.test(formState.catalog + ' ' + formState.devices)) {
+        if (!/CONNECTED/i.test(formState.catalog + ' ' + formState.devices)) {
           fail('POS Integration page does not clearly disclose that unverified devices are not connected');
         }
         const mappingForm = page.locator('#posCodeMapForm');

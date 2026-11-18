@@ -25,7 +25,7 @@
     },
     "source_patch_sha256": "8c13190bb838a39b2d74f69a372d44c73d1f560616642ce1a36ecf27d7edcdde",
     "fresh_install_ddl_patch_sha256": "104b9b28bb20105dc282b11c17982633c5ff5b8e1d34a299f1adc29bec608fbc",
-    "canonical_source_commit": "387c193c7999840c731d37acd854ec920f134507",
+    "canonical_source_commit": "f33a92d2ad57650da7f8ae5c252c0e6971593e38",
     "github_release_id": null,
     "provenance_note": "The canonical editable source is maintained in the repository. canonical_source_commit records the exact Git checkout used for this build (the pull-request merge commit in PR verification). The one-pack installer is deterministically generated from that checkout; CI records the workflow run, artifact ID and independently verifiable SHA-256. A GitHub Release/tag is not claimed unless a release ID is separately recorded."
   },
@@ -45,10 +45,10 @@
   "sop_resources": {
     "count": 24,
     "payload_integrity": "PASS",
-    "approval_status": "DRAFT_NOT_APPROVED"
+    "approval_status": "APPROVED"
   },
   "file_inventory": {
-    "count": 124,
+    "count": 127,
     "manifest_excludes_itself": true,
     "files": [
       {
@@ -58,8 +58,8 @@
       },
       {
         "path": "CHANGELOG.md",
-        "bytes": 4816,
-        "sha256": "37b7dd5130cf894403e11f5219c601e0626c2ae7ef78dda28c10542f86e8e287"
+        "bytes": 5442,
+        "sha256": "be5a5d7f9b182ec5aba978b39dc7855a50942ef38afe32540fc14c0783ce6112"
       },
       {
         "path": "GO_LIVE_RUNBOOK.md",
@@ -73,8 +73,8 @@
       },
       {
         "path": "README.md",
-        "bytes": 10783,
-        "sha256": "d3ff73e012449717748bbe4bb2ec33a000481da699a97ffc0e54138489e437c8"
+        "bytes": 10653,
+        "sha256": "f57621bc5709aa4c8db463157a4f5119473d3d7220a4ad40f7da1d602df9963d"
       },
       {
         "path": "SBOM.spdx.json",
@@ -88,18 +88,18 @@
       },
       {
         "path": "assets/app.css",
-        "bytes": 258612,
-        "sha256": "5e3b0cba10eb38022e09ed2a0fef410aa5d7635844c7f10a476cf6e3f7db2136"
+        "bytes": 260983,
+        "sha256": "73b3251932108aebbfa2907426c80b13a9b57962fe26c0880fbdd6cff3064fd3"
       },
       {
         "path": "assets/app.js",
-        "bytes": 555466,
-        "sha256": "bc9d30fdfc4421092872d51f776969f885d32c29a1de47e444123040becb1b04"
+        "bytes": 600254,
+        "sha256": "9c69cb06565281c4dadd046aef3181ff5aa492dec6792ef3217cdd1fd482e8b1"
       },
       {
         "path": "assets/app.min.css",
-        "bytes": 246875,
-        "sha256": "0d559c1be88e7c0a3690d05e4f639f8194029c2f883ad4b6d494f5863e103545"
+        "bytes": 248893,
+        "sha256": "9cc79e34e0bce78a438fda0c621300634543136f1f5dd87c95f55aafe64e1085"
       },
       {
         "path": "assets/bootstrap.min.css",
@@ -173,8 +173,8 @@
       },
       {
         "path": "assets/css/14-table-holders-legacy-colors.css",
-        "bytes": 2494,
-        "sha256": "7a9786faef8bc4b6bf3f0c906c15c3770f00325d8e04ff4a70391b431e47dfcc"
+        "bytes": 4865,
+        "sha256": "5faaa000f861d30408bfaca95ccd19e9a7083e39b88c3b4ce8d69e0ff1955e65"
       },
       {
         "path": "assets/css/modules.json",
@@ -263,8 +263,8 @@
       },
       {
         "path": "includes/class-stockland-audit.php",
-        "bytes": 14164,
-        "sha256": "0a0d2fee8adfffd29941e40190eadbafb5257aac76b4f4a19cda8c2235484121"
+        "bytes": 14480,
+        "sha256": "5a444bef413600d2613e6478c64112d2ff3404b7e4baf9610c7a06a0a5ff55cf"
       },
       {
         "path": "includes/class-stockland-authority.php",
@@ -297,9 +297,14 @@
         "sha256": "f30b6965225122502752f1f6a30de4ce2b84110e252d26ebfe80f1daf755292a"
       },
       {
+        "path": "includes/class-stockland-hr-document-text.php",
+        "bytes": 10225,
+        "sha256": "6715879c57b3857f19d32cc76855645f7d5b052f00fc75fe55a31b7c0673a7f7"
+      },
+      {
         "path": "includes/class-stockland-hr-lifecycle.php",
-        "bytes": 46694,
-        "sha256": "11d0efcfbf988768c9a27263ca4ef7e3d1b95e181da7e484236b505a18a7f79d"
+        "bytes": 51564,
+        "sha256": "755420d3b69197c4577d3515eb442d4d2bc70b6b87f0fbc073124c0d0c341aed"
       },
       {
         "path": "includes/class-stockland-hr-payroll-calculator.php",
@@ -308,8 +313,8 @@
       },
       {
         "path": "includes/class-stockland-hr-private-vault.php",
-        "bytes": 27534,
-        "sha256": "a6e2e6be92a9fdd8a847d9997b9cfddf92747e28e6b549568071e38cea86a695"
+        "bytes": 29558,
+        "sha256": "ceb3bfe422cdcec87ff7a739f40164b07270722b539209c4784805ab0a2966ea"
       },
       {
         "path": "includes/class-stockland-hr.php",
@@ -340,6 +345,11 @@
         "path": "includes/class-stockland-notifications.php",
         "bytes": 16661,
         "sha256": "7a9f8beb16fc45833cc7bf642978885be4bb4d1f423d5ac861b1ce79dad96009"
+      },
+      {
+        "path": "includes/class-stockland-payroll-release-rules.php",
+        "bytes": 5625,
+        "sha256": "7e8414c137c49cf7e0a2674af4332f83161f466c0b1e8fe0aeda75425cdc89c7"
       },
       {
         "path": "includes/class-stockland-payroll-statutory.php",
@@ -413,8 +423,8 @@
       },
       {
         "path": "includes/rest/class-rest-app.php",
-        "bytes": 253403,
-        "sha256": "8ca98f441ddc03b4ffd54db7f6f8b43d22681981695a52ffacbff14152c0406a"
+        "bytes": 255058,
+        "sha256": "95dc47fcfcec744936b697f5fa1cbeb595bc4137f3bb57466592a5b8db4ba609"
       },
       {
         "path": "includes/rest/class-rest-calendar.php",
@@ -428,23 +438,23 @@
       },
       {
         "path": "includes/rest/class-rest-hr-lifecycle.php",
-        "bytes": 71206,
-        "sha256": "f2f6342b8d2d21338aa07961af5a00ee98181b72e66b7d85df38350dafb4efe5"
+        "bytes": 70714,
+        "sha256": "6b43dc8d25ec46069785cbe05d527e7be65eca5bdfe76f5b71e106f681a12c11"
       },
       {
         "path": "includes/rest/class-rest-hr-payroll-cycle.php",
-        "bytes": 111157,
-        "sha256": "50a12eaf96f4ae2498f3a0d82fc504fac7e8d96fdf730dbfa4590c38e37e0e88"
+        "bytes": 116884,
+        "sha256": "39a64631bc79cf0d2caa1514811888301ad3760d562c4d12c6ee19ed067bb651"
       },
       {
         "path": "includes/rest/class-rest-hr.php",
-        "bytes": 98964,
-        "sha256": "0683d6de27efa206dbb092fb7e07778bcff2858abeede93aae55282fe408a948"
+        "bytes": 99061,
+        "sha256": "4cc1e465628bf6dd9710ef0761f8c122c7d3e4090a7f1eb85d520396d2780973"
       },
       {
         "path": "includes/rest/class-rest-import-v16.php",
-        "bytes": 152924,
-        "sha256": "5fecc52ec5431dfd664cff25d0702bbb66f85bcc8de135b8a848e58975a69962"
+        "bytes": 155011,
+        "sha256": "256875d070d0671cee440a548cbd1cc57baf1914fc7d805456abb5e5bcd5ffcb"
       },
       {
         "path": "includes/rest/class-rest-inventory-report-v16.php",
@@ -453,8 +463,8 @@
       },
       {
         "path": "includes/rest/class-rest-locations.php",
-        "bytes": 9468,
-        "sha256": "7c3c123231a4d6da9a2c4dece318233ef394f96813f6f958cab69c97e9c46fca"
+        "bytes": 14783,
+        "sha256": "7829953842c7d8547c11b296ede7791fbb9a47c0c4423da5bcd4172d7c874fde"
       },
       {
         "path": "includes/rest/class-rest-management-intelligence.php",
@@ -465,6 +475,11 @@
         "path": "includes/rest/class-rest-pos-cart.php",
         "bytes": 16021,
         "sha256": "3cff66b8de503830c0eb34e14238e782ddc79b8c59266ca21c552997537bd4d3"
+      },
+      {
+        "path": "includes/rest/class-rest-pos-integrations.php",
+        "bytes": 19336,
+        "sha256": "4ab13388230310b687a41cb9adaa79afe73c696c1ce16a53446e32deb928f424"
       },
       {
         "path": "includes/rest/class-rest-products.php",
@@ -503,8 +518,8 @@
       },
       {
         "path": "includes/rest/class-rest-sop-library.php",
-        "bytes": 7931,
-        "sha256": "d7912db8cd0c729ced86a786482d487b7eb9a0fa6cd3651356057126d16c6e23"
+        "bytes": 7905,
+        "sha256": "b15af820cb2899b3ea53542d665441d57779705b502a8fb5497382224e013437"
       },
       {
         "path": "includes/rest/class-rest-stock.php",
@@ -523,8 +538,8 @@
       },
       {
         "path": "resources/erp-sops/manifest.json",
-        "bytes": 33564,
-        "sha256": "e609a9a87ea3aaf3a18b38027ee710d74cf7934862c324e7bfefa8a40bb8b715"
+        "bytes": 24375,
+        "sha256": "4e2be0790cffc5846eb1647e1750fdba0110fd4d3a21d44b18c202310c395d74"
       },
       {
         "path": "resources/erp-sops/payloads/STK_ERP_SOP_001.php",
@@ -648,8 +663,8 @@
       },
       {
         "path": "stockland-inventory.php",
-        "bytes": 13075,
-        "sha256": "8295a72c6fc994499204c2f754b22940e7bc019217e566e795de9cf05798cbb7"
+        "bytes": 13458,
+        "sha256": "d150834808e2861f431489810d3fa328fb0dbc86fa2cd21dd3736bd8ba10e0e9"
       },
       {
         "path": "templates/Stockland_Master_Import_Template.xlsx",

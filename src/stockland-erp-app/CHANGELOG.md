@@ -1,5 +1,11 @@
 # Changelog
 
+## 16.2.18 — Product creation, GitBook guide, approved SOPs
+
+- Product creation: SKU field pre-fills `STK-` with a clear hint and inline error; dashboard "Add Product" opens the form.
+- The in-app guide button now opens the published GitBook user manual in a new tab.
+- The 24 shipped SOPs are APPROVED v1.0 (Owner approval 2026-11-17); editable in the HR library.
+
 ## 16.2.18 — Master installer
 
 - Stock transfers between locations now notify the right audiences at every stage (requested, approved, reserved, picked, in transit, rejected, cancelled) in addition to the existing receipt notice. Notifications are sent after the stock transaction commits and can never roll it back.

@@ -96,8 +96,8 @@ final class Stockland_REST_SOP_Library extends Stockland_REST_Base {
 				'title'        => sanitize_text_field( $doc['title'] ?? $doc['id'] ),
 				'owner'        => sanitize_text_field( $doc['owner'] ?? '' ),
 				'approver'     => sanitize_text_field( $doc['approver'] ?? '' ),
-				'version'      => sanitize_text_field( $doc['document_version'] ?? 'v1.0-DRAFT' ),
-				'status'       => sanitize_text_field( $doc['status'] ?? 'DRAFT_NOT_APPROVED' ),
+				'version'      => sanitize_text_field( $doc['document_version'] ?? 'v1.0' ),
+				'status'       => sanitize_text_field( $doc['status'] ?? 'APPROVED' ),
 				'language'     => sanitize_text_field( $doc['language'] ?? 'am-ET' ),
 				'summary'      => sanitize_text_field( $doc['summary'] ?? '' ),
 				'downloadable' => $ok,
@@ -108,7 +108,7 @@ final class Stockland_REST_SOP_Library extends Stockland_REST_Base {
 			array(
 				'items'  => $items,
 				'count'  => count( $items ),
-				'status' => sanitize_text_field( $data['status'] ?? 'DRAFT_NOT_APPROVED' ),
+				'status' => sanitize_text_field( $data['status'] ?? 'APPROVED' ),
 				'note'   => 'General ERP procedures only. Employee contracts, personnel files and other private documents use the separate private-document workflow.',
 			)
 		);
