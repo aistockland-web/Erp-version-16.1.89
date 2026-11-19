@@ -1339,35 +1339,15 @@ class Stockland_REST_Import_V16 {
 			if ( false === Stockland_DB::execute_query( 'COMMIT' ) ) {
 				throw new Exception( 'Daily Sales preview commit failed.' );
 			}
-			$auto_released = false;
-			$auto_note     = '';
+			// Upload never counts as approval: the Branch Manager releases the reconciled import explicitly.
 			if ( $registered_device ) {
 				Stockland_REST_POS_Integrations::mark_synced( $registered_device, $job_id );
 			}
-			// Pipeline: import, validation, staging and source reconciliation have all passed (READY, zero errors).
-			// A Branch Manager's own upload is the single final approval, so it is released in the same step.
-			if ( Stockland_Authority::can_daily_commit() && 'READY' === $job_status && 0 === (int) $errors ) {
-				for ( $pass = 0; $pass < 400; $pass++ ) {
-					$commit_request = new WP_REST_Request( 'POST', '/stockland/v16/import/daily-sales/commit' );
-					$commit_request->set_header( 'content-type', 'application/json' );
-					$commit_request->set_body( wp_json_encode( array( 'job_id' => $job_id ) ) );
-					$step = $this->daily_commit( $commit_request );
-					if ( is_wp_error( $step ) ) {
-						$auto_note = $step->get_error_message();
-						break;
-					}
-					$step_data = $step->get_data();
-					if ( 'POSTED' === ( $step_data['status'] ?? '' ) ) {
-						$auto_released = true;
-						$job_status    = 'POSTED';
-						break;
-					}
-				}
+			if ( $registered_device ) {
+				Stockland_REST_POS_Integrations::mark_synced( $registered_device, $job_id );
 			}
 			return rest_ensure_response(
 				array(
-					'auto_released'  => $auto_released,
-					'auto_note'      => $auto_note,
 					'job_id'         => $job_id,
 					'status'         => $job_status,
 					'sheet'          => $found['sheet'],
@@ -1397,9 +1377,9 @@ class Stockland_REST_Import_V16 {
 						'layer_1_file_integrity'      => 'PASS',
 						'layer_2_identity_mapping'    => $found['profile_id'] ? 'PASS_REMEMBERED_PROFILE' : 'PASS_AUTO_MAPPED',
 						'layer_3_business_validation' => $errors ? 'BLOCKED_ERRORS_FOUND' : ( $summary_blocked ? 'BLOCKED_SOURCE_RECONCILIATION' : 'PASS' ),
-						'layer_4_staging_commit_gate' => $auto_released ? 'RELEASED_BY_BRANCH_MANAGER_UPLOAD' : 'STAGED_FOR_RELEASE',
+						'layer_4_staging_commit_gate' => 'STAGED_FOR_RELEASE',
 					),
-					'message'        => $auto_released ? 'File validated, staged and reconciled with the source totals; your Branch Manager upload released it to the ERP. No further approval is needed.' : ( $auto_note ? 'Release stopped: ' . $auto_note : ( $errors ? 'Resolve mapping/validation errors before posting.' : ( $summary_blocked ? 'Source report totals require Branch Manager review. No ERP posting has occurred.' : 'Mapping recognized. File staged and ready for Branch Manager posting in bounded chunks.' ) ) ),
+					'message'        => $errors ? 'Resolve mapping/validation errors before posting.' : ( $summary_blocked ? 'Source report totals require Branch Manager review. No ERP posting has occurred.' : 'Validated, staged and reconciled. Review the reconciliation and release to the ERP; this is the only approval.' ),
 				)
 			);
 		} catch ( Throwable $e ) {
