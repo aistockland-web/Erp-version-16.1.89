@@ -94,7 +94,7 @@ $branch_device_id = (string) ( $branch_device['device_id'] ?? '' );
 $branch_source_id = (string) ( $branch_device['source_system'] ?? '' );
 $check( 'Branch Manager registers a device for an assigned branch', 200 === $branch_status && preg_match( '/^[A-F0-9]{16}$/', $branch_device_id ), 'HTTP ' . $branch_status . ' :: ' . wp_json_encode( $branch_data ) );
 $check( 'registration remains NOT_CONNECTED with no configured credentials', 'NOT_CONNECTED' === ( $branch_device['connection_status'] ?? '' ) && 'NOT_CONFIGURED' === ( $branch_device['credential_status'] ?? '' ) );
-$check( 'registration defaults to automatic validate-and-post with no manual release layer', true === ( $branch_device['auto_post'] ?? null ) && 'AUTOMATIC_VALIDATE_AND_POST' === ( $branch_device['posting_path'] ?? '' ), wp_json_encode( $branch_device ) );
+$check( 'registered source follows import, validation, staging, reconciliation and Branch Manager release', 'IMPORT_VALIDATE_STAGE_RECONCILE_BRANCH_MANAGER_RELEASE' === ( $branch_device['posting_path'] ?? '' ), wp_json_encode( $branch_device ) );
 $check( 'device is assigned its own unique POS source-system namespace', (bool) preg_match( '/^POS_[a-f0-9]{16}$/', $branch_source_id ) );
 
 $branch_list = call( 'GET', '/pos-integrations/devices', array(), $branch_manager_id );
