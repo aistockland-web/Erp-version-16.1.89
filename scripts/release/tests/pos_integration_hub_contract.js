@@ -82,4 +82,4 @@ assert(folderAgentTests.includes('Malformed registered POS device IDs must be re
 
 console.log('RESULT PASS: universal connector catalogue, Branch Manager registry UI, branch/source isolation, no-secret/no-schema boundary, shared Daily POS staging and E2E coverage.');
 
-assert(registry.includes('AUTOMATIC_VALIDATE_AND_POST') && registry.includes('mark_synced'), 'Registered sources must auto-post and become CONNECTED only after a real import.');
+assert(registry.includes('IMPORT_VALIDATE_STAGE_RECONCILE_BRANCH_MANAGER_RELEASE') && registry.includes('mark_synced'), 'Sources must follow the staged pipeline and become CONNECTED only after a real import.');

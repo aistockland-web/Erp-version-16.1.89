@@ -227,10 +227,6 @@ final class Stockland_REST_POS_Integrations extends Stockland_REST_Base {
 			return new WP_Error( 'pos_device_transport_invalid', 'Choose a supported connection pattern from the integration registry.', array( 'status' => 400 ) );
 		}
 
-		$auto_post = ! array_key_exists( 'auto_post', $payload ) || filter_var( $payload['auto_post'], FILTER_VALIDATE_BOOLEAN );
-		if ( $auto_post && ! ( Stockland_Authority::is_management() || Stockland_Authority::can_daily_commit() ) ) {
-			$auto_post = false;
-		}
 		$branch_id = absint( $payload['branch_location_id'] ?? 0 );
 		$branch    = $this->active_branch( $branch_id );
 		if ( is_wp_error( $branch ) ) {
@@ -259,9 +255,8 @@ final class Stockland_REST_POS_Integrations extends Stockland_REST_Base {
 				'last_sync_at' => null,
 				'registered_by' => get_current_user_id(),
 				'registered_at' => current_time( 'mysql' ),
-				'auto_post' => $auto_post,
-				'posting_path' => $auto_post ? 'AUTOMATIC_VALIDATE_AND_POST' : 'DAILY_POS_PREVIEW_AND_BRANCH_MANAGER_RELEASE',
-				'notes' => $auto_post ? 'Clean daily POS files from this source validate and post automatically. The device becomes CONNECTED after its first successful automatic import.' : 'Daily POS files from this source are staged for Branch Manager release.',
+				'posting_path' => 'IMPORT_VALIDATE_STAGE_RECONCILE_BRANCH_MANAGER_RELEASE',
+				'notes' => 'Files from this source are validated, staged and reconciled automatically. The Branch Manager release is the single final approval; a Branch Manager upload is that release. The source becomes CONNECTED after its first successful import.',
 			);
 		} catch ( Throwable $error ) {
 			return new WP_Error( 'pos_device_id_failed', 'A unique device registration ID could not be generated.', array( 'status' => 500 ) );
@@ -277,7 +272,7 @@ final class Stockland_REST_POS_Integrations extends Stockland_REST_Base {
 			array(
 				'device' => $this->public_device_record( $record ),
 				'status' => 'NOT_CONNECTED',
-				'message' => $auto_post ? 'Source registered. Send its daily POS file or feed; clean files post automatically and the source turns CONNECTED after the first successful import.' : 'Source registered. Daily POS files will be staged for Branch Manager release.',
+				'message' => 'Source registered. Its files are validated, staged and reconciled automatically; the Branch Manager release is the only approval. The source turns CONNECTED after its first successful import.',
 			)
 		);
 	}
@@ -458,8 +453,7 @@ final class Stockland_REST_POS_Integrations extends Stockland_REST_Base {
 			'last_sync_at' => $device['last_sync_at'] ?? null,
 			'registered_by' => (int) ( $device['registered_by'] ?? 0 ),
 			'registered_at' => (string) ( $device['registered_at'] ?? '' ),
-			'auto_post' => ! empty( $device['auto_post'] ),
-			'posting_path' => (string) ( $device['posting_path'] ?? 'DAILY_POS_PREVIEW_AND_BRANCH_MANAGER_RELEASE' ),
+			'posting_path' => (string) ( $device['posting_path'] ?? 'IMPORT_VALIDATE_STAGE_RECONCILE_BRANCH_MANAGER_RELEASE' ),
 		);
 	}
 }

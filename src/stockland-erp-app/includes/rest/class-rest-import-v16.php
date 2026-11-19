@@ -1341,7 +1341,12 @@ class Stockland_REST_Import_V16 {
 			}
 			$auto_released = false;
 			$auto_note     = '';
-			if ( $registered_device && ! empty( $registered_device['auto_post'] ) && 'READY' === $job_status && 0 === (int) $errors ) {
+			if ( $registered_device ) {
+				Stockland_REST_POS_Integrations::mark_synced( $registered_device, $job_id );
+			}
+			// Pipeline: import, validation, staging and source reconciliation have all passed (READY, zero errors).
+			// A Branch Manager's own upload is the single final approval, so it is released in the same step.
+			if ( Stockland_Authority::can_daily_commit() && 'READY' === $job_status && 0 === (int) $errors ) {
 				for ( $pass = 0; $pass < 400; $pass++ ) {
 					$commit_request = new WP_REST_Request( 'POST', '/stockland/v16/import/daily-sales/commit' );
 					$commit_request->set_header( 'content-type', 'application/json' );
@@ -1355,7 +1360,6 @@ class Stockland_REST_Import_V16 {
 					if ( 'POSTED' === ( $step_data['status'] ?? '' ) ) {
 						$auto_released = true;
 						$job_status    = 'POSTED';
-						Stockland_REST_POS_Integrations::mark_synced( $registered_device, $job_id );
 						break;
 					}
 				}
@@ -1393,9 +1397,9 @@ class Stockland_REST_Import_V16 {
 						'layer_1_file_integrity'      => 'PASS',
 						'layer_2_identity_mapping'    => $found['profile_id'] ? 'PASS_REMEMBERED_PROFILE' : 'PASS_AUTO_MAPPED',
 						'layer_3_business_validation' => $errors ? 'BLOCKED_ERRORS_FOUND' : ( $summary_blocked ? 'BLOCKED_SOURCE_RECONCILIATION' : 'PASS' ),
-						'layer_4_staging_commit_gate' => $auto_released ? 'AUTO_POSTED' : 'STAGED_FOR_RELEASE',
+						'layer_4_staging_commit_gate' => $auto_released ? 'RELEASED_BY_BRANCH_MANAGER_UPLOAD' : 'STAGED_FOR_RELEASE',
 					),
-					'message'        => $auto_released ? 'Mapping recognized and the file was validated and posted automatically. No manual release was needed.' : ( $auto_note ? 'Automatic posting stopped: ' . $auto_note : ( $errors ? 'Resolve mapping/validation errors before posting.' : ( $summary_blocked ? 'Source report totals require Branch Manager review. No ERP posting has occurred.' : 'Mapping recognized. File staged and ready for Branch Manager posting in bounded chunks.' ) ) ),
+					'message'        => $auto_released ? 'File validated, staged and reconciled with the source totals; your Branch Manager upload released it to the ERP. No further approval is needed.' : ( $auto_note ? 'Release stopped: ' . $auto_note : ( $errors ? 'Resolve mapping/validation errors before posting.' : ( $summary_blocked ? 'Source report totals require Branch Manager review. No ERP posting has occurred.' : 'Mapping recognized. File staged and ready for Branch Manager posting in bounded chunks.' ) ) ),
 				)
 			);
 		} catch ( Throwable $e ) {
