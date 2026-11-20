@@ -362,6 +362,7 @@ final class Stockland_REST_POS_Integrations extends Stockland_REST_Base {
 		if ( ! $audited ) {
 			$deleted = Stockland_DB::delete_record( $table, array( 'setting_key' => $key ), array( '%s' ) );
 			if ( false === $deleted ) {
+				// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Critical rollback failure must be recorded; this fixed message contains no user data or credentials.
 				error_log( 'Stockland POS integrations: audit failure and pending device rollback both failed.' );
 			}
 			return new WP_Error( 'pos_device_audit_failed', 'The immutable audit event could not be recorded. The device registration was rejected.', array( 'status' => 500 ) );
