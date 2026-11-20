@@ -496,26 +496,59 @@ final class Stockland_REST_POS_Integrations extends Stockland_REST_Base {
 		if ( ! preg_match( '/^' . preg_quote( self::DEVICE_PREFIX, '/' ) . '[a-f0-9]{16}$/', (string) $key ) ) {
 			return false;
 		}
+		$wpdb->last_error = '';
+		$old_json = Stockland_DB::read_var( $wpdb->prepare( 'SELECT setting_value FROM %i WHERE setting_key=%s LIMIT 1', $table, $key ) );
+		if ( '' !== (string) $wpdb->last_error || ! is_string( $old_json ) || '' === $old_json || ! hash_equals( hash( 'sha256', (string) wp_json_encode( $device ) ), hash( 'sha256', (string) $old_json ) ) ) {
+			return false;
+		}
+		$old_device = json_decode( $old_json, true );
+		if ( ! is_array( $old_device ) || strtoupper( (string) ( $old_device['device_id'] ?? '' ) ) !== strtoupper( (string) ( $device['device_id'] ?? '' ) ) ) {
+			return false;
+		}
 		$device['connection_status'] = 'CONNECTED';
 		$device['adapter_state']     = 'ACTIVE';
 		$device['last_sync_at']      = current_time( 'mysql' );
 		$device['last_job_id']       = (int) $job_id;
-		$device['last_approved_by'] = (int) $approved_by;
+		$device['last_approved_by']  = (int) $approved_by;
 		$json = wp_json_encode( $device );
 		if ( ! is_string( $json ) || false === Stockland_DB::update_record( $table, array( 'setting_value' => $json ), array( 'setting_key' => $key ) ) ) {
 			return false;
 		}
 		$wpdb->last_error = '';
 		$stored = Stockland_DB::read_var( $wpdb->prepare( 'SELECT setting_value FROM %i WHERE setting_key=%s LIMIT 1', $table, $key ) );
-		if ( '' !== (string) $wpdb->last_error ) {
+		$verified = is_string( $stored ) ? json_decode( $stored, true ) : null;
+		if ( '' !== (string) $wpdb->last_error || ! is_array( $verified )
+			|| 'CONNECTED' !== (string) ( $verified['connection_status'] ?? '' )
+			|| 'ACTIVE' !== (string) ( $verified['adapter_state'] ?? '' )
+			|| (int) ( $verified['last_job_id'] ?? 0 ) !== (int) $job_id
+			|| (int) ( $verified['last_approved_by'] ?? 0 ) !== (int) $approved_by
+			|| ! hash_equals( hash( 'sha256', $json ), hash( 'sha256', (string) $stored ) )
+		) {
+			Stockland_DB::update_record( $table, array( 'setting_value' => $old_json ), array( 'setting_key' => $key ) );
 			return false;
 		}
-		$verified = json_decode( (string) $stored, true );
-		return is_array( $verified )
-			&& 'CONNECTED' === (string) ( $verified['connection_status'] ?? '' )
-			&& 'ACTIVE' === (string) ( $verified['adapter_state'] ?? '' )
-			&& (int) ( $verified['last_job_id'] ?? 0 ) === (int) $job_id
-			&& (int) ( $verified['last_approved_by'] ?? 0 ) === (int) $approved_by;
+		$old_pointer = 'CORE_SETTINGS:' . $key . ':sha256:' . hash( 'sha256', $old_json );
+		$new_pointer = 'CORE_SETTINGS:' . $key . ':sha256:' . hash( 'sha256', $json );
+		$audited = Stockland_Audit::log(
+			(int) $approved_by,
+			(int) ( $device['branch_location_id'] ?? 0 ),
+			'POS_DEVICE_CONNECTED',
+			null,
+			null,
+			$old_pointer,
+			$new_pointer,
+			'POS source marked CONNECTED only after the assigned Branch Manager posted all Daily POS rows.',
+			(string) ( $device['device_id'] ?? '' ),
+			(int) $approved_by
+		);
+		if ( ! $audited ) {
+			if ( false === Stockland_DB::update_record( $table, array( 'setting_value' => $old_json ), array( 'setting_key' => $key ) ) ) {
+				// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Critical rollback failure must be recorded; this fixed message contains no user data or credentials.
+				error_log( 'Stockland POS integrations: connection audit failed and metadata rollback also failed.' );
+			}
+			return false;
+		}
+		return true;
 	}
 
 	/**
