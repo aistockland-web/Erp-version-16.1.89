@@ -2,6 +2,8 @@
 error_reporting(E_ALL);
 define('ABSPATH', __DIR__ . '/');
 define('ARRAY_A','ARRAY_A');
+define('STOCKLAND_VERSION','16.2.18');
+define('STOCKLAND_DB_VERSION','16.1.1');
 $GLOBALS['options']=array('stockland_gitbook_bridge_token'=>'stkgb_test_secret');
 function get_option($k,$d=false){return $GLOBALS['options'][$k]??$d;}
 function add_option($k,$v,$x='',$a=true){$GLOBALS['options'][$k]=$v;return true;}
