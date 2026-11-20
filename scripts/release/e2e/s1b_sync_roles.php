@@ -27,6 +27,10 @@ $admin_role = get_role( 'administrator' );
 $check( 'shared Administrator role has no Stockland Owner capability', $admin_role && ! $admin_role->has_cap( 'stockland_owner' ) );
 $check( 'platform Administrator retains WordPress platform access', user_can( (int) $platform_admin_id, 'manage_options' ) );
 $check( 'platform-only Administrator is not a Stockland business Owner', ! Stockland_Authority::is_owner( (int) $platform_admin_id ) );
+$platform_admin_user = new WP_User( (int) $platform_admin_id );
+$platform_admin_user->add_cap( 'stockland_owner' );
+$check( 'a direct stale Owner capability cannot bypass an active Stockland Owner profile', ! Stockland_Authority::is_owner( (int) $platform_admin_id ) );
+$platform_admin_user->remove_cap( 'stockland_owner' );
 $active_owner_id = (int) ( $u['ow2'] ?? 0 );
 $check( 'active Stockland Owner profile remains authorized', $active_owner_id > 0 && Stockland_Authority::is_owner( $active_owner_id ) );
 if ( $fail ) { exit( 1 ); }
