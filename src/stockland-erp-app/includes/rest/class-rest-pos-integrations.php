@@ -426,6 +426,24 @@ final class Stockland_REST_POS_Integrations extends Stockland_REST_Base {
 		if ( ! preg_match( '/^POS_[a-f0-9]{16}$/', $source_system ) || $branch_id < 1 || $job_id < 1 ) {
 			return false;
 		}
+		$jobs_table = Stockland_DB::table( 'import_jobs' );
+		$wpdb->last_error = '';
+		$job = Stockland_DB::read_row(
+			$wpdb->prepare(
+				"SELECT id,import_type,status,branch_location_id,source_system FROM %i WHERE id=%d LIMIT 1",
+				$jobs_table,
+				$job_id
+			),
+			ARRAY_A
+		);
+		if ( '' !== (string) $wpdb->last_error || ! is_array( $job )
+			|| 'DAILY_SALES' !== (string) ( $job['import_type'] ?? '' )
+			|| 'POSTED' !== (string) ( $job['status'] ?? '' )
+			|| (int) ( $job['branch_location_id'] ?? 0 ) !== $branch_id
+			|| (string) ( $job['source_system'] ?? '' ) !== $source_system
+		) {
+			return false;
+		}
 		$table = Stockland_DB::table( 'settings' );
 		if ( ! Stockland_DB::table_exists( $table ) ) {
 			return false;
