@@ -3,10 +3,10 @@
 **Target:** Stockland ERP 16.2.18  
 **Canonical ERP source commit:** `19fe43981723f30e3839d1c8a67498f50c8134d4`  
 **Integration branch:** `integration/stockland-gitbook-readonly-bridge-16.2.18`  
-**CI workflow run:** [44644367711](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/44644367711)  
+**CI workflow run:** [44644560257](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/44644367711)  
 **CI result:** SUCCESS  
-**Workflow artifact ID:** `14587248159`  
-**Installable ZIP SHA-256:** `c0a42a9aa22629d14224ae5902ced30197da042eda008bc0edd2a1ba93cfd530`
+**Workflow artifact ID:** `14588500023`  
+**Installable ZIP SHA-256:** `5acb0e517520d0dad1d9a62c58889eae648380b4078a8dc721a2db88e3cd9070`
 
 ## Verified gates
 
