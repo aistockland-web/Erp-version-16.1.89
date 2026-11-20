@@ -13,7 +13,6 @@ site:
       key: space-2
       title: Imported content
       path: imported-content
-      draft: true
       content:
         directory: ./imported-content
     - type: space
