@@ -167,6 +167,20 @@ $need( 'SYNTHETIC payroll rule approved by an independent Owner', call( 'POST', 
 $settle_rules = array( 'component_rules' => array( 'UNUSED_LEAVE' => array( 'tax_treatment' => 'TAXABLE', 'pensionable_treatment' => 'NOT_PENSIONABLE' ) ), 'qualified_legal_review' => $review );
 $srule = $need( 'SYNTHETIC final-settlement rule drafted', call( 'POST', '/hr/lifecycle/rules', $rule_body( 'FINAL_SETTLEMENT', 'SYNTHETIC-SETTLE-V1', $settle_rules ), $mg ) );
 $ok( 'synthetic encrypted final-settlement opinion fixture is attached to the exact rule', $attach_synthetic_opinion( (int) $srule['id'] ) );
+$settle_row = Stockland_DB::read_row( $GLOBALS['wpdb']->prepare( 'SELECT rules_json FROM %i WHERE id=%d', Stockland_DB::table( 'hr_rule_sets' ), (int) $srule['id'] ), ARRAY_A );
+$settle_payload = json_decode( (string) ( $settle_row['rules_json'] ?? '' ), true );
+$settle_review = $settle_payload['qualified_legal_review'] ?? array();
+$settle_doc_id = (int) ( $settle_review['opinion_document_id'] ?? 0 );
+$settle_doc = $settle_doc_id ? Stockland_DB::read_row( $GLOBALS['wpdb']->prepare( 'SELECT id,subject_type,subject_id,document_type,document_reference,document_sha256,status FROM %i WHERE id=%d', Stockland_DB::table( 'hr_documents' ), $settle_doc_id ), ARRAY_A ) : null;
+$settle_resolved = is_array( $settle_doc ) ? Stockland_HR_Private_Vault::resolve( (string) $settle_doc['document_reference'], (string) $settle_review['opinion_sha256'] ) : new WP_Error( 'missing_doc', 'No linked synthetic opinion row.' );
+$ok( 'final-settlement opinion payload references a positive document ID', $settle_doc_id > 0, wp_json_encode( array( 'rule_id' => (int) $srule['id'], 'doc_id' => $settle_doc_id, 'review_sha' => $settle_review['opinion_sha256'] ?? '' ) ) );
+$ok( 'final-settlement opinion row scope/type/status match its rule', is_array( $settle_doc ) && 'RULE_SET' === $settle_doc['subject_type'] && (int) $settle_doc['subject_id'] === (int) $srule['id'] && 'LEGAL_OPINION' === $settle_doc['document_type'] && 'PENDING_REVIEW' === $settle_doc['status'], wp_json_encode( $settle_doc ) );
+$ok( 'final-settlement opinion row SHA matches rule payload SHA', is_array( $settle_doc ) && hash_equals( strtolower( (string) $settle_doc['document_sha256'] ), strtolower( (string) ( $settle_review['opinion_sha256'] ?? '' ) ) ), wp_json_encode( array( 'row_sha' => $settle_doc['document_sha256'] ?? '', 'payload_sha' => $settle_review['opinion_sha256'] ?? '' ) ) );
+$ok( 'final-settlement encrypted opinion decrypts from the private vault', ! is_wp_error( $settle_resolved ), is_wp_error( $settle_resolved ) ? $settle_resolved->get_error_message() : wp_json_encode( array( 'mime' => $settle_resolved['mime_type'] ?? '', 'sha' => $settle_resolved['sha256'] ?? '' ) ) );
+$verify_settle_unlocked = is_array( $settle_payload ) && Stockland_HR_Lifecycle::verify_legal_opinion_document( $settle_payload, (int) $srule['id'], 'PENDING_REVIEW', false );
+$verify_settle_locked = is_array( $settle_payload ) && Stockland_HR_Lifecycle::verify_legal_opinion_document( $settle_payload, (int) $srule['id'], 'PENDING_REVIEW', true );
+$ok( 'final-settlement opinion verifies without row lock', $verify_settle_unlocked, 'doc=' . $settle_doc_id );
+$ok( 'final-settlement opinion verifies with row lock', $verify_settle_locked, 'doc=' . $settle_doc_id );
 $need( 'SYNTHETIC final-settlement rule approved', call( 'POST', "/hr/lifecycle/rules/{$srule['id']}/approve", array( 'independent_review_note' => $note30 ), $o1 ) );
 $ok( 'only the reviewed rule versions are approved', (int) qv( 'select count(*) from ' . Stockland_DB::table( 'hr_rule_sets' ) . " where review_status='APPROVED'" ) === 2 );
 
