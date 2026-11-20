@@ -8,14 +8,14 @@ site:
       path: documentation
       default: true
       content:
-        directory: null
+        directory: ./imported-content-1
     - type: space
       key: space-2
       title: Imported content
       path: imported-content
       draft: true
       content:
-        directory: null
+        directory: ./imported-content
     - type: space
       key: space-3
       title: Imported content
