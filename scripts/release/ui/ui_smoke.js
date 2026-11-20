@@ -466,6 +466,7 @@ const isLocal = (url) => {
     else note('notification control has one dynamic accessible name and hides decorative label/count');
     if (!jsText.includes('both monthly_tax_bands (legacy) and paye_bands (frozen runs)')) fail('HR payroll rule form does not explain the dual calculator schedule contract');
     else note('HR payroll rule form explains the dual calculator contract');
+    // Signed legal opinion bytes are uploaded privately; the server calculates the SHA-256 and a separate Owner ratifies the exact document.
     const legalReviewFields = ['Independent legal review decision','Reviewer independent of rule preparation','Independent reviewer full name','Reviewer professional registration / licence ID','Professional qualification / licence basis','Review date','Signed opinion reference / document ID','Legal clauses reviewed (one per line)','Approved parameter keys (comma-separated)'];
     const legalOpinionUpload = ['basis:\'INDEPENDENT_PROFESSIONAL_OPINION\'','data-hrlc-rule-opinion-upload','data-hrlc-rule-opinion-file','accept=".pdf,.docx,application/pdf','legal_review_opinion_reference','legal_review_clauses_reviewed','legal_review_approved_parameters','Owner ratify rule'];
     const noUserEnteredOpinionHash = !jsText.includes('Signed opinion document SHA-256') && !jsText.includes('legal_review_opinion_sha256');
