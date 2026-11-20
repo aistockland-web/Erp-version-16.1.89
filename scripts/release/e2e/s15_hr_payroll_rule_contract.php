@@ -20,6 +20,7 @@ $check = static function ( $label, $condition, $detail = '' ) use ( &$fail ) {
 
 $review = array(
 	'basis'                 => 'INDEPENDENT_PROFESSIONAL_OPINION',
+	'opinion_document_id'   => 1,
 	'decision'              => 'APPROVED',
 	'independence_confirmed'=> true,
 	'reviewer_name'         => 'Synthetic Reviewer — TEST ONLY',
