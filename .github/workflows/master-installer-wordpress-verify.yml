@@ -59,8 +59,8 @@ jobs:
             expected_db: '8.0'
           - db: mariadb114
             image: mariadb:11.4.13
-            php: '8.4.27'
-            expected_php: '8.4.27'
+            php: '8.4'
+            expected_php: '8.4'
             expected_db: '11.4.13'
     services:
       mariadb:
@@ -125,6 +125,8 @@ jobs:
           node --check scripts/release/ui/rule_builder_unit.js
           node --check scripts/release/ui/share_dialog_unit.js
           node --check scripts/release/ui/product_create_ui.js
+          node --check scripts/release/ui/system_health_scope_contract.js
+          node scripts/release/ui/system_health_scope_contract.js
           node scripts/release/tests/daily_pos_ui_contract.js
           node scripts/release/tests/pos_integration_hub_contract.js
           npm ci --prefix ci/cssqa --ignore-scripts --no-audit --no-fund
