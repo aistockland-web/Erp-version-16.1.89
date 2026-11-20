@@ -77,6 +77,9 @@ final class Stockland_GitBook_Bridge {
 		if ( '' === $expected || ! preg_match( '/^Bearer\s+(.+)$/i', $provided, $matches ) || ! hash_equals( $expected, trim( $matches[1] ) ) ) {
 			return new WP_Error( 'stockland_bridge_unauthorized', 'A valid bridge bearer token is required.', array( 'status' => 401 ) );
 		}
+		if ( ! defined( 'STOCKLAND_VERSION' ) || '16.2.18' !== STOCKLAND_VERSION ) {
+			return new WP_Error( 'stockland_bridge_version_mismatch', 'This bridge requires Stockland ERP 16.2.18. No ERP changes were made.', array( 'status' => 409 ) );
+		}
 		return true;
 	}
 	public function public_health() {
