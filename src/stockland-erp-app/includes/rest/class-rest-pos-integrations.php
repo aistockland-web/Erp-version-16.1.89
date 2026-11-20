@@ -411,24 +411,85 @@ final class Stockland_REST_POS_Integrations extends Stockland_REST_Base {
 	}
 
 	/**
-	 * Mark a source CONNECTED after real data was received and posted.
+	 * Mark a registered POS source CONNECTED after its staged Daily POS job is fully POSTED.
 	 *
-	 * @param array $device Registered device record.
-	 * @param int   $job_id Posted import job.
-	 * @return void
+	 * @param string $source_system Source-system namespace stored on the released import job.
+	 * @param int    $branch_id     Branch that owns the released job.
+	 * @param int    $job_id        Fully posted Daily POS import job ID.
+	 * @return bool True when exactly one matching device record was updated and verified.
 	 */
-	public static function mark_synced( $device, $job_id ) {
+	public static function mark_synced_for_source( $source_system, $branch_id, $job_id ) {
+		global $wpdb;
+		$source_system = sanitize_text_field( (string) $source_system );
+		$branch_id     = (int) $branch_id;
+		$job_id        = (int) $job_id;
+		if ( ! preg_match( '/^POS_[a-f0-9]{16}$/', $source_system ) || $branch_id < 1 || $job_id < 1 ) {
+			return false;
+		}
+		$table = Stockland_DB::table( 'settings' );
+		if ( ! Stockland_DB::table_exists( $table ) ) {
+			return false;
+		}
+		$wpdb->last_error = '';
+		$rows = Stockland_DB::read_results(
+			$wpdb->prepare(
+				'SELECT setting_key,setting_value FROM %i WHERE setting_key LIKE %s',
+				$table,
+				$wpdb->esc_like( self::DEVICE_PREFIX ) . '%'
+			),
+			ARRAY_A
+		);
+		if ( '' !== (string) $wpdb->last_error || ! is_array( $rows ) ) {
+			return false;
+		}
+		$matches = array();
+		foreach ( $rows as $row ) {
+			$device = json_decode( (string) ( $row['setting_value'] ?? '' ), true );
+			if ( is_array( $device )
+				&& (string) ( $device['source_system'] ?? '' ) === $source_system
+				&& (int) ( $device['branch_location_id'] ?? 0 ) === $branch_id
+			) {
+				$matches[] = array( 'key' => (string) ( $row['setting_key'] ?? '' ), 'device' => $device );
+			}
+		}
+		if ( 1 !== count( $matches ) ) {
+			return false;
+		}
+		return self::mark_synced( $matches[0]['key'], $matches[0]['device'], $job_id );
+	}
+
+	/**
+	 * Persist and verify the CONNECTED state after a fully posted Daily POS job.
+	 *
+	 * @param string $key    Existing Core settings key for the registered device.
+	 * @param array  $device Registered device record.
+	 * @param int    $job_id Fully posted Daily POS import job ID.
+	 * @return bool True only when the stored connection metadata reads back exactly.
+	 */
+	private static function mark_synced( $key, $device, $job_id ) {
 		global $wpdb;
 		$table = Stockland_DB::table( 'settings' );
-		$key   = self::DEVICE_PREFIX . strtolower( (string) ( $device['device_id'] ?? '' ) );
+		if ( ! preg_match( '/^' . preg_quote( self::DEVICE_PREFIX, '/' ) . '[a-f0-9]{16}$/', (string) $key ) ) {
+			return false;
+		}
 		$device['connection_status'] = 'CONNECTED';
 		$device['adapter_state']     = 'ACTIVE';
 		$device['last_sync_at']      = current_time( 'mysql' );
 		$device['last_job_id']       = (int) $job_id;
 		$json = wp_json_encode( $device );
-		if ( is_string( $json ) ) {
-			Stockland_DB::update_record( $table, array( 'setting_value' => $json ), array( 'setting_key' => $key ) );
+		if ( ! is_string( $json ) || false === Stockland_DB::update_record( $table, array( 'setting_value' => $json ), array( 'setting_key' => $key ) ) ) {
+			return false;
 		}
+		$wpdb->last_error = '';
+		$stored = Stockland_DB::read_var( $wpdb->prepare( 'SELECT setting_value FROM %i WHERE setting_key=%s LIMIT 1', $table, $key ) );
+		if ( '' !== (string) $wpdb->last_error ) {
+			return false;
+		}
+		$verified = json_decode( (string) $stored, true );
+		return is_array( $verified )
+			&& 'CONNECTED' === (string) ( $verified['connection_status'] ?? '' )
+			&& 'ACTIVE' === (string) ( $verified['adapter_state'] ?? '' )
+			&& (int) ( $verified['last_job_id'] ?? 0 ) === (int) $job_id;
 	}
 
 	/**
