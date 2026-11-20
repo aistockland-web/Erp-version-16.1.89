@@ -57,7 +57,7 @@ jobs:
             git -C "$directory" checkout --quiet --detach FETCH_HEAD
             actual="$(git -C "$directory" rev-parse HEAD)"
             test "$actual" = "$commit"
-            printf 'Pinned %s at %s\\n' "$repository" "$actual"
+            printf 'Pinned %s at %s\n' "$repository" "$actual"
           done <<'PINS'
           semgrep/semgrep-rules a5ad1714f00c9f7fde980cab0ea1d6dc6d414fd2
           PHPCSStandards/PHP_CodeSniffer 75ace24c00ef53ac34d3bfb5d39511d235c13c0d
@@ -108,7 +108,7 @@ jobs:
           plugin = pathlib.Path(sys.argv[1])
           planted = "ghp_" + ("a" * 40)
           (plugin / "planted-secret-test.php").write_text(
-              "<?php\\n$synthetic_marker = '" + planted + "';\\n",
+              "<?php\n$synthetic_marker = '" + planted + "';\n",
               encoding="utf-8",
           )
           PY
