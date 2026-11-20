@@ -21,12 +21,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: stockland-16-2-18-security-\${{ github.event.pull_request.number || github.ref }}
+  group: stockland-16-2-18-security-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
 
 jobs:
   security:
-    name: Security gates on PHP \${{ matrix.php-version }}
+    name: Security gates on PHP ${{ matrix.php-version }}
     runs-on: ubuntu-latest
     timeout-minutes: 35
     strategy:
@@ -40,7 +40,7 @@ jobs:
       - name: Set up PHP
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # setup-php v2.37.2
         with:
-          php-version: \${{ matrix.php-version }}
+          php-version: ${{ matrix.php-version }}
           tools: none
           coverage: none
           ini-file: production
@@ -62,8 +62,8 @@ jobs:
             PHPCompatibility/PHPCompatibilityWP \
             PHPCompatibility/PHPCompatibilityParagonie
           do
-            directory="\${repository##*/}"
-            git clone --quiet --depth 1 "https://github.com/\${repository}.git" "$directory"
+            directory="${repository##*/}"
+            git clone --quiet --depth 1 "https://github.com/${repository}.git" "$directory"
           done
           python3 -m pip install --disable-pip-version-check --no-warn-script-location semgrep
           test -x "$TOOLS/PHP_CodeSniffer/bin/phpcs"
@@ -125,10 +125,10 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # upload-artifact v4
         with:
-          name: stockland-16-2-18-security-php-\${{ matrix.php-version }}
+          name: stockland-16-2-18-security-php-${{ matrix.php-version }}
           path: |
-            \${{ runner.temp }}/stockland-security-gates.txt
-            \${{ runner.temp }}/stockland-negative-gate.txt
-            \${{ runner.temp }}/pipefail-control.txt
+            ${{ runner.temp }}/stockland-security-gates.txt
+            ${{ runner.temp }}/stockland-negative-gate.txt
+            ${{ runner.temp }}/pipefail-control.txt
           if-no-files-found: warn
           retention-days: 30
