@@ -31,7 +31,7 @@ The following official records are mandatory review inputs. Listing a source her
 ### Official public starting points
 
 - [Federal Negarit Gazette — Income Tax (Amendment) Proclamation No. 1395/2025, Gazette No. 64](https://www.ffic.gov.et/Portals/0/1395-2017.pdf)
-- [Ministry of Justice — Regulation No. 597/2026](https://justice.gov.et/en/law/%E1%8B%A8%E1%88%9A%E1%8A%92%E1%88%B5%E1%89%B5%E1%88%AE%E1%89%BD-%E1%88%9D%E1%8A%AD%E1%88%AD-%E1%89%A4%E1%89%B5-%E1%8B%A8%E1%8D%8C%E1%8B%B4%E1%88%AB%E1%88%8D-%E1%8B%A8%E1%8C%88%E1%89%A2-%E1%88%B5/)
+- [Ministry of Justice — Finance & Tax register (Regulation No. 597/2026)](https://justice.gov.et/en/sector/finance-tax/)
 - [Ministry of Justice — Social Security & Pensions register](https://justice.gov.et/am/sector/social-security-pensions/)
 - [Ministry of Justice — Private Organizations Employees’ Pension Implementation Directive No. 1085/2025](https://justice.gov.et/am/directives/private-organizations-employees-pension-implementation-directive-2/)
 - [Ministry of Justice — Private Organization Employees’ Social Security Administration (including Directive No. 1087/2025)](https://justice.gov.et/en/entity/private-organizatio-employees-social-security-administration/)
