@@ -166,6 +166,10 @@ notes.append(f"WPCS security findings: {sum(found.values())} + {escape_output} e
 semgrep = run([
     "semgrep", "--config", os.path.join(tools, "semgrep-rules/php/lang"),
     "--config", os.path.join(tools, "semgrep-rules/php/wordpress-plugins"),
+    # Complex PHP taint rules may need more than the short CLI default on a
+    # shared CI runner. Increase the per-file budget; any remaining timeout
+    # is still reported as a scanner error and fails the release gate.
+    "--timeout", "30",
     "--metrics=off", "--disable-version-check", "--json", plugin,
 ])
 try:
