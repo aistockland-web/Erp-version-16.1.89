@@ -169,6 +169,13 @@ $payroll_opinion_doc_id = (int) ( $payroll_rule_payload['qualified_legal_review'
 $ok( 'payroll opinion payload stores the actual inserted hr_documents ID', $payroll_opinion_doc_id > 0 );
 $refused( 'Management cannot approve a rule (Owner only)', call( 'POST', "/hr/lifecycle/rules/{$rule['id']}/approve", array( 'independent_review_note' => $note30 ), $mg ), 403 );
 $need( 'SYNTHETIC payroll rule approved by an independent Owner', call( 'POST', "/hr/lifecycle/rules/{$rule['id']}/approve", array( 'independent_review_note' => $note30 ), $o1 ) );
+$overlap_body = $rule_body( 'PAYROLL', 'SYNTHETIC-PAYROLL-OVERLAP', $payroll_rules );
+$overlap_body['rule_code'] = 'payroll-synthetic-overlap';
+$overlap_rule = $need( 'overlapping synthetic payroll rule remains a separate DRAFT candidate', call( 'POST', '/hr/lifecycle/rules', $overlap_body, $mg ) );
+$ok( 'overlap candidate receives its own encrypted synthetic opinion', $attach_synthetic_opinion( (int) $overlap_rule['id'] ) );
+$refused( 'an open-ended approved payroll rule blocks a second overlapping rule', call( 'POST', "/hr/lifecycle/rules/{$overlap_rule['id']}/approve", array( 'independent_review_note' => $note30 ), $o1 ), 409, 'overlaps' );
+$overlap_status = Stockland_DB::read_var( $GLOBALS['wpdb']->prepare( 'SELECT review_status FROM %i WHERE id=%d', Stockland_DB::table( 'hr_rule_sets' ), (int) $overlap_rule['id'] ) );
+$ok( 'overlapping statutory rule remains DRAFT after refused approval', 'DRAFT' === $overlap_status, (string) $overlap_status );
 $settle_rules = array( 'component_rules' => array( 'UNUSED_LEAVE' => array( 'tax_treatment' => 'TAXABLE', 'pensionable_treatment' => 'NOT_PENSIONABLE' ) ), 'qualified_legal_review' => $review );
 $srule = $need( 'SYNTHETIC final-settlement rule drafted', call( 'POST', '/hr/lifecycle/rules', $rule_body( 'FINAL_SETTLEMENT', 'SYNTHETIC-SETTLE-V1', $settle_rules ), $mg ) );
 $ok( 'synthetic encrypted final-settlement opinion fixture is attached to the exact rule', $attach_synthetic_opinion( (int) $srule['id'] ) );
