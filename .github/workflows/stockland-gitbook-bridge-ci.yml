@@ -42,7 +42,25 @@ jobs:
           cp addons/stockland-gitbook-bridge/RELEASE_MANIFEST.json dist/package/stockland-gitbook-bridge/
           cp addons/stockland-gitbook-bridge/SECURITY.md dist/package/stockland-gitbook-bridge/
           cd dist/package
-          zip -r ../STOCKLAND_ERP_GITBOOK_READONLY_BRIDGE_1.0.0.zip stockland-gitbook-bridge
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile, ZipInfo, ZIP_DEFLATED
+          source = Path('stockland-gitbook-bridge')
+          target = Path('../STOCKLAND_ERP_GITBOOK_READONLY_BRIDGE_1.0.0.zip')
+          def build(path):
+              with ZipFile(path, 'w', compression=ZIP_DEFLATED, compresslevel=9) as archive:
+                  for file in sorted(source.rglob('*')):
+                      if file.is_file():
+                          info = ZipInfo(file.as_posix(), date_time=(2026, 1, 1, 0, 0, 0))
+                          info.compress_type = ZIP_DEFLATED
+                          info.external_attr = 0o100644 << 16
+                          archive.writestr(info, file.read_bytes())
+          build(target)
+          first = target.read_bytes()
+          build(target)
+          assert target.read_bytes() == first, 'ZIP build is not reproducible'
+          print('PASS: deterministic WordPress plugin ZIP')
+          PY
           cd ../..
           sha256sum dist/STOCKLAND_ERP_GITBOOK_READONLY_BRIDGE_1.0.0.zip | tee dist/SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
