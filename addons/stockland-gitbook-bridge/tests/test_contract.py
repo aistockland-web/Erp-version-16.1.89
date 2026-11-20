@@ -32,6 +32,12 @@ class Contract(unittest.TestCase):
         self.assertNotIn("retail_price", block)
         self.assertNotIn("quantity_on_hand", block)
 
+    def test_staff_import_contract_excludes_pricing(self):
+        block = PHP[PHP.find("private function product_import_contract"):PHP.find("register_activation_hook")]
+        self.assertNotIn("'purchase_cost' =>", block)
+        self.assertNotIn("'retail_price' =>", block)
+        self.assertNotIn("'wholesale_price' =>", block)
+
     def test_no_manual_change(self):
         self.assertIn("docs-user-manual-16.2.18", PHP)
 
