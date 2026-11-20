@@ -278,13 +278,14 @@ final class Stockland_REST_HR_Lifecycle extends Stockland_REST_Base {
 			if(!in_array(strtoupper((string)$rule['rule_type']),array('PAYROLL','ALLOWANCE','FINAL_SETTLEMENT','INDIVIDUAL_PAYEE','LEAVE','OVERTIME'),true))throw new RuntimeException('A legal opinion attachment is only valid for statutory rule types.');
 			$existing=(int)Stockland_DB::read_var($wpdb->prepare("SELECT COUNT(*) FROM %i WHERE subject_type='RULE_SET' AND subject_id=%d AND document_type='LEGAL_OPINION' AND status IN ('PENDING_REVIEW','APPROVED')",$this->table('hr_documents'),$id));
 			if($existing>0)throw new RuntimeException('This rule already has a legal opinion attachment. Create a new rule version to replace legal evidence.');
-			$doc_id=Stockland_DB::insert_record($this->table('hr_documents'),array(
+			$inserted=Stockland_DB::insert_record($this->table('hr_documents'),array(
 				'subject_type'=>'RULE_SET','subject_id'=>$id,'document_type'=>'LEGAL_OPINION',
 				'document_reference'=>$stored['private_file_ref'],'document_sha256'=>strtolower($stored['file_sha256']),
 				'status'=>'PENDING_REVIEW','created_by'=>get_current_user_id(),
 				'notes'=>'Encrypted independent professional legal opinion; pending separate Stockland Owner ratification.'
 			));
-			if(!$doc_id)throw new RuntimeException('Could not register the encrypted legal opinion document.');
+			$doc_id=false===$inserted?0:(int)$wpdb->insert_id;
+			if($doc_id<1)throw new RuntimeException('Could not register the encrypted legal opinion document.');
 			$payload=json_decode((string)$rule['rules_json'],true);
 			if(!is_array($payload))throw new RuntimeException('Rule JSON is invalid; legal opinion was not linked.');
 			if(!isset($payload['qualified_legal_review'])||!is_array($payload['qualified_legal_review']))$payload['qualified_legal_review']=array();
