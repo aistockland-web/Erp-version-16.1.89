@@ -92,6 +92,8 @@ list( $branch_status, $branch_data ) = $branch_registration;
 $branch_device = is_array( $branch_data ) ? ( $branch_data['device'] ?? array() ) : array();
 $branch_device_id = (string) ( $branch_device['device_id'] ?? '' );
 $branch_source_id = (string) ( $branch_device['source_system'] ?? '' );
+$registration_json = '' !== $branch_device_id ? Stockland_DB::get_setting( 'pos_int_device_' . strtolower( $branch_device_id ) ) : null;
+$registration_audit_pointer = is_string( $registration_json ) ? 'CORE_SETTINGS:pos_int_device_' . strtolower( $branch_device_id ) . ':sha256:' . hash( 'sha256', $registration_json ) : '';
 $check( 'Branch Manager registers a device for an assigned branch', 200 === $branch_status && preg_match( '/^[A-F0-9]{16}$/', $branch_device_id ), 'HTTP ' . $branch_status . ' :: ' . wp_json_encode( $branch_data ) );
 $check( 'registration remains NOT_CONNECTED with no configured credentials', 'NOT_CONNECTED' === ( $branch_device['connection_status'] ?? '' ) && 'NOT_CONFIGURED' === ( $branch_device['credential_status'] ?? '' ) );
 $sync_table = Stockland_DB::table( 'import_jobs' );
@@ -307,13 +309,18 @@ $check( 'registered device cannot be used by another branch import', is_wp_error
 
 $stored_json = '' !== $branch_device_id ? Stockland_DB::get_setting( 'pos_int_device_' . strtolower( $branch_device_id ) ) : null;
 $stored_record = is_string( $stored_json ) ? json_decode( $stored_json, true ) : null;
-$audit_pointer = 'CORE_SETTINGS:pos_int_device_' . strtolower( $branch_device_id ) . ':sha256:' . hash( 'sha256', (string) $stored_json );
+$current_audit_pointer = is_string( $stored_json ) ? 'CORE_SETTINGS:pos_int_device_' . strtolower( $branch_device_id ) . ':sha256:' . hash( 'sha256', $stored_json ) : '';
 $audit_row = '' !== $branch_device_id ? Stockland_DB::read_row(
-	$wpdb->prepare( 'SELECT new_value,branch_location_id FROM %i WHERE action=%s AND reference=%s ORDER BY id DESC LIMIT 1', $audit_table, 'POS_DEVICE_REGISTER', $branch_device_id ),
+	$wpdb->prepare( 'SELECT new_value,branch_location_id FROM %i WHERE action=%s AND reference=%s ORDER BY id ASC LIMIT 1', $audit_table, 'POS_DEVICE_REGISTER', $branch_device_id ),
+	ARRAY_A
+) : null;
+$connection_audit = '' !== $branch_device_id ? Stockland_DB::read_row(
+	$wpdb->prepare( 'SELECT old_value,new_value,branch_location_id,approver_id FROM %i WHERE action=%s AND reference=%s ORDER BY id DESC LIMIT 1', $audit_table, 'POS_DEVICE_CONNECTED', $branch_device_id ),
 	ARRAY_A
 ) : null;
 $check( 'device record persists in existing Core settings storage', is_array( $stored_record ) && $branch_device_id === ( $stored_record['device_id'] ?? '' ) );
-$check( 'device registration has a matching immutable audit pointer', is_array( $audit_row ) && $audit_pointer === (string) $audit_row['new_value'] && (int) $audit_row['branch_location_id'] === $branch_id );
+$check( 'device registration has a matching immutable audit pointer for the original record', is_array( $audit_row ) && $registration_audit_pointer !== '' && $registration_audit_pointer === (string) $audit_row['new_value'] && (int) $audit_row['branch_location_id'] === $branch_id );
+$check( 'device CONNECTED transition has an immutable old/new hash event', is_array( $connection_audit ) && false !== strpos( (string) $connection_audit['old_value'], ':sha256:' ) && $current_audit_pointer === (string) $connection_audit['new_value'] && (int) $connection_audit['branch_location_id'] === $branch_id && (int) $connection_audit['approver_id'] === $branch_manager_id );
 $check( 'no raw API key or password is stored in device metadata', is_array( $stored_record ) && ! isset( $stored_record['api_key'], $stored_record['password'], $stored_record['secret'], $stored_record['access_token'] ) );
 
 if ( ! empty( $shared_external_code ) ) {
