@@ -24,7 +24,7 @@ class Contract(unittest.TestCase):
         self.assertIn("hash_equals( $expected", PHP)
         self.assertIn("const MAX_LIMIT = 50", PHP)
         self.assertIn("LIMIT %d", PHP)
-        self.assertIn("STOCKLAND_VERSION !== '16.2.18'", PHP)
+        self.assertIn("'16.2.18' !== STOCKLAND_VERSION", PHP)
 
     def test_readonly_catalog_fields(self):
         block = PHP[PHP.find("private function product_search"):PHP.find("private function sku_lookup")]
