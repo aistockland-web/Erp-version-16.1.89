@@ -115,12 +115,13 @@ $stored = Stockland_HR_Private_Vault::store_content( $pdf, 'synthetic-legal-opin
 $test_rule_id = 990021;
 $opinion_doc_id = 0;
 if ( ! is_wp_error( $stored ) ) {
-	$opinion_doc_id = (int) Stockland_DB::insert_record( Stockland_DB::table( 'hr_documents' ), array(
+	$inserted = Stockland_DB::insert_record( Stockland_DB::table( 'hr_documents' ), array(
 		'subject_type' => 'RULE_SET', 'subject_id' => $test_rule_id, 'document_type' => 'LEGAL_OPINION',
 		'document_reference' => $stored['private_file_ref'], 'document_sha256' => $stored['file_sha256'],
 		'status' => 'PENDING_REVIEW', 'created_by' => $owner,
 		'notes' => 'Synthetic disposable-site legal opinion; not law or a professional opinion.',
 	) );
+	$opinion_doc_id = false === $inserted ? 0 : (int) $wpdb->insert_id;
 }
 $synthetic_independent_review['qualified_legal_review']['opinion_document_id'] = $opinion_doc_id;
 $synthetic_independent_review['qualified_legal_review']['opinion_sha256'] = is_wp_error( $stored ) ? '' : strtolower( $stored['file_sha256'] );
