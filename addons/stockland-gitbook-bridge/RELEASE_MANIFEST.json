@@ -1,0 +1,17 @@
+{
+  "product": "Stockland ERP GitBook Read-only Bridge",
+  "version": "1.0.0",
+  "target_erp_version": "16.2.18",
+  "base_source_commit": "19fe43981723f30e3839d1c8a67498f50c8134d4",
+  "architecture": "independent-wordpress-plugin",
+  "mcp_protocol": "2025-03-26",
+  "transport": "streamable-http",
+  "tools": ["stockland_system_status","stockland_product_search","stockland_sku_lookup","stockland_product_import_contract"],
+  "read_only": true,
+  "business_record_writes": false,
+  "erp_schema_migrations": false,
+  "erp_core_file_changes": false,
+  "gitbook_manual_changes": false,
+  "data_exclusions": ["employee/payroll","customer","supplier/finance","purchase cost","selling prices","inventory quantities/balances"],
+  "acceptance": {"source_static_tests":"pending-ci","wordpress_runtime_test":"harness-only-pending-ci","live_host_activation":"not-run","gitbook_mcp_registration":"pending-plugin-endpoint-and-token","production_certification":false}
+}
