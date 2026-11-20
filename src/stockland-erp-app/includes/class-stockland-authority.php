@@ -62,7 +62,10 @@ class Stockland_Authority {
 	 * @return bool Whether the user is an Owner.
 	 */
 	public static function is_owner( $user_id = null ) {
-		return self::role( $user_id ) === self::OWNER || user_can( $user_id ? $user_id : get_current_user_id(), 'stockland_owner' );
+		// The active ERP profile is the business authority source. A direct or
+		// inherited WordPress capability must never turn a platform-only account
+		// into an Owner without an active Stockland Owner profile.
+		return self::role( $user_id ) === self::OWNER;
 	}
 
 	/**
