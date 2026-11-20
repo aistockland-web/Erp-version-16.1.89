@@ -817,7 +817,7 @@ final class Stockland_HR_Lifecycle {
 
 		global $wpdb;
 		$sql = $wpdb->prepare(
-			'SELECT id,subject_type,subject_id,document_type,document_reference,document_sha256,status FROM %i WHERE id=%d AND subject_type=%s AND subject_id=%d AND document_type=%s LIMIT 1',
+			'SELECT id,subject_type,subject_id,document_type,document_reference,document_sha256,status,verified_by,verified_at FROM %i WHERE id=%d AND subject_type=%s AND subject_id=%d AND document_type=%s LIMIT 1',
 			Stockland_DB::table( 'hr_documents' ),
 			(int) $document_id,
 			'RULE_SET',
@@ -828,6 +828,7 @@ final class Stockland_HR_Lifecycle {
 		$row = Stockland_DB::read_row( $sql, ARRAY_A );
 		if ( ! is_array( $row )
 			|| strtoupper( (string) $row['status'] ) !== strtoupper( (string) $expected_status )
+			|| ( 'APPROVED' === strtoupper( (string) $expected_status ) && ( (int) ( $row['verified_by'] ?? 0 ) < 1 || empty( $row['verified_at'] ) || ! Stockland_Authority::is_owner( (int) $row['verified_by'] ) ) )
 			|| ! preg_match( '/^[a-f0-9]{64}$/iD', (string) $row['document_sha256'] )
 			|| ! hash_equals( strtolower( (string) $row['document_sha256'] ), $expected_hash )
 		) { return false; }
