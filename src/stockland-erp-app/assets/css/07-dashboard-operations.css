@@ -264,6 +264,7 @@
   overflow: visible;
 }
 #stockland-app .sl-content-inner>.sl-page-title>div:first-child {
+  width: 100%;
   min-width: 0;
   max-width: 100%;
   text-align: center;
