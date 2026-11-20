@@ -161,6 +161,7 @@ $snapshot_json = '' !== $snapshot_code ? Stockland_DB::get_setting( 'mi_social_s
 $snapshot_row = is_string( $snapshot_json ) ? json_decode( $snapshot_json, true ) : null;
 $check( 'snapshot can be read back from the real Core settings row', is_array( $snapshot_row ) && $snapshot_code === ( $snapshot_row['snapshot_code'] ?? '' ) );
 
+$wpdb->last_error = '';
 $duplicate = array( 0, array() );
 if ( '' !== $campaign_code ) {
 	$duplicate = call(
@@ -188,6 +189,7 @@ if ( '' !== $campaign_code ) {
 	);
 }
 $check( 'duplicate/retried export snapshot is rejected with conflict', 409 === $duplicate[0] );
+$check( 'a sequential duplicate retry is rejected without a database duplicate-key error', '' === (string) $wpdb->last_error, (string) $wpdb->last_error );
 $campaign_audits = (int) Stockland_DB::read_var( $wpdb->prepare(
 	'SELECT COUNT(*) FROM %i WHERE action=%s AND reference=%s',
 	$audit_table,
