@@ -71,6 +71,20 @@ final class Stockland_REST_HR_Lifecycle extends Stockland_REST_Base {
 	public function bootstrap(WP_REST_Request $req){
 		global $wpdb;$pay=Stockland_Authority::can_view_payroll();
 		$out=array('locations'=>array(),'employees'=>array(),'compensation'=>array(),'payroll'=>array(),'payroll_visible'=>$pay,'capabilities'=>array('hr_manage'=>Stockland_Authority::can_manage_hr(),'payroll_manage'=>Stockland_Authority::can_manage_payroll(),'payroll_approve'=>Stockland_Authority::can_approve_payroll()),'rule_sets'=>$this->list_table('hr_rule_sets'),'rule_components'=>$this->list_table('hr_rule_components'),'lists'=>array());
+		$out['rule_sets']=Stockland_DB::read_results($wpdb->prepare(
+			'SELECT r.*,d.id AS legal_opinion_document_id,d.status AS legal_opinion_status,d.document_sha256 AS legal_opinion_sha256
+			 FROM %i r
+			 LEFT JOIN %i d ON d.id=(
+				SELECT MAX(dx.id) FROM %i dx
+				WHERE dx.subject_type=%s AND dx.subject_id=r.id AND dx.document_type=%s
+			 )
+			 ORDER BY r.effective_from DESC,r.id DESC LIMIT 200',
+			$this->table('hr_rule_sets'),
+			$this->table('hr_documents'),
+			$this->table('hr_documents'),
+			'RULE_SET',
+			'LEGAL_OPINION'
+		),ARRAY_A);
 		$out['locations']=$this->list_table('locations',200);
 		$out['employees']=$this->list_table('employees',500);
 		$out['payroll']=$pay?$this->list_table('payroll_periods',120):array();
