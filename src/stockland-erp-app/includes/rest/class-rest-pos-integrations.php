@@ -256,7 +256,7 @@ final class Stockland_REST_POS_Integrations extends Stockland_REST_Base {
 				'registered_by' => get_current_user_id(),
 				'registered_at' => current_time( 'mysql' ),
 				'posting_path' => 'IMPORT_VALIDATE_STAGE_RECONCILE_BRANCH_MANAGER_RELEASE',
-				'notes' => 'Files from this source are validated, staged and reconciled automatically. The Branch Manager release is the single final approval; a Branch Manager upload is that release. The source becomes CONNECTED after its first successful import.',
+				'notes' => 'Every file upload, including one performed by the Branch Manager, is staging only and never constitutes approval or posting. The assigned Branch Manager must separately review and invoke the explicit Daily POS release action. That release is the single final business approval; no additional Owner or Management approval follows. The source becomes CONNECTED only after its first successful released import.',
 			);
 		} catch ( Throwable $error ) {
 			return new WP_Error( 'pos_device_id_failed', 'A unique device registration ID could not be generated.', array( 'status' => 500 ) );
@@ -272,7 +272,7 @@ final class Stockland_REST_POS_Integrations extends Stockland_REST_Base {
 			array(
 				'device' => $this->public_device_record( $record ),
 				'status' => 'NOT_CONNECTED',
-				'message' => 'Source registered. Its files are validated, staged and reconciled automatically; the Branch Manager release is the only approval. The source turns CONNECTED after its first successful import.',
+				'message' => 'Source registered. Every upload is validated, staged and reconciled only; even a Branch Manager upload is not approval. The assigned Branch Manager must separately invoke the explicit Daily POS release action, which is the single final business approval. No additional Owner or Management approval follows.',
 			)
 		);
 	}
@@ -455,6 +455,10 @@ final class Stockland_REST_POS_Integrations extends Stockland_REST_Base {
 			'registered_by' => (int) ( $device['registered_by'] ?? 0 ),
 			'registered_at' => (string) ( $device['registered_at'] ?? '' ),
 			'posting_path' => (string) ( $device['posting_path'] ?? 'IMPORT_VALIDATE_STAGE_RECONCILE_BRANCH_MANAGER_RELEASE' ),
+			'upload_is_approval' => false,
+			'release_action' => 'EXPLICIT_DAILY_POS_COMMIT',
+			'release_route' => '/stockland/v16/import/daily-sales/commit',
+			'release_authority' => 'ASSIGNED_BRANCH_MANAGER_ONLY',
 		);
 	}
 }
