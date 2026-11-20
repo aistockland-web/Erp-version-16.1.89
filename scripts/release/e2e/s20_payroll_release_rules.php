@@ -88,6 +88,7 @@ $check( 'Owner-declaration basis is rejected even when reviewer-like fields are 
 $synthetic_independent_review = array(
 	'qualified_legal_review' => array(
 		'basis' => 'INDEPENDENT_PROFESSIONAL_OPINION',
+		'opinion_document_id' => 999999,
 		'decision' => 'APPROVED',
 		'independence_confirmed' => true,
 		'reviewer_name' => 'Synthetic Reviewer — TEST ONLY',
@@ -104,6 +105,39 @@ $synthetic_independent_review = array(
 		),
 	),
 );
+
+/* Verify that an independently reviewed rule is bound to a real encrypted document object. */
+$vault_dir = rtrim( sys_get_temp_dir(), '/' ) . '/stockland-s20-legal-vault-' . bin2hex( random_bytes( 6 ) );
+if ( ! defined( 'STOCKLAND_PRIVATE_VAULT_KEY' ) ) { define( 'STOCKLAND_PRIVATE_VAULT_KEY', bin2hex( random_bytes( 32 ) ) ); }
+if ( ! defined( 'STOCKLAND_PRIVATE_VAULT_DIR' ) ) { define( 'STOCKLAND_PRIVATE_VAULT_DIR', $vault_dir ); }
+$pdf = "%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [] /Count 0 >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n";
+$stored = Stockland_HR_Private_Vault::store_content( $pdf, 'synthetic-legal-opinion.pdf' );
+$test_rule_id = 990021;
+$opinion_doc_id = 0;
+if ( ! is_wp_error( $stored ) ) {
+	$opinion_doc_id = (int) Stockland_DB::insert_record( Stockland_DB::table( 'hr_documents' ), array(
+		'subject_type' => 'RULE_SET', 'subject_id' => $test_rule_id, 'document_type' => 'LEGAL_OPINION',
+		'document_reference' => $stored['private_file_ref'], 'document_sha256' => $stored['file_sha256'],
+		'status' => 'PENDING_REVIEW', 'created_by' => $owner,
+		'notes' => 'Synthetic disposable-site legal opinion; not law or a professional opinion.',
+	) );
+}
+$synthetic_independent_review['qualified_legal_review']['opinion_document_id'] = $opinion_doc_id;
+$synthetic_independent_review['qualified_legal_review']['opinion_sha256'] = is_wp_error( $stored ) ? '' : strtolower( $stored['file_sha256'] );
+$check( 'synthetic private PDF opinion is encrypted and registered', ! is_wp_error( $stored ) && $opinion_doc_id > 0 );
+$check( 'pending legal-opinion document verifies for its exact rule-set ID', $opinion_doc_id > 0 && Stockland_HR_Lifecycle::verify_legal_opinion_document( $synthetic_independent_review, $test_rule_id, 'PENDING_REVIEW' ) );
+$check( 'the same document cannot be replayed against another rule-set ID', $opinion_doc_id > 0 && ! Stockland_HR_Lifecycle::verify_legal_opinion_document( $synthetic_independent_review, $test_rule_id + 1, 'PENDING_REVIEW' ) );
+$bad_opinion_hash = $synthetic_independent_review;
+$bad_opinion_hash['qualified_legal_review']['opinion_sha256'] = str_repeat( '0', 64 );
+$check( 'legal-opinion evidence fails closed when the recorded SHA differs', $opinion_doc_id > 0 && ! Stockland_HR_Lifecycle::verify_legal_opinion_document( $bad_opinion_hash, $test_rule_id, 'PENDING_REVIEW' ) );
+if ( $opinion_doc_id > 0 ) {
+	Stockland_DB::update_record( Stockland_DB::table( 'hr_documents' ), array( 'status' => 'APPROVED', 'verified_by' => $owner, 'verified_at' => current_time( 'mysql' ) ), array( 'id' => $opinion_doc_id ) );
+	$check( 'Owner-ratified legal-opinion document verifies only in APPROVED state', Stockland_HR_Lifecycle::verify_legal_opinion_document( $synthetic_independent_review, $test_rule_id, 'APPROVED' ) );
+	$check( 'approved-only verification rejects a status mismatch', ! Stockland_HR_Lifecycle::verify_legal_opinion_document( $synthetic_independent_review, $test_rule_id, 'PENDING_REVIEW' ) );
+	Stockland_DB::execute_query( $wpdb->prepare( 'DELETE FROM %i WHERE id=%d', Stockland_DB::table( 'hr_documents' ), $opinion_doc_id ) );
+	Stockland_HR_Private_Vault::delete( $stored['private_file_ref'] );
+}
+
 $check(
 	'synthetic independent-opinion metadata exercises the validator in tests only',
 	Stockland_HR_Lifecycle::has_qualified_legal_review( $synthetic_independent_review )
@@ -117,5 +151,10 @@ $missing_reviewer = $synthetic_independent_review;
 unset( $missing_reviewer['qualified_legal_review']['reviewer_id'] );
 $check( 'independent-review payload without reviewer identity is rejected', ! Stockland_HR_Lifecycle::has_qualified_legal_review( $missing_reviewer ) );
 
+if ( is_dir( $vault_dir ) ) {
+	$items = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $vault_dir, FilesystemIterator::SKIP_DOTS ), RecursiveIteratorIterator::CHILD_FIRST );
+	foreach ( $items as $item ) { $item->isDir() ? @rmdir( $item->getPathname() ) : @unlink( $item->getPathname() ); }
+	@rmdir( $vault_dir );
+}
 echo $failed ? "RESULT FAIL ({$failed} failed, {$passed} passed)\n" : "RESULT PASS ({$passed} assertions)\n";
 exit( $failed ? 1 : 0 );
