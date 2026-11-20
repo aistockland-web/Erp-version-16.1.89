@@ -139,6 +139,25 @@ final class Stockland_REST_Management_Intelligence extends Stockland_REST_Base {
 		if ( ! is_string( $json ) ) {
 			return $this->bad( 'management_social_encode_failed', 'The Management Intelligence record could not be encoded.', 500 );
 		}
+		// Deterministic snapshot keys make client retries idempotent. Detect the
+		// ordinary sequential retry before attempting INSERT so an expected
+		// conflict does not become a noisy database duplicate-key error. The
+		// unique key on setting_key remains the final race/concurrency guard.
+		global $wpdb;
+		$wpdb->last_error = '';
+		$existing_key = Stockland_DB::read_var(
+			$wpdb->prepare(
+				'SELECT setting_key FROM %i WHERE setting_key=%s LIMIT 1',
+				$table,
+				$key
+			)
+		);
+		if ( '' !== (string) $wpdb->last_error ) {
+			return $this->bad( 'management_social_duplicate_check_failed', 'The existing record could not be checked safely. No record was written.', 500 );
+		}
+		if ( (string) $existing_key === (string) $key ) {
+			return $this->bad( 'management_social_duplicate', 'This exact Management Intelligence record already exists. The previous record was left unchanged.', 409 );
+		}
 		$inserted = Stockland_DB::insert_record(
 			$table,
 			array(
