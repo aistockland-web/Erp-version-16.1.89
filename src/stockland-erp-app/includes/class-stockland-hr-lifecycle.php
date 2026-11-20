@@ -812,7 +812,7 @@ final class Stockland_HR_Lifecycle {
 			return false;
 		}
 		$q = $payload['qualified_legal_review'];
-		if ( 'OWNER_DECLARATION' === strtoupper( (string) ( $q['basis'] ?? '' ) ) ) {
+		if ( 'INDEPENDENT_PROFESSIONAL_OPINION' !== strtoupper( trim( (string) ( $q['basis'] ?? '' ) ) ) ) {
 			return false;
 		}
 

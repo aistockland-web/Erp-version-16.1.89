@@ -66,6 +66,25 @@ $check(
 	! Stockland_HR_Lifecycle::has_qualified_legal_review( $owner_declaration )
 );
 
+$missing_basis = $synthetic_review = array(
+	'qualified_legal_review' => array(
+		'decision' => 'APPROVED',
+		'independence_confirmed' => true,
+		'reviewer_name' => 'Synthetic Reviewer — TEST ONLY',
+		'reviewer_id' => 'SYNTH-REVIEWER-ONLY',
+		'professional_basis' => 'Synthetic qualification fixture, not a real credential',
+		'review_date' => '2026-01-02',
+		'opinion_reference' => 'SYNTHETIC-OPINION-ONLY',
+		'opinion_sha256' => hash( 'sha256', 'Synthetic opinion only; not legal evidence' ),
+		'clauses_reviewed' => array( 'SYNTHETIC-CLAUSE-ONLY' ),
+		'approved_parameters' => array( 'paye_bands', 'monthly_tax_bands', 'tax_base_method', 'paye_tax_base_method', 'pensionable_base_method', 'employee_pension_rate', 'employer_pension_rate', 'component_treatments', 'rounding_method' ),
+	),
+);
+$check( 'review metadata without an explicit independent-opinion basis is rejected', ! Stockland_HR_Lifecycle::has_qualified_legal_review( $missing_basis ) );
+$owner_basis = $missing_basis;
+$owner_basis['qualified_legal_review']['basis'] = 'OWNER_DECLARATION';
+$check( 'Owner-declaration basis is rejected even when reviewer-like fields are present', ! Stockland_HR_Lifecycle::has_qualified_legal_review( $owner_basis ) );
+
 $synthetic_independent_review = array(
 	'qualified_legal_review' => array(
 		'basis' => 'INDEPENDENT_PROFESSIONAL_OPINION',
