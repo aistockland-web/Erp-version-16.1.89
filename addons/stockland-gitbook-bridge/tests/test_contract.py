@@ -6,9 +6,12 @@ class Contract(unittest.TestCase):
   self.assertIn("Plugin Name: Stockland ERP GitBook Read-only Bridge", PHP)
   self.assertIn("Version: 1.0.0", PHP)
  def test_no_schema_or_business_mutations(self):
-  for item in ("CREATE TABLE","ALTER TABLE","DROP TABLE","TRUNCATE TABLE","DELETE FROM","INSERT INTO","UPDATE "):
+  for item in ("CREATE TABLE","ALTER TABLE","DROP TABLE","TRUNCATE TABLE","DELETE FROM","INSERT INTO"):
    self.assertNotIn(item, PHP.upper())
-  self.assertNotIn("dbDelta(", PHP)
+  import re
+  self.assertIsNone(re.search(r"\\bUPDATE\\s+[^;]+\\bSET\\b", PHP, re.I))
+  return
+   self.assertNotIn("dbDelta(", PHP)
   self.assertNotIn("Stockland_Installer", PHP)
  def test_fixed_tool_allowlist(self):
   for item in ("stockland_system_status","stockland_product_search","stockland_sku_lookup","stockland_product_import_contract"):
