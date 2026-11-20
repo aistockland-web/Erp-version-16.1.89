@@ -115,6 +115,7 @@ final class Stockland_REST_HR_Lifecycle extends Stockland_REST_Base {
 		global $wpdb;if(Stockland_DB::execute_query('START TRANSACTION')===false)return $this->bad('Could not start workflow transaction.','hr_transaction_failed',500);
 		try{
 			$row=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',$table,$id),ARRAY_A);if(!$row)throw new RuntimeException('Record does not exist.');
+			if($entity==='documents'&&strtoupper((string)($row['subject_type']??''))==='RULE_SET'&&strtoupper((string)($row['document_type']??''))==='LEGAL_OPINION')throw new RuntimeException('Rule legal opinions can only be ratified by the dedicated Owner rule-approval transaction; general document decisions are disabled for these evidence records.');
 			$from=(string)($row[$statusCol]??'DRAFT');
 			$map=array('SUBMIT'=>array('DRAFT'=>'SUBMITTED','CALCULATED'=>'SUBMITTED','PENDING'=>'SUBMITTED'),'APPROVE'=>array('SUBMITTED'=>'APPROVED','PENDING_REVIEW'=>'APPROVED','CALCULATED'=>'APPROVED','RECOMMENDED'=>'APPROVED'),'REJECT'=>array('SUBMITTED'=>'REJECTED','DRAFT'=>'REJECTED','PENDING_REVIEW'=>'REJECTED','RECOMMENDED'=>'REJECTED'),'COMPLETE'=>array('OPEN'=>'COMPLETE','PLANNED'=>'COMPLETE','IN_PROGRESS'=>'COMPLETE'),'CONFIRM'=>array('OFFERED'=>'CONFIRMED','PROBATION'=>'CONFIRMED'));
 			$to=$map[$decision][$from]??null;if(!$to)throw new RuntimeException('Invalid transition '.$from.' → '.$decision.'.');
