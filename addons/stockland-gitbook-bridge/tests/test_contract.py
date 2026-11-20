@@ -10,7 +10,7 @@ class Contract(unittest.TestCase):
     def test_no_schema_or_business_mutations(self):
         for item in ("CREATE TABLE", "ALTER TABLE", "DROP TABLE", "TRUNCATE TABLE", "DELETE FROM", "INSERT INTO"):
             self.assertNotIn(item, PHP.upper())
-        self.assertIsNone(re.search(r"\\bUPDATE\\s+[^;]+\\bSET\\b", PHP, re.I))
+        self.assertIsNone(re.search(r"\bUPDATE\s+[^;]+\bSET\b", PHP, re.I))
         self.assertNotIn("dbDelta(", PHP)
         self.assertNotIn("Stockland_Installer", PHP)
 
@@ -24,6 +24,7 @@ class Contract(unittest.TestCase):
         self.assertIn("hash_equals( $expected", PHP)
         self.assertIn("const MAX_LIMIT = 50", PHP)
         self.assertIn("LIMIT %d", PHP)
+        self.assertIn("STOCKLAND_VERSION !== '16.2.18'", PHP)
 
     def test_readonly_catalog_fields(self):
         block = PHP[PHP.find("private function product_search"):PHP.find("private function sku_lookup")]
