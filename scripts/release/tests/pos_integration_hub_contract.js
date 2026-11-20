@@ -51,7 +51,8 @@ assert(registry.includes('Stockland_Audit::log(') && registry.includes('CORE_SET
 assert(registry.includes("'connection_status' => 'NOT_CONNECTED'") && registry.includes("'credential_status' => 'NOT_CONFIGURED'"), 'A device record must not imply connection or credentials.');
 assert(registry.includes('resolve_device_for_import') && registry.includes('pos_device_branch_mismatch'), 'A registered device must be verified against the exact branch before import mapping.');
 assert(registry.includes("'api_key', 'token', 'secret', 'client_secret'"), 'Device registration must reject supplied credentials.');
-assert(!registry.includes('/import/daily-sales/commit'), 'Integration registry must not expose a direct sales commit/post route.');
+assert(!/register_rest_route\(\s*self::NAMESPACE_V1,\s*['"]\/import\/daily-sales\/commit['"]/.test(registry), 'Integration registry must not register a direct sales commit/post route.');
+assert(registry.includes("'release_route' => '/stockland/v16/import/daily-sales/commit'") && registry.includes("'upload_is_approval' => false"), 'Integration registry may describe the existing explicit Branch Manager release route but must state that upload is never approval.');
 assert(!registry.includes('CREATE TABLE'), 'Integration registry must not modify the existing schema.');
 
 assert(bootstrap.includes("class-rest-pos-integrations.php") && bootstrap.includes('new Stockland_REST_POS_Integrations()'), 'Registry controller must be loaded by the 16.2.18 plugin bootstrap.');
