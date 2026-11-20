@@ -3,20 +3,20 @@
 **Target:** Stockland ERP 16.2.18  
 **Canonical ERP source commit:** `19fe43981723f30e3839d1c8a67498f50c8134d4`  
 **Integration branch:** `integration/stockland-gitbook-readonly-bridge-16.2.18`  
-**CI workflow run:** [44644280380](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/44644280380)  
+**CI workflow run:** [44644367711](https://github.com/aistockland-web/Erp-version-16.1.89/actions/runs/44644367711)  
 **CI result:** SUCCESS  
-**Workflow artifact ID:** `14587977601`  
-**Installable ZIP SHA-256:** `5060e1ac73a84dbf433e992cf4189bbee9e7fd8eec25524f80cc1e1a0d28d371`
+**Workflow artifact ID:** `14587248159`  
+**Installable ZIP SHA-256:** `c0a42a9aa22629d14224ae5902ced30197da042eda008bc0edd2a1ba93cfd530`
 
 ## Verified gates
 
 - PHP 8.3 syntax check: PASS.
-- MCP behavior harness: PASS — bearer token allow/deny, initialize, tools/list, Product Master search, exact SKU lookup, import contract and unknown/write tool denial.
+- MCP behavior harness: PASS — bearer-token allow/deny, initialize, tools/list, Product Master search, exact SKU lookup, import contract and unknown/write tool denial.
 - Python static contract tests: PASS (7 tests).
 - Package isolation guard: PASS.
 - Installable ZIP build and artifact upload: PASS.
-- Downloaded installer ZIP CRC and contents: PASS; one plugin root with only runtime PHP, README, release manifest and security note.
-- Installer ZIP SHA-256 independently recomputed after download: PASS.
+- Downloaded installer ZIP CRC and contents: PASS; one plugin root with only runtime PHP, README, release manifest and security note. QA source files are excluded from the installer.
+- Installer ZIP SHA-256 independently recomputed after download: PASS; matches the GitHub Actions checksum sidecar.
 
 ## Isolation review
 
@@ -27,9 +27,9 @@
 - The add-on uses one plugin-owned WordPress option for its bearer token.
 - Exact-version guard rejects access unless the live ERP reports version 16.2.18.
 - Only four fixed, authenticated, read-only MCP tools are exposed.
-- Product data excludes prices, purchase costs and stock quantities; the import contract excludes restricted pricing fields from staff-facing templates.
+- Product data excludes prices, purchase costs and stock quantities; staff-facing import contract excludes restricted pricing fields.
 
-## Open acceptance gates — do not misrepresent as passed
+## Open acceptance gates — not passed
 
 - Live activation on `https://stockland.freehosting.dev`: NOT RUN.
 - Authenticated requests against the real MariaDB Product Master table: NOT RUN.
