@@ -94,20 +94,22 @@ final class Stockland_Release_Authorization {
 			return new WP_Error( 'hr_schema_pending', 'Live release authorization is blocked until the active Owner approves the exact HR/Payroll schema fingerprint and physical verification passes.', array( 'status' => 409 ) );
 		}
 		$fp = self::fingerprint();
-		if ( ! Stockland_Audit::log( $user_id, null, 'RELEASE_AUTHORIZED_FOR_LIVE', null, null, null, STOCKLAND_VERSION . ':' . $fp, $reason, 'RELEASE_' . STOCKLAND_VERSION, $user_id ) ) {
-			return new WP_Error( 'audit_failed', 'The authorization could not be written to the immutable audit chain. Nothing was changed.', array( 'status' => 500 ) );
-		}
-		update_option(
-			self::OPTION,
-			array(
-				'version'       => STOCKLAND_VERSION,
-				'fingerprint'   => $fp,
-				'authorized_by' => $user_id,
-				'authorized_at' => current_time( 'mysql' ),
-				'reason'        => $reason,
-			),
-			false
+		$authorization = array(
+			'version'       => STOCKLAND_VERSION,
+			'fingerprint'   => $fp,
+			'authorized_by' => $user_id,
+			'authorized_at' => current_time( 'mysql' ),
+			'reason'        => $reason,
 		);
+		update_option( self::OPTION, $authorization, false );
+		$stored = get_option( self::OPTION, null );
+		if ( ! is_array( $stored ) || $stored !== $authorization ) {
+			return new WP_Error( 'authorization_persistence_failed', 'The authorization option did not persist exactly. The ERP remains unauthorized for this build.', array( 'status' => 500 ) );
+		}
+		if ( ! Stockland_Audit::log( $user_id, null, 'RELEASE_AUTHORIZED_FOR_LIVE', null, null, null, STOCKLAND_VERSION . ':' . $fp, $reason, 'RELEASE_' . STOCKLAND_VERSION, $user_id ) ) {
+			delete_option( self::OPTION );
+			return new WP_Error( 'audit_failed', 'The authorization could not be written to the immutable audit chain. The persisted authorization was rolled back.', array( 'status' => 500 ) );
+		}
 		return true;
 	}
 

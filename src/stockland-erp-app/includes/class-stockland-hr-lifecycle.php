@@ -797,20 +797,30 @@ final class Stockland_HR_Lifecycle {
 	}
 
 	/** Require independent, evidence-backed professional review before any statutory rule can be used. */
+	/**
+	 * Accept only an evidence-backed independent professional review.
+	 *
+	 * Owner approval is a separate business-control step in approve_rule().
+	 * A Stockland Owner declaration, WordPress Administrator identity, or a
+	 * statement without a signed-opinion evidence reference is never legal review.
+	 *
+	 * @param array $payload Versioned statutory rule payload.
+	 * @return bool Whether independent legal-review evidence is structurally complete.
+	 */
 	public static function has_qualified_legal_review( $payload ) {
-		if ( ! is_array( $payload ) || ! isset( $payload['qualified_legal_review'] ) || ! is_array( $payload['qualified_legal_review'] ) ) { return false; }
+		if ( ! is_array( $payload ) || ! isset( $payload['qualified_legal_review'] ) || ! is_array( $payload['qualified_legal_review'] ) ) {
+			return false;
+		}
 		$q = $payload['qualified_legal_review'];
 		if ( 'OWNER_DECLARATION' === strtoupper( (string) ( $q['basis'] ?? '' ) ) ) {
-			$pp = $q['approved_parameters'] ?? array();
-			return 'APPROVED' === strtoupper( (string) ( $q['decision'] ?? '' ) ) && 'OWNER' === strtoupper( (string) ( $q['approved_by_role'] ?? '' ) )
-				&& preg_match( '/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/D', (string) ( $q['approved_on'] ?? '' ) ) && strlen( trim( (string) ( $q['statement'] ?? '' ) ) ) >= 30
-				&& is_array( $q['clauses_reviewed'] ?? null ) && count( $q['clauses_reviewed'] ) > 0 && is_array( $pp )
-				&& 9 === count( array_intersect( array( 'paye_bands', 'monthly_tax_bands', 'tax_base_method', 'paye_tax_base_method', 'pensionable_base_method', 'employee_pension_rate', 'employer_pension_rate', 'component_treatments', 'rounding_method' ), $pp ) );
+			return false;
 		}
-		$sha = strtolower( (string) ( $q['opinion_sha256'] ?? '' ) );
+
+		$sha     = strtolower( (string) ( $q['opinion_sha256'] ?? '' ) );
 		$clauses = $q['clauses_reviewed'] ?? array();
-		$params = $q['approved_parameters'] ?? array();
-		return strtoupper( (string) ( $q['decision'] ?? '' ) ) === 'APPROVED'
+		$params  = $q['approved_parameters'] ?? array();
+
+		return 'APPROVED' === strtoupper( (string) ( $q['decision'] ?? '' ) )
 			&& ! empty( $q['independence_confirmed'] )
 			&& strlen( trim( (string) ( $q['reviewer_name'] ?? '' ) ) ) >= 3
 			&& strlen( trim( (string) ( $q['reviewer_id'] ?? '' ) ) ) >= 3
@@ -819,7 +829,10 @@ final class Stockland_HR_Lifecycle {
 			&& strlen( trim( (string) ( $q['opinion_reference'] ?? '' ) ) ) >= 6
 			&& preg_match( '/^[a-f0-9]{64}$/', $sha )
 			&& is_array( $clauses ) && count( $clauses ) > 0
-			&& is_array( $params ) && in_array( 'paye_bands', $params, true )
+			&& is_array( $params )
+			&& in_array( 'paye_bands', $params, true )
+			&& in_array( 'monthly_tax_bands', $params, true )
+			&& in_array( 'tax_base_method', $params, true )
 			&& in_array( 'paye_tax_base_method', $params, true )
 			&& in_array( 'pensionable_base_method', $params, true )
 			&& in_array( 'employee_pension_rate', $params, true )
