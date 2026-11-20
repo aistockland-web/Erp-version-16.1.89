@@ -36,10 +36,14 @@ jobs:
           PY
       - name: Build installable plugin ZIP and checksum
         run: |
-          mkdir -p dist
-          cd addons
-          zip -r ../dist/STOCKLAND_ERP_GITBOOK_READONLY_BRIDGE_1.0.0.zip stockland-gitbook-bridge
-          cd ..
+          mkdir -p dist/package/stockland-gitbook-bridge
+          cp addons/stockland-gitbook-bridge/stockland-gitbook-bridge.php dist/package/stockland-gitbook-bridge/
+          cp addons/stockland-gitbook-bridge/README.md dist/package/stockland-gitbook-bridge/
+          cp addons/stockland-gitbook-bridge/RELEASE_MANIFEST.json dist/package/stockland-gitbook-bridge/
+          cp addons/stockland-gitbook-bridge/SECURITY.md dist/package/stockland-gitbook-bridge/
+          cd dist/package
+          zip -r ../STOCKLAND_ERP_GITBOOK_READONLY_BRIDGE_1.0.0.zip stockland-gitbook-bridge
+          cd ../..
           sha256sum dist/STOCKLAND_ERP_GITBOOK_READONLY_BRIDGE_1.0.0.zip | tee dist/SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
