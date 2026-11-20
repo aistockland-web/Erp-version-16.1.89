@@ -95,6 +95,9 @@ $branch_source_id = (string) ( $branch_device['source_system'] ?? '' );
 $check( 'Branch Manager registers a device for an assigned branch', 200 === $branch_status && preg_match( '/^[A-F0-9]{16}$/', $branch_device_id ), 'HTTP ' . $branch_status . ' :: ' . wp_json_encode( $branch_data ) );
 $check( 'registration remains NOT_CONNECTED with no configured credentials', 'NOT_CONNECTED' === ( $branch_device['connection_status'] ?? '' ) && 'NOT_CONFIGURED' === ( $branch_device['credential_status'] ?? '' ) );
 $check( 'registered source follows import, validation, staging, reconciliation and Branch Manager release', 'IMPORT_VALIDATE_STAGE_RECONCILE_BRANCH_MANAGER_RELEASE' === ( $branch_device['posting_path'] ?? '' ), wp_json_encode( $branch_device ) );
+$check( 'POS device contract explicitly says every upload is not approval', false === ( $branch_device['upload_is_approval'] ?? null ), wp_json_encode( $branch_device ) );
+$check( 'POS device contract requires a separate explicit release action', 'EXPLICIT_DAILY_POS_COMMIT' === ( $branch_device['release_action'] ?? '' ) && '/stockland/v16/import/daily-sales/commit' === ( $branch_device['release_route'] ?? '' ), wp_json_encode( $branch_device ) );
+$check( 'POS device final approval authority is the assigned Branch Manager only', 'ASSIGNED_BRANCH_MANAGER_ONLY' === ( $branch_device['release_authority'] ?? '' ), wp_json_encode( $branch_device ) );
 $check( 'device is assigned its own unique POS source-system namespace', (bool) preg_match( '/^POS_[a-f0-9]{16}$/', $branch_source_id ) );
 
 $branch_list = call( 'GET', '/pos-integrations/devices', array(), $branch_manager_id );
