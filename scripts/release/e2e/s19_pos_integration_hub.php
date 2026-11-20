@@ -94,6 +94,34 @@ $branch_device_id = (string) ( $branch_device['device_id'] ?? '' );
 $branch_source_id = (string) ( $branch_device['source_system'] ?? '' );
 $check( 'Branch Manager registers a device for an assigned branch', 200 === $branch_status && preg_match( '/^[A-F0-9]{16}$/', $branch_device_id ), 'HTTP ' . $branch_status . ' :: ' . wp_json_encode( $branch_data ) );
 $check( 'registration remains NOT_CONNECTED with no configured credentials', 'NOT_CONNECTED' === ( $branch_device['connection_status'] ?? '' ) && 'NOT_CONFIGURED' === ( $branch_device['credential_status'] ?? '' ) );
+$sync_table = Stockland_DB::table( 'import_jobs' );
+$sync_key = hash( 'sha256', 'POS-HUB-POSTED-SYNTHETIC|' . $branch_device_id );
+$sync_job_inserted = Stockland_DB::insert_record( $sync_table, array(
+	'import_key' => $sync_key,
+	'import_type' => 'DAILY_SALES',
+	'branch_location_id' => $branch_id,
+	'business_date' => '2026-11-20',
+	'source_filename' => 'synthetic-posted-pos.csv',
+	'source_sha256' => hash( 'sha256', 'synthetic posted POS fixture ' . $branch_device_id ),
+	'source_system' => $branch_source_id,
+	'mapping_signature' => hash( 'sha256', 'synthetic mapping signature' ),
+	'status' => 'POSTED',
+	'total_rows' => 1,
+	'valid_rows' => 1,
+	'error_rows' => 0,
+	'processed_rows' => 1,
+	'created_by' => $branch_manager_id,
+	'approved_by' => $branch_manager_id,
+) );
+$sync_job_id = false === $sync_job_inserted ? 0 : (int) $wpdb->insert_id;
+$check( 'synthetic posted Daily POS job fixture is recorded for device lifecycle verification', $sync_job_id > 0, (string) $wpdb->last_error );
+$wrong_branch_sync = Stockland_REST_POS_Integrations::mark_synced_for_source( $branch_source_id, $other_branch_id, $sync_job_id );
+$check( 'a POSTED job cannot connect a device from another branch', false === $wrong_branch_sync );
+$still_pending_record = json_decode( (string) Stockland_DB::get_setting( 'pos_int_device_' . strtolower( $branch_device_id ) ), true );
+$check( 'staged registration stays NOT_CONNECTED until matching branch release is POSTED', 'NOT_CONNECTED' === ( $still_pending_record['connection_status'] ?? '' ) );
+$released_sync = Stockland_REST_POS_Integrations::mark_synced_for_source( $branch_source_id, $branch_id, $sync_job_id );
+$connected_record = json_decode( (string) Stockland_DB::get_setting( 'pos_int_device_' . strtolower( $branch_device_id ) ), true );
+$check( 'a matching POSTED Branch Manager Daily POS job connects its registered source', true === $released_sync && 'CONNECTED' === ( $connected_record['connection_status'] ?? '' ) && (int) ( $connected_record['last_job_id'] ?? 0 ) === $sync_job_id );
 $check( 'registered source follows import, validation, staging, reconciliation and Branch Manager release', 'IMPORT_VALIDATE_STAGE_RECONCILE_BRANCH_MANAGER_RELEASE' === ( $branch_device['posting_path'] ?? '' ), wp_json_encode( $branch_device ) );
 $check( 'POS device contract explicitly says every upload is not approval', false === ( $branch_device['upload_is_approval'] ?? null ), wp_json_encode( $branch_device ) );
 $check( 'POS device contract requires a separate explicit release action', 'EXPLICIT_DAILY_POS_COMMIT' === ( $branch_device['release_action'] ?? '' ) && '/stockland/v16/import/daily-sales/commit' === ( $branch_device['release_route'] ?? '' ), wp_json_encode( $branch_device ) );
