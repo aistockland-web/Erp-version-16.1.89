@@ -430,17 +430,23 @@ final class Stockland_REST_POS_Integrations extends Stockland_REST_Base {
 		$wpdb->last_error = '';
 		$job = Stockland_DB::read_row(
 			$wpdb->prepare(
-				"SELECT id,import_type,status,branch_location_id,source_system FROM %i WHERE id=%d LIMIT 1",
+				"SELECT id,import_type,status,branch_location_id,source_system,valid_rows,processed_rows,approved_by FROM %i WHERE id=%d LIMIT 1",
 				$jobs_table,
 				$job_id
 			),
 			ARRAY_A
 		);
+		$approved_by = (int) ( $job['approved_by'] ?? 0 );
+		$approved_locations = $approved_by > 0 ? array_map( 'intval', Stockland_Authority::location_ids( $approved_by ) ) : array();
 		if ( '' !== (string) $wpdb->last_error || ! is_array( $job )
 			|| 'DAILY_SALES' !== (string) ( $job['import_type'] ?? '' )
 			|| 'POSTED' !== (string) ( $job['status'] ?? '' )
 			|| (int) ( $job['branch_location_id'] ?? 0 ) !== $branch_id
 			|| (string) ( $job['source_system'] ?? '' ) !== $source_system
+			|| (int) ( $job['valid_rows'] ?? 0 ) < 1
+			|| (int) ( $job['processed_rows'] ?? 0 ) < (int) ( $job['valid_rows'] ?? 0 )
+			|| ! Stockland_Authority::can_daily_commit( $approved_by )
+			|| ! in_array( $branch_id, $approved_locations, true )
 		) {
 			return false;
 		}
@@ -473,7 +479,7 @@ final class Stockland_REST_POS_Integrations extends Stockland_REST_Base {
 		if ( 1 !== count( $matches ) ) {
 			return false;
 		}
-		return self::mark_synced( $matches[0]['key'], $matches[0]['device'], $job_id );
+		return self::mark_synced( $matches[0]['key'], $matches[0]['device'], $job_id, $approved_by );
 	}
 
 	/**
@@ -484,7 +490,7 @@ final class Stockland_REST_POS_Integrations extends Stockland_REST_Base {
 	 * @param int    $job_id Fully posted Daily POS import job ID.
 	 * @return bool True only when the stored connection metadata reads back exactly.
 	 */
-	private static function mark_synced( $key, $device, $job_id ) {
+	private static function mark_synced( $key, $device, $job_id, $approved_by ) {
 		global $wpdb;
 		$table = Stockland_DB::table( 'settings' );
 		if ( ! preg_match( '/^' . preg_quote( self::DEVICE_PREFIX, '/' ) . '[a-f0-9]{16}$/', (string) $key ) ) {
@@ -494,6 +500,7 @@ final class Stockland_REST_POS_Integrations extends Stockland_REST_Base {
 		$device['adapter_state']     = 'ACTIVE';
 		$device['last_sync_at']      = current_time( 'mysql' );
 		$device['last_job_id']       = (int) $job_id;
+		$device['last_approved_by'] = (int) $approved_by;
 		$json = wp_json_encode( $device );
 		if ( ! is_string( $json ) || false === Stockland_DB::update_record( $table, array( 'setting_value' => $json ), array( 'setting_key' => $key ) ) ) {
 			return false;
@@ -507,7 +514,8 @@ final class Stockland_REST_POS_Integrations extends Stockland_REST_Base {
 		return is_array( $verified )
 			&& 'CONNECTED' === (string) ( $verified['connection_status'] ?? '' )
 			&& 'ACTIVE' === (string) ( $verified['adapter_state'] ?? '' )
-			&& (int) ( $verified['last_job_id'] ?? 0 ) === (int) $job_id;
+			&& (int) ( $verified['last_job_id'] ?? 0 ) === (int) $job_id
+			&& (int) ( $verified['last_approved_by'] ?? 0 ) === (int) $approved_by;
 	}
 
 	/**
