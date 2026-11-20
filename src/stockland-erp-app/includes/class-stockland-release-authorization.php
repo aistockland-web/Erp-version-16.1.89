@@ -126,7 +126,8 @@ final class Stockland_Release_Authorization {
 				? 'The authorization could not be written to the immutable audit chain. The previous authorization record was restored.'
 				: 'The authorization audit write failed and the previous option could not be verified after rollback. Manual review is required.';
 			return new WP_Error( 'audit_failed', $message, array( 'status' => 500 ) );
-		}		return true;
+		}
+		return true;
 	}
 
 	/** Register the Owner-only REST routes. */
