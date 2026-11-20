@@ -838,7 +838,7 @@ final class Stockland_HR_Lifecycle {
 		$mime = (string) ( $resolved['mime_type'] ?? '' );
 		$allowed_mimes = array( 'application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' );
 		$actual_hash = hash_file( 'sha256', $resolved['path'] );
-		@unlink( $resolved['path'] );
+		// The vault registers shutdown cleanup for this owner-only decrypted temp file.
 		return in_array( $mime, $allowed_mimes, true )
 			&& is_string( $actual_hash )
 			&& hash_equals( $expected_hash, strtolower( $actual_hash ) )
