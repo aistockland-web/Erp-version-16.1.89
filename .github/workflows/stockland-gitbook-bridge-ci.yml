@@ -1,0 +1,73 @@
+name: Stockland GitBook Bridge CI
+on:
+  push:
+    branches: [integration/stockland-gitbook-readonly-bridge-16.2.18]
+  pull_request:
+    branches: [integration/stockland-gitbook-readonly-bridge-16.2.18]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  quality-gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: PHP syntax
+        run: php -l addons/stockland-gitbook-bridge/stockland-gitbook-bridge.php
+      - name: MCP protocol and behavior harness
+        run: php addons/stockland-gitbook-bridge/tests/test_mcp_harness.php
+      - name: Static contract tests
+        run: python -m unittest discover -s addons/stockland-gitbook-bridge/tests -p 'test_contract.py' -v
+      - name: Package isolation guard
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('addons/stockland-gitbook-bridge/stockland-gitbook-bridge.php').read_text()
+          for x in ('CREATE TABLE','ALTER TABLE','DROP TABLE','TRUNCATE TABLE','DELETE FROM','INSERT INTO'):
+              assert x not in p.upper(), x
+          assert 'stockland-erp-app/' not in p
+          print('PASS: independent add-on; no ERP schema/business DML primitives')
+          PY
+      - name: Build installable plugin ZIP and checksum
+        run: |
+          mkdir -p dist/package/stockland-gitbook-bridge
+          cp addons/stockland-gitbook-bridge/stockland-gitbook-bridge.php dist/package/stockland-gitbook-bridge/
+          cp addons/stockland-gitbook-bridge/README.md dist/package/stockland-gitbook-bridge/
+          cp addons/stockland-gitbook-bridge/RELEASE_MANIFEST.json dist/package/stockland-gitbook-bridge/
+          cp addons/stockland-gitbook-bridge/SECURITY.md dist/package/stockland-gitbook-bridge/
+          cd dist/package
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile, ZipInfo, ZIP_DEFLATED
+          source = Path('stockland-gitbook-bridge')
+          target = Path('../STOCKLAND_ERP_GITBOOK_READONLY_BRIDGE_1.0.0.zip')
+          def build(path):
+              with ZipFile(path, 'w', compression=ZIP_DEFLATED, compresslevel=9) as archive:
+                  for file in sorted(source.rglob('*')):
+                      if file.is_file():
+                          info = ZipInfo(file.as_posix(), date_time=(2026, 1, 1, 0, 0, 0))
+                          info.compress_type = ZIP_DEFLATED
+                          info.external_attr = 0o100644 << 16
+                          archive.writestr(info, file.read_bytes())
+          build(target)
+          first = target.read_bytes()
+          build(target)
+          assert target.read_bytes() == first, 'ZIP build is not reproducible'
+          print('PASS: deterministic WordPress plugin ZIP')
+          PY
+          cd ../..
+          sha256sum dist/STOCKLAND_ERP_GITBOOK_READONLY_BRIDGE_1.0.0.zip | tee dist/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: STOCKLAND_ERP_GITBOOK_READONLY_BRIDGE_1.0.0
+          path: |
+            dist/STOCKLAND_ERP_GITBOOK_READONLY_BRIDGE_1.0.0.zip
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30
