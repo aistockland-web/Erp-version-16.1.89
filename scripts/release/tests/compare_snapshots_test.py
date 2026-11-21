@@ -57,6 +57,22 @@ def main():
         run(table(rows=1, fingerprints={"old": "before"}), table(rows=2, fingerprints={"old": "after", "new": "new"}), "stock_audit_logs"),
         False,
     )
+    for payroll_table in ("stock_hr_rule_sets", "stock_hr_payroll_events"):
+        result = run(
+            table(rows=1, fingerprints={"existing": "unchanged"}),
+            table(rows=2, fingerprints={"existing": "unchanged", "unexpected": "new"}),
+            payroll_table,
+        )
+        expect(
+            f"upgrade rejects an unexpected new row in {payroll_table}",
+            result,
+            False,
+        )
+        if f"FAIL: {payroll_table}: unexpected row-count change 1 -> 2" not in result.stdout:
+            raise AssertionError(
+                f"{payroll_table}: rejection came from an unexpected condition\n{result.stdout}"
+            )
+
     before_rate = table(columns=[
         {"column_name": "id", "column_type": "bigint", "is_nullable": "NO", "column_default": None, "extra": "auto_increment", "character_set_name": None, "collation_name": None},
         {"column_name": "income_tax_rate", "column_type": "decimal(5,2)", "is_nullable": "NO", "column_default": "0.00", "extra": "", "character_set_name": None, "collation_name": None},
@@ -126,7 +142,7 @@ def main():
         ), mysql_metadata),
         True,
     )
-    print("RESULT PASS (7 cases)")
+    print("RESULT PASS (9 cases)")
 
 
 if __name__ == "__main__":
