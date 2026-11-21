@@ -187,3 +187,34 @@ Setup table split used by the installer: 49 operational baseline tables plus 37 
 - Exact-head WordPress install and the complete E2E runner must pass on MariaDB 10.11 + MySQL 8.0.46, PHP 8.3 + 8.4, plus security/runtime, browser, backup/restore and Codespaces/Docker checks. Only then can this CAP item be marked accepted.
 - No real employee/payroll data, statutory defaults, historical payroll, live site, production database, DNS, SSL or hosting configuration was changed by this candidate work.
 
+
+### Addendum 2026-11-21: exact-head installer after PRs #147, #148, #151
+
+Source: delivery branch head `86e8a3f` (merge of PR #151 is `27b43a8`; the two later commits change only `CHANGELOG.md` and `README.md` inside the plugin).
+
+**What changed since the 2026-11-14 record**
+- **Daily POS pipeline:** import, validation, staging, reconciliation, then explicit Branch Manager release, then posting once. An upload never counts as approval, and a registered POS source becomes CONNECTED only after a verified posted job (PRs #147, #148 and the follow-up commits in PR #151).
+- **Login throttle:** the ERP login locks after five failed attempts per user name and address for 15 minutes (verified in a real browser: attempts 1-5 show "Incorrect username or password", attempt 6 and a correct password while locked show "Too many failed attempts").
+- **Authority and payroll gates:** Owner authority requires an active ERP profile; the platform Administrator is separate from the ERP Owner; payroll statutory rules need a signed legal opinion in the private vault plus recorded Owner ratification; the 24 SOP documents stay draft until signed off.
+- **Product Master:** SKU field pre-fills `STK-`, shows server rule errors inline, dashboard "Add Product" opens the form; browser test `product_create_ui.js` runs in CI.
+- **Guide:** the in-app guide opens the GitBook manual (`docs-user-manual-16.2.18`) in a new tab.
+- **CI:** runners pinned to `ubuntu-24.04` because Playwright does not support the new `ubuntu-latest` image; `app.min.css` regenerated from the ordered modules.
+
+**Acceptance**
+| Check | Result |
+| --- | --- |
+| PR #151 head `007f4de`, GitHub Actions | 15 of 15 checks SUCCESS: WordPress on MariaDB 10.11 / 11.4 and MySQL 8 with PHP 8.3 and 8.4, gates and security gates on both PHP versions, devcontainer validation, Windows folder-agent tests, exact installer validation, installer artifact publish |
+| Local dev-container run on merged code (`bash .devcontainer/verify-master-installer.sh mariadb`) | PASS, exit 0, 609 PASS lines, no FAIL |
+| Browser crawl of every screen and button, roles administrator, branch manager, sales, warehouse manager | 0 JavaScript page errors, 0 failed Stockland REST calls. Owner, Management and auditor roles were not crawled. |
+| Head `86e8a3f` (docs-only) | GitHub run was cancelled by a newer push on most jobs; no code differs from `007f4de` |
+
+**Installer built from `86e8a3f`**
+- `STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTALLER.zip`: 2,310,758 bytes, 128 files, SHA-256 `788c5c866a474b03c539ce13600680e47eb8b1ca6bbe494a64a585cbae6aac35`.
+- Built locally with `build_master_installer.py --update-manifest`. GitHub artifact download is blocked from the build sandbox, so the Actions artifact for `007f4de` was not compared byte for byte.
+
+**Not yet proven**
+- A real POS file taken through preview, reconciliation and Branch Manager release with exactly-once posting, and real external POS device data.
+- Vendor connections that need a login or API key (no vendor documentation or credentials supplied).
+- Idempotency lookups on `notes`/`reference` (PO, GRN, expense, payment) are unindexed text matches guarded by a named lock; a UNIQUE `request_key` column needs an add-only migration.
+- The GitBook-powered workflow assistant (SKU and product row suggestions, import help) is not built; it needs a decision on the AI service and key.
+- Notion updates remain blocked (workspace out of free blocks); this repository record is the source of truth.
