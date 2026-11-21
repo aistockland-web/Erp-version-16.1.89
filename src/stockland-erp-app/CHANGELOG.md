@@ -1,10 +1,10 @@
 # Changelog
 
-## 16.2.18 — Product creation, GitBook guide, approved SOPs
+## 16.2.18 — Product creation, GitBook guide, SOP library status
 
 - Product creation: SKU field pre-fills `STK-` with a clear hint and inline error; dashboard "Add Product" opens the form.
 - The in-app guide button now opens the published GitBook user manual in a new tab.
-- The 24 shipped SOPs are APPROVED v1.0 (Owner approval 2026-11-17); editable in the HR library.
+- The 24 Amharic-first SOP resources are embedded and integrity-checked, but their controlled manifest remains `DRAFT_NOT_APPROVED`; Owner, process-owner and applicable professional review/approval must be recorded before they are treated as approved SOPs. Editability and file integrity do not constitute approval.
 
 ## 16.2.18 — Master installer
 
@@ -54,6 +54,7 @@
 - Social media analysis (official platform sign-in, campaigns, export snapshots) moved out of HR & Payroll into Management Intelligence; HR & Payroll keeps only a link. Credentials, tokens and posting APIs are still never stored.
 - Theme colour is now set by the server (`data-sl-theme="sapphire"` on the standalone body; manifest and meta `theme-color` unified to #295ff3), so the Sapphire colours no longer depend on JavaScript running first.
 - Manual `watch_time_minutes` snapshots are validated and stored as decimal minutes, not passed through ETB monetary normalization; the snapshot table labels the value in minutes.
+- Management Intelligence: campaigns support account-owner/operator/influencer assignments and audited DRAFT → PLANNED → PUBLISHED/CANCELLED states; the content calendar supports assigned operators, duplicate-retry rejection, HTTPS publication evidence and cancellation reasons. Updates compare the stored record version under a row lock. Reporting remains manual/export snapshots; no provider OAuth, credential storage or auto-posting is enabled.
 
 ## Unreleased
-- Payroll: ships the Owner-approved Ethiopian rule set ET-2025-AMEND-1395 (2025 PAYE schedule, 7% / 11% pension) so payroll needs no rule configuration. Approval basis is recorded as an Owner declaration. See docs/hr/PAYROLL_RELEASE_RULES.md.
+- Payroll: no Ethiopian PAYE, employee-pension or allowance schedule is shipped as a current default. Payroll calculation, finalization and posting remain fail-closed until exact official instruments, effective dates, qualified independent review and separate Owner ratification are recorded. An Owner declaration alone is not legal review; see `docs/hr/PAYROLL_RELEASE_RULES.md`.
