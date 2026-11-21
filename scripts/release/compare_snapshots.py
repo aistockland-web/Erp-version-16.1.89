@@ -50,8 +50,28 @@ def compare(before, after):
                 elif new_fp[key] != value_hash:
                     failures.append(f"{table}: pre-upgrade row changed ({key[:12]})")
 
-        old_columns = {column["column_name"]: column for column in old["columns"]}
-        new_columns = {column["column_name"]: column for column in new["columns"]}
+        # MySQL drivers may return INFORMATION_SCHEMA field labels in
+        # uppercase (COLUMN_NAME) while MariaDB commonly returns lowercase.
+        # Normalize metadata keys so the same physical schema snapshot compares
+        # identically across the supported database engines.
+        def normalized_metadata(items):
+            return [
+                {str(key).lower(): value for key, value in item.items()}
+                for item in (items or [])
+            ]
+
+        old_columns = {
+            column["column_name"]: column
+            for column in normalized_metadata(old.get("columns"))
+            if column.get("column_name")
+        }
+        new_columns = {
+            column["column_name"]: column
+            for column in normalized_metadata(new.get("columns"))
+            if column.get("column_name")
+        }
+        if len(old_columns) != len(old.get("columns") or []) or len(new_columns) != len(new.get("columns") or []):
+            failures.append(f"{table}: schema snapshot contains a column entry without column_name")
         for column in sorted(set(old_columns) - set(new_columns)):
             failures.append(f"{table}: column removed {column}")
         for column in sorted(set(new_columns) - set(old_columns)):
@@ -84,7 +104,8 @@ def compare(before, after):
         def index_map(items):
             return {
                 item["index_name"]: (item.get("non_unique"), item.get("index_type"), item.get("cols"))
-                for item in items
+                for item in normalized_metadata(items)
+                if item.get("index_name")
             }
 
         old_indexes = index_map(old.get("indexes") or [])
@@ -107,7 +128,7 @@ def compare(before, after):
                     item.get("referenced_column_name"),
                     int(item.get("ordinal_position") or 0),
                 )
-                for item in items
+                for item in normalized_metadata(items)
             }
 
         if foreign_key_set(old.get("foreign_keys") or []) != foreign_key_set(new.get("foreign_keys") or []):
