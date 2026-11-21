@@ -112,7 +112,7 @@ $r = call( 'POST', '/hr/payroll-runs', array( 'idempotency_key' => 'syn-cycle-p1
 $refused( 'a second normal run for the same period is refused', $r, 409, 'period_run_exists' );
 
 /* ---- 3. SYNTHETIC rule sets: create, independent review, maker-checker ---- */
-$review = array( 'decision' => 'APPROVED', 'independence_confirmed' => true, 'reviewer_name' => 'Synthetic Reviewer', 'reviewer_id' => 'SYN-REVIEWER-1', 'professional_basis' => 'synthetic test vector', 'review_date' => '2026-01-01', 'opinion_reference' => 'SYNTH-0001', 'opinion_sha256' => str_repeat( 'b', 64 ), 'clauses_reviewed' => array( 'synthetic' ), 'approved_parameters' => array( 'paye_bands', 'paye_tax_base_method', 'monthly_tax_bands', 'tax_base_method', 'pensionable_base_method', 'employee_pension_rate', 'employer_pension_rate', 'component_treatments', 'rounding_method' ) );
+$review = array( 'basis' => 'INDEPENDENT_PROFESSIONAL_OPINION', 'opinion_document_id' => 999999, 'decision' => 'APPROVED', 'independence_confirmed' => true, 'reviewer_name' => 'Synthetic Reviewer', 'reviewer_id' => 'SYN-REVIEWER-1', 'professional_basis' => 'synthetic test vector', 'review_date' => '2026-01-01', 'opinion_reference' => 'SYNTH-0001', 'opinion_sha256' => str_repeat( 'b', 64 ), 'clauses_reviewed' => array( 'synthetic' ), 'approved_parameters' => array( 'paye_bands', 'paye_tax_base_method', 'monthly_tax_bands', 'tax_base_method', 'pensionable_base_method', 'employee_pension_rate', 'employer_pension_rate', 'component_treatments', 'rounding_method' ) );
 $payroll_rules = array(
 	'jurisdiction' => 'SYNTHETIC-TEST-ONLY', 'tax_base_method' => 'TAXABLE_GROSS_LESS_EMPLOYEE_PENSION', 'paye_tax_base_method' => 'TAXABLE_EARNINGS_LESS_EMPLOYEE_PENSION',
 	'employee_pension_rate' => $RATES['employee'], 'employer_pension_rate' => $RATES['employer'], 'pensionable_base_method' => 'SUM_PENSIONABLE_ITEMS', 'rounding_method' => 'HALF_UP_MINOR_UNIT',
@@ -127,6 +127,32 @@ $payroll_rules = array(
 $rule_body = function ( $type, $version, $rules ) {
 	return array( 'rule_type' => $type, 'rule_code' => strtolower( $type ) . '-synthetic', 'version_label' => $version, 'effective_from' => '2026-01-01', 'source_title' => 'SYNTHETIC test vector — not law', 'source_url' => 'https://example.invalid/synthetic-payroll-rules', 'source_clause' => 'synthetic clause 1', 'source_sha256' => str_repeat( 'a', 64 ), 'rules_json' => $rules );
 };
+$attach_synthetic_opinion = static function ( $rule_id ) {
+	$pdf = "%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [] /Count 0 >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n";
+	$stored = Stockland_HR_Private_Vault::store_content( $pdf, 'synthetic-legal-opinion.pdf' );
+	if ( is_wp_error( $stored ) ) { return false; }
+	$inserted = Stockland_DB::insert_record( Stockland_DB::table( 'hr_documents' ), array(
+		'subject_type' => 'RULE_SET', 'subject_id' => (int) $rule_id, 'document_type' => 'LEGAL_OPINION',
+		'document_reference' => $stored['private_file_ref'], 'document_sha256' => $stored['file_sha256'],
+		'status' => 'PENDING_REVIEW', 'created_by' => get_current_user_id(),
+		'notes' => 'Synthetic disposable-site opinion fixture; not a real legal opinion.',
+	) );
+	$doc_id = false === $inserted ? 0 : (int) $GLOBALS['wpdb']->insert_id;
+	if ( $doc_id < 1 ) { Stockland_HR_Private_Vault::delete( $stored['private_file_ref'] ); return false; }
+	$row = Stockland_DB::read_row( $GLOBALS['wpdb']->prepare( 'SELECT rules_json FROM %i WHERE id=%d', Stockland_DB::table( 'hr_rule_sets' ), (int) $rule_id ), ARRAY_A );
+	$payload = json_decode( (string) ( $row['rules_json'] ?? '' ), true );
+	if ( ! is_array( $payload ) || ! is_array( $payload['qualified_legal_review'] ?? null ) ) {
+		Stockland_HR_Private_Vault::delete( $stored['private_file_ref'] );
+		return false;
+	}
+	$payload['qualified_legal_review']['opinion_document_id'] = (int) $doc_id;
+	$payload['qualified_legal_review']['opinion_sha256'] = strtolower( $stored['file_sha256'] );
+	if ( false === Stockland_DB::update_record( Stockland_DB::table( 'hr_rule_sets' ), array( 'rules_json' => wp_json_encode( $payload ) ), array( 'id' => (int) $rule_id ) ) ) {
+		Stockland_HR_Private_Vault::delete( $stored['private_file_ref'] );
+		return false;
+	}
+	return true;
+};
 $note30 = 'Independent synthetic reviewer confirms the test vectors for this disposable site only.';
 $r = call( 'POST', '/hr/lifecycle/rules', $rule_body( 'PAYROLL', 'SYNTHETIC-NOREVIEW', array_diff_key( $payroll_rules, array( 'qualified_legal_review' => 1 ) ) ), $mg );
 $norev = $need( 'a payroll rule draft without legal-review evidence can be drafted', $r );
@@ -135,10 +161,42 @@ $refused( 'a rule without independent legal-review evidence cannot be approved',
 $self = $need( 'Owner drafts a rule (to test self-approval)', call( 'POST', '/hr/lifecycle/rules', $rule_body( 'PAYROLL', 'SYNTHETIC-SELF', $payroll_rules ), $o1 ) );
 $refused( 'maker-checker: an Owner cannot approve the rule they created', call( 'POST', "/hr/lifecycle/rules/{$self['id']}/approve", array( 'independent_review_note' => $note30 ), $o1 ), 409, 'Maker-checker' );
 $rule = $need( 'SYNTHETIC payroll rule drafted by Management', call( 'POST', '/hr/lifecycle/rules', $rule_body( 'PAYROLL', 'SYNTHETIC-PAYROLL-V1', $payroll_rules ), $mg ) );
+$refused( 'Owner approval is refused while the signed opinion is not attached', call( 'POST', "/hr/lifecycle/rules/{$rule['id']}/approve", array( 'independent_review_note' => $note30 ), $o1 ), 409, 'private vault' );
+$ok( 'synthetic encrypted payroll opinion fixture is attached to the exact rule', $attach_synthetic_opinion( (int) $rule['id'] ) );
+$payroll_rule_row = Stockland_DB::read_row( $GLOBALS['wpdb']->prepare( 'SELECT rules_json FROM %i WHERE id=%d', Stockland_DB::table( 'hr_rule_sets' ), (int) $rule['id'] ), ARRAY_A );
+$payroll_rule_payload = json_decode( (string) ( $payroll_rule_row['rules_json'] ?? '' ), true );
+$payroll_opinion_doc_id = (int) ( $payroll_rule_payload['qualified_legal_review']['opinion_document_id'] ?? 0 );
+$ok( 'payroll opinion payload stores the actual inserted hr_documents ID', $payroll_opinion_doc_id > 0 );
 $refused( 'Management cannot approve a rule (Owner only)', call( 'POST', "/hr/lifecycle/rules/{$rule['id']}/approve", array( 'independent_review_note' => $note30 ), $mg ), 403 );
 $need( 'SYNTHETIC payroll rule approved by an independent Owner', call( 'POST', "/hr/lifecycle/rules/{$rule['id']}/approve", array( 'independent_review_note' => $note30 ), $o1 ) );
+$overlap_body = $rule_body( 'PAYROLL', 'SYNTHETIC-PAYROLL-OVERLAP', $payroll_rules );
+$overlap_body['rule_code'] = 'payroll-synthetic-overlap';
+$overlap_rule = $need( 'overlapping synthetic payroll rule remains a separate DRAFT candidate', call( 'POST', '/hr/lifecycle/rules', $overlap_body, $mg ) );
+$ok( 'overlap candidate receives its own encrypted synthetic opinion', $attach_synthetic_opinion( (int) $overlap_rule['id'] ) );
+$refused( 'an open-ended approved payroll rule blocks a second overlapping rule', call( 'POST', "/hr/lifecycle/rules/{$overlap_rule['id']}/approve", array( 'independent_review_note' => $note30 ), $o1 ), 409, 'overlaps' );
+$overlap_status = Stockland_DB::read_var( $GLOBALS['wpdb']->prepare( 'SELECT review_status FROM %i WHERE id=%d', Stockland_DB::table( 'hr_rule_sets' ), (int) $overlap_rule['id'] ) );
+$ok( 'overlapping statutory rule remains DRAFT after refused approval', 'DRAFT' === $overlap_status, (string) $overlap_status );
 $settle_rules = array( 'component_rules' => array( 'UNUSED_LEAVE' => array( 'tax_treatment' => 'TAXABLE', 'pensionable_treatment' => 'NOT_PENSIONABLE' ) ), 'qualified_legal_review' => $review );
 $srule = $need( 'SYNTHETIC final-settlement rule drafted', call( 'POST', '/hr/lifecycle/rules', $rule_body( 'FINAL_SETTLEMENT', 'SYNTHETIC-SETTLE-V1', $settle_rules ), $mg ) );
+$ok( 'synthetic encrypted final-settlement opinion fixture is attached to the exact rule', $attach_synthetic_opinion( (int) $srule['id'] ) );
+$final_rule_row = Stockland_DB::read_row( $GLOBALS['wpdb']->prepare( 'SELECT rules_json FROM %i WHERE id=%d', Stockland_DB::table( 'hr_rule_sets' ), (int) $srule['id'] ), ARRAY_A );
+$final_rule_payload = json_decode( (string) ( $final_rule_row['rules_json'] ?? '' ), true );
+$final_opinion_doc_id = (int) ( $final_rule_payload['qualified_legal_review']['opinion_document_id'] ?? 0 );
+$ok( 'final-settlement opinion uses a distinct actual document ID', $final_opinion_doc_id > 0 && $final_opinion_doc_id !== $payroll_opinion_doc_id, wp_json_encode( array( 'payroll_doc_id' => $payroll_opinion_doc_id, 'settlement_doc_id' => $final_opinion_doc_id ) ) );
+$settle_row = Stockland_DB::read_row( $GLOBALS['wpdb']->prepare( 'SELECT rules_json FROM %i WHERE id=%d', Stockland_DB::table( 'hr_rule_sets' ), (int) $srule['id'] ), ARRAY_A );
+$settle_payload = json_decode( (string) ( $settle_row['rules_json'] ?? '' ), true );
+$settle_review = $settle_payload['qualified_legal_review'] ?? array();
+$settle_doc_id = (int) ( $settle_review['opinion_document_id'] ?? 0 );
+$settle_doc = $settle_doc_id ? Stockland_DB::read_row( $GLOBALS['wpdb']->prepare( 'SELECT id,subject_type,subject_id,document_type,document_reference,document_sha256,status FROM %i WHERE id=%d', Stockland_DB::table( 'hr_documents' ), $settle_doc_id ), ARRAY_A ) : null;
+$settle_resolved = is_array( $settle_doc ) ? Stockland_HR_Private_Vault::resolve( (string) $settle_doc['document_reference'], (string) $settle_review['opinion_sha256'] ) : new WP_Error( 'missing_doc', 'No linked synthetic opinion row.' );
+$ok( 'final-settlement opinion payload references a positive document ID', $settle_doc_id > 0, wp_json_encode( array( 'rule_id' => (int) $srule['id'], 'doc_id' => $settle_doc_id, 'review_sha' => $settle_review['opinion_sha256'] ?? '' ) ) );
+$ok( 'final-settlement opinion row scope/type/status match its rule', is_array( $settle_doc ) && 'RULE_SET' === $settle_doc['subject_type'] && (int) $settle_doc['subject_id'] === (int) $srule['id'] && 'LEGAL_OPINION' === $settle_doc['document_type'] && 'PENDING_REVIEW' === $settle_doc['status'], wp_json_encode( $settle_doc ) );
+$ok( 'final-settlement opinion row SHA matches rule payload SHA', is_array( $settle_doc ) && hash_equals( strtolower( (string) $settle_doc['document_sha256'] ), strtolower( (string) ( $settle_review['opinion_sha256'] ?? '' ) ) ), wp_json_encode( array( 'row_sha' => $settle_doc['document_sha256'] ?? '', 'payload_sha' => $settle_review['opinion_sha256'] ?? '' ) ) );
+$ok( 'final-settlement encrypted opinion decrypts from the private vault', ! is_wp_error( $settle_resolved ), is_wp_error( $settle_resolved ) ? $settle_resolved->get_error_message() : wp_json_encode( array( 'mime' => $settle_resolved['mime_type'] ?? '', 'sha' => $settle_resolved['sha256'] ?? '' ) ) );
+$verify_settle_unlocked = is_array( $settle_payload ) && Stockland_HR_Lifecycle::verify_legal_opinion_document( $settle_payload, (int) $srule['id'], 'PENDING_REVIEW', false );
+$verify_settle_locked = is_array( $settle_payload ) && Stockland_HR_Lifecycle::verify_legal_opinion_document( $settle_payload, (int) $srule['id'], 'PENDING_REVIEW', true );
+$ok( 'final-settlement opinion verifies without row lock', $verify_settle_unlocked, 'doc=' . $settle_doc_id );
+$ok( 'final-settlement opinion verifies with row lock', $verify_settle_locked, 'doc=' . $settle_doc_id );
 $need( 'SYNTHETIC final-settlement rule approved', call( 'POST', "/hr/lifecycle/rules/{$srule['id']}/approve", array( 'independent_review_note' => $note30 ), $o1 ) );
 $ok( 'only the reviewed rule versions are approved', (int) qv( 'select count(*) from ' . Stockland_DB::table( 'hr_rule_sets' ) . " where review_status='APPROVED'" ) === 2 );
 

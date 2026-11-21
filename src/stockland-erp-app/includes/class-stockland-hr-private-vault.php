@@ -313,8 +313,8 @@ final class Stockland_HR_Private_Vault {
 		$original = sanitize_file_name( (string) $file_name );
 		$ext      = strtolower( pathinfo( $original, PATHINFO_EXTENSION ) );
 		$types    = self::allowed_types();
-		if ( ! is_string( $plain ) || strlen( $plain ) < 1 || strlen( $plain ) > self::MAX_BYTES || ! in_array( $ext, array( 'docx', 'txt' ), true ) || ! isset( $types[ $ext ] ) ) {
-			return self::error( 'hr_content_invalid', 'Edited content must be 1 byte to 10 MiB and stored as a DOCX or TXT document.', 400 );
+		if ( ! is_string( $plain ) || strlen( $plain ) < 1 || strlen( $plain ) > self::MAX_BYTES || ! in_array( $ext, array( 'pdf', 'docx', 'txt' ), true ) || ! isset( $types[ $ext ] ) ) {
+			return self::error( 'hr_content_invalid', 'Private document content must be 1 byte to 10 MiB and stored as a PDF, DOCX or TXT document.', 400 );
 		}
 		if ( ! class_exists( 'finfo' ) ) {
 			return self::error( 'hr_upload_mime_verification_unavailable', 'Server MIME verification is unavailable; saving is disabled.', 503 );

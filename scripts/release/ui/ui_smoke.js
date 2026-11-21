@@ -466,9 +466,12 @@ const isLocal = (url) => {
     else note('notification control has one dynamic accessible name and hides decorative label/count');
     if (!jsText.includes('both monthly_tax_bands (legacy) and paye_bands (frozen runs)')) fail('HR payroll rule form does not explain the dual calculator schedule contract');
     else note('HR payroll rule form explains the dual calculator contract');
-    const legalReviewFields = ['Independent legal review decision','Reviewer independent of rule preparation','Independent reviewer full name','Reviewer professional registration / licence ID','Professional qualification / licence basis','Review date','Signed opinion reference / document ID','Signed opinion document SHA-256','Legal clauses reviewed (one per line)','Approved parameter keys (comma-separated)'];
-    if (!legalReviewFields.every(label => jsText.includes(label)) || !jsText.includes('qualified_legal_review') || !jsText.includes('clauses_reviewed') || !jsText.includes('approved_parameters')) fail('HR statutory rule form is missing structured legal-review evidence capture');
-    else note('HR statutory rule form captures independent reviewer, signed opinion hash, clauses and approved parameter scope');
+    // Signed legal opinion bytes are uploaded privately; the server calculates the SHA-256 and a separate Owner ratifies the exact document.
+    const legalReviewFields = ['Independent legal review decision','Reviewer independent of rule preparation','Independent reviewer full name','Reviewer professional registration / licence ID','Professional qualification / licence basis','Review date','Signed opinion reference / document ID','Legal clauses reviewed (one per line)','Approved parameter keys (comma-separated)'];
+    const legalOpinionUpload = ['basis:\'INDEPENDENT_PROFESSIONAL_OPINION\'','data-hrlc-rule-opinion-upload','data-hrlc-rule-opinion-file','accept=".pdf,.docx,application/pdf','legal_review_opinion_reference','legal_review_clauses_reviewed','legal_review_approved_parameters','Owner ratify rule'];
+    const noUserEnteredOpinionHash = !jsText.includes('Signed opinion document SHA-256') && !jsText.includes('legal_review_opinion_sha256');
+    if (!legalReviewFields.every(label => jsText.includes(label)) || !legalOpinionUpload.every(token => jsText.includes(token)) || !noUserEnteredOpinionHash || !jsText.includes('qualified_legal_review') || !jsText.includes('independence_confirmed') || !jsText.includes('clauses_reviewed') || !jsText.includes('approved_parameters')) fail('HR statutory rule form is missing structured independent-review fields or secure signed-opinion attachment/Owner ratification controls');
+    else note('HR statutory rule form captures qualified reviewer, clauses and parameter scope; signed PDF/DOCX is uploaded privately, server-hashed and ratified by a separate Owner');
     if (!jsText.includes('data-sl-force-filter')) fail('Reports Explorer does not force table tools for short result sets');
     else note('Reports Explorer marks short result tables for search/filter tools');
 

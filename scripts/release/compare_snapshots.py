@@ -4,8 +4,8 @@ import json
 import sys
 
 APPEND_ONLY_TABLES = {"stock_audit_logs", "stock_audit_chain", "stock_workflow_events"}
-# Rows the product itself ships after the Owner-approved HR schema exists: the Owner-approved payroll rule set (ET-2025-AMEND-1395) and its audit event. At most this many may be added.
-SHIPPED_ROW_ALLOWANCE = {"stock_hr_rule_sets": 1, "stock_hr_payroll_events": 1}
+# Only explicitly append-only audit/event history may grow during an upgrade.
+# Payroll rule sets and payroll events are business records, not installer defaults.
 APPROVED_HR_RATE_DEFAULTS = {
     ("stock_payroll_lines", "income_tax_rate"),
     ("stock_payroll_lines", "employee_pension_rate"),
@@ -32,8 +32,6 @@ def compare(before, after):
         append_only = table in APPEND_ONLY_TABLES
         if new_rows < old_rows:
             failures.append(f"{table}: rows shrank {old_rows} -> {new_rows}")
-        elif table in SHIPPED_ROW_ALLOWANCE and 0 < new_rows - old_rows <= SHIPPED_ROW_ALLOWANCE[table]:
-            notices.append(f"{table}: shipped Owner-approved payroll rule rows added {old_rows} -> {new_rows}")
         elif not append_only and new_rows != old_rows:
             failures.append(f"{table}: unexpected row-count change {old_rows} -> {new_rows}")
         elif append_only and new_rows > old_rows:
@@ -50,8 +48,28 @@ def compare(before, after):
                 elif new_fp[key] != value_hash:
                     failures.append(f"{table}: pre-upgrade row changed ({key[:12]})")
 
-        old_columns = {column["column_name"]: column for column in old["columns"]}
-        new_columns = {column["column_name"]: column for column in new["columns"]}
+        # MySQL drivers may return INFORMATION_SCHEMA field labels in
+        # uppercase (COLUMN_NAME) while MariaDB commonly returns lowercase.
+        # Normalize metadata keys so the same physical schema snapshot compares
+        # identically across the supported database engines.
+        def normalized_metadata(items):
+            return [
+                {str(key).lower(): value for key, value in item.items()}
+                for item in (items or [])
+            ]
+
+        old_columns = {
+            column["column_name"]: column
+            for column in normalized_metadata(old.get("columns"))
+            if column.get("column_name")
+        }
+        new_columns = {
+            column["column_name"]: column
+            for column in normalized_metadata(new.get("columns"))
+            if column.get("column_name")
+        }
+        if len(old_columns) != len(old.get("columns") or []) or len(new_columns) != len(new.get("columns") or []):
+            failures.append(f"{table}: schema snapshot contains a column entry without column_name")
         for column in sorted(set(old_columns) - set(new_columns)):
             failures.append(f"{table}: column removed {column}")
         for column in sorted(set(new_columns) - set(old_columns)):
@@ -84,7 +102,8 @@ def compare(before, after):
         def index_map(items):
             return {
                 item["index_name"]: (item.get("non_unique"), item.get("index_type"), item.get("cols"))
-                for item in items
+                for item in normalized_metadata(items)
+                if item.get("index_name")
             }
 
         old_indexes = index_map(old.get("indexes") or [])
@@ -107,7 +126,7 @@ def compare(before, after):
                     item.get("referenced_column_name"),
                     int(item.get("ordinal_position") or 0),
                 )
-                for item in items
+                for item in normalized_metadata(items)
             }
 
         if foreign_key_set(old.get("foreign_keys") or []) != foreign_key_set(new.get("foreign_keys") or []):

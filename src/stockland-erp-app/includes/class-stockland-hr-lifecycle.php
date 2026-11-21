@@ -796,21 +796,80 @@ final class Stockland_HR_Lifecycle {
 		);
 	}
 
-	/** Require independent, evidence-backed professional review before any statutory rule can be used. */
-	public static function has_qualified_legal_review( $payload ) {
+	/**
+	 * Verify the exact signed legal-opinion object linked to a statutory rule.
+	 *
+	 * The SHA-256 is checked against both the HR document record and decrypted
+	 * vault bytes. A hash-shaped value or typed reviewer note is not evidence.
+	 *
+	 * @param array  $payload Rule JSON payload.
+	 * @param int    $rule_set_id Rule-set ID the opinion covers.
+	 * @param string $expected_status Required HR document status.
+	 * @param bool   $lock Whether to lock the document row in the caller transaction.
+	 * @return bool True only when the matching private PDF/DOCX decrypts and hashes correctly.
+	 */
+	public static function verify_legal_opinion_document( $payload, $rule_set_id, $expected_status = 'APPROVED', $lock = false ) {
 		if ( ! is_array( $payload ) || ! isset( $payload['qualified_legal_review'] ) || ! is_array( $payload['qualified_legal_review'] ) ) { return false; }
 		$q = $payload['qualified_legal_review'];
-		if ( 'OWNER_DECLARATION' === strtoupper( (string) ( $q['basis'] ?? '' ) ) ) {
-			$pp = $q['approved_parameters'] ?? array();
-			return 'APPROVED' === strtoupper( (string) ( $q['decision'] ?? '' ) ) && 'OWNER' === strtoupper( (string) ( $q['approved_by_role'] ?? '' ) )
-				&& preg_match( '/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/D', (string) ( $q['approved_on'] ?? '' ) ) && strlen( trim( (string) ( $q['statement'] ?? '' ) ) ) >= 30
-				&& is_array( $q['clauses_reviewed'] ?? null ) && count( $q['clauses_reviewed'] ) > 0 && is_array( $pp )
-				&& 9 === count( array_intersect( array( 'paye_bands', 'monthly_tax_bands', 'tax_base_method', 'paye_tax_base_method', 'pensionable_base_method', 'employee_pension_rate', 'employer_pension_rate', 'component_treatments', 'rounding_method' ), $pp ) );
+		$document_id = filter_var( $q['opinion_document_id'] ?? null, FILTER_VALIDATE_INT );
+		$expected_hash = strtolower( (string) ( $q['opinion_sha256'] ?? '' ) );
+		if ( ! $document_id || $document_id < 1 || ! preg_match( '/^[a-f0-9]{64}$/D', $expected_hash ) || (int) $rule_set_id < 1 ) { return false; }
+
+		global $wpdb;
+		$sql = $wpdb->prepare(
+			'SELECT id,subject_type,subject_id,document_type,document_reference,document_sha256,status,verified_by,verified_at FROM %i WHERE id=%d AND subject_type=%s AND subject_id=%d AND document_type=%s LIMIT 1',
+			Stockland_DB::table( 'hr_documents' ),
+			(int) $document_id,
+			'RULE_SET',
+			(int) $rule_set_id,
+			'LEGAL_OPINION'
+		);
+		if ( $lock ) { $sql .= ' FOR UPDATE'; }
+		$row = Stockland_DB::read_row( $sql, ARRAY_A );
+		if ( ! is_array( $row )
+			|| strtoupper( (string) $row['status'] ) !== strtoupper( (string) $expected_status )
+			|| ( 'APPROVED' === strtoupper( (string) $expected_status ) && ( (int) ( $row['verified_by'] ?? 0 ) < 1 || empty( $row['verified_at'] ) || ! Stockland_Authority::is_owner( (int) $row['verified_by'] ) ) )
+			|| ! preg_match( '/^[a-f0-9]{64}$/iD', (string) $row['document_sha256'] )
+			|| ! hash_equals( strtolower( (string) $row['document_sha256'] ), $expected_hash )
+		) { return false; }
+
+		$resolved = Stockland_HR_Private_Vault::resolve( (string) $row['document_reference'], $expected_hash );
+		if ( is_wp_error( $resolved ) || ! is_array( $resolved ) || empty( $resolved['path'] ) || ! is_file( $resolved['path'] ) ) { return false; }
+		$mime = (string) ( $resolved['mime_type'] ?? '' );
+		$allowed_mimes = array( 'application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' );
+		$actual_hash = hash_file( 'sha256', $resolved['path'] );
+		// The vault registers shutdown cleanup for this owner-only decrypted temp file.
+		return in_array( $mime, $allowed_mimes, true )
+			&& is_string( $actual_hash )
+			&& hash_equals( $expected_hash, strtolower( $actual_hash ) )
+			&& hash_equals( $expected_hash, strtolower( (string) ( $resolved['sha256'] ?? '' ) ) );
+	}
+
+	/** Require independent, evidence-backed professional review before any statutory rule can be used. */
+	/**
+	 * Accept only an evidence-backed independent professional review.
+	 *
+	 * Owner approval is a separate business-control step in approve_rule().
+	 * A Stockland Owner declaration, WordPress Administrator identity, or a
+	 * statement without a signed-opinion evidence reference is never legal review.
+	 *
+	 * @param array $payload Versioned statutory rule payload.
+	 * @return bool Whether independent legal-review evidence is structurally complete.
+	 */
+	public static function has_qualified_legal_review( $payload ) {
+		if ( ! is_array( $payload ) || ! isset( $payload['qualified_legal_review'] ) || ! is_array( $payload['qualified_legal_review'] ) ) {
+			return false;
 		}
-		$sha = strtolower( (string) ( $q['opinion_sha256'] ?? '' ) );
+		$q = $payload['qualified_legal_review'];
+		if ( 'INDEPENDENT_PROFESSIONAL_OPINION' !== strtoupper( trim( (string) ( $q['basis'] ?? '' ) ) ) ) {
+			return false;
+		}
+
+		$sha     = strtolower( (string) ( $q['opinion_sha256'] ?? '' ) );
 		$clauses = $q['clauses_reviewed'] ?? array();
-		$params = $q['approved_parameters'] ?? array();
-		return strtoupper( (string) ( $q['decision'] ?? '' ) ) === 'APPROVED'
+		$params  = $q['approved_parameters'] ?? array();
+
+		return 'APPROVED' === strtoupper( (string) ( $q['decision'] ?? '' ) )
 			&& ! empty( $q['independence_confirmed'] )
 			&& strlen( trim( (string) ( $q['reviewer_name'] ?? '' ) ) ) >= 3
 			&& strlen( trim( (string) ( $q['reviewer_id'] ?? '' ) ) ) >= 3
@@ -818,8 +877,12 @@ final class Stockland_HR_Lifecycle {
 			&& preg_match( '/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/D', (string) ( $q['review_date'] ?? '' ) )
 			&& strlen( trim( (string) ( $q['opinion_reference'] ?? '' ) ) ) >= 6
 			&& preg_match( '/^[a-f0-9]{64}$/', $sha )
+			&& (int) ( $q['opinion_document_id'] ?? 0 ) > 0
 			&& is_array( $clauses ) && count( $clauses ) > 0
-			&& is_array( $params ) && in_array( 'paye_bands', $params, true )
+			&& is_array( $params )
+			&& in_array( 'paye_bands', $params, true )
+			&& in_array( 'monthly_tax_bands', $params, true )
+			&& in_array( 'tax_base_method', $params, true )
 			&& in_array( 'paye_tax_base_method', $params, true )
 			&& in_array( 'pensionable_base_method', $params, true )
 			&& in_array( 'employee_pension_rate', $params, true )
@@ -907,6 +970,9 @@ final class Stockland_HR_Lifecycle {
 		if ( ! self::has_qualified_legal_review( $payload ) ) {
 			return new WP_Error( 'payroll_legal_review_missing', 'Payroll is blocked: independent qualified Ethiopian tax/pension review evidence is missing from this exact rule version.', array( 'status' => 409 ) );
 		}
+		if ( ! self::verify_legal_opinion_document( $payload, (int) $row['id'], 'APPROVED' ) ) {
+			return new WP_Error( 'payroll_legal_opinion_unverified', 'Payroll is blocked: the exact approved, encrypted legal-opinion document is missing, unreadable, or does not match its recorded SHA-256.', array( 'status' => 409 ) );
+		}
 		if ( ! is_array( $payload ) || empty( $payload['monthly_tax_bands'] ) || empty( $payload['employee_pension_rate'] ) || empty( $payload['employer_pension_rate'] ) || empty( $payload['tax_base_method'] ) ) {
 			return new WP_Error( 'payroll_rules_invalid', 'The approved payroll rule version is incomplete; payroll was not generated.', array( 'status' => 409 ) );
 		}
@@ -934,6 +1000,7 @@ final class Stockland_HR_Lifecycle {
 		$active = $sets[0];
 		$payload = json_decode( (string) $active['rules_json'], true );
 		if ( ! self::has_qualified_legal_review( $payload ) ) { return array(); }
+		if ( ! self::verify_legal_opinion_document( $payload, (int) $active['id'], 'APPROVED' ) ) { return array(); }
 		$rows = Stockland_DB::read_results( $wpdb->prepare( 'SELECT * FROM %i WHERE rule_set_id=%d ORDER BY category', Stockland_DB::table( 'hr_rule_components' ), (int) $active['id'] ), ARRAY_A );
 		$rules = array();
 		foreach ( (array) $rows as $row ) {

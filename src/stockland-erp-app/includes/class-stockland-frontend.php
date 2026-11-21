@@ -645,6 +645,13 @@ class Stockland_Frontend {
 			wp_safe_redirect( add_query_arg( 'sl_login', 'missing', self::page_url() ) );
 			exit;
 		}
+		// Brute-force throttle: five failed sign-ins per user name and address lock further attempts for 15 minutes.
+		$remote_ip    = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
+		$throttle_key = 'sl_login_fail_' . substr( hash( 'sha256', strtolower( $login ) . '|' . $remote_ip ), 0, 32 );
+		if ( (int) get_transient( $throttle_key ) >= 5 ) {
+			wp_safe_redirect( add_query_arg( 'sl_login', 'locked', self::page_url() ) );
+			exit;
+		}
 		$user = wp_signon(
 			array(
 				'user_login'    => $login,
@@ -654,9 +661,11 @@ class Stockland_Frontend {
 			is_ssl()
 		);
 		if ( is_wp_error( $user ) ) {
+			set_transient( $throttle_key, (int) get_transient( $throttle_key ) + 1, 15 * MINUTE_IN_SECONDS );
 			wp_safe_redirect( add_query_arg( 'sl_login', 'failed', self::page_url() ) );
 			exit;
 		}
+		delete_transient( $throttle_key );
 		wp_safe_redirect( self::page_url() );
 		exit;
 	}
@@ -685,7 +694,11 @@ class Stockland_Frontend {
 					<div class="sl-login-card">
 						<div class="sl-login-card-head"><div class="sl-eyebrow">WELCOME BACK</div><h2>Sign in to Stockland</h2><p>Use your authorized ERP username and password to continue.</p></div>
 						<?php
-						if ( 'failed' === $status ) :
+						if ( 'locked' === $status ) :
+							?>
+							<div class="sl-login-error">Too many failed attempts. Please wait 15 minutes and try again.</div>
+							<?php
+elseif ( 'failed' === $status ) :
 							?>
 							<div class="sl-login-error">Incorrect username or password.</div>
 							<?php
@@ -773,7 +786,11 @@ elseif ( 'missing' === $status ) :
 			$status = sanitize_key( wp_unslash( $_GET['sl_login'] ?? '' ) );
 			?>
 			<?php
-			if ( 'failed' === $status ) :
+			if ( 'locked' === $status ) :
+				?>
+				<div class="sl-login-error">Too many failed attempts. Please wait 15 minutes and try again.</div>
+				<?php
+elseif ( 'failed' === $status ) :
 				?>
 				<div class="sl-login-error">Incorrect username or password.</div>
 				<?php

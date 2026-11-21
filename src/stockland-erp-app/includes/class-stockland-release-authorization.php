@@ -94,20 +94,39 @@ final class Stockland_Release_Authorization {
 			return new WP_Error( 'hr_schema_pending', 'Live release authorization is blocked until the active Owner approves the exact HR/Payroll schema fingerprint and physical verification passes.', array( 'status' => 409 ) );
 		}
 		$fp = self::fingerprint();
-		if ( ! Stockland_Audit::log( $user_id, null, 'RELEASE_AUTHORIZED_FOR_LIVE', null, null, null, STOCKLAND_VERSION . ':' . $fp, $reason, 'RELEASE_' . STOCKLAND_VERSION, $user_id ) ) {
-			return new WP_Error( 'audit_failed', 'The authorization could not be written to the immutable audit chain. Nothing was changed.', array( 'status' => 500 ) );
-		}
-		update_option(
-			self::OPTION,
-			array(
-				'version'       => STOCKLAND_VERSION,
-				'fingerprint'   => $fp,
-				'authorized_by' => $user_id,
-				'authorized_at' => current_time( 'mysql' ),
-				'reason'        => $reason,
-			),
-			false
+		$previous = get_option( self::OPTION, false );
+		$authorization = array(
+			'version'       => STOCKLAND_VERSION,
+			'fingerprint'   => $fp,
+			'authorized_by' => $user_id,
+			'authorized_at' => current_time( 'mysql' ),
+			'reason'        => $reason,
 		);
+		$restore_previous = static function () use ( $previous ) {
+			if ( false === $previous ) {
+				delete_option( self::OPTION );
+				return false === get_option( self::OPTION, false );
+			}
+			update_option( self::OPTION, $previous, false );
+			return get_option( self::OPTION, null ) === $previous;
+		};
+
+		update_option( self::OPTION, $authorization, false );
+		$stored = get_option( self::OPTION, null );
+		if ( ! is_array( $stored ) || $stored !== $authorization ) {
+			$restored = $restore_previous();
+			$message  = $restored
+				? 'The authorization option did not persist exactly. The previous record was restored.'
+				: 'The authorization option did not persist exactly and the previous record could not be verified after rollback. Manual review is required.';
+			return new WP_Error( 'authorization_persistence_failed', $message, array( 'status' => 500 ) );
+		}
+		if ( ! Stockland_Audit::log( $user_id, null, 'RELEASE_AUTHORIZED_FOR_LIVE', null, null, null, STOCKLAND_VERSION . ':' . $fp, $reason, 'RELEASE_' . STOCKLAND_VERSION, $user_id ) ) {
+			$restored = $restore_previous();
+			$message  = $restored
+				? 'The authorization could not be written to the immutable audit chain. The previous authorization record was restored.'
+				: 'The authorization audit write failed and the previous option could not be verified after rollback. Manual review is required.';
+			return new WP_Error( 'audit_failed', $message, array( 'status' => 500 ) );
+		}
 		return true;
 	}
 

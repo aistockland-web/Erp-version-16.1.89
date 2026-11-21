@@ -2,45 +2,137 @@ name: Stockland 16.2.18 security and runtime gates
 
 on:
   pull_request:
-    paths: ['src/stockland-erp-app/**', 'scripts/release/security/**', '.github/workflows/master-installer-security-gates.yml']
+    paths:
+      - 'src/stockland-erp-app/**'
+      - 'scripts/release/security/**'
+      - '.github/workflows/master-installer-security-gates.yml'
   push:
     branches: ['delivery/**']
+    paths:
+      - 'src/stockland-erp-app/**'
+      - 'scripts/release/security/**'
+      - '.github/workflows/master-installer-security-gates.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: stockland-master-security-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
 jobs:
   gates:
     name: Gates on PHP ${{ matrix.php }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 35
     strategy:
       fail-fast: false
       matrix:
         php: ['8.3', '8.4']
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout exact source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # checkout v4
+
       - name: Set up PHP ${{ matrix.php }}
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
         with:
           php-version: ${{ matrix.php }}
           tools: none
-      - name: Fetch analysis tools
+          coverage: none
+          ini-file: production
+
+      - name: Install pinned security analysis tools
+        shell: bash
         run: |
-          mkdir -p /tmp/tools && cd /tmp/tools
-          for r in semgrep/semgrep-rules PHPCSStandards/PHP_CodeSniffer WordPress/WordPress-Coding-Standards PHPCSStandards/PHPCSUtils PHPCSStandards/PHPCSExtra PHPCompatibility/PHPCompatibility PHPCompatibility/PHPCompatibilityWP PHPCompatibility/PHPCompatibilityParagonie; do
-            git clone -q --depth 1 "https://github.com/$r.git"
-          done
-          pip install -q semgrep
-      - name: Run gates over the exact plugin source
-        run: python3 scripts/release/security/run_gates.py src/stockland-erp-app /tmp/tools | tee /tmp/gates.txt
-      - name: Prove the gate fails on a planted secret
+          set -euo pipefail
+          TOOLS="$RUNNER_TEMP/stockland-security-tools"
+          mkdir -p "$TOOLS"
+          cd "$TOOLS"
+          while read -r repository commit; do
+            directory="${repository##*/}"
+            git init --quiet "$directory"
+            git -C "$directory" remote add origin "https://github.com/${repository}.git"
+            git -C "$directory" fetch --quiet --depth 1 origin "$commit"
+            git -C "$directory" checkout --quiet --detach FETCH_HEAD
+            actual="$(git -C "$directory" rev-parse HEAD)"
+            test "$actual" = "$commit"
+            printf 'Pinned %s at %s\n' "$repository" "$actual"
+          done <<'PINS'
+          semgrep/semgrep-rules a5ad1714f00c9f7fde980cab0ea1d6dc6d414fd2
+          PHPCSStandards/PHP_CodeSniffer 75ace24c00ef53ac34d3bfb5d39511d235c13c0d
+          WordPress/WordPress-Coding-Standards 2e453c5a47b02bf249ca88de45faaa5e27de77bb
+          PHPCSStandards/PHPCSUtils 01a6bfda2508a9a1962d870ce5e96947116574c4
+          PHPCSStandards/PHPCSExtra ca5f2960ad9556490b60f6d97247349e493d8b6d
+          PHPCompatibility/PHPCompatibility dae7dd229b0b2955f5776199497f24985e3c95ad
+          PHPCompatibility/PHPCompatibilityWP b475f1d61eb600b72e93f640d1265639c8fc3610
+          PHPCompatibility/PHPCompatibilityParagonie aa2baa7027d2491732420d0cffc12a749e89e97c
+          PINS
+          python3 -m pip install --disable-pip-version-check --no-warn-script-location 'semgrep==1.186.0'
+          semgrep --version
+          test -x "$TOOLS/PHP_CodeSniffer/bin/phpcs"
+          test -d "$TOOLS/WordPress-Coding-Standards"
+          test -d "$TOOLS/semgrep-rules"
+          echo "STOCKLAND_SECURITY_TOOLS=$TOOLS" >> "$GITHUB_ENV"
+
+      - name: Run security gates with pipefail enabled
+        shell: bash
         run: |
-          rm -rf /tmp/neg && mkdir /tmp/neg && cp -r src/stockland-erp-app /tmp/neg/p
-          printf '<?php\n$k="ghp_%s";\n' "$(head -c 40 /dev/zero | tr '\0' 'a')" > /tmp/neg/p/includes/planted.php
-          if python3 scripts/release/security/run_gates.py /tmp/neg/p /tmp/tools >/tmp/neg.txt 2>&1; then echo "gate accepted a planted secret"; exit 1; fi
-          grep -q "SECRET pattern" /tmp/neg.txt
-      - uses: actions/upload-artifact@v4
+          set -euo pipefail
+          test -d src/stockland-erp-app
+          test -f scripts/release/security/accepted_findings.json
+          python3 scripts/release/security/run_gates.py \
+            src/stockland-erp-app \
+            "$STOCKLAND_SECURITY_TOOLS" \
+            | tee "$RUNNER_TEMP/stockland-security-gates.txt"
+
+      - name: Prove scanner pipeline propagates producer failures
+        shell: bash
+        run: |
+          set -euo pipefail
+          if python3 -c 'import sys; sys.exit(37)' | tee "$RUNNER_TEMP/pipefail-control.txt"; then
+            echo "FAIL: tee hid a failing scanner producer." >&2
+            exit 1
+          fi
+          echo "PASS: pipefail propagated the producer failure."
+
+      - name: Prove a planted secret fails closed
+        shell: bash
+        run: |
+          set -euo pipefail
+          NEGATIVE="$RUNNER_TEMP/stockland-negative/plugin"
+          mkdir -p "$NEGATIVE"
+          cp -a src/stockland-erp-app/. "$NEGATIVE/"
+          python3 - "$NEGATIVE" <<'PY'
+          import pathlib, sys
+          plugin = pathlib.Path(sys.argv[1])
+          planted = "ghp_" + ("a" * 40)
+          (plugin / "planted-secret-test.php").write_text(
+              "<?php\n$synthetic_marker = '" + planted + "';\n",
+              encoding="utf-8",
+          )
+          PY
+          set +e
+          python3 scripts/release/security/run_gates.py \
+            "$NEGATIVE" "$STOCKLAND_SECURITY_TOOLS" \
+            > "$RUNNER_TEMP/stockland-negative-gate.txt" 2>&1
+          gate_status=$?
+          set -e
+          if [ "$gate_status" -eq 0 ]; then
+            echo "FAIL: planted secret was accepted." >&2
+            exit 1
+          fi
+          grep -q "SECRET pattern in planted-secret-test.php" "$RUNNER_TEMP/stockland-negative-gate.txt"
+          echo "PASS: planted secret was rejected."
+
+      - name: Upload exact-head security evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # upload-artifact v4
         with:
-          name: security-gates-php${{ matrix.php }}
-          path: /tmp/gates.txt
+          name: master-security-gates-php${{ matrix.php }}
+          path: |
+            ${{ runner.temp }}/stockland-security-gates.txt
+            ${{ runner.temp }}/stockland-negative-gate.txt
+            ${{ runner.temp }}/pipefail-control.txt
+          if-no-files-found: warn
+          retention-days: 30

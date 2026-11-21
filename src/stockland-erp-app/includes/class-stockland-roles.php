@@ -352,7 +352,10 @@ class Stockland_Roles {
 				$admin->add_cap( $cap );
 			}
 			$admin->remove_cap( 'stockland_approve_purchase_orders' );
-			$admin->add_cap( 'stockland_owner' );
+			// A platform Administrator is not automatically a Stockland business Owner.
+			// An Administrator separately assigned an active ERP Owner profile still
+			// passes Authority::is_owner() through that profile, not this shared role.
+			$admin->remove_cap( 'stockland_owner' );
 			$admin->add_cap( 'stockland_install_schema' );
 		}
 

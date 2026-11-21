@@ -37,6 +37,7 @@ final class Stockland_REST_HR_Lifecycle extends Stockland_REST_Base {
 		register_rest_route($ns,'/hr/lifecycle/employees/(?P<id>\d+)/activate',array('methods'=>'POST','callback'=>array($this,'activate_hire'),'permission_callback'=>function(){return Stockland_Authority::can_approve_payroll();}));
 		register_rest_route($ns,'/hr/lifecycle/exits/(?P<id>\d+)/approve',array('methods'=>'POST','callback'=>array($this,'approve_exit'),'permission_callback'=>function(){return Stockland_Authority::can_approve_payroll();}));
 		register_rest_route($ns,'/hr/lifecycle/rules',array('methods'=>'POST','callback'=>array($this,'create_rule'),'permission_callback'=>function(){return Stockland_Authority::can_manage_hr();}));
+		register_rest_route($ns,'/hr/lifecycle/rules/(?P<id>\\d+)/legal-opinion',array('methods'=>'POST','callback'=>array($this,'upload_rule_legal_opinion'),'permission_callback'=>function(){return Stockland_Authority::can_manage_hr();}));
 		register_rest_route($ns,'/hr/lifecycle/rules/(?P<id>\d+)/approve',array('methods'=>'POST','callback'=>array($this,'approve_rule'),'permission_callback'=>function(){return Stockland_Authority::can_approve_payroll();}));
 		register_rest_route($ns,'/hr/lifecycle/allowance-preview',array('methods'=>'POST','callback'=>array($this,'allowance_preview'),'permission_callback'=>function(){return Stockland_Authority::can_view_payroll();}));
 		register_rest_route($ns,'/hr/lifecycle/compensation',array('methods'=>'POST','callback'=>array($this,'save_compensation'),'permission_callback'=>function(){return Stockland_Authority::can_manage_hr();}));
@@ -70,6 +71,20 @@ final class Stockland_REST_HR_Lifecycle extends Stockland_REST_Base {
 	public function bootstrap(WP_REST_Request $req){
 		global $wpdb;$pay=Stockland_Authority::can_view_payroll();
 		$out=array('locations'=>array(),'employees'=>array(),'compensation'=>array(),'payroll'=>array(),'payroll_visible'=>$pay,'capabilities'=>array('hr_manage'=>Stockland_Authority::can_manage_hr(),'payroll_manage'=>Stockland_Authority::can_manage_payroll(),'payroll_approve'=>Stockland_Authority::can_approve_payroll()),'rule_sets'=>$this->list_table('hr_rule_sets'),'rule_components'=>$this->list_table('hr_rule_components'),'lists'=>array());
+		$out['rule_sets']=Stockland_DB::read_results($wpdb->prepare(
+			'SELECT r.*,d.id AS legal_opinion_document_id,d.status AS legal_opinion_status,d.document_sha256 AS legal_opinion_sha256
+			 FROM %i r
+			 LEFT JOIN %i d ON d.id=(
+				SELECT MAX(dx.id) FROM %i dx
+				WHERE dx.subject_type=%s AND dx.subject_id=r.id AND dx.document_type=%s
+			 )
+			 ORDER BY r.effective_from DESC,r.id DESC LIMIT 200',
+			$this->table('hr_rule_sets'),
+			$this->table('hr_documents'),
+			$this->table('hr_documents'),
+			'RULE_SET',
+			'LEGAL_OPINION'
+		),ARRAY_A);
 		$out['locations']=$this->list_table('locations',200);
 		$out['employees']=$this->list_table('employees',500);
 		$out['payroll']=$pay?$this->list_table('payroll_periods',120):array();
@@ -114,6 +129,7 @@ final class Stockland_REST_HR_Lifecycle extends Stockland_REST_Base {
 		global $wpdb;if(Stockland_DB::execute_query('START TRANSACTION')===false)return $this->bad('Could not start workflow transaction.','hr_transaction_failed',500);
 		try{
 			$row=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',$table,$id),ARRAY_A);if(!$row)throw new RuntimeException('Record does not exist.');
+			if($entity==='documents'&&strtoupper((string)($row['subject_type']??''))==='RULE_SET'&&strtoupper((string)($row['document_type']??''))==='LEGAL_OPINION')throw new RuntimeException('Rule legal opinions can only be ratified by the dedicated Owner rule-approval transaction; general document decisions are disabled for these evidence records.');
 			$from=(string)($row[$statusCol]??'DRAFT');
 			$map=array('SUBMIT'=>array('DRAFT'=>'SUBMITTED','CALCULATED'=>'SUBMITTED','PENDING'=>'SUBMITTED'),'APPROVE'=>array('SUBMITTED'=>'APPROVED','PENDING_REVIEW'=>'APPROVED','CALCULATED'=>'APPROVED','RECOMMENDED'=>'APPROVED'),'REJECT'=>array('SUBMITTED'=>'REJECTED','DRAFT'=>'REJECTED','PENDING_REVIEW'=>'REJECTED','RECOMMENDED'=>'REJECTED'),'COMPLETE'=>array('OPEN'=>'COMPLETE','PLANNED'=>'COMPLETE','IN_PROGRESS'=>'COMPLETE'),'CONFIRM'=>array('OFFERED'=>'CONFIRMED','PROBATION'=>'CONFIRMED'));
 			$to=$map[$decision][$from]??null;if(!$to)throw new RuntimeException('Invalid transition '.$from.' → '.$decision.'.');
@@ -236,19 +252,72 @@ final class Stockland_REST_HR_Lifecycle extends Stockland_REST_Base {
 		foreach($components as $c){if(!is_array($c)||empty($c['category'])||empty($c['source_clause']))return $this->bad('Each allowance rule component requires category and source clause.');$t=strtoupper(sanitize_key((string)($c['tax_treatment']??'TAXABLE')));if(!in_array($t,array('TAXABLE','EXEMPT_CAP','EXEMPT_FULL'),true))return $this->bad('Unknown tax treatment.');$cap=isset($c['exemption_cap'])?Stockland_Money::decimal(Stockland_Money::minor($c['exemption_cap'])):null;if($t==='EXEMPT_CAP'&&($cap===null||Stockland_Money::minor($cap)<0))return $this->bad('A non-negative exemption cap is required for EXEMPT_CAP.');if(Stockland_DB::insert_record($this->table('hr_rule_components'),array('rule_set_id'=>$id,'category'=>strtoupper(sanitize_key((string)$c['category'])),'tax_treatment'=>$t,'exemption_cap'=>$cap,'pensionable_treatment'=>strtoupper(sanitize_key((string)($c['pensionable_treatment']??'SALARY_ONLY'))),'pensionable_cap'=>isset($c['pensionable_cap'])?Stockland_Money::decimal(Stockland_Money::minor($c['pensionable_cap'])):null,'source_clause'=>sanitize_text_field((string)$c['source_clause']),'source_note'=>sanitize_textarea_field((string)($c['source_note']??'')),'created_by'=>get_current_user_id()))===false)return $this->bad('Could not save rule component.');}
 		$this->event('rule-set',$id,'RULE_DRAFT',null,'DRAFT',array('type'=>$type,'version'=>$version,'source_sha256'=>$sha));return rest_ensure_response(array('id'=>$id,'review_status'=>'DRAFT','message'=>'Draft only. Owner cannot approve a rule created by the same account; use independent preparation and legal review.'));
 	}
+
+	/**
+	 * Stores a signed independent legal opinion in the encrypted private vault and links it to a DRAFT rule.
+	 * The uploader cannot activate the rule; the separate Owner approval step ratifies the exact bytes/hash.
+	 */
+	public function upload_rule_legal_opinion(WP_REST_Request $req){
+		$id=(int)$req['id'];
+		$files=$req->get_file_params();
+		$file=is_array($files)&&isset($files['file'])?$files['file']:null;
+		if(!is_array($file)||!isset($file['name'])||!in_array(strtolower(pathinfo(sanitize_file_name((string)$file['name']),PATHINFO_EXTENSION)),array('pdf','docx'),true)){
+			return $this->bad('Upload the signed independent legal opinion as a PDF or DOCX file.','hr_legal_opinion_file_required',400);
+		}
+		$stored=Stockland_HR_Private_Vault::store_upload($file);
+		if(is_wp_error($stored))return $stored;
+		if(empty($stored['private_file_ref'])||!preg_match('/^[a-f0-9]{64}$/i',(string)($stored['file_sha256']??''))||!in_array((string)($stored['mime_type']??''),array('application/pdf','application/vnd.openxmlformats-officedocument.wordprocessingml.document'),true)){
+			if(!empty($stored['private_file_ref']))Stockland_HR_Private_Vault::delete($stored['private_file_ref']);
+			return $this->bad('The uploaded legal opinion failed private-vault type or integrity validation.','hr_legal_opinion_invalid',415);
+		}
+		global $wpdb;
+		if(Stockland_DB::execute_query('START TRANSACTION')===false){Stockland_HR_Private_Vault::delete($stored['private_file_ref']);return $this->bad('Could not start legal-opinion attachment transaction.','hr_transaction_failed',500);}
+		try{
+			$rule=Stockland_DB::read_row($wpdb->prepare('SELECT id,rule_type,review_status,rules_json FROM %i WHERE id=%d FOR UPDATE',$this->table('hr_rule_sets'),$id),ARRAY_A);
+			if(!$rule||strtoupper((string)$rule['review_status'])!=='DRAFT')throw new RuntimeException('A legal opinion can only be attached to a DRAFT statutory rule.');
+			if(!in_array(strtoupper((string)$rule['rule_type']),array('PAYROLL','ALLOWANCE','FINAL_SETTLEMENT','INDIVIDUAL_PAYEE','LEAVE','OVERTIME'),true))throw new RuntimeException('A legal opinion attachment is only valid for statutory rule types.');
+			$existing=(int)Stockland_DB::read_var($wpdb->prepare("SELECT COUNT(*) FROM %i WHERE subject_type='RULE_SET' AND subject_id=%d AND document_type='LEGAL_OPINION' AND status IN ('PENDING_REVIEW','APPROVED')",$this->table('hr_documents'),$id));
+			if($existing>0)throw new RuntimeException('This rule already has a legal opinion attachment. Create a new rule version to replace legal evidence.');
+			$inserted=Stockland_DB::insert_record($this->table('hr_documents'),array(
+				'subject_type'=>'RULE_SET','subject_id'=>$id,'document_type'=>'LEGAL_OPINION',
+				'document_reference'=>$stored['private_file_ref'],'document_sha256'=>strtolower($stored['file_sha256']),
+				'status'=>'PENDING_REVIEW','created_by'=>get_current_user_id(),
+				'notes'=>'Encrypted independent professional legal opinion; pending separate Stockland Owner ratification.'
+			));
+			$doc_id=false===$inserted?0:(int)$wpdb->insert_id;
+			if($doc_id<1)throw new RuntimeException('Could not register the encrypted legal opinion document.');
+			$payload=json_decode((string)$rule['rules_json'],true);
+			if(!is_array($payload))throw new RuntimeException('Rule JSON is invalid; legal opinion was not linked.');
+			if(!isset($payload['qualified_legal_review'])||!is_array($payload['qualified_legal_review']))$payload['qualified_legal_review']=array();
+			$payload['qualified_legal_review']['opinion_document_id']=(int)$doc_id;
+			$payload['qualified_legal_review']['opinion_sha256']=strtolower($stored['file_sha256']);
+			$json=wp_json_encode($payload);
+			if(!is_string($json)||Stockland_DB::update_record($this->table('hr_rule_sets'),array('rules_json'=>$json),array('id'=>$id))===false)throw new RuntimeException('Could not persist the exact legal-opinion reference on the DRAFT rule.');
+			if(!$this->event('rule-set',$id,'RULE_LEGAL_OPINION_ATTACHED','DRAFT','DRAFT',array('document_id'=>(int)$doc_id,'document_sha256'=>strtolower($stored['file_sha256']),'mime_type'=>$stored['mime_type'],'size_bytes'=>(int)$stored['size_bytes'])))throw new RuntimeException('Legal-opinion attachment audit event failed.');
+			if(false===Stockland_DB::execute_query('COMMIT'))throw new RuntimeException('Legal-opinion attachment transaction did not commit.');
+			return rest_ensure_response(array('rule_set_id'=>$id,'document_id'=>(int)$doc_id,'document_status'=>'PENDING_REVIEW','document_sha256'=>strtolower($stored['file_sha256']),'encrypted_at_rest'=>true,'message'=>'The signed opinion is stored encrypted. It is not active until its independent-review details pass and a different authorized Stockland Owner ratifies this exact document.'));
+		}catch(Throwable $e){
+			Stockland_DB::execute_query('ROLLBACK');
+			Stockland_HR_Private_Vault::delete($stored['private_file_ref']);
+			return $this->bad($e->getMessage(),'hr_legal_opinion_attach_failed',409);
+		}
+	}
+
 	public function approve_rule(WP_REST_Request $req){
 		if(!$this->owner())return $this->bad('Owner approval is required.','forbidden',403);$id=(int)$req['id'];$p=$req->get_json_params();$note=sanitize_textarea_field((string)($p['independent_review_note']??''));if(strlen($note)<30)return $this->bad('Independent statutory/payroll reviewer and approved test-vector evidence are required.');global $wpdb;
 		if(Stockland_DB::execute_query('START TRANSACTION')===false)return $this->bad('Could not start rule approval transaction.','hr_transaction_failed',500);
 		try{$r=Stockland_DB::read_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d FOR UPDATE',$this->table('hr_rule_sets'),$id),ARRAY_A);if(!$r||$r['review_status']!=='DRAFT')throw new RuntimeException('Only DRAFT rules can be approved.');if((int)$r['created_by']===get_current_user_id())throw new RuntimeException('Maker-checker control: the rule creator cannot approve their own rule.');if(!preg_match('/^[a-f0-9]{64}$/i',(string)$r['source_sha256'])||!preg_match('~^https://~i',(string)$r['source_url'])||empty($r['source_clause']))throw new RuntimeException('Official source evidence is incomplete.');
 			$rules=json_decode((string)$r['rules_json'],true);if(!is_array($rules))throw new RuntimeException('Rule JSON is invalid.');
 			if(in_array($r['rule_type'],array('PAYROLL','ALLOWANCE','FINAL_SETTLEMENT','INDIVIDUAL_PAYEE','LEAVE','OVERTIME'),true)&&!Stockland_HR_Lifecycle::has_qualified_legal_review($rules))throw new RuntimeException('Independent qualified Ethiopian legal/payroll review evidence and approved parameter scope are required before statutory rules can be activated.');
+			if(in_array($r['rule_type'],array('PAYROLL','ALLOWANCE','FINAL_SETTLEMENT','INDIVIDUAL_PAYEE','LEAVE','OVERTIME'),true)&&!Stockland_HR_Lifecycle::verify_legal_opinion_document($rules,$id,'PENDING_REVIEW',true))throw new RuntimeException('The signed independent legal opinion must be attached in the encrypted private vault; its document ID, rule scope and SHA-256 must match before Owner ratification.');
 			if($r['rule_type']==='INDIVIDUAL_PAYEE'){if(!in_array(strtoupper((string)($rules['withholding_method']??'')),array('RATE_ON_GROSS_CASH','RATE_ON_CASH_PLUS_IN_KIND','NO_WITHHOLDING'),true))throw new RuntimeException('INDIVIDUAL_PAYEE rule must declare a legally reviewed withholding method.');if(strtoupper((string)($rules['withholding_method']??''))!=='NO_WITHHOLDING'&&(!isset($rules['withholding_rate'])||!is_string($rules['withholding_rate'])||!preg_match('/^(0|1)(\\.[0-9]{1,6})?$/D',$rules['withholding_rate'])))throw new RuntimeException('INDIVIDUAL_PAYEE rule needs an explicit reviewed withholding rate.');if(!in_array('withholding_method',$rules['qualified_legal_review']['approved_parameters']??array(),true)||!in_array('cash_in_kind_tax_basis',$rules['qualified_legal_review']['approved_parameters']??array(),true))throw new RuntimeException('Legal opinion must explicitly approve payee withholding method and cash/in-kind tax basis.');}
 			if($r['rule_type']==='PAYROLL'&&!Stockland_HR_Lifecycle::has_payroll_calculator_contract($rules))throw new RuntimeException('Payroll rule does not match both legacy and frozen-run calculator contracts. Both band schedules, tax-base methods, pension rates, component treatments and reviewer-approved parameter scopes must reconcile.');
 			if($r['rule_type']==='FINAL_SETTLEMENT'&&!is_array($rules['component_rules']??null))throw new RuntimeException('Final-settlement rule requires explicit component_rules with approved legal treatment.');
 			if($r['rule_type']==='ALLOWANCE'){ $cs=Stockland_DB::read_results($wpdb->prepare('SELECT * FROM %i WHERE rule_set_id=%d',$this->table('hr_rule_components'),$id),ARRAY_A);if(!$cs)throw new RuntimeException('Allowance rules require components.');foreach($cs as $c){if($c['tax_treatment']==='EXEMPT_CAP'&&$c['exemption_cap']===null)throw new RuntimeException('EXEMPT_CAP missing cap.');}}
-			$overlap=Stockland_DB::read_var($wpdb->prepare("SELECT COUNT(*) FROM %i WHERE id<>%d AND rule_type=%s AND review_status='APPROVED' AND effective_from<=COALESCE(%s,'9999-12-31') AND COALESCE(effective_to,'9999-12-31')>=%s",$this->table('hr_rule_sets'),$id,$r['rule_type'],$r['effective_to'],$r['effective_from']));if((int)$overlap>0)throw new RuntimeException('An approved rule of this type overlaps these effective dates. Close the existing version first.');
+			$overlap=Stockland_DB::read_var($wpdb->prepare("SELECT COUNT(*) FROM %i WHERE id<>%d AND rule_type=%s AND review_status='APPROVED' AND effective_from<=COALESCE(NULLIF(%s,''),'9999-12-31') AND COALESCE(effective_to,'9999-12-31')>=%s",$this->table('hr_rule_sets'),$id,$r['rule_type'],$r['effective_to'],$r['effective_from']));if(''!==(string)$wpdb->last_error)throw new RuntimeException('Could not verify statutory rule effective-date overlap: '.$wpdb->last_error);if((int)$overlap>0)throw new RuntimeException('An approved rule of this type overlaps these effective dates. Close the existing version first.');
+			if(in_array($r['rule_type'],array('PAYROLL','ALLOWANCE','FINAL_SETTLEMENT','INDIVIDUAL_PAYEE','LEAVE','OVERTIME'),true)){ $doc_id=(int)$rules['qualified_legal_review']['opinion_document_id']; if(Stockland_DB::update_record($this->table('hr_documents'),array('status'=>'APPROVED','verified_by'=>get_current_user_id(),'verified_at'=>current_time('mysql')),array('id'=>$doc_id,'status'=>'PENDING_REVIEW'))===false)throw new RuntimeException('Could not persist Owner ratification of the exact legal opinion document.'); }
 			if(Stockland_DB::update_record($this->table('hr_rule_sets'),array('review_status'=>'APPROVED','reviewer_note'=>$note,'approved_by'=>get_current_user_id(),'approved_at'=>current_time('mysql')),array('id'=>$id))===false)throw new RuntimeException('Could not update rule approval.');
-			if(!$this->event('rule-set',$id,'RULE_APPROVED','DRAFT','APPROVED',array('note'=>$note,'source_sha256'=>$r['source_sha256']),$id,$r['version_label']))throw new RuntimeException('Audit event failed.');
+			if(!$this->event('rule-set',$id,'RULE_APPROVED','DRAFT','APPROVED',array('note'=>$note,'source_sha256'=>$r['source_sha256'],'opinion_document_id'=>(int)($rules['qualified_legal_review']['opinion_document_id']??0),'opinion_sha256'=>(string)($rules['qualified_legal_review']['opinion_sha256']??'')),$id,$r['version_label']))throw new RuntimeException('Audit event failed.');
 			if(Stockland_DB::execute_query('COMMIT')===false)throw new RuntimeException('Rule approval commit failed.');
 			return rest_ensure_response(array('id'=>$id,'review_status'=>'APPROVED','rule_version'=>$r['version_label']));
 		}catch(Throwable $e){Stockland_DB::execute_query('ROLLBACK');return $this->bad($e->getMessage(),'hr_rule_approval_failed',409);}

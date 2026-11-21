@@ -2,7 +2,7 @@
   "package": "Stockland Ethiopia ERP-wide SOP Library",
   "version": "1.0",
   "created_date": "29 October 2026",
-  "status": "APPROVED",
+  "status": "DRAFT_NOT_APPROVED",
   "baseline_reference": {
     "version": "16.1.95 source baseline",
     "sha256": "494e777247508d009dfdb216c9607bb1bc96717197e94a0e8ad3459b7cc81625",
@@ -27,7 +27,7 @@
       "download_route": "/hr/sops/STK-ERP-SOP-001/download",
       "document_version": "v1.0",
       "language": "am-ET",
-      "status": "APPROVED",
+      "status": "DRAFT_NOT_APPROVED",
       "summary": "ሰነድ ቁጥጥር፣ ፖሊሲ እና የለውጥ አስተዳደር",
       "download_filename": "STK_ERP_SOP_001.docx"
     },
@@ -50,7 +50,7 @@
       "download_route": "/hr/sops/STK-ERP-SOP-002/download",
       "document_version": "v1.0",
       "language": "am-ET",
-      "status": "APPROVED",
+      "status": "DRAFT_NOT_APPROVED",
       "summary": "የተጠቃሚ መዳረሻ፣ ሚና፣ ቅርንጫፍ እና የማጽደቅ ሥልጣን",
       "download_filename": "STK_ERP_SOP_002.docx"
     },
@@ -72,7 +72,7 @@
       "download_route": "/hr/sops/STK-ERP-SOP-003/download",
       "document_version": "v1.0",
       "language": "am-ET",
-      "status": "APPROVED",
+      "status": "DRAFT_NOT_APPROVED",
       "summary": "የProduct Master፣ SKU፣ መጠን/ቀለም እና የዋጋ ታሪክ",
       "download_filename": "STK_ERP_SOP_003_Product_Master_SKU.docx"
     },
@@ -95,7 +95,7 @@
       "download_route": "/hr/sops/STK-ERP-SOP-004/download",
       "document_version": "v1.0",
       "language": "am-ET",
-      "status": "APPROVED",
+      "status": "DRAFT_NOT_APPROVED",
       "summary": "የExcel/CSV ግቤት፣ የውጭ ማስገባት እና የዳታ ማረጋገጫ",
       "download_filename": "STK_ERP_SOP_004_Excel_CSV.docx"
     },
@@ -121,7 +121,7 @@
       "download_route": "/hr/sops/STK-ERP-SOP-005/download",
       "document_version": "v1.0",
       "language": "am-ET",
-      "status": "APPROVED",
+      "status": "DRAFT_NOT_APPROVED",
       "summary": "ዋና መጋዘን፦ ዕቃ መቀበል፣ መቁጠር እና ወደ አክሲዮን ማስገባት",
       "download_filename": "STK_ERP_SOP_005.docx"
     },
@@ -144,7 +144,7 @@
       "download_route": "/hr/sops/STK-ERP-SOP-006/download",
       "document_version": "v1.0",
       "language": "am-ET",
-      "status": "APPROVED",
+      "status": "DRAFT_NOT_APPROVED",
       "summary": "የመጋዘን/ቅርንጫፍ ዝውውር፣ መላክ እና መቀበል",
       "download_filename": "STK_ERP_SOP_006.docx"
     },
@@ -168,7 +168,7 @@
       "download_route": "/hr/sops/STK-ERP-SOP-007/download",
       "document_version": "v1.0",
       "language": "am-ET",
-      "status": "APPROVED",
+      "status": "DRAFT_NOT_APPROVED",
       "summary": "የፍላጎት ጥያቄ፣ የክምችት ማስያዣ እና መሙላት",
       "download_filename": "STK_ERP_SOP_007.docx"
     },
@@ -192,7 +192,7 @@
       "download_route": "/hr/sops/STK-ERP-SOP-008/download",
       "document_version": "v1.0",
       "language": "am-ET",
-      "status": "APPROVED",
+      "status": "DRAFT_NOT_APPROVED",
       "summary": "የአክሲዮን አካላዊ ቆጠራ እና ማስተካከያ",
       "download_filename": "STK_ERP_SOP_008.docx"
     },
@@ -216,7 +216,7 @@
       "download_route": "/hr/sops/STK-ERP-SOP-009/download",
       "document_version": "v1.0",
       "language": "am-ET",
-      "status": "APPROVED",
+      "status": "DRAFT_NOT_APPROVED",
       "summary": "የተበላሸ ዕቃ፣ መመለሻ፣ ጉድለት እና write-off",
       "download_filename": "STK_ERP_SOP_009_write_off.docx"
     },
@@ -243,7 +243,7 @@
       "download_route": "/hr/sops/STK-ERP-SOP-010/download",
       "document_version": "v1.0",
       "language": "am-ET",
-      "status": "APPROVED",
+      "status": "DRAFT_NOT_APPROVED",
       "summary": "ችርቻሮ POS፣ የሽያጭ መዝገብ፣ void እና refund",
       "download_filename": "STK_ERP_SOP_010_POS_void_refund.docx"
     },
@@ -266,7 +266,7 @@
       "download_route": "/hr/sops/STK-ERP-SOP-011/download",
       "document_version": "v1.0",
       "language": "am-ET",
-      "status": "APPROVED",
+      "status": "DRAFT_NOT_APPROVED",
       "summary": "የዕለት መዝጊያ፣ የገንዘብ ማስታረቅ እና የተቀባ ክፍያ ማስረጃ",
       "download_filename": "STK_ERP_SOP_011.docx"
     },
@@ -291,7 +291,7 @@
       "download_route": "/hr/sops/STK-ERP-SOP-012/download",
       "document_version": "v1.0",
       "language": "am-ET",
-      "status": "APPROVED",
+      "status": "DRAFT_NOT_APPROVED",
       "summary": "Wholesale ግዢ/ሽያጭ፣ የተያዘ ትዕዛዝ፣ ክሬዲት እና ማድረስ",
       "download_filename": "STK_ERP_SOP_012_Wholesale.docx"
     },
@@ -316,7 +316,7 @@
       "download_route": "/hr/sops/STK-ERP-SOP-013/download",
       "document_version": "v1.0",
       "language": "am-ET",
-      "status": "APPROVED",
+      "status": "DRAFT_NOT_APPROVED",
       "summary": "Procurement፣ የግዢ ትዕዛዝ እና Supplier invoice ማስማማት",
       "download_filename": "STK_ERP_SOP_013_Procurement_Supplier_invoice.docx"
     },
@@ -342,7 +342,7 @@
       "download_route": "/hr/sops/STK-ERP-SOP-014/download",
       "document_version": "v1.0",
       "language": "am-ET",
-      "status": "APPROVED",
+      "status": "DRAFT_NOT_APPROVED",
       "summary": "Accounts Payable፣ ወጪዎች፣ ክፍያ እና Supplier balance",
       "download_filename": "STK_ERP_SOP_014_Accounts_Payable_Supplier_balance.docx"
     },
@@ -366,7 +366,7 @@
       "download_route": "/hr/sops/STK-ERP-SOP-015/download",
       "document_version": "v1.0",
       "language": "am-ET",
-      "status": "APPROVED",
+      "status": "DRAFT_NOT_APPROVED",
       "summary": "Accounts Receivable፣ የደንበኛ ክፍያ እና ዕዳ ማስታረቅ",
       "download_filename": "STK_ERP_SOP_015_Accounts_Receivable.docx"
     },
@@ -393,7 +393,7 @@
       "download_route": "/hr/sops/STK-ERP-SOP-016/download",
       "document_version": "v1.0",
       "language": "am-ET",
-      "status": "APPROVED",
+      "status": "DRAFT_NOT_APPROVED",
       "summary": "General Ledger፣ PLEDGER፣ ጆርናል እና ወር መዝጊያ",
       "download_filename": "STK_ERP_SOP_016_General_Ledger_PLEDGER.docx"
     },
@@ -420,7 +420,7 @@
       "download_route": "/hr/sops/STK-ERP-SOP-017/download",
       "document_version": "v1.0",
       "language": "am-ET",
-      "status": "APPROVED",
+      "status": "DRAFT_NOT_APPROVED",
       "summary": "የሪፖርት፣ Management Intelligence እና የማስረጃ ምንጭ ቁጥጥር",
       "download_filename": "STK_ERP_SOP_017_Management_Intelligence.docx"
     },
@@ -441,7 +441,7 @@
       "download_route": "/hr/sops/STK-ERP-SOP-018/download",
       "document_version": "v1.0",
       "language": "am-ET",
-      "status": "APPROVED",
+      "status": "DRAFT_NOT_APPROVED",
       "summary": "የስርዓት ጤና፣ ምትኬ፣ ማስመለስ እና የስሪት መልቀቅ",
       "download_filename": "STK_ERP_SOP_018.docx"
     },
@@ -457,7 +457,7 @@
       "download_route": "/hr/sops/STK-ERP-SOP-019/download",
       "document_version": "v1.0",
       "language": "am-ET",
-      "status": "APPROVED",
+      "status": "DRAFT_NOT_APPROVED",
       "summary": "የሰው ኃይል ዕቅድ፣ ምልመላ እና የእጩ መረጃ ጥበቃ",
       "download_filename": "STK_ERP_SOP_019.docx"
     },
@@ -476,7 +476,7 @@
       "download_route": "/hr/sops/STK-ERP-SOP-020/download",
       "document_version": "v1.0",
       "language": "am-ET",
-      "status": "APPROVED",
+      "status": "DRAFT_NOT_APPROVED",
       "summary": "የሥራ ውል፣ መግቢያ ሥልጠና፣ የሰራተኛ ታሪክ እና መዳረሻ",
       "download_filename": "STK_ERP_SOP_020.docx"
     },
@@ -492,7 +492,7 @@
       "download_route": "/hr/sops/STK-ERP-SOP-021/download",
       "document_version": "v1.0",
       "language": "am-ET",
-      "status": "APPROVED",
+      "status": "DRAFT_NOT_APPROVED",
       "summary": "Attendance፣ shift፣ overtime፣ የእረፍት ቀን እና leave ሂደት",
       "download_filename": "STK_ERP_SOP_021_Attendance_shift_overtime_leave.docx"
     },
@@ -518,7 +518,7 @@
       "download_route": "/hr/sops/STK-ERP-SOP-022/download",
       "document_version": "v1.0",
       "language": "am-ET",
-      "status": "APPROVED",
+      "status": "DRAFT_NOT_APPROVED",
       "summary": "Compensation፣ ወርሃዊ payroll፣ PAYE/pension፣ payslip እና ክፍያ",
       "download_filename": "STK_ERP_SOP_022_Compensation_payroll_PAYE_pension_payslip.docx"
     },
@@ -539,7 +539,7 @@
       "download_route": "/hr/sops/STK-ERP-SOP-023/download",
       "document_version": "v1.0",
       "language": "am-ET",
-      "status": "APPROVED",
+      "status": "DRAFT_NOT_APPROVED",
       "summary": "ሥራ መልቀቅ፣ የመጨረሻ ክፍያ እና የግለሰብ አገልግሎት ክፍያ",
       "download_filename": "STK_ERP_SOP_023.docx"
     },
@@ -560,7 +560,7 @@
       "download_route": "/hr/sops/STK-ERP-SOP-024/download",
       "document_version": "v1.0",
       "language": "am-ET",
-      "status": "APPROVED",
+      "status": "DRAFT_NOT_APPROVED",
       "summary": "የውሂብ ግላዊነት፣ የሰነድ ማከማቻ፣ audit እና ማቆያ ጊዜ",
       "download_filename": "STK_ERP_SOP_024_audit.docx"
     }
@@ -581,5 +581,6 @@
     "approved_by_role": "OWNER",
     "approved_on": "2026-11-17",
     "basis": "Owner approval of the shipped SOP set for live use; Owner may edit and re-version any SOP in the HR library."
-  }
+  },
+  "approval_note": "The 24 SOP documents are v1.0-DRAFT/not effective as recorded in the 29 October 2026 ERP-wide SOP Library decision. They may be downloaded for review, but must not be represented as approved or effective until each process owner and designated approver signs off. Payload SHA-256 verifies file integrity only."
 }

@@ -256,7 +256,7 @@ final class Stockland_REST_POS_Integrations extends Stockland_REST_Base {
 				'registered_by' => get_current_user_id(),
 				'registered_at' => current_time( 'mysql' ),
 				'posting_path' => 'IMPORT_VALIDATE_STAGE_RECONCILE_BRANCH_MANAGER_RELEASE',
-				'notes' => 'Files from this source are validated, staged and reconciled automatically. The Branch Manager release is the single final approval; a Branch Manager upload is that release. The source becomes CONNECTED after its first successful import.',
+				'notes' => 'Every file upload, including one performed by the Branch Manager, is staging only and never constitutes approval or posting. The assigned Branch Manager must separately review and invoke the explicit Daily POS release action. That release is the single final business approval; no additional Owner or Management approval follows. The source becomes CONNECTED only after its first successful released import.',
 			);
 		} catch ( Throwable $error ) {
 			return new WP_Error( 'pos_device_id_failed', 'A unique device registration ID could not be generated.', array( 'status' => 500 ) );
@@ -272,7 +272,7 @@ final class Stockland_REST_POS_Integrations extends Stockland_REST_Base {
 			array(
 				'device' => $this->public_device_record( $record ),
 				'status' => 'NOT_CONNECTED',
-				'message' => 'Source registered. Its files are validated, staged and reconciled automatically; the Branch Manager release is the only approval. The source turns CONNECTED after its first successful import.',
+				'message' => 'Source registered. Every upload is validated, staged and reconciled only; even a Branch Manager upload is not approval. The assigned Branch Manager must separately invoke the explicit Daily POS release action, which is the single final business approval. No additional Owner or Management approval follows.',
 			)
 		);
 	}
@@ -362,6 +362,7 @@ final class Stockland_REST_POS_Integrations extends Stockland_REST_Base {
 		if ( ! $audited ) {
 			$deleted = Stockland_DB::delete_record( $table, array( 'setting_key' => $key ), array( '%s' ) );
 			if ( false === $deleted ) {
+				// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Critical rollback failure must be recorded; this fixed message contains no user data or credentials.
 				error_log( 'Stockland POS integrations: audit failure and pending device rollback both failed.' );
 			}
 			return new WP_Error( 'pos_device_audit_failed', 'The immutable audit event could not be recorded. The device registration was rejected.', array( 'status' => 500 ) );
@@ -410,24 +411,144 @@ final class Stockland_REST_POS_Integrations extends Stockland_REST_Base {
 	}
 
 	/**
-	 * Mark a source CONNECTED after real data was received and posted.
+	 * Mark a registered POS source CONNECTED after its staged Daily POS job is fully POSTED.
 	 *
-	 * @param array $device Registered device record.
-	 * @param int   $job_id Posted import job.
-	 * @return void
+	 * @param string $source_system Source-system namespace stored on the released import job.
+	 * @param int    $branch_id     Branch that owns the released job.
+	 * @param int    $job_id        Fully posted Daily POS import job ID.
+	 * @return bool True when exactly one matching device record was updated and verified.
 	 */
-	public static function mark_synced( $device, $job_id ) {
+	public static function mark_synced_for_source( $source_system, $branch_id, $job_id ) {
+		global $wpdb;
+		$source_system = sanitize_text_field( (string) $source_system );
+		$branch_id     = (int) $branch_id;
+		$job_id        = (int) $job_id;
+		if ( ! preg_match( '/^POS_[a-f0-9]{16}$/', $source_system ) || $branch_id < 1 || $job_id < 1 ) {
+			return false;
+		}
+		$jobs_table = Stockland_DB::table( 'import_jobs' );
+		$wpdb->last_error = '';
+		$job = Stockland_DB::read_row(
+			$wpdb->prepare(
+				"SELECT id,import_type,status,branch_location_id,source_system,valid_rows,processed_rows,approved_by FROM %i WHERE id=%d LIMIT 1",
+				$jobs_table,
+				$job_id
+			),
+			ARRAY_A
+		);
+		$approved_by = (int) ( $job['approved_by'] ?? 0 );
+		$approved_locations = $approved_by > 0 ? array_map( 'intval', Stockland_Authority::location_ids( $approved_by ) ) : array();
+		if ( '' !== (string) $wpdb->last_error || ! is_array( $job )
+			|| 'DAILY_SALES' !== (string) ( $job['import_type'] ?? '' )
+			|| 'POSTED' !== (string) ( $job['status'] ?? '' )
+			|| (int) ( $job['branch_location_id'] ?? 0 ) !== $branch_id
+			|| (string) ( $job['source_system'] ?? '' ) !== $source_system
+			|| (int) ( $job['valid_rows'] ?? 0 ) < 1
+			|| (int) ( $job['processed_rows'] ?? 0 ) < (int) ( $job['valid_rows'] ?? 0 )
+			|| ! Stockland_Authority::can_daily_commit( $approved_by )
+			|| ! in_array( $branch_id, $approved_locations, true )
+		) {
+			return false;
+		}
+		$table = Stockland_DB::table( 'settings' );
+		if ( ! Stockland_DB::table_exists( $table ) ) {
+			return false;
+		}
+		$wpdb->last_error = '';
+		$rows = Stockland_DB::read_results(
+			$wpdb->prepare(
+				'SELECT setting_key,setting_value FROM %i WHERE setting_key LIKE %s',
+				$table,
+				$wpdb->esc_like( self::DEVICE_PREFIX ) . '%'
+			),
+			ARRAY_A
+		);
+		if ( '' !== (string) $wpdb->last_error || ! is_array( $rows ) ) {
+			return false;
+		}
+		$matches = array();
+		foreach ( $rows as $row ) {
+			$device = json_decode( (string) ( $row['setting_value'] ?? '' ), true );
+			if ( is_array( $device )
+				&& (string) ( $device['source_system'] ?? '' ) === $source_system
+				&& (int) ( $device['branch_location_id'] ?? 0 ) === $branch_id
+			) {
+				$matches[] = array( 'key' => (string) ( $row['setting_key'] ?? '' ), 'device' => $device );
+			}
+		}
+		if ( 1 !== count( $matches ) ) {
+			return false;
+		}
+		return self::mark_synced( $matches[0]['key'], $matches[0]['device'], $job_id, $approved_by );
+	}
+
+	/**
+	 * Persist and verify the CONNECTED state after a fully posted Daily POS job.
+	 *
+	 * @param string $key    Existing Core settings key for the registered device.
+	 * @param array  $device Registered device record.
+	 * @param int    $job_id Fully posted Daily POS import job ID.
+	 * @return bool True only when the stored connection metadata reads back exactly.
+	 */
+	private static function mark_synced( $key, $device, $job_id, $approved_by ) {
 		global $wpdb;
 		$table = Stockland_DB::table( 'settings' );
-		$key   = self::DEVICE_PREFIX . strtolower( (string) ( $device['device_id'] ?? '' ) );
+		if ( ! preg_match( '/^' . preg_quote( self::DEVICE_PREFIX, '/' ) . '[a-f0-9]{16}$/', (string) $key ) ) {
+			return false;
+		}
+		$wpdb->last_error = '';
+		$old_json = Stockland_DB::read_var( $wpdb->prepare( 'SELECT setting_value FROM %i WHERE setting_key=%s LIMIT 1', $table, $key ) );
+		if ( '' !== (string) $wpdb->last_error || ! is_string( $old_json ) || '' === $old_json || ! hash_equals( hash( 'sha256', (string) wp_json_encode( $device ) ), hash( 'sha256', (string) $old_json ) ) ) {
+			return false;
+		}
+		$old_device = json_decode( $old_json, true );
+		if ( ! is_array( $old_device ) || strtoupper( (string) ( $old_device['device_id'] ?? '' ) ) !== strtoupper( (string) ( $device['device_id'] ?? '' ) ) ) {
+			return false;
+		}
 		$device['connection_status'] = 'CONNECTED';
 		$device['adapter_state']     = 'ACTIVE';
 		$device['last_sync_at']      = current_time( 'mysql' );
 		$device['last_job_id']       = (int) $job_id;
+		$device['last_approved_by']  = (int) $approved_by;
 		$json = wp_json_encode( $device );
-		if ( is_string( $json ) ) {
-			Stockland_DB::update_record( $table, array( 'setting_value' => $json ), array( 'setting_key' => $key ) );
+		if ( ! is_string( $json ) || false === Stockland_DB::update_record( $table, array( 'setting_value' => $json ), array( 'setting_key' => $key ) ) ) {
+			return false;
 		}
+		$wpdb->last_error = '';
+		$stored = Stockland_DB::read_var( $wpdb->prepare( 'SELECT setting_value FROM %i WHERE setting_key=%s LIMIT 1', $table, $key ) );
+		$verified = is_string( $stored ) ? json_decode( $stored, true ) : null;
+		if ( '' !== (string) $wpdb->last_error || ! is_array( $verified )
+			|| 'CONNECTED' !== (string) ( $verified['connection_status'] ?? '' )
+			|| 'ACTIVE' !== (string) ( $verified['adapter_state'] ?? '' )
+			|| (int) ( $verified['last_job_id'] ?? 0 ) !== (int) $job_id
+			|| (int) ( $verified['last_approved_by'] ?? 0 ) !== (int) $approved_by
+			|| ! hash_equals( hash( 'sha256', $json ), hash( 'sha256', (string) $stored ) )
+		) {
+			Stockland_DB::update_record( $table, array( 'setting_value' => $old_json ), array( 'setting_key' => $key ) );
+			return false;
+		}
+		$old_pointer = 'CORE_SETTINGS:' . $key . ':sha256:' . hash( 'sha256', $old_json );
+		$new_pointer = 'CORE_SETTINGS:' . $key . ':sha256:' . hash( 'sha256', $json );
+		$audited = Stockland_Audit::log(
+			(int) $approved_by,
+			(int) ( $device['branch_location_id'] ?? 0 ),
+			'POS_DEVICE_CONNECTED',
+			null,
+			null,
+			$old_pointer,
+			$new_pointer,
+			'POS source marked CONNECTED only after the assigned Branch Manager posted all Daily POS rows.',
+			(string) ( $device['device_id'] ?? '' ),
+			(int) $approved_by
+		);
+		if ( ! $audited ) {
+			if ( false === Stockland_DB::update_record( $table, array( 'setting_value' => $old_json ), array( 'setting_key' => $key ) ) ) {
+				// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Critical rollback failure must be recorded; this fixed message contains no user data or credentials.
+				error_log( 'Stockland POS integrations: connection audit failed and metadata rollback also failed.' );
+			}
+			return false;
+		}
+		return true;
 	}
 
 	/**
@@ -454,6 +575,10 @@ final class Stockland_REST_POS_Integrations extends Stockland_REST_Base {
 			'registered_by' => (int) ( $device['registered_by'] ?? 0 ),
 			'registered_at' => (string) ( $device['registered_at'] ?? '' ),
 			'posting_path' => (string) ( $device['posting_path'] ?? 'IMPORT_VALIDATE_STAGE_RECONCILE_BRANCH_MANAGER_RELEASE' ),
+			'upload_is_approval' => false,
+			'release_action' => 'EXPLICIT_DAILY_POS_COMMIT',
+			'release_route' => '/stockland/v16/import/daily-sales/commit',
+			'release_authority' => 'ASSIGNED_BRANCH_MANAGER_ONLY',
 		);
 	}
 }

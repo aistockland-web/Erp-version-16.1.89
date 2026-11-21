@@ -17,7 +17,20 @@ $rules = array(
 		array( 'up_to' => '5000.00', 'rate' => '0.10', 'credit' => '100.00' ),
 		array( 'up_to' => null, 'rate' => '0.20', 'credit' => '600.00' ),
 	),
-	'qualified_legal_review' => array( 'decision' => 'APPROVED', 'independence_confirmed' => true, 'reviewer_name' => 'Synthetic Reviewer', 'reviewer_id' => 'SYNTH-REVIEWER-0001', 'professional_basis' => 'synthetic test vector', 'review_date' => '2026-01-01', 'opinion_reference' => 'SYNTH-0001', 'opinion_sha256' => str_repeat( 'b', 64 ), 'clauses_reviewed' => array( 'synthetic' ), 'approved_parameters' => array( 'paye_bands', 'paye_tax_base_method', 'pensionable_base_method', 'employee_pension_rate', 'employer_pension_rate', 'component_treatments', 'rounding_method' ) ),
+	'qualified_legal_review' => array(
+		'basis' => 'INDEPENDENT_PROFESSIONAL_OPINION',
+		'opinion_document_id' => 1,
+		'decision' => 'APPROVED',
+		'independence_confirmed' => true,
+		'reviewer_name' => 'Synthetic Reviewer — TEST ONLY',
+		'reviewer_id' => 'SYNTH-REVIEWER-0001',
+		'professional_basis' => 'Synthetic test fixture only; not a real credential or legal opinion',
+		'review_date' => '2026-01-01',
+		'opinion_reference' => 'SYNTH-0001',
+		'opinion_sha256' => str_repeat( 'b', 64 ),
+		'clauses_reviewed' => array( 'synthetic test clause — not law' ),
+		'approved_parameters' => array( 'paye_bands', 'monthly_tax_bands', 'tax_base_method', 'paye_tax_base_method', 'pensionable_base_method', 'employee_pension_rate', 'employer_pension_rate', 'component_treatments', 'rounding_method' ),
+	),
 );
 // Independent exact oracle: decimal strings and integer minor units only (no plugin money helpers or floats).
 $to_minor = static function ( $value ) {
@@ -88,6 +101,8 @@ $expect_refusal( 'refuses without any rule set', static fn( $r ) => null );
 $expect_refusal( 'refuses a DRAFT rule set', static function ( $r ) { $r['status'] = 'DRAFT'; return $r; } );
 $expect_refusal( 'refuses missing source hash', static function ( $r ) { $r['source_sha256'] = ''; return $r; } );
 $expect_refusal( 'refuses missing legal review', static function ( $r ) { unset( $r['qualified_legal_review'] ); return $r; } );
+$expect_refusal( 'refuses an Owner declaration in place of independent review', static function ( $r ) { $r['qualified_legal_review']['basis'] = 'OWNER_DECLARATION'; return $r; } );
+$expect_refusal( 'refuses a review without an explicit independent-opinion basis', static function ( $r ) { unset( $r['qualified_legal_review']['basis'] ); return $r; } );
 $expect_refusal( 'refuses review without independence', static function ( $r ) { $r['qualified_legal_review']['independence_confirmed'] = false; return $r; } );
 $expect_refusal( 'refuses a pension rate above 100%', static function ( $r ) { $r['employee_pension_rate'] = '1.5'; return $r; } );
 $expect_refusal( 'refuses unsupported tax base method', static function ( $r ) { $r['tax_base_method'] = 'GUESS'; return $r; } );

@@ -23,6 +23,35 @@ QA_PASS="${WP_PASS:-$(openssl rand -hex 18)}"
 $WP db reset --yes >/dev/null
 $WP core install --url="${WP_URL:-http://localhost}" --title=Upgrade-QA --admin_user=admin --admin_password="$QA_PASS" --admin_email=qa@example.com --skip-email >/dev/null
 unset QA_PASS
+
+# MySQL 8 cannot create the historical 16.2.13 DDL literally because that DDL
+# declares variant_id NULL while also including it in a PRIMARY KEY. An existing
+# MySQL table cannot have a nullable PRIMARY KEY member: MySQL materializes that
+# member as NOT NULL. The upgrade test must start from that valid *existing-table*
+# state, not from an impossible fresh CREATE. Seed only this legacy read-model
+# table on disposable MySQL 8; keep the pinned 16.2.13 ZIP byte-for-byte unchanged.
+DB_VERSION="$($WP db query 'SELECT VERSION()' --skip-column-names | tr -d '\r')"
+if [[ "$DB_VERSION" == 8.0.* ]]; then
+  PREFIX="$($WP config get table_prefix)"
+  [[ "$PREFIX" =~ ^[A-Za-z0-9_]+$ ]] || { echo "Refusing unexpected WordPress table prefix: $PREFIX"; exit 1; }
+
+  $WP db query "CREATE TABLE IF NOT EXISTS ${PREFIX}stock_balances (
+      location_id BIGINT UNSIGNED NOT NULL,
+      sku VARCHAR(64) NOT NULL,
+      variant_id BIGINT UNSIGNED NOT NULL,
+      physical_qty DECIMAL(14,2) NOT NULL DEFAULT 0,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (location_id,variant_id),
+      KEY sku (sku),
+      KEY location_sku (location_id,sku)
+    ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci;"
+
+  VARIANT_NULLABLE="$($WP db query "SELECT IS_NULLABLE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='${PREFIX}stock_balances' AND COLUMN_NAME='variant_id'" --skip-column-names | tr -d '\r')"
+  PRIMARY_KEY_COLUMNS="$($WP db query "SELECT GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX SEPARATOR ',') FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='${PREFIX}stock_balances' AND INDEX_NAME='PRIMARY'" --skip-column-names | tr -d '\r')"
+  [[ "$VARIANT_NULLABLE" == "NO" ]] || { echo "MySQL legacy fixture variant_id must be NOT NULL; got '$VARIANT_NULLABLE'"; exit 1; }
+  [[ "$PRIMARY_KEY_COLUMNS" == "location_id,variant_id" ]] || { echo "MySQL legacy fixture primary key mismatch: '$PRIMARY_KEY_COLUMNS'"; exit 1; }
+  echo "PASS MySQL 8 legacy stock_balances fixture has the valid physical PRIMARY KEY semantics"
+fi
 rm -rf "$WPPATH/wp-content/plugins/stockland-erp-app"
 $WP --user=admin plugin install "$BASE" --activate >/dev/null
 echo "== 1 wizard (baseline)"; $WP eval-file "$HERE/setup_wizard_drive.php"

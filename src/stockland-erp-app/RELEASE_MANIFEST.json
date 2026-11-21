@@ -25,7 +25,7 @@
     },
     "source_patch_sha256": "8c13190bb838a39b2d74f69a372d44c73d1f560616642ce1a36ecf27d7edcdde",
     "fresh_install_ddl_patch_sha256": "104b9b28bb20105dc282b11c17982633c5ff5b8e1d34a299f1adc29bec608fbc",
-    "canonical_source_commit": "c3fa5c5b3c2283ccdd2bfb574776446714d980c9",
+    "canonical_source_commit": "8ec36be63e387353becdf3ae4282885e559f43b0",
     "github_release_id": null,
     "provenance_note": "The canonical editable source is maintained in the repository. canonical_source_commit records the exact Git checkout used for this build (the pull-request merge commit in PR verification). The one-pack installer is deterministically generated from that checkout; CI records the workflow run, artifact ID and independently verifiable SHA-256. A GitHub Release/tag is not claimed unless a release ID is separately recorded."
   },
@@ -38,14 +38,16 @@
   },
   "security": {
     "compensation_approval": "explicit independent actor and timestamp required",
-    "statutory_defaults": "none; approved effective-dated rule bundle required",
+    "statutory_defaults": "none; no current Ethiopian PAYE/pension/allowance statutory rule is preloaded; payroll remains blocked until an effective-dated rule is supported by the exact encrypted independent legal-opinion attachment, Owner ratification and acceptance tests",
     "private_hr_vault": "versioned AES-256-GCM keyring; site-managed secret; live host configuration not tested",
-    "synthetic_payroll_runtime": "removed"
+    "synthetic_payroll_runtime": "removed",
+    "legal_opinion_evidence": "encrypted private-vault PDF/DOCX; exact RULE_SET/LEGAL_OPINION document row, SHA-256, status and Owner verification are required; no signed independent opinion is included in source or test fixtures"
   },
   "sop_resources": {
     "count": 24,
     "payload_integrity": "PASS",
-    "approval_status": "APPROVED"
+    "approval_status": "DRAFT_NOT_APPROVED",
+    "approval_note": "24-document payload integrity was verified, but the HR Resource Pack Acceptance Register (26 Oct 2026) records the materials as drafts pending Owner, process-owner and professional review. File integrity is not business-policy or legal approval."
   },
   "file_inventory": {
     "count": 127,
@@ -88,8 +90,8 @@
       },
       {
         "path": "assets/app.css",
-        "bytes": 260983,
-        "sha256": "73b3251932108aebbfa2907426c80b13a9b57962fe26c0880fbdd6cff3064fd3"
+        "bytes": 260998,
+        "sha256": "5449d4d7d506d5e47f25ab5dcdfeb5f464b4b8866b42e42b3ff922b705bfeebc"
       },
       {
         "path": "assets/app.js",
@@ -98,8 +100,8 @@
       },
       {
         "path": "assets/app.min.css",
-        "bytes": 248893,
-        "sha256": "9cc79e34e0bce78a438fda0c621300634543136f1f5dd87c95f55aafe64e1085"
+        "bytes": 248904,
+        "sha256": "06207fb97045a89f643ceec68795a6000b50cefd7b40ef0b1e648a344a176c6f"
       },
       {
         "path": "assets/bootstrap.min.css",
@@ -138,8 +140,8 @@
       },
       {
         "path": "assets/css/07-dashboard-operations.css",
-        "bytes": 28903,
-        "sha256": "eb26f89cd75e56e295a3bc3b6deefc174263ce8ddb195aad2d62aee4ca5b4cac"
+        "bytes": 28918,
+        "sha256": "bf6d9b0bf74c371e843fc37565989c585b6f7dea1c613e6c7be5624577735fbf"
       },
       {
         "path": "assets/css/08-reporting-worksheet.css",
@@ -293,8 +295,8 @@
       },
       {
         "path": "includes/class-stockland-frontend.php",
-        "bytes": 35288,
-        "sha256": "f30b6965225122502752f1f6a30de4ce2b84110e252d26ebfe80f1daf755292a"
+        "bytes": 36232,
+        "sha256": "745f343752ab8a5cdfaad57e71baec19afcf34612c0ed77b31fff8248c4af3bc"
       },
       {
         "path": "includes/class-stockland-hr-document-text.php",
@@ -691,7 +693,7 @@
   "installation_repair": {
     "version": "16.2.16",
     "fixes": [
-      "One-click WordPress System Control runner for sequential Core \u2192 Finance \u2192 HR setup",
+      "One-click WordPress System Control runner for sequential Core → Finance → HR setup",
       "Protected HR/Payroll continuation in System Control",
       "Bounded 160-step setup browser runner",
       "HR structural-gap progress detection",

@@ -1339,13 +1339,8 @@ class Stockland_REST_Import_V16 {
 			if ( false === Stockland_DB::execute_query( 'COMMIT' ) ) {
 				throw new Exception( 'Daily Sales preview commit failed.' );
 			}
-			// Upload never counts as approval: the Branch Manager releases the reconciled import explicitly.
-			if ( $registered_device ) {
-				Stockland_REST_POS_Integrations::mark_synced( $registered_device, $job_id );
-			}
-			if ( $registered_device ) {
-				Stockland_REST_POS_Integrations::mark_synced( $registered_device, $job_id );
-			}
+			// Upload never counts as approval and must not mark the device CONNECTED.
+			// The source is marked CONNECTED only after a separate Branch Manager release reaches POSTED.
 			return rest_ensure_response(
 				array(
 					'job_id'         => $job_id,
@@ -1503,13 +1498,17 @@ class Stockland_REST_Import_V16 {
 			if ( ! $verify || 'POSTED' !== $verify['status'] ) {
 				return new WP_Error( 'daily_import_state_unverified', 'Import completion could not be verified after commit.', array( 'status' => 409 ) );
 			}
+			$source_sync_ok = true;
+			if ( preg_match( '/^POS_[a-f0-9]{16}$/', (string) ( $job['source_system'] ?? '' ) ) ) {
+				$source_sync_ok = Stockland_REST_POS_Integrations::mark_synced_for_source( (string) $job['source_system'], (int) $job['branch_location_id'], $id );
+			}
 			return rest_ensure_response(
 				array(
 					'job_id'         => $id,
 					'status'         => 'POSTED',
 					'processed_rows' => (int) $verify['processed_rows'],
 					'remaining'      => max( 0, (int) $verify['valid_rows'] - (int) $verify['processed_rows'] ),
-					'message'        => 'Daily sales import completed.',
+					'message'        => $source_sync_ok ? 'Daily sales import completed.' : 'Daily sales import completed, but the registered POS device status could not be synchronized. Check the device registry; no additional approval is required.',
 				)
 			);
 		}
@@ -1831,13 +1830,17 @@ class Stockland_REST_Import_V16 {
 			if ( ! $verify || (string) $verify['status'] !== $status || (int) $verify['processed_rows'] !== $new_processed ) {
 				return new WP_Error( 'daily_import_state_unverified', 'Import committed but its final state could not be verified.', array( 'status' => 409 ) );
 			}
+			$source_sync_ok = true;
+			if ( 'POSTED' === $status && preg_match( '/^POS_[a-f0-9]{16}$/', (string) ( $job['source_system'] ?? '' ) ) ) {
+				$source_sync_ok = Stockland_REST_POS_Integrations::mark_synced_for_source( (string) $job['source_system'], (int) $job['branch_location_id'], $id );
+			}
 			return rest_ensure_response(
 				array(
 					'job_id'         => $id,
 					'status'         => $status,
 					'processed_rows' => $new_processed,
 					'remaining'      => max( 0, (int) $verify['valid_rows'] - (int) $verify['processed_rows'] ),
-					'message'        => 'POSTED' === $status ? 'Daily sales import posted to inventory and ledger.' : 'Chunk committed. Press Continue to post the next chunk.',
+					'message'        => 'POSTED' === $status ? ( $source_sync_ok ? 'Daily sales import posted to inventory and ledger.' : 'Daily sales import posted to inventory and ledger, but the registered POS device status could not be synchronized. Check the device registry.' ) : 'Chunk committed. Press Continue to post the next chunk.',
 				)
 			);
 		} catch ( Throwable $e ) {

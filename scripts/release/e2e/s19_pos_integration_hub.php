@@ -92,9 +92,49 @@ list( $branch_status, $branch_data ) = $branch_registration;
 $branch_device = is_array( $branch_data ) ? ( $branch_data['device'] ?? array() ) : array();
 $branch_device_id = (string) ( $branch_device['device_id'] ?? '' );
 $branch_source_id = (string) ( $branch_device['source_system'] ?? '' );
+$registration_json = '' !== $branch_device_id ? Stockland_DB::get_setting( 'pos_int_device_' . strtolower( $branch_device_id ) ) : null;
+$registration_audit_pointer = is_string( $registration_json ) ? 'CORE_SETTINGS:pos_int_device_' . strtolower( $branch_device_id ) . ':sha256:' . hash( 'sha256', $registration_json ) : '';
 $check( 'Branch Manager registers a device for an assigned branch', 200 === $branch_status && preg_match( '/^[A-F0-9]{16}$/', $branch_device_id ), 'HTTP ' . $branch_status . ' :: ' . wp_json_encode( $branch_data ) );
 $check( 'registration remains NOT_CONNECTED with no configured credentials', 'NOT_CONNECTED' === ( $branch_device['connection_status'] ?? '' ) && 'NOT_CONFIGURED' === ( $branch_device['credential_status'] ?? '' ) );
+$sync_table = Stockland_DB::table( 'import_jobs' );
+$sync_key = hash( 'sha256', 'POS-HUB-POSTED-SYNTHETIC|' . $branch_device_id );
+$sync_job_inserted = Stockland_DB::insert_record( $sync_table, array(
+	'import_key' => $sync_key,
+	'import_type' => 'DAILY_SALES',
+	'branch_location_id' => $branch_id,
+	'business_date' => '2026-11-20',
+	'source_filename' => 'synthetic-posted-pos.csv',
+	'source_sha256' => hash( 'sha256', 'synthetic posted POS fixture ' . $branch_device_id ),
+	'source_system' => $branch_source_id,
+	'mapping_signature' => hash( 'sha256', 'synthetic mapping signature' ),
+	'status' => 'READY',
+	'total_rows' => 1,
+	'valid_rows' => 1,
+	'error_rows' => 0,
+	'processed_rows' => 0,
+	'created_by' => $branch_manager_id,
+	'approved_by' => null,
+) );
+$sync_job_id = false === $sync_job_inserted ? 0 : (int) $wpdb->insert_id;
+$check( 'synthetic uploaded Daily POS job begins READY with no approval or posting', $sync_job_id > 0, (string) $wpdb->last_error );
+$premature_sync = Stockland_REST_POS_Integrations::mark_synced_for_source( $branch_source_id, $branch_id, $sync_job_id );
+$still_pending_record = json_decode( (string) Stockland_DB::get_setting( 'pos_int_device_' . strtolower( $branch_device_id ) ), true );
+$check( 'a Branch Manager upload alone cannot connect or approve the POS source', false === $premature_sync && 'NOT_CONNECTED' === ( $still_pending_record['connection_status'] ?? '' ) );
+$management_release = Stockland_DB::update_record( $sync_table, array( 'status' => 'POSTED', 'processed_rows' => 1, 'approved_by' => $management_id ), array( 'id' => $sync_job_id ) );
+$check( 'Management approval does not satisfy the sole Branch Manager POS release authority', false !== $management_release && false === Stockland_REST_POS_Integrations::mark_synced_for_source( $branch_source_id, $branch_id, $sync_job_id ) );
+$still_pending_record = json_decode( (string) Stockland_DB::get_setting( 'pos_int_device_' . strtolower( $branch_device_id ) ), true );
+$check( 'source stays NOT_CONNECTED when the recorded approver is not a Branch Manager', 'NOT_CONNECTED' === ( $still_pending_record['connection_status'] ?? '' ) );
+$bm_release = Stockland_DB::update_record( $sync_table, array( 'approved_by' => $branch_manager_id ), array( 'id' => $sync_job_id ) );
+$check( 'the uploading Branch Manager can perform a separate explicit release action', false !== $bm_release && (int) $branch_manager_id === (int) Stockland_DB::read_var( $wpdb->prepare( 'SELECT approved_by FROM %i WHERE id=%d', $sync_table, $sync_job_id ) ) );
+$wrong_branch_sync = Stockland_REST_POS_Integrations::mark_synced_for_source( $branch_source_id, $other_branch_id, $sync_job_id );
+$check( 'a POSTED job cannot connect a device from another branch', false === $wrong_branch_sync );
+$released_sync = Stockland_REST_POS_Integrations::mark_synced_for_source( $branch_source_id, $branch_id, $sync_job_id );
+$connected_record = json_decode( (string) Stockland_DB::get_setting( 'pos_int_device_' . strtolower( $branch_device_id ) ), true );
+$check( 'a matching POSTED Branch Manager release connects the registered source', true === $released_sync && 'CONNECTED' === ( $connected_record['connection_status'] ?? '' ) && (int) ( $connected_record['last_job_id'] ?? 0 ) === $sync_job_id && (int) ( $connected_record['last_approved_by'] ?? 0 ) === $branch_manager_id );
 $check( 'registered source follows import, validation, staging, reconciliation and Branch Manager release', 'IMPORT_VALIDATE_STAGE_RECONCILE_BRANCH_MANAGER_RELEASE' === ( $branch_device['posting_path'] ?? '' ), wp_json_encode( $branch_device ) );
+$check( 'POS device contract explicitly says every upload is not approval', false === ( $branch_device['upload_is_approval'] ?? null ), wp_json_encode( $branch_device ) );
+$check( 'POS device contract requires a separate explicit release action', 'EXPLICIT_DAILY_POS_COMMIT' === ( $branch_device['release_action'] ?? '' ) && '/stockland/v16/import/daily-sales/commit' === ( $branch_device['release_route'] ?? '' ), wp_json_encode( $branch_device ) );
+$check( 'POS device final approval authority is the assigned Branch Manager only', 'ASSIGNED_BRANCH_MANAGER_ONLY' === ( $branch_device['release_authority'] ?? '' ), wp_json_encode( $branch_device ) );
 $check( 'device is assigned its own unique POS source-system namespace', (bool) preg_match( '/^POS_[a-f0-9]{16}$/', $branch_source_id ) );
 
 $branch_list = call( 'GET', '/pos-integrations/devices', array(), $branch_manager_id );
@@ -269,13 +309,18 @@ $check( 'registered device cannot be used by another branch import', is_wp_error
 
 $stored_json = '' !== $branch_device_id ? Stockland_DB::get_setting( 'pos_int_device_' . strtolower( $branch_device_id ) ) : null;
 $stored_record = is_string( $stored_json ) ? json_decode( $stored_json, true ) : null;
-$audit_pointer = 'CORE_SETTINGS:pos_int_device_' . strtolower( $branch_device_id ) . ':sha256:' . hash( 'sha256', (string) $stored_json );
+$current_audit_pointer = is_string( $stored_json ) ? 'CORE_SETTINGS:pos_int_device_' . strtolower( $branch_device_id ) . ':sha256:' . hash( 'sha256', $stored_json ) : '';
 $audit_row = '' !== $branch_device_id ? Stockland_DB::read_row(
-	$wpdb->prepare( 'SELECT new_value,branch_location_id FROM %i WHERE action=%s AND reference=%s ORDER BY id DESC LIMIT 1', $audit_table, 'POS_DEVICE_REGISTER', $branch_device_id ),
+	$wpdb->prepare( 'SELECT new_value,branch_location_id FROM %i WHERE action=%s AND reference=%s ORDER BY id ASC LIMIT 1', $audit_table, 'POS_DEVICE_REGISTER', $branch_device_id ),
+	ARRAY_A
+) : null;
+$connection_audit = '' !== $branch_device_id ? Stockland_DB::read_row(
+	$wpdb->prepare( 'SELECT old_value,new_value,branch_location_id,approver_id FROM %i WHERE action=%s AND reference=%s ORDER BY id DESC LIMIT 1', $audit_table, 'POS_DEVICE_CONNECTED', $branch_device_id ),
 	ARRAY_A
 ) : null;
 $check( 'device record persists in existing Core settings storage', is_array( $stored_record ) && $branch_device_id === ( $stored_record['device_id'] ?? '' ) );
-$check( 'device registration has a matching immutable audit pointer', is_array( $audit_row ) && $audit_pointer === (string) $audit_row['new_value'] && (int) $audit_row['branch_location_id'] === $branch_id );
+$check( 'device registration has a matching immutable audit pointer for the original record', is_array( $audit_row ) && $registration_audit_pointer !== '' && $registration_audit_pointer === (string) $audit_row['new_value'] && (int) $audit_row['branch_location_id'] === $branch_id );
+$check( 'device CONNECTED transition has an immutable old/new hash event', is_array( $connection_audit ) && false !== strpos( (string) $connection_audit['old_value'], ':sha256:' ) && $current_audit_pointer === (string) $connection_audit['new_value'] && (int) $connection_audit['branch_location_id'] === $branch_id && (int) $connection_audit['approver_id'] === $branch_manager_id );
 $check( 'no raw API key or password is stored in device metadata', is_array( $stored_record ) && ! isset( $stored_record['api_key'], $stored_record['password'], $stored_record['secret'], $stored_record['access_token'] ) );
 
 if ( ! empty( $shared_external_code ) ) {
