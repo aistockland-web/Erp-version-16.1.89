@@ -22,3 +22,7 @@
 .codex/log/
 .codex/tmp/
 artifacts/codex/
+
+# Python interpreter and test-runner caches; source files remain tracked.
+__pycache__/
+*.py[cod]
