@@ -93,7 +93,40 @@ def main():
         run(table(complete=False), table(complete=False)),
         False,
     )
-    print("RESULT PASS (6 cases)")
+
+    # MySQL 8 INFORMATION_SCHEMA results may carry uppercase field labels,
+    # while MariaDB may return lowercase labels. Both must compare equally.
+    mysql_metadata = table(
+        columns=[
+            {"COLUMN_NAME": "id", "COLUMN_TYPE": "bigint", "IS_NULLABLE": "NO", "COLUMN_DEFAULT": None, "EXTRA": "auto_increment", "CHARACTER_SET_NAME": None, "COLLATION_NAME": None},
+            {"COLUMN_NAME": "status", "COLUMN_TYPE": "varchar(20)", "IS_NULLABLE": "NO", "COLUMN_DEFAULT": "DRAFT", "EXTRA": "", "CHARACTER_SET_NAME": "utf8mb4", "COLLATION_NAME": "utf8mb4_unicode_ci"},
+        ],
+        indexes=[
+            {"INDEX_NAME": "PRIMARY", "NON_UNIQUE": 0, "INDEX_TYPE": "BTREE", "cols": "id::A"},
+            {"INDEX_NAME": "status", "NON_UNIQUE": 1, "INDEX_TYPE": "BTREE", "cols": "status::A"},
+        ],
+        foreign_keys=[
+            {"CONSTRAINT_NAME": "fk_status", "COLUMN_NAME": "status", "REFERENCED_TABLE_NAME": "stock_statuses", "REFERENCED_COLUMN_NAME": "code", "ORDINAL_POSITION": 1}
+        ],
+    )
+    expect(
+        "MySQL uppercase INFORMATION_SCHEMA labels compare with lowercase MariaDB labels",
+        run(table(
+            columns=[
+                {"column_name": "id", "column_type": "bigint", "is_nullable": "NO", "column_default": None, "extra": "auto_increment", "character_set_name": None, "collation_name": None},
+                {"column_name": "status", "column_type": "varchar(20)", "is_nullable": "NO", "column_default": "DRAFT", "extra": "", "character_set_name": "utf8mb4", "collation_name": "utf8mb4_unicode_ci"},
+            ],
+            indexes=[
+                {"index_name": "PRIMARY", "non_unique": 0, "index_type": "BTREE", "cols": "id::A"},
+                {"index_name": "status", "non_unique": 1, "index_type": "BTREE", "cols": "status::A"},
+            ],
+            foreign_keys=[
+                {"constraint_name": "fk_status", "column_name": "status", "referenced_table_name": "stock_statuses", "referenced_column_name": "code", "ordinal_position": 1}
+            ],
+        ), mysql_metadata),
+        True,
+    )
+    print("RESULT PASS (7 cases)")
 
 
 if __name__ == "__main__":
