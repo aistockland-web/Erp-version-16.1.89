@@ -33,10 +33,11 @@ $warehouse_id = (int) Stockland_DB::get_location_id( 'Central Warehouse' );
 $warehouse_employee_id = mkuser( 'whstaff', 'subscriber', 'warehouse_employee', $warehouse_id );
 Stockland_Roles::sync_roles();
 $warehouse_employee = get_userdata( $warehouse_employee_id );
-if ( ! $warehouse_employee || ! $warehouse_employee->set_role( Stockland_Roles::ROLE_WAREHOUSE_EMPLOYEE ) ) {
-	fwrite( STDERR, "Could not assign the disposable Warehouse Employee WordPress role." . PHP_EOL );
+if ( ! $warehouse_employee ) {
+	fwrite( STDERR, "Could not load the disposable Warehouse Employee WordPress account." . PHP_EOL );
 	exit( 1 );
 }
+$warehouse_employee->set_role( Stockland_Roles::ROLE_WAREHOUSE_EMPLOYEE );
 if ( ! user_can( $warehouse_employee_id, 'stockland_view_warehouse' ) || ! user_can( $warehouse_employee_id, 'stockland_manage_transfers' ) ) {
 	fwrite( STDERR, "Disposable Warehouse Employee is missing the required Warehouse UI capabilities." . PHP_EOL );
 	exit( 1 );
