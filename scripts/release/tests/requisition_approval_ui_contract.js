@@ -41,6 +41,8 @@ assert(requisitions.includes("'/requisitions/(?P<id>[A-Za-z0-9\\-]+)/decision'")
 assert(requisitions.includes("'/requisitions/(?P<id>[A-Za-z0-9\\-]+)/warehouse-action'"), 'Warehouse action route is not registered.');
 assert(requisitions.includes("'/requisitions/(?P<id>[A-Za-z0-9\\-]+)/receive'"), 'Branch receiving route is not registered.');
 assert(requisitions.includes("'approval_mode'           => 'ONE_OF'"), 'Requisition approval policy must remain a single Owner-or-Management decision.');
+assert(requisitions.includes('private function detail_response( $id )') && requisitions.includes("$detail_request->set_param( 'id', (string) $id );"), 'Post-action detail helper must bind the ID explicitly before calling the detail controller.');
+assert(!requisitions.includes("new WP_REST_Request( 'GET', '/stockland/v16/requisitions/' . $id )"), 'Workflow actions must not call detail with an unbound synthetic REST route parameter.');
 assert(requisitions.includes('Stockland_Authority::can_review_requisition()') && requisitions.includes('Stockland_Authority::can_approve_requisition( $stage )'), 'Server-side review and approval authority must be rechecked.');
 assert(requisitions.includes("'SELECT r.*,l.location_name FROM %i r JOIN %i l ON l.id=r.branch_location_id WHERE r.requisition_id=%s FOR UPDATE'"), 'Approval transaction must lock the live requisition row.');
 assert(authority.includes('return self::role( $user_id ) === self::BRANCH_MANAGER;'), 'Branch Manager review must remain role-bound.');
@@ -49,7 +51,9 @@ assert(authority.includes('return self::role( $user_id ) === self::BRANCH_MANAGE
 
 assert(importer.includes("'/import/daily-sales/preview'") && importer.includes("'/import/daily-sales/commit'"), 'Daily POS preview and release routes must exist.');
 assert(importer.includes("'callback'            => array( $this, 'daily_preview' )") && importer.includes("'callback'            => array( $this, 'daily_commit' )"), 'Daily POS routes must invoke the production importer callbacks.');
-assert(importer.includes('Upload never counts as approval') && importer.includes('Only a Branch Manager may release it.'), 'Daily POS upload must not count as release approval.');
+assert(importer.includes('Only an assigned Sales Employee or Branch Manager may upload and stage branch Daily POS CSV/Excel data; only a Branch Manager may release it.'), 'Daily POS upload authority must include assigned Sales Employees and Branch Managers while keeping final release Branch Manager-only.');
+assert(importer.includes('Only an assigned Branch Manager may post the branch daily POS import.'), 'Daily POS posting capability must be restricted to an assigned Branch Manager.');
+assert(importer.includes("'permission_callback' => array( $this, 'capability_daily' )") && importer.includes("'permission_callback' => array( $this, 'capability_daily_commit' )"), 'Daily POS preview and release routes must enforce their separate permission callbacks.');
 assert(approvalE2E.includes("'/requisitions/' . rawurlencode( $requisition_id ) . '/decision'") && approvalE2E.includes("'/requisitions/' . rawurlencode( $requisition_id ) . '/receive'"), 'Synthetic approval E2E must call the actual REST workflow routes.');
 assert(posE2E.includes("'/import/daily-sales/preview'") && posE2E.includes("'/import/daily-sales/commit'"), 'Real multipart POS E2E must call the actual preview and Branch Manager commit routes.');
 assert(posE2E.includes('new CURLFile(') && posE2E.includes('wp_create_application_password'), 'POS E2E must use a genuine HTTP multipart upload and short-lived synthetic REST credentials.');
