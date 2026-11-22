@@ -25,7 +25,7 @@
     },
     "source_patch_sha256": "8c13190bb838a39b2d74f69a372d44c73d1f560616642ce1a36ecf27d7edcdde",
     "fresh_install_ddl_patch_sha256": "104b9b28bb20105dc282b11c17982633c5ff5b8e1d34a299f1adc29bec608fbc",
-    "canonical_source_commit": "8ec36be63e387353becdf3ae4282885e559f43b0",
+    "canonical_source_commit": "4fb3f886d00180b475c4c8f20cb05a78248825f7",
     "github_release_id": null,
     "provenance_note": "The canonical editable source is maintained in the repository. canonical_source_commit records the exact Git checkout used for this build (the pull-request merge commit in PR verification). The one-pack installer is deterministically generated from that checkout; CI records the workflow run, artifact ID and independently verifiable SHA-256. A GitHub Release/tag is not claimed unless a release ID is separately recorded."
   },
@@ -95,13 +95,13 @@
       },
       {
         "path": "assets/app.js",
-        "bytes": 600302,
-        "sha256": "88429f9405fa73a61021c2b21e132a405325fc58a64435059605ff154d7651f4"
+        "bytes": 602616,
+        "sha256": "ee6f11411d088cd95561d07d799cda502d5d814761aa8e9e50d100d74dde0337"
       },
       {
         "path": "assets/app.min.css",
-        "bytes": 248904,
-        "sha256": "06207fb97045a89f643ceec68795a6000b50cefd7b40ef0b1e648a344a176c6f"
+        "bytes": 248906,
+        "sha256": "a265ea570372c60596c795f6cd0590ac9d79ab5eb7f225b67399518782430d62"
       },
       {
         "path": "assets/bootstrap.min.css",
@@ -270,8 +270,8 @@
       },
       {
         "path": "includes/class-stockland-authority.php",
-        "bytes": 26148,
-        "sha256": "dde16c2009f9f6508dc881d6b4f4aaa42269acb4da2280407f3caab0a984c5e9"
+        "bytes": 26282,
+        "sha256": "3d544917ed8a0f417877003583be60f8edb2b7f52c5d292a52ccd8cbb13b2f0d"
       },
       {
         "path": "includes/class-stockland-business-calendar.php",
@@ -305,8 +305,8 @@
       },
       {
         "path": "includes/class-stockland-hr-lifecycle.php",
-        "bytes": 51564,
-        "sha256": "755420d3b69197c4577d3515eb442d4d2bc70b6b87f0fbc073124c0d0c341aed"
+        "bytes": 54968,
+        "sha256": "12e4638605ac71e1e49d208259c942253696c5a14a48a8aa574aae0507084c88"
       },
       {
         "path": "includes/class-stockland-hr-payroll-calculator.php",
@@ -315,8 +315,8 @@
       },
       {
         "path": "includes/class-stockland-hr-private-vault.php",
-        "bytes": 29558,
-        "sha256": "ceb3bfe422cdcec87ff7a739f40164b07270722b539209c4784805ab0a2966ea"
+        "bytes": 29580,
+        "sha256": "0e8a68709aa3dc8d2b6f7ac7fbf51e0df232d3c79ab451b2dad5fb2cc14a0896"
       },
       {
         "path": "includes/class-stockland-hr.php",
@@ -350,8 +350,8 @@
       },
       {
         "path": "includes/class-stockland-payroll-release-rules.php",
-        "bytes": 5625,
-        "sha256": "7e8414c137c49cf7e0a2674af4332f83161f466c0b1e8fe0aeda75425cdc89c7"
+        "bytes": 983,
+        "sha256": "61477c9740b13732a9b43e8e156337131d1569b1fa949ef250abaa93d679f7ad"
       },
       {
         "path": "includes/class-stockland-payroll-statutory.php",
@@ -365,8 +365,8 @@
       },
       {
         "path": "includes/class-stockland-release-authorization.php",
-        "bytes": 5397,
-        "sha256": "c4843985c4dcd0f312f5a6e3ae5a46685131c9814c0a615e0782f708579284bf"
+        "bytes": 6518,
+        "sha256": "cdac65124a078ef8bd90bd46cd217b0f927204211de4706e21fc5e38bd3cba31"
       },
       {
         "path": "includes/class-stockland-requisition-service.php",
@@ -375,8 +375,8 @@
       },
       {
         "path": "includes/class-stockland-roles.php",
-        "bytes": 14986,
-        "sha256": "a28486f3f735c50dcca8765ca369d6512697e5ade1eca7f639e48691ba6a314e"
+        "bytes": 15225,
+        "sha256": "654f28b3611578cc51cea87766d0dbe99d2a03a11ec4690049d5f87109a3222a"
       },
       {
         "path": "includes/class-stockland-runtime-diagnostics.php",
@@ -440,8 +440,8 @@
       },
       {
         "path": "includes/rest/class-rest-hr-lifecycle.php",
-        "bytes": 70714,
-        "sha256": "6b43dc8d25ec46069785cbe05d527e7be65eca5bdfe76f5b71e106f681a12c11"
+        "bytes": 78077,
+        "sha256": "1025d42c806b686b724e2eefc80c7edfe01421aa378dcaf24143adf871f8788a"
       },
       {
         "path": "includes/rest/class-rest-hr-payroll-cycle.php",
@@ -455,8 +455,8 @@
       },
       {
         "path": "includes/rest/class-rest-import-v16.php",
-        "bytes": 154167,
-        "sha256": "fe370c4b3e1dd512849d4a32b6b3cea76f5bef2fab4cf22ba745a7d021cdba83"
+        "bytes": 154929,
+        "sha256": "84a51c10edb139312a4b563bcbcb551e197bcc109ad7f9bb474d8c52c2822a13"
       },
       {
         "path": "includes/rest/class-rest-inventory-report-v16.php",
@@ -470,8 +470,8 @@
       },
       {
         "path": "includes/rest/class-rest-management-intelligence.php",
-        "bytes": 15937,
-        "sha256": "dd424f385f605dd561f6146173b2ee7570b72b54ad92cd7e98f7ac1078f0289a"
+        "bytes": 16840,
+        "sha256": "34f7fad55f57aaaac08880a4be3a86726a00efae09b4a30345f2fedd9a52c761"
       },
       {
         "path": "includes/rest/class-rest-pos-cart.php",
@@ -480,8 +480,8 @@
       },
       {
         "path": "includes/rest/class-rest-pos-integrations.php",
-        "bytes": 18917,
-        "sha256": "817d35a1fc7731dbbd74f82d4e8a58469b606989038ee19c420146b67f1fe639"
+        "bytes": 25190,
+        "sha256": "629979564eed1fd22c5afd5d9f705ea2059c9527e6662e014dca0e4c3ab0275f"
       },
       {
         "path": "includes/rest/class-rest-products.php",
@@ -520,8 +520,8 @@
       },
       {
         "path": "includes/rest/class-rest-sop-library.php",
-        "bytes": 7905,
-        "sha256": "b15af820cb2899b3ea53542d665441d57779705b502a8fb5497382224e013437"
+        "bytes": 7925,
+        "sha256": "11432d58089aac9b40c16a4677f7dd372fed7c512f7849ee0f7fead3210f9d74"
       },
       {
         "path": "includes/rest/class-rest-stock.php",
@@ -540,8 +540,8 @@
       },
       {
         "path": "resources/erp-sops/manifest.json",
-        "bytes": 24375,
-        "sha256": "4e2be0790cffc5846eb1647e1750fdba0110fd4d3a21d44b18c202310c395d74"
+        "bytes": 24957,
+        "sha256": "10cc105d659d76fa85f5cfd168a301dcdd0b3da3ac5376af13d8803b2674ec3f"
       },
       {
         "path": "resources/erp-sops/payloads/STK_ERP_SOP_001.php",
@@ -693,7 +693,7 @@
   "installation_repair": {
     "version": "16.2.16",
     "fixes": [
-      "One-click WordPress System Control runner for sequential Core → Finance → HR setup",
+      "One-click WordPress System Control runner for sequential Core \u2192 Finance \u2192 HR setup",
       "Protected HR/Payroll continuation in System Control",
       "Bounded 160-step setup browser runner",
       "HR structural-gap progress detection",
