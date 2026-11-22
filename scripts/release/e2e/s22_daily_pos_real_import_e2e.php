@@ -38,7 +38,7 @@ $http = static function ( $route, $credential, $json = null, $upload_path = null
 	if ( null !== $upload_path ) {
 		$options[ CURLOPT_POSTFIELDS ] = array(
 			'file' => new CURLFile( $upload_path, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'stockland-pos-real-import-e2e.xlsx' ),
-			'business_date' => '2026-11-20',
+			'business_date' => '2026-11-23',
 		);
 	} elseif ( null !== $json ) {
 		$options[ CURLOPT_HTTPHEADER ][] = 'Content-Type: application/json';
@@ -69,9 +69,9 @@ try {
 		return '<c r="' . $ref . '" t="inlineStr"><is><t>' . htmlspecialchars( (string) $value, ENT_XML1 | ENT_QUOTES, 'UTF-8' ) . '</t></is></c>';
 	};
 	$rows = array(
-		'<row r="3">' . $cell( 'J3', 'Friday, November 20, 2026' ) . '</row>',
+		'<row r="3">' . $cell( 'J3', 'Monday, November 23, 2026' ) . '</row>',
 		'<row r="4">' . $cell( 'D4', 'Summarized By Article' ) . '</row>',
-		'<row r="7">' . $cell( 'A7', 'Cash Sales Voucher, Report filtered by date criteria: 11/20/2026' ) . '</row>',
+		'<row r="7">' . $cell( 'A7', 'Cash Sales Voucher, Report filtered by date criteria: 11/23/2026' ) . '</row>',
 		'<row r="8">' .
 			$cell( 'A8', 'Article Code' ) .
 			$cell( 'C8', 'Article Name' ) .
@@ -144,7 +144,11 @@ try {
 	$check( 'Sales Employee is denied the final Daily POS release endpoint', 403 === $sales_release['status'], 'HTTP ' . $sales_release['status'] );
 	$before = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE source_job_id=%d', Stockland_DB::table( 'sales' ), $job_id ) );
 	$manager_release = $http( '/import/daily-sales/commit', $passwords['manager'], array( 'job_id' => $job_id ) );
-	$check( 'assigned Branch Manager explicitly releases staged import through the real REST commit route', 200 === $manager_release['status'] && 'POSTED' === ( $manager_release['data']['status'] ?? '' ), 'HTTP ' . $manager_release['status'] . ' ' . wp_json_encode( $manager_release['data'] ) );
+	$manager_release_ok = 200 === $manager_release['status'] && 'POSTED' === ( $manager_release['data']['status'] ?? '' );
+	$check( 'assigned Branch Manager explicitly releases staged import through the real REST commit route', $manager_release_ok, 'HTTP ' . $manager_release['status'] . ' ' . wp_json_encode( $manager_release['data'] ) );
+	if ( ! $manager_release_ok ) {
+		throw new RuntimeException( 'Branch Manager release did not post this unique business-day job. Existing or blocked jobs must be resolved, not bypassed.' );
+	}
 
 	$job = Stockland_DB::read_row( $wpdb->prepare( 'SELECT * FROM %i WHERE id=%d', Stockland_DB::table( 'import_jobs' ), $job_id ), ARRAY_A );
 	$rows = Stockland_DB::read_results( $wpdb->prepare( 'SELECT status,posted_sale_id FROM %i WHERE job_id=%d ORDER BY source_row_number', Stockland_DB::table( 'import_rows' ), $job_id ), ARRAY_A );
