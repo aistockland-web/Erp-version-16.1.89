@@ -68,20 +68,34 @@ try {
 	$cell = static function ( $ref, $value ) {
 		return '<c r="' . $ref . '" t="inlineStr"><is><t>' . htmlspecialchars( (string) $value, ENT_XML1 | ENT_QUOTES, 'UTF-8' ) . '</t></is></c>';
 	};
-	$headers = array( 'SKU', 'Quantity', 'Selling Price', 'Line Total', 'VAT Mode' );
-	$values  = array( 'STK-TEE-001', '1', '450.00', '450.00', 'WITHOUT_VAT' );
-	$header_cells = array();
-	$value_cells  = array();
-	foreach ( $headers as $i => $header ) {
-		$column = chr( 65 + $i );
-		$header_cells[] = $cell( $column . '1', $header );
-		$value_cells[]  = $cell( $column . '2', $values[ $i ] );
-	}
+	$rows = array(
+		'<row r="3">' . $cell( 'J3', 'Friday, November 20, 2026' ) . '</row>',
+		'<row r="4">' . $cell( 'D4', 'Summarized By Article' ) . '</row>',
+		'<row r="7">' . $cell( 'A7', 'Cash Sales Voucher, Report filtered by date criteria: 11/20/2026' ) . '</row>',
+		'<row r="8">' .
+			$cell( 'A8', 'Article Code' ) .
+			$cell( 'C8', 'Article Name' ) .
+			$cell( 'E8', 'Quantity' ) .
+			$cell( 'I8', 'Avg.  Amount' ) .
+			$cell( 'L8', 'Total  Amount' ) .
+			'</row>',
+		'<row r="9">' .
+			$cell( 'B9', 'STK-TEE-001' ) .
+			$cell( 'C9', 'Stockland TEE' ) .
+			$cell( 'E9', '1' ) .
+			$cell( 'I9', '450.00' ) .
+			$cell( 'L9', '450.00' ) .
+			'</row>',
+		'<row r="28">' . $cell( 'F28', 'Sub Total' ) . $cell( 'K28', '450.000' ) . '</row>',
+		'<row r="29">' . $cell( 'F29', 'Add. Charge' ) . $cell( 'K29', '0.000' ) . '</row>',
+		'<row r="31">' . $cell( 'F31', 'Discount' ) . $cell( 'K31', '0.000' ) . '</row>',
+		'<row r="32">' . $cell( 'F32', 'Total Tax' ) . $cell( 'K32', '67.500' ) . '</row>',
+		'<row r="33">' . $cell( 'F33', 'Grand Total' ) . $cell( 'K33', '517.500' ) . '</row>'
+	);
 	$sheet_xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' .
 		'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>' .
-		'<row r="1">' . implode( '', $header_cells ) . '</row>' .
-		'<row r="2">' . implode( '', $value_cells ) . '</row>' .
-		'</sheetData></worksheet>';
+		implode( '', $rows ) .
+		'</sheetData><mergeCells count="1"><mergeCell ref="A8:B8"/></mergeCells></worksheet>';
 	$entries = array(
 		'[Content_Types].xml' =>
 			'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' .
