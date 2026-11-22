@@ -163,6 +163,19 @@ class Stockland_REST_Requisition_V16 {
 		global $wpdb;
 		return Stockland_DB::read_row( $wpdb->prepare( 'SELECT r.*,l.location_name FROM %i r JOIN %i l ON l.id=r.branch_location_id WHERE r.requisition_id=%s', Stockland_DB::table( 'requisitions' ), Stockland_DB::table( 'locations' ), $id ), ARRAY_A );}
 	/**
+	 * Builds an authorized detail response for a workflow action after commit.
+	 * A manually constructed REST request does not pass through route matching, so
+	 * the identifier must be assigned explicitly before calling detail().
+	 *
+	 * @param string $id Requisition identifier.
+	 * @return mixed Authorized detail response or a REST error.
+	 */
+	private function detail_response( $id ) {
+		$detail_request = new WP_REST_Request( 'GET', self::NS . '/requisitions/' . rawurlencode( (string) $id ) );
+		$detail_request->set_param( 'id', (string) $id );
+		return $this->detail( $detail_request );
+	}
+	/**
 	 * Verifies that a requisition is in a location/state visible to the current role.
 	 *
 	 * @param array $req Requisition row with status and branch location.
@@ -485,7 +498,7 @@ class Stockland_REST_Requisition_V16 {
 					throw new Exception( 'Requisition review commit failed.' );
 				}
 				Stockland_Notifications::notify_approvers( $id, $locked['branch_location_id'], 'Requisition ready for approval', $locked['location_name'] . ' requisition ' . $id . ' was reviewed and is ready for Management/Owner approval.' );
-				return rest_ensure_response( $this->detail( new WP_REST_Request( 'GET', '/stockland/v16/requisitions/' . $id ) ) );
+				return rest_ensure_response( $this->detail_response( $id ) );
 			} catch ( Throwable $e ) {
 				Stockland_DB::execute_query( 'ROLLBACK' );
 				return new WP_Error( 'requisition_review_failed', $e->getMessage(), array( 'status' => 409 ) );}
@@ -698,7 +711,7 @@ class Stockland_REST_Requisition_V16 {
 			} elseif ( ! $final ) {
 				$waiting = ( 'management' === $stage ? 'Owner' : 'Management' );
 				Stockland_Notifications::notify_approvers( $id, $req['branch_location_id'], 'Requisition awaiting ' . $waiting . ' approval', $req['location_name'] . ' requisition ' . $id . ' has one approval line completed and is awaiting ' . $waiting . '.' );}
-				return rest_ensure_response( $this->detail( new WP_REST_Request( 'GET', '/stockland/v16/requisitions/' . $id ) ) );
+				return rest_ensure_response( $this->detail_response( $id ) );
 		} catch ( Throwable $e ) {
 			Stockland_DB::execute_query( 'ROLLBACK' );
 			Stockland_DB::release_day_lock( $wh_lock );
@@ -1114,7 +1127,7 @@ class Stockland_REST_Requisition_V16 {
 			if ( ! empty( $req['requested_by'] ) ) {
 				Stockland_Notifications::push_user( (int) $req['requested_by'], 'requisition_received', 'Requisition received', 'Your requisition ' . $id . ' has been received by ' . $req['location_name'] . '.', 'requisition', $id, $variance_count ? 'warning' : 'info' );
 			}
-			return rest_ensure_response( $this->detail( new WP_REST_Request( 'GET', '/stockland/v16/requisitions/' . $id ) ) );
+			return rest_ensure_response( $this->detail_response( $id ) );
 		} catch ( Throwable $e ) {
 			Stockland_DB::execute_query( 'ROLLBACK' );
 			Stockland_DB::release_location_locks( $locks['locks'] );

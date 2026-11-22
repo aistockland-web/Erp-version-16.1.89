@@ -128,6 +128,7 @@ jobs:
           node --check scripts/release/ui/system_health_scope_contract.js
           node scripts/release/ui/system_health_scope_contract.js
           node scripts/release/tests/daily_pos_ui_contract.js
+          node scripts/release/tests/requisition_approval_ui_contract.js
           node scripts/release/tests/pos_integration_hub_contract.js
           npm ci --prefix ci/cssqa --ignore-scripts --no-audit --no-fund
           NODE_PATH="$PWD/ci/cssqa/node_modules" node ci/qa/check-css-postcss.js "$PWD/src/stockland-erp-app" --scope baseline
@@ -270,12 +271,23 @@ jobs:
             exit 1
           fi
 
-      - name: Business workflow regression (procurement to ledger)
+      - name: Business workflow regression (approval chain, real POS HTTP release, procurement to ledger)
         env:
           STOCKLAND_DISPOSABLE_SITE: "yes"
         run: |
-          set -o pipefail
-          bash scripts/release/e2e/run_all.sh /tmp/wp | tee /tmp/e2e.log
+          set -euo pipefail
+          # The REST POS test must use a genuine loopback multipart HTTP upload so PHP's
+          # is_uploaded_file() check is exercised. This WordPress site and database are
+          # the disposable installer fixture created earlier in this job.
+          php -S 127.0.0.1:8080 -t /tmp/wp /tmp/wp/router.php > /tmp/stockland-e2e-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8080/wp-login.php >/dev/null; then break; fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:8080/wp-login.php >/dev/null
+          STOCKLAND_E2E_SITE_URL=http://127.0.0.1:8080 bash scripts/release/e2e/run_all.sh /tmp/wp | tee /tmp/e2e.log
           grep -q "GL unbalanced journals: 0" /tmp/e2e.log
           grep -q "RESULT PASS" /tmp/e2e.log
 
