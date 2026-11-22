@@ -715,7 +715,7 @@ class Stockland_REST_Requisition_V16 {
 			} elseif ( ! $final ) {
 				$waiting = ( 'management' === $stage ? 'Owner' : 'Management' );
 				Stockland_Notifications::notify_approvers( $id, $req['branch_location_id'], 'Requisition awaiting ' . $waiting . ' approval', $req['location_name'] . ' requisition ' . $id . ' has one approval line completed and is awaiting ' . $waiting . '.' );}
-				return rest_ensure_response( $this->detail( new WP_REST_Request( 'GET', '/stockland/v16/requisitions/' . $id ) ) );
+				return $this->refreshed_detail( $id );
 		} catch ( Throwable $e ) {
 			Stockland_DB::execute_query( 'ROLLBACK' );
 			Stockland_DB::release_day_lock( $wh_lock );
@@ -1131,7 +1131,7 @@ class Stockland_REST_Requisition_V16 {
 			if ( ! empty( $req['requested_by'] ) ) {
 				Stockland_Notifications::push_user( (int) $req['requested_by'], 'requisition_received', 'Requisition received', 'Your requisition ' . $id . ' has been received by ' . $req['location_name'] . '.', 'requisition', $id, $variance_count ? 'warning' : 'info' );
 			}
-			return rest_ensure_response( $this->detail( new WP_REST_Request( 'GET', '/stockland/v16/requisitions/' . $id ) ) );
+			return $this->refreshed_detail( $id );
 		} catch ( Throwable $e ) {
 			Stockland_DB::execute_query( 'ROLLBACK' );
 			Stockland_DB::release_location_locks( $locks['locks'] );
