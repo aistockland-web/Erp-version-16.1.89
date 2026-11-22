@@ -39,10 +39,12 @@ $bm_final = call( 'POST', '/requisitions/' . rawurlencode( $id ) . '/decision', 
 $check( 'Branch Manager cannot bypass review to make the final decision', 403 === $bm_final[0], 'HTTP ' . $bm_final[0] );
 
 $review = call( 'POST', '/requisitions/' . rawurlencode( $id ) . '/decision', array( 'stage' => 'review', 'decision' => 'REVIEW' ), (int) $u['bm'] );
+$review_state = call( 'GET', '/requisitions/' . rawurlencode( $id ), array(), (int) $u['bm'] );
+$review_status = (string) ( $review_state[1]['requisition']['status'] ?? '' );
 $detail = call( 'GET', '/requisitions/' . rawurlencode( $id ), array(), (int) $u['mg'] );
 $items = (array) ( $detail[1]['items'] ?? array() );
 $item_id = (int) ( $items[0]['id'] ?? 0 );
-$check( 'assigned Branch Manager moves Requested to Reviewed', 200 === $review[0] && 'Reviewed' === ( $review[1]['requisition']['status'] ?? '' ) );
+$check( 'assigned Branch Manager moves Requested to Reviewed', 200 === $review[0] && 200 === $review_state[0] && 'Reviewed' === $review_status, 'POST HTTP ' . $review[0] . ', detail HTTP ' . $review_state[0] . ', status=' . $review_status );
 $check( 'server exposes the ONE_OF approval contract and live item identity', 200 === $detail[0] && 'ONE_OF' === ( $detail[1]['approval_mode'] ?? '' ) && $item_id > 0 );
 $list = call( 'GET', '/requisitions', array(), (int) $u['mg'] );
 $row = array();
@@ -54,7 +56,9 @@ $check( 'Management queue contains its authorized MANAGEMENT_APPROVE action', in
 $employee_approve = call( 'POST', '/requisitions/' . rawurlencode( $id ) . '/decision', array( 'stage' => 'management', 'decision' => 'APPROVE', 'approved_items' => array( $item_id => 1 ) ), (int) $u['se'] );
 $check( 'Sales Employee cannot call the Management approval endpoint', 403 === $employee_approve[0] );
 $management_approve = call( 'POST', '/requisitions/' . rawurlencode( $id ) . '/decision', array( 'stage' => 'management', 'decision' => 'APPROVE', 'approved_items' => array( $item_id => 1 ), 'note' => '' ), (int) $u['mg'] );
-$check( 'Management provides the single final approval', 200 === $management_approve[0] && 'Approved' === ( $management_approve[1]['requisition']['status'] ?? '' ) );
+$management_state = call( 'GET', '/requisitions/' . rawurlencode( $id ), array(), (int) $u['mg'] );
+$management_status = (string) ( $management_state[1]['requisition']['status'] ?? '' );
+$check( 'Management provides the single final approval', 200 === $management_approve[0] && 200 === $management_state[0] && 'Approved' === $management_status, 'POST HTTP ' . $management_approve[0] . ', detail HTTP ' . $management_state[0] . ', status=' . $management_status );
 $owner_second = call( 'POST', '/requisitions/' . rawurlencode( $id ) . '/decision', array( 'stage' => 'owner', 'decision' => 'APPROVE', 'approved_items' => array( $item_id => 1 ) ), (int) $u['ow2'] );
 $check( 'Owner is not required for a second approval after Management finalizes ONE_OF', 409 === $owner_second[0] );
 $dbrow = Stockland_DB::read_row( $wpdb->prepare( 'SELECT status,management_decision,owner_decision,management_approved_by,owner_approved_by FROM %i WHERE requisition_id=%s', Stockland_DB::table( 'requisitions' ), $id ), ARRAY_A );
@@ -78,7 +82,9 @@ foreach ( (array) ( $branch_detail[1]['transfers'] ?? array() ) as $t ) {
 }
 $check( 'Branch Manager sees the exact Picked supply line to receive', 200 === $branch_detail[0] && 1 === count( $receipt_lines ) && $receipt_lines[0]['received_qty'] > 0 );
 $receive = call( 'POST', '/requisitions/' . rawurlencode( $id ) . '/receive', array( 'receipts' => $receipt_lines ), (int) $u['bm'] );
-$check( 'assigned Branch Manager receives picked stock into branch ledger', 200 === $receive[0] && 'Received' === ( $receive[1]['requisition']['status'] ?? '' ) );
+$receive_state = call( 'GET', '/requisitions/' . rawurlencode( $id ), array(), (int) $u['bm'] );
+$received_status = (string) ( $receive_state[1]['requisition']['status'] ?? '' );
+$check( 'assigned Branch Manager receives picked stock into branch ledger', 200 === $receive[0] && 200 === $receive_state[0] && 'Received' === $received_status, 'POST HTTP ' . $receive[0] . ', detail HTTP ' . $receive_state[0] . ', status=' . $received_status );
 $transfer_rows = Stockland_DB::read_results( $wpdb->prepare( 'SELECT status,dispatched_qty,received_qty FROM %i WHERE requisition_id=%s', Stockland_DB::table( 'transfers' ), $id ), ARRAY_A );
 $check( 'transfer status and dispatched/received quantities reconcile', 1 === count( $transfer_rows ) && 'Received' === ( $transfer_rows[0]['status'] ?? '' ) && abs( (float) ( $transfer_rows[0]['dispatched_qty'] ?? 0 ) - (float) ( $transfer_rows[0]['received_qty'] ?? 0 ) ) < 0.00001 );
 $branch_after = (float) Stockland_DB::get_available_stock( $branch_id, $sku );
@@ -105,14 +111,20 @@ $check( 'shortage fixture requisition is created', 200 === $short_created[0] && 
 if ( '' === $short_id ) { exit( 1 ); }
 $short_review = call( 'POST', '/requisitions/' . rawurlencode( $short_id ) . '/decision', array( 'stage' => 'review', 'decision' => 'REVIEW' ), (int) $u['bm'] );
 $short_detail = call( 'GET', '/requisitions/' . rawurlencode( $short_id ), array(), (int) $u['ow2'] );
-$short_item_id = (int) ( $short_detail[1]['items'][0]['id'] ?? 0 );
-$short_available = (float) ( $short_detail[1]['items'][0]['availability']['available'] ?? 0 );
-$short_requested = (float) ( $short_detail[1]['items'][0]['quantity_requested'] ?? 0 );
-$check( 'live requisition detail exposes the Central Warehouse shortfall', 200 === $short_review[0] && 200 === $short_detail[0] && $short_item_id > 0 && $short_requested > $short_available );
+$short_item_row = Stockland_DB::read_row(
+	$wpdb->prepare( 'SELECT id,quantity_requested FROM %i WHERE requisition_id=%s ORDER BY id ASC LIMIT 1', Stockland_DB::table( 'requisition_items' ), $short_id ),
+	ARRAY_A
+);
+$short_item_id = (int) ( $short_item_row['id'] ?? 0 );
+$short_requested = (float) ( $short_item_row['quantity_requested'] ?? 0 );
+$short_available = (float) Stockland_DB::get_available_stock( $warehouse_id, $sku );
+$check( 'live requisition detail exposes the Central Warehouse shortfall', 200 === $short_review[0] && 200 === $short_detail[0] && $short_item_id > 0 && $short_requested > $short_available, 'requested=' . $short_requested . ', Central available=' . $short_available );
 $owner_full = call( 'POST', '/requisitions/' . rawurlencode( $short_id ) . '/decision', array( 'stage' => 'owner', 'decision' => 'APPROVE', 'approved_items' => array( $short_item_id => $short_requested ) ), (int) $u['ow2'] );
 $check( 'Owner full approval is refused when requested quantity exceeds live availability', 409 === $owner_full[0] );
 $owner_partial = call( 'POST', '/requisitions/' . rawurlencode( $short_id ) . '/decision', array( 'stage' => 'owner', 'decision' => 'PARTIAL', 'approved_items' => array( $short_item_id => 1 ), 'note' => 'Synthetic E2E partial approval capped below live availability.' ), (int) $u['ow2'] );
-$check( 'Owner can make the alternative final partial decision with a reason', 200 === $owner_partial[0] && 'Approved' === ( $owner_partial[1]['requisition']['status'] ?? '' ) );
+$owner_partial_state = call( 'GET', '/requisitions/' . rawurlencode( $short_id ), array(), (int) $u['ow2'] );
+$owner_partial_status = (string) ( $owner_partial_state[1]['requisition']['status'] ?? '' );
+$check( 'Owner can make the alternative final partial decision with a reason', 200 === $owner_partial[0] && 200 === $owner_partial_state[0] && 'Approved' === $owner_partial_status, 'POST HTTP ' . $owner_partial[0] . ', detail HTTP ' . $owner_partial_state[0] . ', status=' . $owner_partial_status );
 $management_second = call( 'POST', '/requisitions/' . rawurlencode( $short_id ) . '/decision', array( 'stage' => 'management', 'decision' => 'APPROVE', 'approved_items' => array( $short_item_id => 1 ) ), (int) $u['mg'] );
 $check( 'Management is not required for a second approval after Owner finalizes ONE_OF', 409 === $management_second[0] );
 $owner_row = Stockland_DB::read_row( $wpdb->prepare( 'SELECT status,management_decision,owner_decision,management_approved_by,owner_approved_by FROM %i WHERE requisition_id=%s', Stockland_DB::table( 'requisitions' ), $short_id ), ARRAY_A );
