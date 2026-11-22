@@ -9,7 +9,7 @@ $check = static function ( $label, $ok, $detail = '' ) use ( &$failed ) {
 };
 $base_url = rtrim( (string) getenv( 'STOCKLAND_E2E_SITE_URL' ), '/' );
 $check( 'loopback disposable WordPress HTTP endpoint is configured', '' !== $base_url && ! empty( $u['se'] ) && ! empty( $u['bm'] ) );
-$check( 'PHP cURL, CURLFile and Application Password APIs are available', function_exists( 'curl_init' ) && class_exists( 'CURLFile' ) && class_exists( 'WP_Application_Passwords' ) && method_exists( 'WP_Application_Passwords', 'create_new_application_password' ) && method_exists( 'WP_Application_Passwords', 'delete_application_password' ) );
+$check( 'PHP cURL, CURLFile and Application Password APIs are available', function_exists( 'curl_init' ) && class_exists( 'CURLFile' ) && class_exists( 'ZipArchive' ) && class_exists( 'WP_Application_Passwords' ) && method_exists( 'WP_Application_Passwords', 'create_new_application_password' ) && method_exists( 'WP_Application_Passwords', 'delete_application_password' ) );
 if ( $failed ) { exit( 1 ); }
 
 $make_password = static function ( $user_id, $name ) {
@@ -22,7 +22,7 @@ $make_password = static function ( $user_id, $name ) {
 	}
 	return array( 'user_id' => (int) $user_id, 'login' => (string) $user->user_login, 'password' => (string) $created[0], 'uuid' => (string) $created[1]['uuid'] );
 };
-$http = static function ( $route, $credential, $json = null, $csv_path = null ) use ( $base_url ) {
+$http = static function ( $route, $credential, $json = null, $upload_path = null ) use ( $base_url ) {
 	$handle = curl_init( $base_url . '/wp-json/stockland/v16' . $route );
 	if ( false === $handle ) { throw new RuntimeException( 'Could not initialize loopback REST request.' ); }
 	$options = array(
@@ -35,9 +35,9 @@ $http = static function ( $route, $credential, $json = null, $csv_path = null ) 
 		CURLOPT_FOLLOWLOCATION => false,
 		CURLOPT_HTTPHEADER => array( 'Accept: application/json' ),
 	);
-	if ( null !== $csv_path ) {
+	if ( null !== $upload_path ) {
 		$options[ CURLOPT_POSTFIELDS ] = array(
-			'file' => new CURLFile( $csv_path, 'text/csv', 'stockland-pos-real-import-e2e.csv' ),
+			'file' => new CURLFile( $upload_path, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'stockland-pos-real-import-e2e.xlsx' ),
 			'business_date' => '2026-11-20',
 		);
 	} elseif ( null !== $json ) {
@@ -55,23 +55,75 @@ $http = static function ( $route, $credential, $json = null, $csv_path = null ) 
 };
 
 $passwords = array();
-$csv_path = '';
+$workbook_path = '';
 try {
 	$passwords['sales'] = $make_password( (int) $u['se'], 'Stockland disposable Daily POS E2E uploader' );
 	$passwords['manager'] = $make_password( (int) $u['bm'], 'Stockland disposable Daily POS E2E release approver' );
-	$csv_path = tempnam( sys_get_temp_dir(), 'stockland-pos-e2e-' );
-	if ( ! $csv_path ) { throw new RuntimeException( 'Could not create temporary POS CSV.' ); }
-	$csv = "SKU,Quantity,Selling Price,Line Total,VAT Mode\r\nSTK-TEE-001,1,450.00,450.00,WITHOUT_VAT\r\n";
-	if ( false === file_put_contents( $csv_path, $csv ) ) { throw new RuntimeException( 'Could not write temporary POS CSV.' ); }
-
-	$preview = $http( '/import/daily-sales/preview', $passwords['sales'], null, $csv_path );
+	$workbook_path = tempnam( sys_get_temp_dir(), 'stockland-pos-e2e-' );
+	if ( ! $workbook_path ) { throw new RuntimeException( 'Could not create temporary POS XLSX workbook.' ); }
+	$zip = new ZipArchive();
+	if ( true !== $zip->open( $workbook_path, ZipArchive::CREATE | ZipArchive::OVERWRITE ) ) {
+		throw new RuntimeException( 'Could not initialize disposable POS XLSX workbook.' );
+	}
+	$cell = static function ( $ref, $value ) {
+		return '<c r="' . $ref . '" t="inlineStr"><is><t>' . htmlspecialchars( (string) $value, ENT_XML1 | ENT_QUOTES, 'UTF-8' ) . '</t></is></c>';
+	};
+	$headers = array( 'SKU', 'Quantity', 'Selling Price', 'Line Total', 'VAT Mode' );
+	$values  = array( 'STK-TEE-001', '1', '450.00', '450.00', 'WITHOUT_VAT' );
+	$header_cells = array();
+	$value_cells  = array();
+	foreach ( $headers as $i => $header ) {
+		$column = chr( 65 + $i );
+		$header_cells[] = $cell( $column . '1', $header );
+		$value_cells[]  = $cell( $column . '2', $values[ $i ] );
+	}
+	$sheet_xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' .
+		'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>' .
+		'<row r="1">' . implode( '', $header_cells ) . '</row>' .
+		'<row r="2">' . implode( '', $value_cells ) . '</row>' .
+		'</sheetData></worksheet>';
+	$entries = array(
+		'[Content_Types].xml' =>
+			'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' .
+			'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' .
+			'<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' .
+			'<Default Extension="xml" ContentType="application/xml"/>' .
+			'<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' .
+			'<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>' .
+			'</Types>',
+		'_rels/.rels' =>
+			'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' .
+			'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' .
+			'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>' .
+			'</Relationships>',
+		'xl/workbook.xml' =>
+			'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' .
+			'<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' .
+			'<sheets><sheet name="Daily POS" sheetId="1" r:id="rId1"/></sheets></workbook>',
+		'xl/_rels/workbook.xml.rels' =>
+			'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' .
+			'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' .
+			'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>' .
+			'</Relationships>',
+		'xl/worksheets/sheet1.xml' => $sheet_xml,
+	);
+	foreach ( $entries as $name => $content ) {
+		if ( ! $zip->addFromString( $name, $content ) ) {
+			$zip->close();
+			throw new RuntimeException( 'Could not write XLSX entry ' . $name );
+		}
+	}
+	if ( true !== $zip->close() ) {
+		throw new RuntimeException( 'Could not close disposable POS XLSX workbook.' );
+	}
+	$preview = $http( '/import/daily-sales/preview', $passwords['sales'], null, $workbook_path );
 	$job_id = (int) ( $preview['data']['job_id'] ?? 0 );
 	$summary = (array) ( $preview['data']['summary'] ?? array() );
-	$check( 'Sales Employee uploads genuine multipart CSV to the production preview route', 200 === $preview['status'] && $job_id > 0, 'HTTP ' . $preview['status'] . ' ' . wp_json_encode( $preview['data'] ) );
+	$check( 'Sales Employee uploads genuine multipart XLSX workbook to the production preview route', 200 === $preview['status'] && $job_id > 0, 'HTTP ' . $preview['status'] . ' ' . wp_json_encode( $preview['data'] ) );
 	$check( 'preview validates SKU, quantity, selling price and VAT then stages one READY row', 'READY' === ( $preview['data']['status'] ?? '' ) && 1 === (int) ( $summary['valid_rows'] ?? 0 ) && 0 === (int) ( $summary['error_rows'] ?? -1 ), wp_json_encode( $summary ) );
 	if ( $job_id <= 0 || 'READY' !== ( $preview['data']['status'] ?? '' ) ) { throw new RuntimeException( 'No releasable READY job was created; stop before commit.' ); }
 
-	$preview_replay = $http( '/import/daily-sales/preview', $passwords['sales'], null, $csv_path );
+	$preview_replay = $http( '/import/daily-sales/preview', $passwords['sales'], null, $workbook_path );
 	$check( 'same workbook bytes return the existing import job without duplicate staging', 200 === $preview_replay['status'] && ! empty( $preview_replay['data']['existing_job'] ) && $job_id === (int) ( $preview_replay['data']['job_id'] ?? 0 ) );
 
 	$sales_release = $http( '/import/daily-sales/commit', $passwords['sales'], array( 'job_id' => $job_id ) );
@@ -106,9 +158,9 @@ try {
 	$check( 'replayed Branch Manager release remains POSTED and creates no second sale', 200 === $replay['status'] && 'POSTED' === $replay_status && 0 === $before && 1 === $after, 'sales before=' . $before . ' after=' . $after );
 } catch ( Throwable $error ) {
 	++$failed;
-	echo 'FAIL real Daily POS HTTP E2E — ' . substr( str_replace( array( "\r", "\n" ), ' ', $error->getMessage() ), 0, 1000 ) . PHP_EOL;
+	echo 'FAIL real Daily POS HTTP XLSX E2E — ' . substr( str_replace( array( "\r", "\n" ), ' ', $error->getMessage() ), 0, 1000 ) . PHP_EOL;
 } finally {
-	if ( $csv_path && is_file( $csv_path ) ) { unlink( $csv_path ); }
+	if ( $workbook_path && is_file( $workbook_path ) ) { unlink( $workbook_path ); }
 	foreach ( $passwords as $credential ) {
 		if ( ! empty( $credential['uuid'] ) && class_exists( 'WP_Application_Passwords' ) ) {
 			WP_Application_Passwords::delete_application_password( (int) $credential['user_id'], (string) $credential['uuid'] );
@@ -116,4 +168,4 @@ try {
 	}
 }
 if ( $failed ) { echo 'RESULT FAIL (' . $failed . ')' . PHP_EOL; exit( 1 ); }
-echo 'RESULT PASS: real multipart POS upload → validation → staging → duplicate guard → Branch Manager-only release → sale, stock ledger, balanced GL and replay guard.' . PHP_EOL;
+echo 'RESULT PASS: real multipart POS XLSX upload → validation → staging → duplicate guard → Branch Manager-only release → sale, stock ledger, balanced GL and replay guard.' . PHP_EOL;
