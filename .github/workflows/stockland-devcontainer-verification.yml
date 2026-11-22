@@ -1,0 +1,98 @@
+name: Stockland 16.2.18 Dev Container build and verification
+
+on:
+  pull_request:
+    branches: ['delivery/stockland-full-erp-completion-2026-11-11']
+    paths:
+      - '.devcontainer/**'
+      - '.github/workflows/stockland-devcontainer-verification.yml'
+  push:
+    branches: ['delivery/stockland-full-erp-completion-2026-11-11']
+    paths:
+      - '.devcontainer/**'
+      - '.github/workflows/stockland-devcontainer-verification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stockland-devcontainer-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-verify:
+    name: Build Stockland ERP PHP 8.3 / Node 22 engineering container
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Validate Dev Container and Compose contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m json.tool .devcontainer/devcontainer.json >/dev/null
+          bash -n .devcontainer/initialize-host.sh .devcontainer/post-create.sh .devcontainer/verify-master-installer.sh
+          export STOCKLAND_DEV_DB_ROOT_PASSWORD="$(openssl rand -hex 32)"
+          export STOCKLAND_DEV_DB_PASSWORD="$(openssl rand -hex 32)"
+          export STOCKLAND_DEV_WP_ADMIN_PASSWORD="$(openssl rand -hex 32)"
+          docker compose --file .devcontainer/docker-compose.yml config --quiet
+          echo "PASS Dev Container JSON, safe host scripts and complete Compose interpolation"
+
+      - name: Build the exact workspace container
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMAGE_TAG="stockland-erp-devcontainer:${GITHUB_SHA}"
+          docker build --pull --file .devcontainer/Dockerfile --tag "$IMAGE_TAG" .devcontainer
+          docker run --rm "$IMAGE_TAG" php -r '
+          $required = array( "curl", "dom", "mbstring", "mysqli", "pdo_mysql", "simplexml", "xml", "xmlreader", "xmlwriter", "zip" );
+          $missing = array_values( array_filter( $required, static function ( $name ) { return ! extension_loaded( $name ); } ) );
+          if ( $missing ) { fwrite( STDERR, "Missing PHP extensions: " . implode( ", ", $missing ) . PHP_EOL ); exit( 1 ); }
+          echo "PASS PHP " . PHP_VERSION . " required extensions " . implode( ",", $required ) . PHP_EOL;
+          '
+          docker run --rm "$IMAGE_TAG" node --version
+          docker run --rm "$IMAGE_TAG" bash -lc 'php --version && python3 --version && sudo -n true && echo "PASS non-root workspace and disposable sudo contract"'
+          docker image inspect "$IMAGE_TAG" --format 'PASS image {{.Id}} size={{.Size}} bytes'
+
+      - name: Package the built container as a verifiable artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/stockland-devcontainer
+          IMAGE_TAG="stockland-erp-devcontainer:${GITHUB_SHA}"
+          docker save "$IMAGE_TAG" | gzip -1 > dist/stockland-devcontainer/stockland-erp-devcontainer-16.2.18.tar.gz
+          cp .devcontainer/docker-compose.yml dist/stockland-devcontainer/docker-compose.yml
+          cp .devcontainer/devcontainer.json dist/stockland-devcontainer/devcontainer.json
+          cat > dist/stockland-devcontainer/README.txt <<EOF
+          Stockland ERP 16.2.18 engineering Dev Container
+          Source commit: ${GITHUB_SHA}
+          Built by GitHub Actions run: ${GITHUB_RUN_ID}
+
+          Load the saved workspace image:
+            docker load -i stockland-erp-devcontainer-16.2.18.tar.gz
+
+          The MariaDB 10.11, WordPress baseline/upgrade and optional MySQL 8.0.46
+          services are declared in docker-compose.yml. The image archive contains
+          the PHP 8.3 / Node 22 workspace image; database and WordPress service images
+          are pulled by Docker Compose when starting the full development stack.
+
+          This is a disposable engineering environment, not the production ERP runtime.
+          Do not use production databases, employee files, payroll, customer data or
+          live credentials in this container.
+          EOF
+          (
+            cd dist/stockland-devcontainer
+            sha256sum stockland-erp-devcontainer-16.2.18.tar.gz docker-compose.yml devcontainer.json README.txt > SHA256SUMS
+            sha256sum -c SHA256SUMS
+          )
+
+      - name: Upload the verified Dev Container image and Compose definition
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: stockland-erp-16.2.18-devcontainer-${{ github.sha }}
+          path: dist/stockland-devcontainer/*
+          if-no-files-found: error
+          retention-days: 30

@@ -5,12 +5,16 @@ on:
     paths:
       - 'src/stockland-erp-app/**'
       - 'scripts/release/security/**'
+      - 'scripts/release/e2e/**'
+      - 'scripts/release/tests/**'
       - '.github/workflows/master-installer-security-gates.yml'
   push:
     branches: ['delivery/**']
     paths:
       - 'src/stockland-erp-app/**'
       - 'scripts/release/security/**'
+      - 'scripts/release/e2e/**'
+      - 'scripts/release/tests/**'
       - '.github/workflows/master-installer-security-gates.yml'
   workflow_dispatch:
 
