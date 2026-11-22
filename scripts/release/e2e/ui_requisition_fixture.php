@@ -29,6 +29,11 @@ if ( 200 !== $result[0] || '' === $id ) {
 update_option( 'stockland_ui_requisition_id', $id, false );
 
 /* Browser credentials exist only on this disposable CI host and are never committed. */
+$warehouse_id = (int) Stockland_DB::get_location_id( 'Central Warehouse' );
+$warehouse_employee_id = mkuser( 'whstaff', 'subscriber', 'warehouse_employee', $warehouse_id );
+Stockland_Roles::sync_roles();
+$users['we'] = $warehouse_employee_id;
+
 $credentials = array();
 foreach ( array( 'bm', 'mg', 'wm', 'we' ) as $key ) {
 	$user_id = (int) ( $users[ $key ] ?? 0 );
