@@ -290,7 +290,7 @@ jobs:
           curl --fail --silent http://127.0.0.1:8080/wp-login.php >/dev/null
           bash scripts/release/e2e/run_all.sh /tmp/wp | tee /tmp/e2e.log
           grep -q "RESULT PASS: Branch Manager review" /tmp/e2e.log
-          grep -q "RESULT PASS: real multipart POS upload" /tmp/e2e.log
+          grep -q "RESULT PASS: real multipart POS XLSX upload" /tmp/e2e.log
           grep -q "GL unbalanced journals: 0" /tmp/e2e.log
           grep -q "RESULT PASS" /tmp/e2e.log
 
