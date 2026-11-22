@@ -87,7 +87,7 @@ try {
 	if ( ! $csv_path ) {
 		throw new RuntimeException( 'Could not create the synthetic POS CSV fixture.' );
 	}
-	$csv = "SKU,Quantity,Selling Price,Line Total,VAT Mode\r\nSTK-TEE-001,1,450.00,517.50,VAT_INCLUDED\r\n";
+	$csv = "SKU,Quantity,Selling Price,Line Total,VAT Mode\r\nSTK-TEE-001,1,450.00,450.00,VAT_INCLUDED\r\n";
 	if ( false === file_put_contents( $csv_path, $csv ) ) {
 		throw new RuntimeException( 'Could not write the synthetic POS CSV fixture.' );
 	}
