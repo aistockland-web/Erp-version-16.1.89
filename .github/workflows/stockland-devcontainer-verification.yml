@@ -17,7 +17,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: stockland-devcontainer-\${{ github.ref }}
+  group: stockland-devcontainer-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -45,7 +45,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          IMAGE_TAG="stockland-erp-devcontainer:\${GITHUB_SHA}"
+          IMAGE_TAG="stockland-erp-devcontainer:${GITHUB_SHA}"
           docker build --pull --file .devcontainer/Dockerfile --tag "$IMAGE_TAG" .devcontainer
           docker run --rm "$IMAGE_TAG" php -r '
           $required = array( "curl", "dom", "mbstring", "mysqli", "pdo_mysql", "simplexml", "xml", "xmlreader", "xmlwriter", "zip" );
@@ -62,14 +62,14 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist/stockland-devcontainer
-          IMAGE_TAG="stockland-erp-devcontainer:\${GITHUB_SHA}"
+          IMAGE_TAG="stockland-erp-devcontainer:${GITHUB_SHA}"
           docker save "$IMAGE_TAG" | gzip -1 > dist/stockland-devcontainer/stockland-erp-devcontainer-16.2.18.tar.gz
           cp .devcontainer/docker-compose.yml dist/stockland-devcontainer/docker-compose.yml
           cp .devcontainer/devcontainer.json dist/stockland-devcontainer/devcontainer.json
           cat > dist/stockland-devcontainer/README.txt <<EOF
           Stockland ERP 16.2.18 engineering Dev Container
-          Source commit: \${GITHUB_SHA}
-          Built by GitHub Actions run: \${GITHUB_RUN_ID}
+          Source commit: ${GITHUB_SHA}
+          Built by GitHub Actions run: ${GITHUB_RUN_ID}
 
           Load the saved workspace image:
             docker load -i stockland-erp-devcontainer-16.2.18.tar.gz
@@ -92,7 +92,7 @@ jobs:
       - name: Upload the verified Dev Container image and Compose definition
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: stockland-erp-16.2.18-devcontainer-\${{ github.sha }}
+          name: stockland-erp-16.2.18-devcontainer-${{ github.sha }}
           path: dist/stockland-devcontainer/*
           if-no-files-found: error
           retention-days: 30
