@@ -5,12 +5,12 @@ set -Eeuo pipefail
 STAGE="startup"
 trap 'status=$?; echo "FAIL verify_master_installer.sh stage=$STAGE line=$LINENO exit=$status" >&2; exit "$status"' ERR
 WP_PATH="${1:?wordpress path}"; ZIP="${2:?installer zip}"; HERE="$(cd "$(dirname "$0")" && pwd)"
-WP="php -d display_errors=1 -d error_reporting=-1 /usr/local/bin/wp --path=$WP_PATH --allow-root"
+WP="wp --path=$WP_PATH --allow-root"
 [[ "${STOCKLAND_DISPOSABLE_SITE:-}" == "yes" ]] || { echo "Refusing: set STOCKLAND_DISPOSABLE_SITE=yes to confirm this is a throwaway site"; exit 2; }
 EXPECTED_DB="${STOCKLAND_DISPOSABLE_DB_NAME:-}"
 EXPECTED_HOST="${STOCKLAND_DISPOSABLE_DB_HOST:-}"
-ACTUAL_DB="$($WP config get DB_NAME 2>/dev/null | tail -1)"
-ACTUAL_HOST="$($WP config get DB_HOST 2>/dev/null | tail -1)"
+STAGE="read WordPress DB_NAME from wp-config"; echo "== $STAGE"; ACTUAL_DB="$($WP config get DB_NAME | tail -1)"
+STAGE="read WordPress DB_HOST from wp-config"; echo "== $STAGE"; ACTUAL_HOST="$($WP config get DB_HOST | tail -1)"
 [[ -n "$EXPECTED_DB" && "$ACTUAL_DB" == "$EXPECTED_DB" ]] || { echo "Refusing: WordPress database name does not match STOCKLAND_DISPOSABLE_DB_NAME"; exit 2; }
 [[ "$EXPECTED_HOST" == "127.0.0.1" && "$ACTUAL_HOST" == "127.0.0.1" ]] || { echo "Refusing: WordPress database host must be explicitly loopback (127.0.0.1)"; exit 2; }
 STAGE="database reset"; echo "== $STAGE"; $WP db reset --yes
