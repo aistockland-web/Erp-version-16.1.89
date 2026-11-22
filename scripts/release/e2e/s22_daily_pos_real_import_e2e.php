@@ -151,13 +151,22 @@ try {
 	}
 
 	$job = Stockland_DB::read_row( $wpdb->prepare( 'SELECT * FROM %i WHERE id=%d', Stockland_DB::table( 'import_jobs' ), $job_id ), ARRAY_A );
-	$rows = Stockland_DB::read_results( $wpdb->prepare( 'SELECT status,posted_sale_id FROM %i WHERE job_id=%d ORDER BY source_row_number', Stockland_DB::table( 'import_rows' ), $job_id ), ARRAY_A );
+	$rows = Stockland_DB::read_results( $wpdb->prepare( 'SELECT status,posted_sale_id,source_row_number FROM %i WHERE job_id=%d ORDER BY source_row_number', Stockland_DB::table( 'import_rows' ), $job_id ), ARRAY_A );
 	$sales_count = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE source_job_id=%d', Stockland_DB::table( 'sales' ), $job_id ) );
 	$check( 'uploading Sales Employee and releasing Branch Manager are separate audited actors', (int) ( $job['created_by'] ?? 0 ) === (int) $u['se'] && (int) ( $job['approved_by'] ?? 0 ) === (int) $u['bm'] );
 	$check( 'staged row is POSTED and linked to exactly one ERP sale', 'POSTED' === ( $job['status'] ?? '' ) && 1 === (int) ( $job['processed_rows'] ?? 0 ) && 1 === $sales_count && 1 === count( $rows ) && 'POSTED' === ( $rows[0]['status'] ?? '' ) && ! empty( $rows[0]['posted_sale_id'] ), 'sales=' . $sales_count );
 
-	$sale_id = (string) ( $rows[0]['posted_sale_id'] ?? '' );
-	$ledger = $sale_id ? (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE reference_type=%s AND reference_id=%s', Stockland_DB::table( 'transactions' ), 'sale', $sale_id ) ) : 0;
+	$source_row_number = (string) ( $rows[0]['source_row_number'] ?? '' );
+	$ledger = '' !== $source_row_number ? (int) $wpdb->get_var(
+		$wpdb->prepare(
+			'SELECT COUNT(*) FROM %i WHERE reference_type=%s AND reference_id=%s AND source_line_id=%s AND movement_type=%s',
+			Stockland_DB::table( 'transactions' ),
+			'sale',
+			(string) $job_id,
+			$source_row_number,
+			'SALE'
+		)
+	) : 0;
 	$check( 'posted sale has its matching inventory ledger movement', $ledger >= 1, 'ledger rows=' . $ledger );
 	$source_id = $job_id . '-0';
 	$journal_count = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE source_type=%s AND source_id=%s', Stockland_DB::table( 'gl_journals' ), 'DAILY_SALES_CHUNK', $source_id ) );
