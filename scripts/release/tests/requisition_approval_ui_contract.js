@@ -27,6 +27,8 @@ assert(requisitions.includes("'/requisitions/(?P<id>[A-Za-z0-9\\-]+)/decision'")
 assert(requisitions.includes("'/requisitions/(?P<id>[A-Za-z0-9\\-]+)/warehouse-action'"), 'Warehouse route is missing.');
 assert(requisitions.includes("'/requisitions/(?P<id>[A-Za-z0-9\\-]+)/receive'"), 'Receiving route is missing.');
 assert(requisitions.includes("'approval_mode'           => 'ONE_OF'"), 'Only one Owner-or-Management final decision is allowed.');
+assert(requisitions.includes("$request->set_param( 'id', $id );"), 'Post-action refresh must explicitly set the requisition route ID before calling detail.');
+assert((requisitions.match(/return \\$this->refreshed_detail\\( \\$id \\);/g) || []).length === 3, 'Review, final decision and branch receipt must all return the refreshed requisition detail.');
 assert(requisitions.includes('Stockland_Authority::can_review_requisition()') && requisitions.includes('Stockland_Authority::can_approve_requisition( $stage )'), 'Server-side actor authorization is missing.');
 assert(requisitions.includes("'SELECT r.*,l.location_name FROM %i r JOIN %i l ON l.id=r.branch_location_id WHERE r.requisition_id=%s FOR UPDATE'"), 'Approval row lock is missing.');
 assert(authority.includes('return self::role( $user_id ) === self::BRANCH_MANAGER;'), 'Branch Manager review role gate is missing.');
