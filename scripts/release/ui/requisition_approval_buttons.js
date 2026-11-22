@@ -39,15 +39,25 @@ async function login(browser, user) {
   await page.goto(new URL('/stockland-erp/', base).toString(), { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#stockland-app', { state: 'attached', timeout: 30000 });
   await page.waitForFunction(() => window.StocklandApp && window.StocklandApp.user && window.StocklandApp.user.logged_in === true && !!window.StocklandApp.api, null, { timeout: 30000 });
+  await page.waitForFunction(() => {
+    const toggle = document.querySelector('#sl-nav button[data-nav-toggle="warehouse"]');
+    return !!toggle && toggle.__slNavGroupBound === true;
+  }, null, { timeout: 30000 });
   return page;
 }
 
 async function navigate(page, view) {
-  const selector = 'button[data-view="' + view + '"]';
+  const selector = '#sl-nav button[data-view="' + view + '"]';
   const viewButton = page.locator(selector).first();
   if (!(await viewButton.isVisible().catch(() => false))) {
-    const group = page.locator('button[data-nav-toggle="warehouse"]');
-    if (await group.count()) await group.click();
+    const group = page.locator('#sl-nav button[data-nav-toggle="warehouse"]');
+    await group.waitFor({ state: 'visible' });
+    const expanded = await group.getAttribute('aria-expanded');
+    if ('true' !== expanded) await group.click();
+    await page.waitForFunction(() => {
+      const panel = document.getElementById('sl-nav-group-warehouse');
+      return !!panel && panel.hidden === false;
+    }, null, { timeout: 10000 });
   }
   await viewButton.waitFor({ state: 'visible' });
   await viewButton.click();
