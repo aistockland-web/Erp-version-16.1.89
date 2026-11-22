@@ -289,6 +289,13 @@ jobs:
           done
           curl --fail --silent http://127.0.0.1:8080/wp-login.php >/dev/null
           bash scripts/release/e2e/run_all.sh /tmp/wp | tee /tmp/e2e.log
+
+          wp --path=/tmp/wp --allow-root eval-file scripts/release/e2e/ui_requisition_fixture.php
+          STOCKLAND_UI_REQ_ID="$(wp --path=/tmp/wp --allow-root option get stockland_ui_requisition_id)"
+          test -n "$STOCKLAND_UI_REQ_ID"
+          NODE_PATH=/tmp/stockland-playwright/node_modules node --check scripts/release/ui/requisition_approval_buttons.js
+          NODE_PATH=/tmp/stockland-playwright/node_modules node scripts/release/ui/requisition_approval_buttons.js http://127.0.0.1:8080 "$STOCKLAND_UI_REQ_ID" | tee /tmp/ui-requisition-buttons.log
+          grep -q "RESULT PASS: requisition approval buttons end-to-end" /tmp/ui-requisition-buttons.log
           grep -q "RESULT PASS: Branch Manager review" /tmp/e2e.log
           grep -q "RESULT PASS: real multipart POS XLSX upload" /tmp/e2e.log
           grep -q "GL unbalanced journals: 0" /tmp/e2e.log
@@ -334,6 +341,7 @@ jobs:
           name: master-installer-${{ matrix.db }}-php${{ matrix.php }}
           path: |
             /tmp/e2e.log
+            /tmp/ui-requisition-buttons.log
             /tmp/upgrade-e2e.log
             /tmp/upgrade-e2e/before.json
             /tmp/upgrade-e2e/after.json
