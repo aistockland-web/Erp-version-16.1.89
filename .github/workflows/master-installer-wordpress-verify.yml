@@ -171,7 +171,7 @@ jobs:
           mkdir -p /tmp/wp
           wp --allow-root core download --path=/tmp/wp --force
           wp --allow-root config create --path=/tmp/wp --dbname=wp --dbuser=root --dbpass=root --dbhost=127.0.0.1 --skip-check
-          wp --path=/tmp/wp --allow-root config set WP_ENVIRONMENT_TYPE local --raw
+          wp --path=/tmp/wp --allow-root config set WP_ENVIRONMENT_TYPE local
 
       - name: Install the master installer and verify (disposable site)
         env:
