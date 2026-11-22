@@ -9,13 +9,13 @@ $check = static function ( $label, $ok, $detail = '' ) use ( &$failed ) {
 };
 $base_url = rtrim( (string) getenv( 'STOCKLAND_E2E_SITE_URL' ), '/' );
 $check( 'loopback disposable WordPress HTTP endpoint is configured', '' !== $base_url && ! empty( $u['se'] ) && ! empty( $u['bm'] ) );
-$check( 'PHP cURL, CURLFile and Application Password APIs are available', function_exists( 'curl_init' ) && class_exists( 'CURLFile' ) && function_exists( 'wp_create_application_password' ) && function_exists( 'wp_delete_application_password' ) );
+$check( 'PHP cURL, CURLFile and Application Password APIs are available', function_exists( 'curl_init' ) && class_exists( 'CURLFile' ) && class_exists( 'WP_Application_Passwords' ) && method_exists( 'WP_Application_Passwords', 'create_new_application_password' ) && method_exists( 'WP_Application_Passwords', 'delete_application_password' ) );
 if ( $failed ) { exit( 1 ); }
 
 $make_password = static function ( $user_id, $name ) {
 	$user = get_userdata( (int) $user_id );
 	if ( ! $user ) { throw new RuntimeException( 'Synthetic REST user not found.' ); }
-	$created = wp_create_application_password( (int) $user_id, array( 'name' => $name ) );
+	$created = WP_Application_Passwords::create_new_application_password( (int) $user_id, array( 'name' => $name ) );
 	if ( is_wp_error( $created ) || ! is_array( $created ) || empty( $created[0] ) || empty( $created[1]['uuid'] ) ) {
 		$message = is_wp_error( $created ) ? $created->get_error_message() : 'invalid Application Password response';
 		throw new RuntimeException( 'Could not create temporary disposable REST credentials: ' . $message );
@@ -110,8 +110,8 @@ try {
 } finally {
 	if ( $csv_path && is_file( $csv_path ) ) { unlink( $csv_path ); }
 	foreach ( $passwords as $credential ) {
-		if ( ! empty( $credential['uuid'] ) && function_exists( 'wp_delete_application_password' ) ) {
-			wp_delete_application_password( (int) $credential['user_id'], (string) $credential['uuid'] );
+		if ( ! empty( $credential['uuid'] ) && class_exists( 'WP_Application_Passwords' ) ) {
+			WP_Application_Passwords::delete_application_password( (int) $credential['user_id'], (string) $credential['uuid'] );
 		}
 	}
 }
