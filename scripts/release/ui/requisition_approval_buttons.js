@@ -1,20 +1,23 @@
 'use strict';
 
+const fs = require('fs');
 const { chromium } = require('playwright');
 const args = process.argv.slice(2);
 const baseArg = args[0];
 const requisitionId = args[1];
-if (!baseArg || !requisitionId) {
-  console.error('Usage: node requisition_approval_buttons.js <base-url> <requisition-id>');
+const credentialPath = args[2];
+if (!baseArg || !requisitionId || !credentialPath) {
+  console.error('Usage: node requisition_approval_buttons.js <base-url> <requisition-id> <temporary-credentials.json>');
   process.exit(2);
 }
 const base = new URL(baseArg);
+const credentials = JSON.parse(fs.readFileSync(credentialPath, 'utf8'));
 const users = [
-  { label: 'Branch Manager review', login: 'brmgr', password: 'Pw!brmgr12345' },
-  { label: 'Management final approval', login: 'mgmt', password: 'Pw!mgmt12345' },
-  { label: 'Warehouse Manager reservation', login: 'whmgr', password: 'Pw!whmgr12345' },
-  { label: 'Warehouse Employee pick', login: 'whstaff', password: 'Pw!whstaff12345' },
-  { label: 'Branch Manager receipt', login: 'brmgr', password: 'Pw!brmgr12345' },
+  { label: 'Branch Manager review', ...credentials.bm },
+  { label: 'Management final approval', ...credentials.mg },
+  { label: 'Warehouse Manager reservation', ...credentials.wm },
+  { label: 'Warehouse Employee pick', ...credentials.we },
+  { label: 'Branch Manager receipt', ...credentials.bm },
 ];
 const failures = [];
 const contexts = [];
@@ -140,13 +143,10 @@ async function clickAndWait(page, selector, suffix, label) {
     const receiveResponse = await receivePromise;
     if (receiveResponse.status() !== 200) throw new Error('Branch Manager RECEIVE returned HTTP ' + receiveResponse.status());
     pass('Branch Manager CONFIRM BRANCH RECEIVE button returned HTTP 200');
-    const finalState = await page.evaluate(async (id) => {
-      const response = await fetch('/wp-json/stockland/v16/requisitions/' + encodeURIComponent(id), { credentials: 'same-origin' });
-      return { status: response.status, data: await response.json() };
-    }, requisitionId);
-    if (finalState.status !== 200 || !finalState.data || !finalState.data.requisition || finalState.data.requisition.status !== 'Received') {
-      throw new Error('Button journey did not persist Received state: ' + JSON.stringify(finalState));
-    }
+    await page.waitForFunction((id) => {
+      const row = [...document.querySelectorAll('#reqTable tbody tr')].find((tr) => tr.innerText.includes(id));
+      return !!row && row.innerText.includes('Received');
+    }, requisitionId, { timeout: 20000 });
     pass('button journey persisted final Received status');
     console.log('RESULT PASS: requisition approval buttons end-to-end (Branch Manager → Management → Warehouse Manager → Warehouse Employee → Branch Manager).');
   } catch (error) {

@@ -27,4 +27,28 @@ if ( 200 !== $result[0] || '' === $id ) {
 	exit( 1 );
 }
 update_option( 'stockland_ui_requisition_id', $id, false );
-echo 'PASS disposable UI requisition fixture created: ' . $id . PHP_EOL;
+
+/* Browser credentials exist only on this disposable CI host and are never committed. */
+$credentials = array();
+foreach ( array( 'bm', 'mg', 'wm', 'we' ) as $key ) {
+	$user_id = (int) ( $users[ $key ] ?? 0 );
+	$user    = $user_id ? get_userdata( $user_id ) : false;
+	if ( ! $user ) {
+		fwrite( STDERR, 'Missing disposable UI login for role key ' . $key . PHP_EOL );
+		exit( 1 );
+	}
+	$password = wp_generate_password( 40, true, true );
+	wp_set_password( $password, $user_id );
+	$credentials[ $key ] = array(
+		'login'    => (string) $user->user_login,
+		'password' => $password,
+	);
+}
+$credential_path = '/tmp/stockland-ui-credentials.json';
+$written = file_put_contents( $credential_path, wp_json_encode( $credentials ), LOCK_EX );
+if ( false === $written ) {
+	fwrite( STDERR, "Could not write temporary UI credentials." . PHP_EOL );
+	exit( 1 );
+}
+chmod( $credential_path, 0600 );
+echo 'PASS disposable UI requisition fixture and short-lived role credentials created: ' . $id . PHP_EOL;

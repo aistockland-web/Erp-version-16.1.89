@@ -230,7 +230,7 @@ jobs:
           PHP
           php -d max_execution_time=60 -S 127.0.0.1:8080 -t /tmp/wp /tmp/wp/router.php > /tmp/stockland-php-server.log 2>&1 &
           SERVER_PID=$!
-          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          trap 'kill "$SERVER_PID" 2>/dev/null || true; rm -f /tmp/stockland-ui-credentials.json' EXIT
           for attempt in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:8080/wp-login.php >/dev/null; then break; fi
             sleep 1
@@ -294,7 +294,7 @@ jobs:
           STOCKLAND_UI_REQ_ID="$(wp --path=/tmp/wp --allow-root option get stockland_ui_requisition_id)"
           test -n "$STOCKLAND_UI_REQ_ID"
           NODE_PATH=/tmp/stockland-playwright/node_modules node --check scripts/release/ui/requisition_approval_buttons.js
-          NODE_PATH=/tmp/stockland-playwright/node_modules node scripts/release/ui/requisition_approval_buttons.js http://127.0.0.1:8080 "$STOCKLAND_UI_REQ_ID" | tee /tmp/ui-requisition-buttons.log
+          NODE_PATH=/tmp/stockland-playwright/node_modules node scripts/release/ui/requisition_approval_buttons.js http://127.0.0.1:8080 "$STOCKLAND_UI_REQ_ID" /tmp/stockland-ui-credentials.json | tee /tmp/ui-requisition-buttons.log
           grep -q "RESULT PASS: requisition approval buttons end-to-end" /tmp/ui-requisition-buttons.log
           grep -q "RESULT PASS: Branch Manager review" /tmp/e2e.log
           grep -q "RESULT PASS: real multipart POS XLSX upload" /tmp/e2e.log
