@@ -25,7 +25,7 @@
     },
     "source_patch_sha256": "8c13190bb838a39b2d74f69a372d44c73d1f560616642ce1a36ecf27d7edcdde",
     "fresh_install_ddl_patch_sha256": "104b9b28bb20105dc282b11c17982633c5ff5b8e1d34a299f1adc29bec608fbc",
-    "canonical_source_commit": "4fb3f886d00180b475c4c8f20cb05a78248825f7",
+    "canonical_source_commit": "c475164d6432d29146781413885488c3dcb2eb6d",
     "github_release_id": null,
     "provenance_note": "The canonical editable source is maintained in the repository. canonical_source_commit records the exact Git checkout used for this build (the pull-request merge commit in PR verification). The one-pack installer is deterministically generated from that checkout; CI records the workflow run, artifact ID and independently verifiable SHA-256. A GitHub Release/tag is not claimed unless a release ID is separately recorded."
   },
@@ -90,8 +90,8 @@
       },
       {
         "path": "assets/app.css",
-        "bytes": 260998,
-        "sha256": "5449d4d7d506d5e47f25ab5dcdfeb5f464b4b8866b42e42b3ff922b705bfeebc"
+        "bytes": 261401,
+        "sha256": "0f0cdf5622e5cd418e95c973f2057578d89f8469748207a9827465c9a91fa04b"
       },
       {
         "path": "assets/app.js",
@@ -100,8 +100,8 @@
       },
       {
         "path": "assets/app.min.css",
-        "bytes": 248906,
-        "sha256": "a265ea570372c60596c795f6cd0590ac9d79ab5eb7f225b67399518782430d62"
+        "bytes": 249179,
+        "sha256": "2bc3b6a690b97a2c5b392cde23281d9918ca4c118fcfda84974e35455709c4d1"
       },
       {
         "path": "assets/bootstrap.min.css",
@@ -175,8 +175,8 @@
       },
       {
         "path": "assets/css/14-table-holders-legacy-colors.css",
-        "bytes": 4865,
-        "sha256": "5faaa000f861d30408bfaca95ccd19e9a7083e39b88c3b4ce8d69e0ff1955e65"
+        "bytes": 5268,
+        "sha256": "2f9891ba9915e91f94e6333881d86684fb3f0f2f9d3f2e3a081a6fe1eb8bdfbf"
       },
       {
         "path": "assets/css/modules.json",

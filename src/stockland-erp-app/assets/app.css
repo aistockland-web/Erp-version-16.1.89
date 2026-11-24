@@ -2973,3 +2973,10 @@ body[data-sl-theme],body[data-sl-theme="sapphire"]{
 #stockland-app .sl-notification-badge[hidden]{display:none!important}
 /* WCAG 2.1 AA: dashboard trend empty-state copy must remain readable on the light chart surface. */
 #stockland-app #slDashboardSalesTrend > .sl-empty{color:#536981}
+
+/* 16.2.18 WCAG 2.1 AA: small dashboard category, low-stock and activity copy must reach 4.5:1 on the white card surface. */
+#stockland-app .sl-dashboard-category-row>b,
+#stockland-app .sl-dashboard-category-row>span,
+#stockland-app .sl-dashboard-low-copy>small,
+#stockland-app .sl-dashboard-activity .sl-activity-main>span,
+#stockland-app .sl-dashboard-activity .sl-activity-main>small{color:#536981}
