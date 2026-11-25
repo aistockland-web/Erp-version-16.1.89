@@ -693,7 +693,7 @@ class Stockland_REST_Import_V16 {
 				}
 				$placeholders = implode( ',', array_fill( 0, count( $chunk ), '%s' ) );
 				$sql          = "SELECT sku,%i FROM %i WHERE %i IN({$placeholders}) AND %i<>''";
-				$sql_args     = array_merge( array( $field, Stockland_DB::table( 'products' ), $field, $field ), $chunk );
+				$sql_args     = array_merge( array( $field, Stockland_DB::table( 'products' ), $field ), $chunk, array( $field ) );
 		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- SQL text is assembled from fixed fragments and placeholders; all request values and dynamic identifiers are bound at the immediately following prepare call.
 				$rows = Stockland_DB::read_results( $wpdb->prepare( $sql, $sql_args ), ARRAY_A );
 				if ( $wpdb->last_error ) {
@@ -2775,14 +2775,14 @@ class Stockland_REST_Import_V16 {
 						continue;
 					}
 					if ( in_array( $field, array( 'purchase_cost', 'retail_price', 'wholesale_price' ), true ) ) {
-						$value = $this->money( $raw );
-						if ( null === $value ) {
+						$field_value = $this->money( $raw );
+						if ( null === $field_value ) {
 							continue;
 						}
 					} elseif ( in_array( $field, array( 'branch_reorder_level', 'central_reorder_level' ), true ) ) {
-						$value = (int) $this->qty( $raw ); } else {
-										$value = sanitize_text_field( (string) $raw ); }
-						$data[ $field ] = $value;
+						$field_value = (int) $this->qty( $raw ); } else {
+										$field_value = sanitize_text_field( (string) $raw ); }
+						$data[ $field ] = $field_value;
 				}
 				$effective_type = strtoupper( sanitize_text_field( (string) ( $data['product_type'] ?? ( $old['product_type'] ?? 'SIMPLE' ) ) ) );
 				if ( ! in_array( $effective_type, array( 'STYLE', 'VARIANT', 'SIMPLE' ), true ) ) {

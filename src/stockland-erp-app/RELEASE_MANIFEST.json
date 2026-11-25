@@ -25,7 +25,7 @@
     },
     "source_patch_sha256": "8c13190bb838a39b2d74f69a372d44c73d1f560616642ce1a36ecf27d7edcdde",
     "fresh_install_ddl_patch_sha256": "104b9b28bb20105dc282b11c17982633c5ff5b8e1d34a299f1adc29bec608fbc",
-    "canonical_source_commit": "c475164d6432d29146781413885488c3dcb2eb6d",
+    "canonical_source_commit": "18088d00d6ef2769c05e56436614eb8c37ee149f",
     "github_release_id": null,
     "provenance_note": "The canonical editable source is maintained in the repository. canonical_source_commit records the exact Git checkout used for this build (the pull-request merge commit in PR verification). The one-pack installer is deterministically generated from that checkout; CI records the workflow run, artifact ID and independently verifiable SHA-256. A GitHub Release/tag is not claimed unless a release ID is separately recorded."
   },
@@ -90,8 +90,8 @@
       },
       {
         "path": "assets/app.css",
-        "bytes": 261401,
-        "sha256": "0f0cdf5622e5cd418e95c973f2057578d89f8469748207a9827465c9a91fa04b"
+        "bytes": 262437,
+        "sha256": "9378bf197558914e60aa086bbc5d8e110e9bf2d9d753a22f6587022c81b2f8b1"
       },
       {
         "path": "assets/app.js",
@@ -100,8 +100,8 @@
       },
       {
         "path": "assets/app.min.css",
-        "bytes": 249179,
-        "sha256": "2bc3b6a690b97a2c5b392cde23281d9918ca4c118fcfda84974e35455709c4d1"
+        "bytes": 250041,
+        "sha256": "fd392766c1c2d9ee422e6bec22d553a85b54f3ef1c3ad80b11d50b4ab333437a"
       },
       {
         "path": "assets/bootstrap.min.css",
@@ -175,8 +175,8 @@
       },
       {
         "path": "assets/css/14-table-holders-legacy-colors.css",
-        "bytes": 5268,
-        "sha256": "2f9891ba9915e91f94e6333881d86684fb3f0f2f9d3f2e3a081a6fe1eb8bdfbf"
+        "bytes": 6304,
+        "sha256": "aa49542aca7bc370385d7954dcc968ffc51868d65346da881579ec0017c48f74"
       },
       {
         "path": "assets/css/modules.json",
@@ -455,8 +455,8 @@
       },
       {
         "path": "includes/rest/class-rest-import-v16.php",
-        "bytes": 154929,
-        "sha256": "84a51c10edb139312a4b563bcbcb551e197bcc109ad7f9bb474d8c52c2822a13"
+        "bytes": 154968,
+        "sha256": "725599cbdad8c5cbb988f9bbbf240aacbf2f068fcf7ec82ae8370befe9662ac9"
       },
       {
         "path": "includes/rest/class-rest-inventory-report-v16.php",

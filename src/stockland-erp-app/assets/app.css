@@ -2980,3 +2980,22 @@ body[data-sl-theme],body[data-sl-theme="sapphire"]{
 #stockland-app .sl-dashboard-low-copy>small,
 #stockland-app .sl-dashboard-activity .sl-activity-main>span,
 #stockland-app .sl-dashboard-activity .sl-activity-main>small{color:#536981}
+
+/* 16.2.18 WCAG 2.1 AA (part 2): data-dependent small copy on white dashboard surfaces (activity time, branch rows, KPI meta, block heads, empty states). */
+#stockland-app .sl-dashboard-activity .sl-activity-row time,
+#stockland-app .sl-dashboard-activity .sl-activity-row small,
+#stockland-app .sl-dashboard-branch-row small,
+#stockland-app .sl-dashboard-page .sl-dashboard-kpi-copy .meta,
+#stockland-app .sl-dashboard-chart-summary span,
+#stockland-app .sl-dashboard-donut small,
+#stockland-app .sl-dashboard-performance-head small,
+#stockland-app .sl-dashboard-action small,
+#stockland-app .sl-dashboard-head-actions small,
+#stockland-app .sl-dashboard-card .sl-block-head small,
+#stockland-app .sl-dashboard-card .sl-block-head .sl-eyebrow,
+#stockland-app .sl-dashboard-empty-state small,
+#stockland-app .sl-dashboard-category-row small,
+#stockland-app .sl-dashboard-branch-table-head,
+#stockland-app .sl-dashboard-welcome .sl-eyebrow,
+#stockland-app .sl-dashboard-welcome p,
+#stockland-app .sl-dashboard-date small{color:#536981}
