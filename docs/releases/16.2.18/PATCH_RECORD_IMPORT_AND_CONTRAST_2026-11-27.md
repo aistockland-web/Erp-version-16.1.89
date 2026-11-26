@@ -6,7 +6,7 @@ Version stays **16.2.18**. This patch is applied only on that head; nothing from
 ## Three changes (no schema, REST-contract, ledger, POS, approval or payroll change)
 1. `includes/rest/class-rest-import-v16.php` — Product Master **preview** failed for any workbook containing a Barcode or GTIN: `prepare()` arguments were in the wrong order in `product_identifier_owners()`. Corrected.
 2. Same file — Product Master **commit** failed for every job: the field loop reassigned the closure `$value` ("Value of type int is not callable"), rolling the job back. Loop variable renamed `$field_value`.
-3. CSS (module 14, `app.css`, `app.min.css`) — WCAG 2.1 AA: small dashboard copy and the notification badge fell below 4.5:1 once the site has data (CI tests an empty site): 5 elements at desktop, the badge at tablet. Colour-only override.
+3. CSS (module 14, `app.css`, `app.min.css` regenerated with the repo's semantics-safe minifier so CI parity holds) — WCAG 2.1 AA: small dashboard copy and the notification badge fell below 4.5:1 once the site has data (CI tests an empty site): 5 elements at desktop, the badge at tablet. Colour-only override.
 
 ## Verified on MySQL 8.0.46 (disposable site, final bytes)
 - Official `verify_master_installer.sh`: PASS; HR lifecycle stays unapproved/fail-closed.
@@ -20,4 +20,4 @@ Version stays **16.2.18**. This patch is applied only on that head; nothing from
 Docker/devcontainer (no daemon here; CI covers), MariaDB and PHP 8.4 lanes for the patched bytes (CI must run on the PR), live-host parity. Payroll: shipped Owner-declared ET-2025-AMEND-1395 rule set (PR #141) is unchanged; no independent legal opinion is evidenced and nothing was ratified here. Owner, legal, payroll, schema-contract and live-release gates stay with the Owner; no tag or GitHub Release created.
 
 ## Installer
-`STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTALLER.zip` SHA-256 `aed7090c626029d38e34b0b84c5d06d1b2aa4b48d80786e3bd301bebc0e40f07` (128 files).
+`STOCKLAND_ERP_16.2.18_MASTER_WORDPRESS_INSTALLER.zip` SHA-256 `06c66a0877302c6fa5fffc3263fa1b279e66b729e53deb99b96207ef07e82d23` (128 files).

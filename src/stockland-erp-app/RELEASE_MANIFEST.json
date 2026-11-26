@@ -25,7 +25,7 @@
     },
     "source_patch_sha256": "8c13190bb838a39b2d74f69a372d44c73d1f560616642ce1a36ecf27d7edcdde",
     "fresh_install_ddl_patch_sha256": "104b9b28bb20105dc282b11c17982633c5ff5b8e1d34a299f1adc29bec608fbc",
-    "canonical_source_commit": "03c162a50134466e9280465809d50eb5b70e4208",
+    "canonical_source_commit": "a8721c9d934bf734313165ed95d8885f2e8e5294",
     "github_release_id": null,
     "provenance_note": "The canonical editable source is maintained in the repository. canonical_source_commit records the exact Git checkout used for this build (the pull-request merge commit in PR verification). The one-pack installer is deterministically generated from that checkout; CI records the workflow run, artifact ID and independently verifiable SHA-256. A GitHub Release/tag is not claimed unless a release ID is separately recorded."
   },
@@ -100,8 +100,8 @@
       },
       {
         "path": "assets/app.min.css",
-        "bytes": 249764,
-        "sha256": "39f656c42eae99144456b9a46d5294b36e707b9016df8187af8cc719d945e701"
+        "bytes": 249780,
+        "sha256": "3ba777923ea2985c2e075d393e15fd9aa4f211ce46f4634944444ba087083c3c"
       },
       {
         "path": "assets/bootstrap.min.css",
