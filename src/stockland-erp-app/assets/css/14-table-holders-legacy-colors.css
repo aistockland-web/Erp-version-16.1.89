@@ -65,3 +65,21 @@
 #stockland-app .sl-notification-badge[hidden]{display:none!important}
 /* WCAG 2.1 AA: dashboard trend empty-state copy must remain readable on the light chart surface. */
 #stockland-app #slDashboardSalesTrend > .sl-empty{color:#536981}
+
+/* 16.2.18 WCAG 2.1 AA: data-dependent small dashboard copy (category rows, low-stock, activity, branch rows, KPI meta) and the notification count badge must reach 4.5:1. */
+#stockland-app .sl-dashboard-category-row>b,
+#stockland-app .sl-dashboard-category-row>span,
+#stockland-app .sl-dashboard-category-row small,
+#stockland-app .sl-dashboard-low-copy>small,
+#stockland-app .sl-dashboard-activity .sl-activity-main>span,
+#stockland-app .sl-dashboard-activity .sl-activity-main>small,
+#stockland-app .sl-dashboard-activity .sl-activity-row time,
+#stockland-app .sl-dashboard-activity .sl-activity-row small,
+#stockland-app .sl-dashboard-branch-row small,
+#stockland-app .sl-dashboard-page .sl-dashboard-kpi-copy .meta,
+#stockland-app .sl-dashboard-chart-summary span,
+#stockland-app .sl-dashboard-donut small,
+#stockland-app .sl-dashboard-performance-head small,
+#stockland-app .sl-dashboard-head-actions small,
+#stockland-app .sl-dashboard-card .sl-block-head .sl-eyebrow{color:#536981}
+#stockland-app .sl-notification-badge{background:#c0392b}
