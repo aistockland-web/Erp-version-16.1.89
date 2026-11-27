@@ -1,5 +1,13 @@
 # Changelog
 
+## 16.2.18 — Import audit hardening (no schema change)
+
+- Product Master import: fixed the barcode-uniqueness query and the commit loop (preview/commit previously failed); preview now lists every row with an error first and says when it is showing a subset; re-uploading an identical file now reports the existing job clearly instead of offering a misleading commit; Excel scientific-notation barcodes/GTINs are rejected; a STYLE that has variants cannot be re-typed by import.
+- New `POST /import/jobs/{id}/cancel` and CANCEL buttons: an unreleased Product Master (Management/Owner) or Daily POS (assigned Branch Manager) job can be cancelled and stays in history; released jobs cannot be cancelled. Cancelling a Product Master job frees the file to be checked again.
+- Audit chain: job cancellation, Product Master job completion and import-mapping saves are now recorded. Mapping saves validate the import type, required fields and that every mapped column exists.
+- Import screens stop with a clear error if a chunked commit stops making progress instead of looping.
+- Dashboard small-copy contrast corrected (WCAG AA).
+
 ## 16.2.18 — Product creation, GitBook guide, SOP library status
 
 - Product creation: SKU field pre-fills `STK-` with a clear hint and inline error; dashboard "Add Product" opens the form.

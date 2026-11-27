@@ -76,6 +76,13 @@ class Stockland_REST_Import_V16 {
 	public function capability_daily_commit() {
 		return Stockland_Authority::can_daily_commit() ? true : $this->deny( 'forbidden', 'Only an assigned Branch Manager may post the branch daily POS import.' ); }
 	/**
+	 * Checks the coarse permission to cancel a staged import job; job_cancel() applies the per-type rule.
+	 *
+	 * @return bool Whether the user may cancel at least one kind of staged import job.
+	 */
+	public function capability_job_cancel() {
+		return ( Stockland_Authority::can_product_import() || Stockland_Authority::can_daily_commit() ) ? true : $this->deny( 'forbidden', 'Only Management/Owner (Product Master) or the assigned Branch Manager (Daily POS) may cancel a staged import.' ); }
+	/**
 	 * Checks permission to maintain import mapping configuration.
 	 *
 	 * @return bool Whether the user may manage mappings.
@@ -834,6 +841,15 @@ class Stockland_REST_Import_V16 {
 				'methods'             => 'DELETE',
 				'callback'            => array( $this, 'code_map_delete' ),
 				'permission_callback' => array( $this, 'capability_mappings' ),
+			)
+		);
+		register_rest_route(
+			self::NS,
+			'/import/jobs/(?P<id>\d+)/cancel',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'job_cancel' ),
+				'permission_callback' => array( $this, 'capability_job_cancel' ),
 			)
 		);
 	}
@@ -2224,6 +2240,7 @@ class Stockland_REST_Import_V16 {
 					array(
 						'job_id'         => (int) $existing['id'],
 						'job_key'        => $job_key,
+						'existing_job'   => true,
 						'status'         => $existing['status'],
 						'summary'        => array(
 							'rows'     => (int) $existing['total_rows'],
@@ -2233,7 +2250,7 @@ class Stockland_REST_Import_V16 {
 						),
 						'processed_rows' => (int) $existing['processed_rows'],
 						'remaining'      => max( 0, (int) $existing['valid_rows'] - (int) $existing['processed_rows'] ),
-						'message'        => 'This exact Product Master file already has an import job. Continue that job instead of staging it again.',
+						'message'        => 'ERROR' === $existing['status'] ? 'This exact file was already checked and has validation errors. Correct the workbook and upload the corrected file, or cancel job #' . (int) $existing['id'] . ' to check this file again.' : ( 'POSTED' === $existing['status'] ? 'This exact Product Master file was already imported (job #' . (int) $existing['id'] . '). Nothing was changed.' : 'This exact Product Master file already has an import job. Continue that job instead of staging it again.' ),
 					)
 				);
 			}$map               = $found['mapping'];
@@ -2323,6 +2340,12 @@ class Stockland_REST_Import_V16 {
 					}if ( '' === $color || '' === $size ) {
 						$err[] = 'A VARIANT requires both Color and Size.';
 					}
+				}foreach ( array( 'Barcode' => $barcode, 'GTIN' => $gtin ) as $id_label => $id_value ) {
+					if ( '' !== $id_value && preg_match( '/^\d+(?:\.\d+)?E[+-]?\d+$/i', $id_value ) ) {
+						$err[] = $id_label . ' "' . $id_value . '" is in scientific notation (Excel rounded a long number). Format the column as Text and re-enter it.';
+					}
+				}if ( $old && 'STYLE' === ( $old['product_type'] ?? '' ) && 'STYLE' !== $ptype && $this->style_has_children( $sku ) ) {
+					$err[] = 'SKU ' . $sku . ' is a STYLE with variants; its Product Type cannot be changed by import.';
 				}if ( '' !== $barcode ) {
 					if ( isset( $seen_barcodes[ $barcode ] ) ) {
 						$err[] = 'Duplicate Barcode in workbook (also row ' . $seen_barcodes[ $barcode ] . ').';
@@ -2477,7 +2500,9 @@ class Stockland_REST_Import_V16 {
 						'errors'       => $errors,
 						'ignored_rows' => $ignored_rows,
 					),
-					'preview'        => array_slice( $preview, 0, 200 ),
+					'preview'        => $this->preview_window( $preview, 200 ),
+					'preview_total'  => count( $preview ),
+					'preview_truncated' => count( $preview ) > 200,
 					'processed_rows' => 0,
 					'remaining'      => count( $rows ) - $errors,
 					'control_layers' => array(
@@ -2492,6 +2517,38 @@ class Stockland_REST_Import_V16 {
 		} catch ( Throwable $e ) {
 			Stockland_DB::execute_query( 'ROLLBACK' );
 			return new WP_Error( 'product_import_preview_failed', $e->getMessage(), array( 'status' => 409 ) );}
+	}
+
+	/**
+	 * Whether any product row names this SKU as its parent style.
+	 *
+	 * @param string $sku Style SKU.
+	 * @return bool True when at least one variant references the style.
+	 */
+	private function style_has_children( $sku ) {
+		global $wpdb;
+		return (int) Stockland_DB::read_var( $wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE parent_sku=%s AND sku<>%s', Stockland_DB::table( 'products' ), (string) $sku, (string) $sku ) ) > 0;
+	}
+
+	/**
+	 * Returns at most $limit preview rows with every row that has an error first,
+	 * so a validation problem deep in a large workbook is never hidden by the cap.
+	 *
+	 * @param array $preview Preview rows.
+	 * @param int   $limit   Maximum rows returned.
+	 * @return array Error rows first, then clean rows in workbook order.
+	 */
+	private function preview_window( $preview, $limit ) {
+		$bad  = array();
+		$good = array();
+		foreach ( (array) $preview as $item ) {
+			if ( ! empty( $item['error'] ) ) {
+				$bad[] = $item;
+			} else {
+				$good[] = $item;
+			}
+		}
+		return array_slice( array_merge( $bad, $good ), 0, (int) $limit );
 	}
 
 	/**
@@ -2788,6 +2845,9 @@ class Stockland_REST_Import_V16 {
 				if ( ! in_array( $effective_type, array( 'STYLE', 'VARIANT', 'SIMPLE' ), true ) ) {
 					throw new Exception( 'Invalid Product Type ' . $effective_type . ' for ' . $sku . '.' );
 				}
+				if ( $old && 'STYLE' === ( $old['product_type'] ?? '' ) && 'STYLE' !== $effective_type && $this->style_has_children( $sku ) ) {
+					throw new Exception( 'SKU ' . $sku . ' is a STYLE with variants; its Product Type cannot be changed by import.' );
+				}
 				if ( 'VARIANT' === $effective_type ) {
 					$effective_parent = sanitize_text_field( (string) ( $data['parent_sku'] ?? ( $old['parent_sku'] ?? '' ) ) );
 					$effective_color  = sanitize_text_field( (string) ( $data['color'] ?? ( $old['color'] ?? '' ) ) );
@@ -2807,6 +2867,9 @@ class Stockland_REST_Import_V16 {
 					$identifier_value = isset( $data[ $identifier ] ) ? sanitize_text_field( (string) $data[ $identifier ] ) : '';
 					if ( '' === $identifier_value ) {
 						continue;
+					}
+					if ( preg_match( '/^\d+(?:\.\d+)?E[+-]?\d+$/i', $identifier_value ) ) {
+						throw new Exception( ucfirst( $identifier ) . ' ' . $identifier_value . ' is in scientific notation; format the Excel column as Text.' );
 					}
 					$hit = Stockland_DB::read_row( $wpdb->prepare( 'SELECT sku,variant_id FROM %i WHERE %i=%s AND sku<>%s LIMIT 1 FOR UPDATE', Stockland_DB::table( 'products' ), $identifier, $identifier_value, $sku ), ARRAY_A );
 					if ( $hit && (string) $hit['sku'] !== $old_sku ) {
@@ -2906,6 +2969,9 @@ class Stockland_REST_Import_V16 {
 			) ) {
 				throw new Exception( 'Could not update Product Master import job state.' );
 			}
+			if ( 'POSTED' === $status && ! Stockland_Audit::log( get_current_user_id(), null, 'PRODUCT_IMPORT_JOB_POSTED', null, $new_processed, 'PARTIAL', 'POSTED', $job['source_filename'], 'PRODUCT_MASTER_IMPORT_JOB|' . $job_id ) ) {
+				throw new Exception( 'Product import job audit event failed.' );
+			}
 			if ( false === Stockland_DB::execute_query( 'COMMIT' ) ) {
 				throw new Exception( 'Product Master import commit failed.' );
 			}delete_transient( $lock_key );
@@ -2936,6 +3002,67 @@ class Stockland_REST_Import_V16 {
 	}
 
 	/**
+	 * Cancels a staged import job that has not released any data, keeping it in the audit history.
+	 *
+	 * Product Master jobs: Management/Owner. Daily POS jobs: the assigned Branch Manager within branch scope.
+	 * A job that has already posted any row (processed_rows > 0) or is POSTED can never be cancelled.
+	 *
+	 * @param WP_REST_Request $r REST request with the job id.
+	 * @return WP_REST_Response|WP_Error Cancellation result or a REST error.
+	 */
+	public function job_cancel( WP_REST_Request $r ) {
+		global $wpdb;
+		$id   = (int) $r->get_param( 'id' );
+		$jobs = Stockland_DB::table( 'import_jobs' );
+		$job  = Stockland_DB::read_row( $wpdb->prepare( 'SELECT * FROM %i WHERE id=%d LIMIT 1', $jobs, $id ), ARRAY_A );
+		if ( ! $job ) {
+			return $this->deny( 'not_found', 'Import job not found.', 404 );
+		}
+		$type = (string) $job['import_type'];
+		if ( 'PRODUCT_MASTER' === $type ) {
+			if ( ! Stockland_Authority::can_product_import() ) {
+				return $this->deny( 'forbidden', 'Only Management or Owner may cancel a Product Master import.' );
+			}
+		} elseif ( 'DAILY_SALES' === $type ) {
+			if ( ! Stockland_Authority::can_daily_commit() ) {
+				return $this->deny( 'forbidden', 'Only the assigned Branch Manager may cancel a Daily POS import.' );
+			}
+			if ( ! Stockland_Authority::company_scope() && ! in_array( (int) $job['branch_location_id'], array_map( 'intval', Stockland_Authority::location_ids() ), true ) ) {
+				return $this->deny( 'branch_forbidden', 'Import job is outside your authorized operational scope.', 403 );
+			}
+		} else {
+			return $this->deny( 'invalid_job', 'This job type cannot be cancelled here.', 400 );
+		}
+		if ( 'CANCELLED' === (string) $job['status'] ) {
+			return rest_ensure_response( array( 'job_id' => $id, 'status' => 'CANCELLED', 'message' => 'Job was already cancelled.' ) );
+		}
+		if ( 'POSTED' === (string) $job['status'] || (int) $job['processed_rows'] > 0 ) {
+			return $this->deny( 'job_not_cancellable', 'A job that has already released data cannot be cancelled. Correct it with a new, reviewed import or the normal reversal process.', 409 );
+		}
+		if ( false === Stockland_DB::execute_query( 'START TRANSACTION' ) ) {
+			return $this->deny( 'transaction_failed', 'Could not start the cancellation transaction.', 409 );
+		}
+		$locked = Stockland_DB::read_row( $wpdb->prepare( 'SELECT status,processed_rows FROM %i WHERE id=%d LIMIT 1 FOR UPDATE', $jobs, $id ), ARRAY_A );
+		if ( ! $locked || 'POSTED' === (string) $locked['status'] || (int) $locked['processed_rows'] > 0 ) {
+			Stockland_DB::execute_query( 'ROLLBACK' );
+			return $this->deny( 'job_not_cancellable', 'The job released data while it was being cancelled; it was left unchanged.', 409 );
+		}
+		$cancel_fields = array( 'status' => 'CANCELLED', 'message' => 'Cancelled by user #' . get_current_user_id() . ' before any data was released.', 'completed_at' => current_time( 'mysql' ) );
+		if ( 'PRODUCT_MASTER' === $type ) {
+			// Free the unique file key so the same corrected-in-the-system file can be checked again; the cancelled job stays in history.
+			$cancel_fields['import_key'] = hash( 'sha256', (string) $job['import_key'] . '|CANCELLED|' . $id );
+		}
+		$ok = false !== Stockland_DB::update_record( $jobs, $cancel_fields, array( 'id' => $id ) )
+			&& false !== Stockland_DB::update_record( Stockland_DB::table( 'import_rows' ), array( 'status' => 'CANCELLED' ), array( 'job_id' => $id ) )
+			&& Stockland_Audit::log( get_current_user_id(), $job['branch_location_id'] ? (int) $job['branch_location_id'] : null, 'IMPORT_JOB_CANCELLED', null, null, (string) $job['status'], 'CANCELLED', $job['source_filename'], $type . '_JOB|' . $id );
+		if ( ! $ok || false === Stockland_DB::execute_query( 'COMMIT' ) ) {
+			Stockland_DB::execute_query( 'ROLLBACK' );
+			return $this->deny( 'cancel_failed', 'The job could not be cancelled; nothing was changed.', 409 );
+		}
+		return rest_ensure_response( array( 'job_id' => $id, 'status' => 'CANCELLED', 'message' => 'Import job cancelled. It stays in the audit history and the file can be checked again.' ) );
+	}
+
+	/**
 	 * Lists import mappings visible to authorized managers.
 	 *
 	 * @param WP_REST_Request $r REST request with import parameters.
@@ -2955,13 +3082,30 @@ class Stockland_REST_Import_V16 {
 	 */
 	public function mapping_save( WP_REST_Request $r ) {
 		$p       = $r->get_json_params();
-		$type    = sanitize_key( $p['import_type'] ?? 'DAILY_SALES' );
+		$type    = strtoupper( sanitize_text_field( (string) ( $p['import_type'] ?? 'DAILY_SALES' ) ) );
 		$source  = sanitize_text_field( $p['source_system'] ?? 'THIRD_PARTY_POS' );
 		$headers = array_values( array_filter( array_map( 'sanitize_text_field', (array) ( $p['headers'] ?? array() ) ) ) );
-		$mapping = is_array( $p['mapping'] ?? null ) ? $p['mapping'] : array();
+		$mapping = is_array( $p['mapping'] ?? null ) ? array_map( 'sanitize_text_field', array_map( 'strval', $p['mapping'] ) ) : array();
+		if ( ! in_array( $type, array( 'DAILY_SALES', 'PRODUCT_MASTER' ), true ) ) {
+			return $this->deny( 'invalid_mapping', 'Import type must be DAILY_SALES or PRODUCT_MASTER.', 400 );
+		}
 		if ( ! $headers || ! $mapping ) {
 			return $this->deny( 'invalid_mapping', 'Headers and mapping are required.', 400 );
-		}$id = $this->save_profile( $type, $source, $headers, $mapping, $p['profile_name'] ?? 'Management mapping' );
+		}
+		foreach ( $mapping as $erp_field => $source_header ) {
+			if ( '' !== $source_header && ! in_array( $source_header, $headers, true ) ) {
+				return $this->deny( 'invalid_mapping', 'Mapped column "' . $source_header . '" does not exist in the supplied headers.', 400 );
+			}
+		}
+		try {
+			$this->validate_mapping_contract( array( 'mapping' => $mapping, 'headers' => $headers, 'conflicts' => array() ), $type );
+		} catch ( Throwable $e ) {
+			return $this->deny( 'invalid_mapping', $e->getMessage(), 400 );
+		}
+		$id = $this->save_profile( $type, $source, $headers, $mapping, $p['profile_name'] ?? 'Management mapping' );
+		if ( ! Stockland_Audit::log( get_current_user_id(), null, 'IMPORT_MAPPING_SAVED', null, null, null, $type, 'Import mapping profile saved for ' . $source, 'IMPORT_PROFILE|' . (int) $id ) ) {
+			return $this->deny( 'audit_failed', 'The mapping was saved but its audit event could not be written. Contact the Owner before relying on it.', 500 );
+		}
 		return rest_ensure_response(
 			array(
 				'id'               => $id,
