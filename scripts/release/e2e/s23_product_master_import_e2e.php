@@ -123,6 +123,80 @@ try {
 	$orphan = $http( '/import/products/preview', $passwords['mgmt'], null, $files[] = $make_book( array( $row( 'STK-ORPH' . strtoupper( $run ) . '-M', 'VARIANT', '', '', 'M' ) ) ) );
 	$check( 'a VARIANT without a Parent SKU is rejected at preview', 'ERROR' === ( $orphan['data']['status'] ?? '' ) || (int) ( $orphan['data']['error_rows'] ?? 0 ) > 0 || $orphan['status'] >= 400, 'status=' . ( $orphan['data']['status'] ?? $orphan['status'] ) );
 
+	// ---- 16.2.18 audit hardening: visibility, cancellation, audit trail, mapping safety, type-change guard ----
+	$flag = $http( '/import/products/preview', $passwords['mgmt'], null, $good );
+	$check( 'identical already-imported file is reported as existing_job with a clear message', ! empty( $flag['data']['existing_job'] ) && 'POSTED' === ( $flag['data']['status'] ?? '' ) && false !== stripos( (string) ( $flag['data']['message'] ?? '' ), 'already imported' ), wp_json_encode( array( $flag['data']['status'] ?? null, $flag['data']['message'] ?? null ) ) );
+
+	$posted_audit = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE action=%s AND reference=%s', Stockland_DB::table( 'audit_logs' ), 'PRODUCT_IMPORT_JOB_POSTED', 'PRODUCT_MASTER_IMPORT_JOB|' . $job ) );
+	$check( 'job completion is written to the audit chain', 1 === $posted_audit, 'rows=' . $posted_audit );
+
+	$big_rows = array();
+	for ( $n = 1; $n <= 230; $n++ ) { $big_rows[] = $row( sprintf( 'STK-BIG%s-%03d', strtoupper( $run ), $n ), 'SIMPLE', '', '', '', 100 + $n ); }
+	$big_rows[] = $row( 'STK-BIGBAD' . strtoupper( $run ), 'SIMPLE', '', '', '', -1 );
+	$big = $http( '/import/products/preview', $passwords['mgmt'], null, $files[] = $make_book( $big_rows ) );
+	$first = $big['data']['preview'][0] ?? array();
+	$check( 'an error beyond row 200 is shown first and the preview is marked truncated', 'ERROR' === ( $big['data']['status'] ?? '' ) && ! empty( $first['error'] ) && ! empty( $big['data']['preview_truncated'] ) && 231 === (int) ( $big['data']['preview_total'] ?? 0 ), 'first=' . substr( wp_json_encode( $first['error'] ?? null ), 0, 80 ) );
+	$big_job = (int) ( $big['data']['job_id'] ?? 0 );
+
+	$deny_cancel = $http( '/import/jobs/' . $big_job . '/cancel', $passwords['sales'], array( 'x' => 1 ) );
+	$check( 'a Sales user cannot cancel a Product Master job', in_array( $deny_cancel['status'], array( 401, 403 ), true ), 'HTTP ' . $deny_cancel['status'] );
+	$again_err = $http( '/import/products/preview', $passwords['mgmt'], null, $files[ count( $files ) - 1 ] );
+	$check( 'the identical erroring file is blocked with guidance to correct or cancel', ! empty( $again_err['data']['existing_job'] ) && 'ERROR' === ( $again_err['data']['status'] ?? '' ) && false !== stripos( (string) ( $again_err['data']['message'] ?? '' ), 'cancel' ) );
+	$cancel = $http( '/import/jobs/' . $big_job . '/cancel', $passwords['mgmt'], array( 'x' => 1 ) );
+	$check( 'Management can cancel an unreleased job', 200 === $cancel['status'] && 'CANCELLED' === ( $cancel['data']['status'] ?? '' ), 'HTTP ' . $cancel['status'] );
+	$cancel_audit = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE action=%s AND reference=%s', Stockland_DB::table( 'audit_logs' ), 'IMPORT_JOB_CANCELLED', 'PRODUCT_MASTER_JOB|' . $big_job ) );
+	$check( 'cancellation is written to the audit chain', 1 === $cancel_audit );
+	$restage = $http( '/import/products/preview', $passwords['mgmt'], null, $files[ count( $files ) - 1 ] );
+	$check( 'after cancellation the same file can be checked again as a new job', 200 === $restage['status'] && empty( $restage['data']['existing_job'] ) && (int) ( $restage['data']['job_id'] ?? 0 ) > $big_job, 'HTTP ' . $restage['status'] );
+	$http( '/import/jobs/' . (int) ( $restage['data']['job_id'] ?? 0 ) . '/cancel', $passwords['mgmt'], array( 'x' => 1 ) );
+	$cancel_posted = $http( '/import/jobs/' . $job . '/cancel', $passwords['mgmt'], array( 'x' => 1 ) );
+	$check( 'a POSTED job can never be cancelled', 409 === $cancel_posted['status'], 'HTTP ' . $cancel_posted['status'] );
+	$still = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE sku IN (%s,%s,%s)', Stockland_DB::table( 'products' ), $style, $v1, $v2 ) );
+	$check( 'cancelled and refused cancellations leave the committed catalog untouched', 3 === $still );
+
+	$retype = $http( '/import/products/preview', $passwords['mgmt'], null, $files[] = $make_book( array( $row( $style, 'SIMPLE', '', '', '' ) ) ) );
+	$check( 'a STYLE that has variants cannot be re-typed by import', 'ERROR' === ( $retype['data']['status'] ?? '' ), 'status=' . ( $retype['data']['status'] ?? $retype['status'] ) );
+
+	$sci = $http( '/import/products/preview', $passwords['mgmt'], null, $files[] = $make_book( array( $row( 'STK-SCI' . strtoupper( $run ), 'SIMPLE', '', '6.111000001001E+15', '' ) ) ) );
+	$check( 'a barcode Excel rounded into scientific notation is rejected', 'ERROR' === ( $sci['data']['status'] ?? '' ), 'status=' . ( $sci['data']['status'] ?? $sci['status'] ) );
+
+	$map_headers = array( 'SKU', 'Product Name' );
+	$bad_type = $http( '/import/mappings', $passwords['mgmt'], array( 'import_type' => 'EVIL', 'headers' => $map_headers, 'mapping' => array( 'sku' => 'SKU', 'product_name' => 'Product Name' ) ) );
+	$check( 'a mapping with an unknown import type is refused', 400 === $bad_type['status'], 'HTTP ' . $bad_type['status'] );
+	$bad_hdr = $http( '/import/mappings', $passwords['mgmt'], array( 'import_type' => 'PRODUCT_MASTER', 'headers' => $map_headers, 'mapping' => array( 'sku' => 'SKU', 'product_name' => 'No Such Column' ) ) );
+	$check( 'a mapping pointing at a column that does not exist is refused', 400 === $bad_hdr['status'], 'HTTP ' . $bad_hdr['status'] );
+	$no_sku = $http( '/import/mappings', $passwords['mgmt'], array( 'import_type' => 'PRODUCT_MASTER', 'headers' => $map_headers, 'mapping' => array( 'product_name' => 'Product Name' ) ) );
+	$check( 'a mapping without the required SKU field is refused', 400 === $no_sku['status'], 'HTTP ' . $no_sku['status'] );
+	$good_map = $http( '/import/mappings', $passwords['mgmt'], array( 'import_type' => 'product_master', 'source_system' => 'E2E_SRC', 'headers' => $map_headers, 'mapping' => array( 'sku' => 'SKU', 'product_name' => 'Product Name' ) ) );
+	$prof_type = (string) $wpdb->get_var( $wpdb->prepare( 'SELECT import_type FROM %i WHERE source_system=%s ORDER BY id DESC LIMIT 1', Stockland_DB::table( 'import_profiles' ), 'E2E_SRC' ) );
+	$check( 'a valid mapping saves with the canonical upper-case import type', 200 === $good_map['status'] && 'PRODUCT_MASTER' === $prof_type, 'HTTP ' . $good_map['status'] . ' type=' . $prof_type );
+	$map_audit = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE action=%s', Stockland_DB::table( 'audit_logs' ), 'IMPORT_MAPPING_SAVED' ) );
+	$check( 'saving a mapping is written to the audit chain', $map_audit >= 1, 'rows=' . $map_audit );
+	$chain = Stockland_Audit::verify_chain();
+	$check( 'the audit hash chain still verifies after all of the above', is_array( $chain ) ? ! empty( $chain['ok'] ) || ( isset( $chain['status'] ) && 'OK' === strtoupper( (string) $chain['status'] ) ) : (bool) $chain, wp_json_encode( $chain ) );
+
+	// Daily POS job cancellation rules (synthetic staged job, no sale released).
+	$jobs_tbl = Stockland_DB::table( 'import_jobs' );
+	$branch   = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT branch_location_id FROM %i WHERE wp_user_id=%d', Stockland_DB::table( 'users' ), (int) $u['bm'] ) );
+	$ins      = static function ( $key ) use ( $wpdb, $jobs_tbl, $branch ) {
+		$wpdb->insert( $jobs_tbl, array( 'import_key' => hash( 'sha256', $key ), 'import_type' => 'DAILY_SALES', 'branch_location_id' => $branch, 'business_date' => '2026-11-20', 'source_filename' => 'e2e-cancel.xlsx', 'source_sha256' => hash( 'sha256', $key ), 'source_system' => 'THIRD_PARTY_POS', 'status' => 'READY', 'total_rows' => 1, 'valid_rows' => 1, 'error_rows' => 0, 'processed_rows' => 0, 'created_by' => 1 ) );
+		return (int) $wpdb->insert_id;
+	};
+	$dj = $ins( 'e2e-cancel-' . $run );
+	$sales_cancel = $http( '/import/jobs/' . $dj . '/cancel', $passwords['sales'], array( 'x' => 1 ) );
+	$check( 'a Sales Employee cannot cancel a Daily POS job (Branch Manager only)', in_array( $sales_cancel['status'], array( 401, 403 ), true ), 'HTTP ' . $sales_cancel['status'] );
+	$passwords['bm'] = $make_password( (int) $u['bm'], 'Stockland disposable Product Master E2E (branch manager)' );
+	$bm_cancel = $http( '/import/jobs/' . $dj . '/cancel', $passwords['bm'], array( 'x' => 1 ) );
+	$check( 'the assigned Branch Manager can cancel a staged Daily POS job', 200 === $bm_cancel['status'] && 'CANCELLED' === ( $bm_cancel['data']['status'] ?? '' ), 'HTTP ' . $bm_cancel['status'] );
+	$pj = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM %i WHERE import_type='PRODUCT_MASTER' AND status='PREVIEW' ORDER BY id DESC LIMIT 1", $jobs_tbl ) );
+	$bm_pm = $pj ? $http( '/import/jobs/' . $pj . '/cancel', $passwords['bm'], array( 'x' => 1 ) ) : array( 'status' => 403 );
+	$check( 'a Branch Manager cannot cancel a Product Master job', in_array( $bm_pm['status'], array( 401, 403 ), true ), 'HTTP ' . $bm_pm['status'] );
+	$dj2 = $ins( 'e2e-cancel-posted-' . $run );
+	$wpdb->update( $jobs_tbl, array( 'processed_rows' => 1, 'status' => 'PARTIAL' ), array( 'id' => $dj2 ) );
+	$partial_cancel = $http( '/import/jobs/' . $dj2 . '/cancel', $passwords['bm'], array( 'x' => 1 ) );
+	$check( 'a Daily POS job that has already released rows cannot be cancelled', 409 === $partial_cancel['status'], 'HTTP ' . $partial_cancel['status'] );
+	$wpdb->delete( $jobs_tbl, array( 'id' => $dj2 ) );
+
 	$none = $http( '/import/products/commit', $passwords['mgmt'], array( 'job_id' => 999999 ) );
 	$check( 'commit of an unknown job is refused', $none['status'] >= 400, 'HTTP ' . $none['status'] );
 } catch ( Throwable $e ) {

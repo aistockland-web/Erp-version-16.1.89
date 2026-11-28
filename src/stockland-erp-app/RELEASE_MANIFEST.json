@@ -25,7 +25,7 @@
     },
     "source_patch_sha256": "8c13190bb838a39b2d74f69a372d44c73d1f560616642ce1a36ecf27d7edcdde",
     "fresh_install_ddl_patch_sha256": "104b9b28bb20105dc282b11c17982633c5ff5b8e1d34a299f1adc29bec608fbc",
-    "canonical_source_commit": "a8721c9d934bf734313165ed95d8885f2e8e5294",
+    "canonical_source_commit": "5cdaa7fee5069c31bb013cfd22b14d2ff4b953f7",
     "github_release_id": null,
     "provenance_note": "The canonical editable source is maintained in the repository. canonical_source_commit records the exact Git checkout used for this build (the pull-request merge commit in PR verification). The one-pack installer is deterministically generated from that checkout; CI records the workflow run, artifact ID and independently verifiable SHA-256. A GitHub Release/tag is not claimed unless a release ID is separately recorded."
   },
@@ -60,8 +60,8 @@
       },
       {
         "path": "CHANGELOG.md",
-        "bytes": 6256,
-        "sha256": "db9e4e859073a399a7587639910b222dfaf1ed26162f210899d67a800996145d"
+        "bytes": 7383,
+        "sha256": "55ea12a6a53ee235c3291385eb6edf57f6daa8c1b5c7eeef119cd1ccb3157321"
       },
       {
         "path": "GO_LIVE_RUNBOOK.md",
@@ -95,8 +95,8 @@
       },
       {
         "path": "assets/app.js",
-        "bytes": 610277,
-        "sha256": "77176d3d5955f0158dbbefa64cd26da64ce0752da7132a2de50bcd14941d4097"
+        "bytes": 613780,
+        "sha256": "8044a54ae5c445c8a6005787416836541e152aca9c9142e78b6bd3edd5d8e323"
       },
       {
         "path": "assets/app.min.css",
@@ -455,8 +455,8 @@
       },
       {
         "path": "includes/rest/class-rest-import-v16.php",
-        "bytes": 154968,
-        "sha256": "725599cbdad8c5cbb988f9bbbf240aacbf2f068fcf7ec82ae8370befe9662ac9"
+        "bytes": 163897,
+        "sha256": "7ab3b38b42a55df8a0aa8d903fd2eef130849e070c25176a0650e22e21fa5b75"
       },
       {
         "path": "includes/rest/class-rest-inventory-report-v16.php",
