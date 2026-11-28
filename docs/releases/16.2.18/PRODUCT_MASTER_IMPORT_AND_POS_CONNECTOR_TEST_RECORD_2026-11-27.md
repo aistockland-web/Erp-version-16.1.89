@@ -8,5 +8,5 @@ Mutation proof: reverting the PR #155 prepare()-argument fix makes 6 checks fail
 
 Full sequence on a freshly seeded MySQL 8 site: 24 suites, 652 PASS, 0 FAIL, including POS suites s12 (contract), s19 (device connector, 41/41) and s22 (real upload → release → sale, stock ledger, balanced GL, replay guard).
 
-## Open decision for the Owner
-The import template says "Primary SKU must begin with STK-", but the server does not enforce it: a SIMPLE product with SKU `BAD-…` previews and commits. Not changed here because it alters import rules (legacy SKUs may exist). Options: enforce `STK-` (reject), or reword the template text.
+## SKU scheme (resolved 28 Nov 2026)
+The Owner confirmed SKUs may start with anything and the scheme may change. The `STK-` prefix is no longer required or suggested anywhere. The format is defined once in `Stockland_Product_Service::valid_sku()` (letter/number first; letters, numbers, `.` `_` `-`; max 64) and used by the product form, REST create, SKU replacement, Product Master import and the Excel template. A future scheme change is one constant (or the `stockland_sku_pattern` filter).

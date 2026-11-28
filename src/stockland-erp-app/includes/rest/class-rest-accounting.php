@@ -1945,6 +1945,9 @@ class Stockland_REST_Accounting extends Stockland_REST_Base {
 		$cogs     = 0;
 		$clean    = array();
 		$location = $this->location( $p['location_id'] ?? null );
+		if ( is_wp_error( $location ) ) {
+			return array( 'error' => $location );
+		}
 		foreach ( $lines as $line ) {
 			$sku   = sanitize_text_field( $line['sku'] ?? '' );
 			$q     = (float) ( $line['quantity'] ?? 0 );
@@ -2025,6 +2028,31 @@ class Stockland_REST_Accounting extends Stockland_REST_Base {
 					throw new Exception( 'Invoice line failed' );
 				}
 			}
+			// A customer (wholesale) invoice ships goods: relieve stock at the invoicing location and post cost of sales.
+			// (Invoices created from a POS sale already moved stock through the sale itself.)
+			if ( 'POS' !== $source_type ) {
+				$balances_table = Stockland_DB::table( 'balances' );
+				foreach ( $clean as $line_no => $line ) {
+					$on_hand = (float) Stockland_DB::read_var( $wpdb->prepare( 'SELECT COALESCE(SUM(physical_qty),0) FROM %i WHERE location_id=%d AND sku=%s FOR UPDATE', $balances_table, (int) $location, $line['sku'] ) );
+					if ( $on_hand + 0.00001 < (float) $line['quantity'] ) {
+						throw new Exception( 'Insufficient stock for ' . $line['sku'] . ' at the invoicing location: ' . $on_hand . ' available, ' . $line['quantity'] . ' invoiced.' );
+					}
+					$moved = Stockland_Ledger::post_wholesale_sale(
+						array(
+							'sku'       => $line['sku'],
+							'quantity'  => $line['quantity'],
+							'sale_id'   => $invoice . '-' . ( $line_no + 1 ),
+							'sale_date' => $date,
+						),
+						(int) $location,
+						$user_id
+					);
+					if ( false === $moved ) {
+						throw new Exception( 'Could not post the stock movement for ' . $line['sku'] . '.' );
+					}
+					$cogs = Stockland_Money::add( $cogs, Stockland_Money::multiply( $line['quantity'], $line['product']['purchase_cost'] ?? 0 ) );
+				}
+			}
 			$journal_lines = array(
 				array(
 					'account_code' => '1100',
@@ -2048,6 +2076,22 @@ class Stockland_REST_Accounting extends Stockland_REST_Base {
 					'location_id'  => $location,
 				),
 			);
+			if ( (float) $cogs > 0 ) {
+				$journal_lines[] = array(
+					'account_code' => '5000',
+					'debit'        => $cogs,
+					'credit'       => 0,
+					'customer_id'  => $cid,
+					'location_id'  => $location,
+				);
+				$journal_lines[] = array(
+					'account_code' => '1200',
+					'debit'        => 0,
+					'credit'       => $cogs,
+					'customer_id'  => $cid,
+					'location_id'  => $location,
+				);
+			}
 			$journal       = Stockland_Accounting::post_journal( $date, 'CUSTOMER_INVOICE', (string) $iid, 'Customer invoice ' . $invoice, $journal_lines, $user_id );
 			if ( ! $journal ) {
 				throw new Exception( 'Accounts receivable journal failed' );
@@ -2080,7 +2124,8 @@ class Stockland_REST_Accounting extends Stockland_REST_Base {
 			);
 		} catch ( Exception $x ) {
 			Stockland_DB::execute_query( 'ROLLBACK' );
-			return array( 'error' => new WP_Error( 'invoice_failed', $x->getMessage(), array( 'status' => 500 ) ) );}
+			$insufficient = 0 === strpos( $x->getMessage(), 'Insufficient stock' );
+			return array( 'error' => new WP_Error( $insufficient ? 'insufficient_stock' : 'invoice_failed', $x->getMessage(), array( 'status' => $insufficient ? 409 : 500 ) ) );}
 	}
 
 	/**

@@ -112,7 +112,15 @@ try {
 	$after  = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE sku IN (%s,%s,%s)', Stockland_DB::table( 'products' ), $style, $v1, $v2 ) );
 	$check( 'replayed commit creates no duplicate products', 3 === $after, 'HTTP ' . $replay['status'] . ' rows=' . $after );
 
-	// NOTE: the template states SKUs must begin with STK-, but the server does not enforce it (open Owner decision; see docs). Not asserted here.
+	// SKU scheme is free-form and defined in one place (Stockland_Product_Service::valid_sku): every layer must agree.
+	$free  = 'Nike.' . $run . '_X-1';
+	$fprev = $http( '/import/products/preview', $passwords['mgmt'], null, $files[] = $make_book( array( $row( $free, 'SIMPLE', '', '', '' ) ) ) );
+	$check( 'import accepts a SKU that does not start with STK-', 'PREVIEW' === ( $fprev['data']['status'] ?? '' ), 'status=' . ( $fprev['data']['status'] ?? $fprev['status'] ) );
+	$http( '/import/jobs/' . (int) ( $fprev['data']['job_id'] ?? 0 ) . '/cancel', $passwords['mgmt'], array( 'x' => 1 ) );
+	$rest_ok  = call( 'POST', '/products', array( 'sku' => 'Zed.' . $run, 'product_name' => 'Free scheme product', 'category' => 'Tops', 'unit' => 'PCS', 'purchase_cost' => '10.00', 'retail_price' => '20.00', 'wholesale_price' => '15.00' ), (int) $u['mg'] );
+	$rest_bad = call( 'POST', '/products', array( 'sku' => '-bad sku', 'product_name' => 'Bad', 'category' => 'Tops', 'unit' => 'PCS', 'purchase_cost' => '10.00', 'retail_price' => '20.00', 'wholesale_price' => '15.00' ), (int) $u['mg'] );
+	$check( 'REST product create accepts the same free-form SKU rule as import', in_array( $rest_ok[0], array( 200, 201 ), true ), 'HTTP ' . $rest_ok[0] . ' ' . substr( wp_json_encode( $rest_ok[1]['message'] ?? '' ), 0, 100 ) );
+	$check( 'REST product create rejects a malformed SKU with the shared rule text', 400 === $rest_bad[0] && false !== stripos( (string) ( $rest_bad[1]['message'] ?? '' ), 'start with a letter or number' ), 'HTTP ' . $rest_bad[0] );
 
 	$neg = $http( '/import/products/preview', $passwords['mgmt'], null, $files[] = $make_book( array( $row( 'STK-NEG' . strtoupper( $run ), 'SIMPLE', '', '', '', -5 ) ) ) );
 	$check( 'negative retail price is rejected at preview', 'ERROR' === ( $neg['data']['status'] ?? '' ) || (int) ( $neg['data']['error_rows'] ?? 0 ) > 0 || $neg['status'] >= 400, 'status=' . ( $neg['data']['status'] ?? $neg['status'] ) );

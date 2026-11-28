@@ -106,7 +106,7 @@ class Stockland_REST_Products extends Stockland_REST_Base {
 	 * @return bool Whether the SKU matches the permitted format.
 	 */
 	private function valid_sku( $sku ) {
-		return (bool) preg_match( '/^STK-[A-Za-z0-9_-]{1,60}$/', (string) $sku ); }
+		return Stockland_Product_Service::valid_sku( $sku ); }
 	/**
 	 * Keeps audit display columns inside the existing 255-byte varchar contract.
 	 *
@@ -296,7 +296,7 @@ class Stockland_REST_Products extends Stockland_REST_Base {
 		}
 		$sku = $this->clean( $p['sku'] );
 		if ( ! $this->valid_sku( $sku ) ) {
-			return new WP_Error( 'invalid_sku', 'Stockland SKU must begin with STK- and use letters, numbers, hyphens or underscores (max 64 characters).', array( 'status' => 400 ) );
+			return new WP_Error( 'invalid_sku', Stockland_Product_Service::sku_rule_text(), array( 'status' => 400 ) );
 		}
 		$type = strtoupper( $this->clean( $p['product_type'] ?? 'SIMPLE' ) );
 		if ( ! in_array( $type, array( 'STYLE', 'VARIANT', 'SIMPLE' ), true ) ) {
@@ -446,14 +446,7 @@ class Stockland_REST_Products extends Stockland_REST_Base {
 					if ( '' === $safe_c || '' === $safe_s ) {
 						continue;
 					}
-					$base = $prefix;
-					if ( stripos( $base, 'STK-' ) !== 0 ) {
-						$base = 'STK-' . $base;
-					}
-					$base = strtoupper( trim( preg_replace( '/[^A-Za-z0-9_-]+/', '-', preg_replace( '/-+/', '-', substr( $base, 0, 24 ) ) ), '-_' ) );
-					if ( stripos( $base, 'STK-' ) !== 0 ) {
-						$base = 'STK-' . ltrim( $base, '-_' );
-					}
+					$base = strtoupper( trim( preg_replace( '/[^A-Za-z0-9_-]+/', '-', preg_replace( '/-+/', '-', substr( $prefix, 0, 24 ) ) ), '-_' ) );
 					$sku = substr( $base, 0, 24 ) . '-' . $safe_c . '-' . $safe_s;
 					if ( strlen( $sku ) > 64 ) {
 						$sku = substr( $sku, 0, 64 );
@@ -685,7 +678,7 @@ class Stockland_REST_Products extends Stockland_REST_Base {
 		$variant_id = (int) $request['variant_id'];
 		$new_sku    = $this->clean( $p['new_sku'] ?? '' );
 		if ( ! $this->valid_sku( $new_sku ) ) {
-			return new WP_Error( 'invalid_sku', 'Stockland SKU must begin with STK- and use letters, numbers, hyphens or underscores (max 64 characters).', array( 'status' => 400 ) );
+			return new WP_Error( 'invalid_sku', Stockland_Product_Service::sku_rule_text(), array( 'status' => 400 ) );
 		}
 		try {
 			$row = Stockland_Product_Service::replace_sku( $variant_id, $new_sku, $this->clean( $p['reason'] ?? '' ), $this->clean( $p['reference'] ?? '' ), true );

@@ -6,6 +6,8 @@
 - New `POST /import/jobs/{id}/cancel` and CANCEL buttons: an unreleased Product Master (Management/Owner) or Daily POS (assigned Branch Manager) job can be cancelled and stays in history; released jobs cannot be cancelled. Cancelling a Product Master job frees the file to be checked again.
 - Audit chain: job cancellation, Product Master job completion and import-mapping saves are now recorded. Mapping saves validate the import type, required fields and that every mapped column exists.
 - Import screens stop with a clear error if a chunked commit stops making progress instead of looping.
+- SKU scheme is free-form and defined once (`Stockland_Product_Service::valid_sku()`; filter `stockland_sku_pattern`): the `STK-` prefix is no longer required by the product form, REST create, matrix generator, SKU replacement, Product Master import or the Excel template.
+- Customer (wholesale) invoices now relieve stock at the invoicing location (ledger `WHOLESALE_SALE`) and post cost of sales / inventory journal lines; an invoice larger than the stock on hand is refused (409). Previously they booked revenue and VAT only, leaving inventory and profit overstated.
 - Dashboard small-copy contrast corrected (WCAG AA).
 
 ## 16.2.18 — Product creation, GitBook guide, SOP library status

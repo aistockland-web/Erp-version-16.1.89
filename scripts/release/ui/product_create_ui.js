@@ -96,20 +96,20 @@ const check = (ok, m) => ok ? pass(m) : fail(m);
     await page.waitForSelector('#productForm');
     const form = page.locator('#productForm');
     const initialSku = await form.locator('[name="sku"]').inputValue();
-    check(initialSku === 'STK-', 'New Product form starts with the required STK- prefix');
+    check(initialSku === '', 'New Product form does not force any SKU prefix');
 
     const productName = 'UI Product Creation Acceptance ' + Date.now();
     await form.locator('[name="product_name"]').fill(productName);
-    await form.locator('[name="sku"]').fill('INVALID-SKU');
+    await form.locator('[name="sku"]').fill('-bad sku!');
     await page.locator('#productSaveButton').click();
     await page.waitForFunction(() => {
       const error = document.getElementById('productFormError');
       return !!error && !error.hidden;
     });
     const inlineError = await page.locator('#productFormError').innerText();
-    check(/must start with STK-/i.test(inlineError), 'invalid SKU displays a clear inline explanation');
+    check(/must start with a letter or number/i.test(inlineError), 'invalid SKU displays a clear inline explanation');
 
-    const sku = 'STK-UI-' + Date.now().toString(36).toUpperCase();
+    const sku = 'UI.' + Date.now().toString(36).toUpperCase();
     await form.locator('[name="sku"]').fill(sku);
     const responsePromise = page.waitForResponse((response) => {
       const request = response.request();
