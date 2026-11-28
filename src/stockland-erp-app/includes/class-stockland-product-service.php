@@ -11,6 +11,43 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /** Canonical Product Master domain service.  All SKU replacement paths delegate here. */
 class Stockland_Product_Service {
+
+	/**
+	 * Default SKU rule. SKU schemes may change over time, so this is the ONE place the format is defined;
+	 * every layer (REST, import, SKU replacement) calls valid_sku(). Override with the
+	 * `stockland_sku_pattern` filter if the Owner adopts a different scheme.
+	 */
+	const SKU_PATTERN = '/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/';
+
+	/**
+	 * Returns the active SKU regular expression.
+	 *
+	 * @return string PCRE pattern.
+	 */
+	public static function sku_pattern() {
+		$pattern = apply_filters( 'stockland_sku_pattern', self::SKU_PATTERN );
+		return ( is_string( $pattern ) && false !== @preg_match( $pattern, '' ) ) ? $pattern : self::SKU_PATTERN; // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- validating an externally filtered pattern.
+	}
+
+	/**
+	 * Whether a SKU is acceptable.
+	 *
+	 * @param mixed $sku Candidate SKU.
+	 * @return bool True when it matches the active rule.
+	 */
+	public static function valid_sku( $sku ) {
+		return (bool) preg_match( self::sku_pattern(), (string) $sku );
+	}
+
+	/**
+	 * Human-readable rule shown in every SKU error.
+	 *
+	 * @return string Message.
+	 */
+	public static function sku_rule_text() {
+		return 'SKU must start with a letter or number and use letters, numbers, dots, underscores or hyphens (64 characters at most).';
+	}
+
 	/**
 	 * Replaces a variant SKU only when operational references permit it.
 	 *
@@ -35,8 +72,8 @@ class Stockland_Product_Service {
 		if ( $variant_id <= 0 || '' === $new_sku || '' === $reason ) {
 			throw new Exception( 'variant_id, new SKU and reason are required.' );
 		}
-		if ( ! preg_match( '/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/', $new_sku ) ) {
-			throw new Exception( 'Stockland SKU must begin with STK- and use letters, numbers, hyphens or underscores (max 64 characters).' );
+		if ( ! self::valid_sku( $new_sku ) ) {
+			throw new Exception( self::sku_rule_text() );
 		}
 		$products = Stockland_DB::table( 'products' );
 		$history  = Stockland_DB::table( 'product_sku_history' );

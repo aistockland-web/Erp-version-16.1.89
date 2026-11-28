@@ -2300,8 +2300,8 @@ class Stockland_REST_Import_V16 {
 				}$err = array();
 				if ( ! $sku ) {
 					$err[] = 'Missing Code/SKU.';
-				} elseif ( ! preg_match( '/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/', $sku ) ) {
-					$err[] = 'Invalid Product Master SKU. Use 1–64 letters, numbers, dot, underscore or hyphen characters.';}
+				} elseif ( ! Stockland_Product_Service::valid_sku( $sku ) ) {
+					$err[] = 'Invalid Product Master SKU. ' . Stockland_Product_Service::sku_rule_text();}
 				foreach ( array( 'initial_stock', 'opening_stock', 'stock_quantity', 'quantity', 'qty', 'stock' ) as $qty_header ) {
 					$raw_qty = $this->find_exact_source( $src, $qty_header );
 					if ( null !== $raw_qty && trim( (string) $raw_qty ) !== '' ) {
@@ -2758,8 +2758,8 @@ class Stockland_REST_Import_V16 {
 				if ( ! $sku || ! $name ) {
 					throw new Exception( 'Invalid Product Master row #' . $row['row_number'] . '.' );
 				}
-				if ( ! preg_match( '/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/', $sku ) ) {
-					throw new Exception( 'Invalid Product Master SKU ' . $sku . '. Use 1–64 letters, numbers, dot, underscore or hyphen characters.' );
+				if ( ! Stockland_Product_Service::valid_sku( $sku ) ) {
+					throw new Exception( 'Invalid Product Master SKU ' . $sku . '. ' . Stockland_Product_Service::sku_rule_text() );
 				}
 				if ( '' !== $old_sku && $old_sku !== $sku ) {
 					$prior = Stockland_DB::get_product( $old_sku );
